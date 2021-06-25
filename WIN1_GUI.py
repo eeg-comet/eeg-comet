@@ -107,6 +107,8 @@ class PreprocessingWindow(QMainWindow):
         
         self.PreprocessingWindowUI()
         
+        
+        
         self.browse_button.setDisabled(True)
         self.foldername.setDisabled(True)
         self.preprocess_button.setDisabled(True)
@@ -114,17 +116,13 @@ class PreprocessingWindow(QMainWindow):
         self.__filter_true = 0
         self.__downsample_true = 0
         self.__smooth_button_clicked = 0
+        self.__finished = 0
         
         self.filter_button.clicked.connect(self.filter_data)
         self.downsample_button.clicked.connect(self.downsample)
         self.reset.clicked.connect(self.reset_func)
         
         self.browse_button.clicked.connect(self.browsefiles)     
-        
-        
-        
-        
-        #self.browse_button.clicked.connect(MainWindow.copy_list_eegs)  
         
         
         self.preprocess_button.clicked.connect(self.preprocess_func)
@@ -306,14 +304,9 @@ class PreprocessingWindow(QMainWindow):
         self.downsample_button.setDisabled(True)
         self.browse_button.setDisabled(True)
         
-        
         list_eegs = []
         for x in range(self.LIST_EEG.count()):
             list_eegs.append(self.LIST_EEG.item(x).text())
-        #list_eegs = MainWindow.self.LIST_EEG
-        #for x in range(self.LISTFILES.count()-1):
-        #    list_eegs.append(self.LISTFILES.item(x))
-        print(list_eegs)
         
         channels2remove = chan2rm_eeg_func(list_eegs)
         
@@ -325,10 +318,12 @@ class PreprocessingWindow(QMainWindow):
             
             save_preprocessed_eeg_func(DATA, filename, self.foldername.text())
             self.progress.setValue(100*(list_eegs.index(filename)+1)/len(list_eegs))
-
+        self.__finished = 1
+        
+    def signal_end(self):
         self.preprocess_button.setStyleSheet("background-color : lightgreen; color: black")
         self.preprocess_button.setDisabled(True)
-        
+        self.close()
     
     def reset_func(self):
         self.lowcut.setEnabled(True)
@@ -392,13 +387,11 @@ class MainWindow(QMainWindow):
         
         
         self.preprocess_button.clicked.connect(self.passingInformation)
+        self.preprocess_button.clicked.connect(self.preprocessing_finished)
         
         
         self.dialog = PreprocessingWindow(self)
         
-        
-        #list_eegs = self.copy_list_files()
-        #self.preprocess_button.clicked.connect(PreprocessingWindow.preprocess_func(list_eegs))
         
         '''
         # Menu Bar
@@ -419,8 +412,6 @@ class MainWindow(QMainWindow):
         self.load_raw_rb.setChecked(True)
         self.load_raw_rb.move(150, 140)
         self.load_raw_rb.setFixedWidth(500)
-        
-        
         
         # Load Preprocessed Data
         self.label = QLabel(self)
@@ -449,7 +440,6 @@ class MainWindow(QMainWindow):
         self.pattern1.move(250, 580)
         self.pattern1.setFixedWidth(150)
         
-        
         self.label = QLabel(self)
         self.label.setText("Contains:")
         self.label.move(150,610)
@@ -458,7 +448,6 @@ class MainWindow(QMainWindow):
         self.pattern2.move(250, 610)
         self.pattern2.setFixedWidth(150)
         
-        
         self.label = QLabel(self)
         self.label.setText("Ends with:")
         self.label.move(150,640)
@@ -466,7 +455,6 @@ class MainWindow(QMainWindow):
         self.pattern3 = QLineEdit(self)
         self.pattern3.move(250, 640)
         self.pattern3.setFixedWidth(150)
-        
         
         # List of Selected Files
         self.label = QLabel(self)
@@ -480,7 +468,6 @@ class MainWindow(QMainWindow):
         self.listfiles.setFixedHeight(200)
         self.listfiles.setVerticalScrollBar(QScrollBar(self))
         self.listfiles.setAlternatingRowColors(True)
-        
         
         self.n_files = QLabel(self)
         self.n_files.setFont(QtGui.QFont('Times', 20))
@@ -500,7 +487,6 @@ class MainWindow(QMainWindow):
         self.foldername_raw .setReadOnly(True)
         self.foldername_raw .move(250, 200)
         self.foldername_raw .setFixedWidth(400)
-        
         
         # Next Button
         self.next_button = QPushButton(self)
@@ -531,13 +517,11 @@ class MainWindow(QMainWindow):
         self.comboBox.setFixedWidth(500)
         #self.comboBox.activated[str].connect(self.copy_list_files)
             
-        
         # Find Files Button
         self.find_button = QPushButton(self)
         self.find_button.setText("find EEGs")
         self.find_button.move(430,580)
         self.find_button.setFixedHeight(90)
-        
         
         # Preprocess Button
         self.preprocess_button = QPushButton(self)
@@ -547,7 +531,6 @@ class MainWindow(QMainWindow):
         
         
     # Functions
-    
     
     def enable_raw(self):
         self.browse_preprocessed_button.setDisabled(True)
@@ -598,7 +581,6 @@ class MainWindow(QMainWindow):
         input_folder = self.foldername_raw.text()
         pattern="*"
         pattern = self.pattern1.text()+"*"+self.pattern2.text()+"*"+self.pattern3.text()
-        
         selected_extension = self.comboBox.currentText()
         if selected_extension == "BrainVision (.vhdr, .vmrk, .eeg)":
             extension=".vhdr"
@@ -624,7 +606,6 @@ class MainWindow(QMainWindow):
             extension=".lay"
         elif selected_extension == "Nihon Kohden EEG data (.eeg, .21e, .pnt, .log)":
             extension=".eeg"
-        
         list_eegs = find_eeg_func(input_folder, extension, pattern)
 
         self.listfiles.clear()
@@ -639,20 +620,24 @@ class MainWindow(QMainWindow):
         for i in range(len(list_eegs)):
             self.listfiles.addItem(str(list_eegs[i]))
         
-    
     def copy_list_eegs(self):
         list_eegs = []
         for x in range(self.listfiles.count()):
             list_eegs.append(self.listfiles.item(x).text())
         return list_eegs
         
-
     def passingInformation(self):
         self.PreprocessingWindow.displayInfo()
         list_eegs = self.copy_list_eegs()
         for i in range(len(list_eegs)):        
             self.PreprocessingWindow.LIST_EEG.addItem(str(list_eegs[i]))
-        
+    
+    def preprocessing_finished(self):
+        self.PreprocessingWindow.signal_end()
+        self.preprocess_button.setStyleSheet("background-color : lightgreen; color: black")
+        self.preprocess_button.setDisabled(True)
+        self.next_button.setEnabled(True)
+    
 '''
     def closeEvent(self, event):
         reply = QMessageBox.question(self, "Quit",
