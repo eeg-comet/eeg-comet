@@ -6,6 +6,8 @@ Created on Tue Jul 13 10:46:03 2021
 @author: amin
 """
 
+from PyQt5 import QtCore
+
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QProgressBar
 from PyQt5.QtWidgets import QAction, QLabel, QLineEdit, QPushButton, QButtonGroup
 from PyQt5.QtWidgets import QCheckBox, QRadioButton, QComboBox, QMessageBox
@@ -44,7 +46,9 @@ class ClusteringWindow(QMainWindow):
         self.process_button.clicked.connect(self.do_clustering)
         self.process_button.clicked.connect(self.plot_micro)
         
-        self.micro_labels = self.process_button.clicked.connect(self.MicrostateDialog.manual_micro_label)
+        self.process_button.clicked.connect(self.MicrostateDialog.manual_micro_label)
+        
+        self.MicrostateDialog.finish_button.clicked.connect(self.pass_labels)
         
         self.extract_button.clicked.connect(self.extract_func)
         
@@ -195,18 +199,12 @@ class ClusteringWindow(QMainWindow):
         self.back.move(150,700)
         
         
-        #self.back.clicked.connect(self.plot_micro)
-        
-        
-        
-        
+
     # Functions
     
     def plot_micro(self):
-        self.MicrostateDialog.displayFigure()
-        
-        
-        
+        self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.MicrostateDialog.show()
         
     def browsefiles(self):
         fname = QFileDialog.getExistingDirectory(self, "Select Folder")
@@ -260,6 +258,11 @@ class ClusteringWindow(QMainWindow):
         
         self.MicrostateDialog.plot_maps(best_maps, gev, clustering_functions.EEG_INFO)
         
+    def pass_labels(self):
+        if self.MicrostateDialog.micro_labeled:
+            self.micro_labels = self.MicrostateDialog.micro_labels
+            self.MicrostateDialog.close()
+        
     
     def extract_func(self):
         
@@ -295,7 +298,6 @@ class ClusteringWindow(QMainWindow):
     def passingInformation(self):
         # Set Defaults
         
-        
         METHOD = self.clustering_method.currentText()
         if METHOD == "K-MEANS":
             self.SettingsWindow.other1.setText("K-Means Distance Metric:")
@@ -314,7 +316,9 @@ class ClusteringWindow(QMainWindow):
             self.SettingsWindow.arg.setCurrentText("Bayesian Information Criterion")
         
         
-        self.SettingsWindow.displaySettings()
+        self.SettingsWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.SettingsWindow.show()
+        
     
     def closeEvent(self, event):
         reply = QMessageBox.question(self, "Quit",

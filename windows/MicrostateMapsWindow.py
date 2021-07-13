@@ -30,6 +30,7 @@ class MicrostateMapsWindow(QDialog):
         #self.setFixedHeight(340)
         self.setWindowTitle("Microstate Maps")
         
+        self.micro_labeled = 0
         self.n_maps = None
         self.micro_labels = []
 
@@ -52,6 +53,10 @@ class MicrostateMapsWindow(QDialog):
         self.auto_labeling_button = QPushButton(self)
         self.auto_labeling_button.setText("automatic labeling")
         self.auto_labeling_button.setFixedHeight(50)
+        
+        self.finish_button = QPushButton(self)
+        self.finish_button.setText("save labels")
+        self.finish_button.setFixedHeight(50)
         
         self.labelgev = QLabel(self)
         
@@ -89,6 +94,7 @@ class MicrostateMapsWindow(QDialog):
         
         Layout3.addWidget(self.manual_labeling_button)
         Layout3.addWidget(self.auto_labeling_button)
+        Layout3.addWidget(self.finish_button)
         
         Layout0.addLayout(Layout1)
         Layout0.addLayout(Layout2)
@@ -121,7 +127,7 @@ class MicrostateMapsWindow(QDialog):
         for i in range(self.n_maps):
             microlabel_attr = getattr(self, "microlabel{}".format(i))
             self.micro_labels.append(microlabel_attr.text())
-        return self.micro_labels
+        self.micro_labeled = 1
         #ClusteringWindow.micro_labels = self.micro_labels
         #self.close()
     
@@ -133,7 +139,9 @@ class MicrostateMapsWindow(QDialog):
             
             microlabel_attr = getattr(self, "microlabel{}".format(i))
             microlabel_attr.setText(y_pred)
-        return self.micro_labels
+        self.micro_labeled = 1
     
-    def displayFigure(self):
-        self.show()
+    def pass_labels(self):
+        if self.micro_labeled:
+            self.micro_labels
+            self.close()

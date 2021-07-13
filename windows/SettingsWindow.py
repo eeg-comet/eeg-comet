@@ -148,9 +148,6 @@ class SettingsWindow(QMainWindow):
     
     # Functions
     
-    def displaySettings(self):
-        self.show()
-    
     def smooth_controller(self):
         self.__smooth_button_clicked = 1 - self.__smooth_button_clicked
         if self.__smooth_button_clicked:
