@@ -131,7 +131,7 @@ class MainWindow(QMainWindow):
         
         self.n_files = QLabel(self)
         self.n_files.setFont(QtGui.QFont('Times', 20))
-        self.n_files.move(150,650)
+        self.n_files.move(150,680)
         self.n_files.setFixedWidth(300)
             
         # Browse Button

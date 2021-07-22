@@ -236,9 +236,10 @@ class PreprocessingWindow(QMainWindow):
         self.__finished = 1
         
     def signal_end(self):
-        self.preprocess_button.setStyleSheet("background-color : lightgreen; color: black")
-        self.preprocess_button.setDisabled(True)
-        self.close()
+        if self.__finished:
+            self.preprocess_button.setStyleSheet("background-color : lightgreen; color: black")
+            self.preprocess_button.setDisabled(True)
+            self.close()
     
     def reset_func(self):
         self.lowcut.setEnabled(True)
