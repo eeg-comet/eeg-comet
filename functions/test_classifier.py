@@ -28,9 +28,9 @@ num_of_test_samples = 18
 
 #Define image parameters
 img_width, img_height = 128, 128
-batch_size = 8
+batch_size = 16
 samples_per_epoch = 16
-validation_steps = 16
+validation_steps = 8
 
 def load_model_prediction(model_path='./models/model.h5', model_weights_path='./models/weights.h5'):
 
@@ -43,7 +43,7 @@ def load_model_prediction(model_path='./models/model.h5', model_weights_path='./
     conv3_size = 3
     conv4_size = 3
     pool_size = 2
-    classes_num = 5
+    classes_num = 6
     
     model = Sequential()
     
@@ -130,6 +130,8 @@ def label_micromap(file):
       prediction = "D"
     elif answer == 4:
       prediction = "E"
+    elif answer == 5:
+      prediction = "F"
     else:
       prediction = "Undefined answer"
     return prediction
