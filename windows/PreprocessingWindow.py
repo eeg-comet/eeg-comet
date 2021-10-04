@@ -10,9 +10,9 @@ from PyQt5 import QtGui, QtCore
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QListWidget, QVBoxLayout
 from PyQt5.QtWidgets import QLabel, QLineEdit, QPushButton, QMessageBox, QComboBox
-from PyQt5.QtWidgets import QScrollBar, QStackedWidget, QRadioButton, QProgressBar
+from PyQt5.QtWidgets import QScrollBar, QStackedWidget, QRadioButton, QProgressBar, QButtonGroup
 
-from functions import find_data, preprocess_functions
+from functions import find_data, preprocess
 
 
 class PreprocessingWindow(QMainWindow):
@@ -27,13 +27,14 @@ class PreprocessingWindow(QMainWindow):
         self.PreprocessingWindowUI()
         
         self.browse_button.setDisabled(True)
-        self.foldername.setDisabled(True)
+        self.foldername_preprocessed.setDisabled(True)
         self.preprocess_button.setDisabled(True)
         
-        self.__filter_true = 0
-        self.__downsample_true = 0
-        self.__smooth_button_clicked = 0
-        self.__finished = 0
+        self.__filter_true = False
+        self.__downsample_true = False
+        self.__smooth_button_clicked = False
+        self.__progress = 0
+        self.__processingdone = False
         
         self.filter_button.clicked.connect(self.filter_data)
         self.downsample_button.clicked.connect(self.downsample)
@@ -45,6 +46,11 @@ class PreprocessingWindow(QMainWindow):
         
         
     def PreprocessingWindowUI(self):        
+        
+        # EEG Format
+        self.eeg_format = QLabel(self)
+        self.eeg_format.move(560,20)
+        self.eeg_format.setFixedWidth(100)
         
         # List of EEGs
         self.label = QLabel(self)
@@ -66,50 +72,65 @@ class PreprocessingWindow(QMainWindow):
         self.filter_button.move(100,335)
         self.filter_button.setFixedWidth(155)
         
+        
+        # Filter Method
+        self.label = QLabel(self)
+        self.label.setText("Method")
+        self.label.move(100,235)
+        self.label.setFixedWidth(200)
+        self.filtmethod = QButtonGroup(self)
+        self.fir_rb = QRadioButton("FIR", self)
+        self.fir_rb.setChecked(True)
+        self.fir_rb.move(160, 235)
+        self.fir_rb.setFixedWidth(100)
+        self.filtmethod.addButton(self.fir_rb)
+        self.iir_rb = QRadioButton("IIR", self)
+        self.iir_rb.move(210, 235)
+        self.iir_rb.setFixedWidth(100)
+        self.filtmethod.addButton(self.iir_rb)
+        
         # Lowcut
         self.label = QLabel(self)
-        self.label.setText("lowcut")
-        self.label.move(110,235)
+        self.label.setText("Lowcut")
+        self.label.move(100,265)
         self.label.setFixedWidth(200)
         self.lowcut = QLineEdit(self)
         self.lowcut.setAlignment(QtCore.Qt.AlignCenter)
         self.lowcut.setText('2')
         self.lowcut.setValidator(QtGui.QIntValidator())
         self.lowcut.setMaxLength(2)
-        self.lowcut.move(180, 235)
+        self.lowcut.move(180, 265)
         self.lowcut.setFixedWidth(40)
         self.label = QLabel(self)
         self.label.setText("Hz")
-        self.label.move(225,235)
+        self.label.move(225,265)
         
         # Highcut
         self.label = QLabel(self)
-        self.label.setText("highcut")
-        self.label.move(110,265)
+        self.label.setText("Highcut")
+        self.label.move(100,295)
         self.label.setFixedWidth(200)
         self.highcut = QLineEdit(self)
         self.highcut.setAlignment(QtCore.Qt.AlignCenter)
         self.highcut.setText('20')
         self.highcut.setValidator(QtGui.QIntValidator())
         self.highcut.setMaxLength(2)
-        self.highcut.move(180, 265)
+        self.highcut.move(180, 295)
         self.highcut.setFixedWidth(40)
         self.label = QLabel(self)
         self.label.setText("Hz")
-        self.label.move(225,265)
+        self.label.move(225,295)
         
-        # Order
-        self.label = QLabel(self)
-        self.label.setText("order")
-        self.label.move(110,295)
-        self.label.setFixedWidth(200)
-        self.order = QLineEdit(self)
-        self.order.setAlignment(QtCore.Qt.AlignCenter)
-        self.order.setText('5')
-        self.order.setValidator(QtGui.QIntValidator())
-        self.order.setMaxLength(2)
-        self.order.move(180, 295)
-        self.order.setFixedWidth(40)
+        
+        
+        
+        #self.filtmethod = QLineEdit(self)
+        #self.filtmethod.setAlignment(QtCore.Qt.AlignCenter)
+        #self.filtmethod.setText('5')
+        #self.filtmethod.setValidator(QtGui.QIntValidator())
+        #self.filtmethod.setMaxLength(2)
+        #self.filtmethod.move(180, 295)
+        #self.filtmethod.setFixedWidth(40)
         
         
         # Downsample Button
@@ -154,10 +175,10 @@ class PreprocessingWindow(QMainWindow):
         self.browse_button.setText("save path")
         self.browse_button.move(100,415)
         
-        self.foldername = QLineEdit(self)
-        self.foldername.setReadOnly(True)
-        self.foldername.move(210, 415)
-        self.foldername.setFixedWidth(390)
+        self.foldername_preprocessed = QLineEdit(self)
+        self.foldername_preprocessed.setReadOnly(True)
+        self.foldername_preprocessed.move(210, 415)
+        self.foldername_preprocessed.setFixedWidth(390)
         
         # Progress Bar
         self.progress = QProgressBar(self)
@@ -178,23 +199,28 @@ class PreprocessingWindow(QMainWindow):
     def displayInfo(self):
         self.show()
     
+    
     def filter_data(self, event):
         
         if self.lowcut.text() >= self.highcut.text():
-            reply = QMessageBox.question(self, "no", QMessageBox.OK |
-                                                  QMessageBox.Ignore)
-            if reply == QMessageBox.OK:
-                event.accept()
-        else:
+            
+            reply = QMessageBox.information(self, "Filter Error",
+                                               "Please modify the filter range!",
+                                               QMessageBox.Ok)
+            #if reply == QMessageBox.Ok:
+            #    event.accept()
+            
+        else:            
             self.lowcut.setDisabled(True)
             self.highcut.setDisabled(True)
-            self.order.setDisabled(True)
+            self.fir_rb.setDisabled(True)
+            self.iir_rb.setDisabled(True)
             self.filter_button.setDisabled(True)
             self.filter_button.setStyleSheet("background-color : lightgreen; color: black")
             
             self.browse_button.setEnabled(True)
-            self.foldername.setEnabled(True)
-            if self.foldername.text():
+            self.foldername_preprocessed.setEnabled(True)
+            if self.foldername_preprocessed.text():
                 self.preprocess_button.setEnabled(True)
                 self.__filter_true = 1
     
@@ -204,16 +230,24 @@ class PreprocessingWindow(QMainWindow):
         self.downsample_button.setDisabled(True)
         
         self.browse_button.setEnabled(True)
-        self.foldername.setEnabled(True)
-        if self.foldername.text():
+        self.foldername_preprocessed.setEnabled(True)
+        if self.foldername_preprocessed.text():
             self.preprocess_button.setEnabled(True)
             self.__downsample_true = 1
     
+    def signal_end(self):
+        self.__processingdone = True
+        #self.preprocess_button.setStyleSheet("background-color : lightgreen; color: black")
+        #self.preprocess_button.setDisabled(True)
+        self.close()
+    
     def preprocess_func(self):
         
+        self.progress.setEnabled(True)
         self.lowcut.setDisabled(True)
         self.highcut.setDisabled(True)
-        self.order.setDisabled(True)
+        self.fir_rb.setDisabled(True)
+        self.iir_rb.setDisabled(True)
         self.filter_button.setDisabled(True)
         self.sample_rate.setDisabled(True)
         self.downsample_button.setDisabled(True)
@@ -223,28 +257,28 @@ class PreprocessingWindow(QMainWindow):
         for x in range(self.LIST_EEG.count()):
             list_eegs.append(self.LIST_EEG.item(x).text())
         
-        channels2remove = preprocess_functions.chan2rm_eeg(list_eegs)
+        eeg_format = self.eeg_format.text()
         
-        for filename in list_eegs:
-            DATA = preprocess_functions.preprocess_eeg(filename, channels2remove,
-                                self.__filter_true, self.lowcut.text(),
-                                self.highcut.text(), self.order.text(),
-                                self.__downsample_true, self.sample_rate.text())
-            
-            preprocess_functions.save_preprocessed_eeg(DATA, filename, self.foldername.text())
-            self.progress.setValue(100*(list_eegs.index(filename)+1)/len(list_eegs))
-        self.__finished = 1
-        
-    def signal_end(self):
-        if self.__finished:
-            self.preprocess_button.setStyleSheet("background-color : lightgreen; color: black")
-            self.preprocess_button.setDisabled(True)
-            self.close()
+        for file in list_eegs:
+            self.__progress = preprocess.preprocess_eegs(file, list_eegs,
+                                                         eeg_format,
+                                                         self.__filter_true,
+                                                         self.filtmethod.checkedButton().text(),
+                                                         self.lowcut.text(),
+                                                         self.highcut.text(),
+                                                         self.__downsample_true,
+                                                         self.sample_rate.text(),
+                                                         self.foldername_preprocessed.text())
+            print("progress: ", self.__progress)
+            self.progress.setValue(int(self.__progress))
+        if self.__progress==100:
+            self.signal_end()
     
     def reset_func(self):
         self.lowcut.setEnabled(True)
         self.highcut.setEnabled(True)
-        self.order.setEnabled(True)
+        self.fir_rb.setEnabled(True)
+        self.iir_rb.setEnabled(True)
         self.sample_rate.setEnabled(True)
         
         self.filter_button.setEnabled(True)
@@ -253,7 +287,7 @@ class PreprocessingWindow(QMainWindow):
         self.downsample_button.setStyleSheet("background-color : None")
         
         self.browse_button.setDisabled(True)
-        self.foldername.setDisabled(True)
+        self.foldername_preprocessed.setDisabled(True)
         self.preprocess_button.setDisabled(True)
         
         self.progress.setValue(0)
@@ -263,8 +297,8 @@ class PreprocessingWindow(QMainWindow):
     
     def browsefiles(self):
         fname = QFileDialog.getExistingDirectory(self, "Select Folder")
-        self.foldername.setText(fname)
+        self.foldername_preprocessed.setText(fname)
         
-        if self.foldername.text():
+        if self.foldername_preprocessed.text():
             self.preprocess_button.setEnabled(True)
             self.progress.setEnabled(True)

@@ -30,7 +30,7 @@ class MicrostateMapsWindow(QDialog):
         #self.setFixedHeight(340)
         self.setWindowTitle("Microstate Maps")
         
-        self.micro_labeled = 0
+        self.micro_labeled = False
         self.n_maps = None
         self.micro_labels = []
 
@@ -111,6 +111,7 @@ class MicrostateMapsWindow(QDialog):
             mne.viz.plot_topomap(maps[i,:], info, sensors=False)
             fig.savefig(str(i)+'.png', bbox_inches='tight', dpi=80)
             fig.show()
+            plt.close(fig)
         
         for i in range(maps.shape[0]):
             ax = self.figure.add_subplot(1, maps.shape[0], i + 1)
@@ -127,7 +128,7 @@ class MicrostateMapsWindow(QDialog):
         for i in range(self.n_maps):
             microlabel_attr = getattr(self, "microlabel{}".format(i))
             self.micro_labels.append(microlabel_attr.text())
-        self.micro_labeled = 1
+        self.micro_labeled = True
         #ClusteringWindow.micro_labels = self.micro_labels
         #self.close()
     
@@ -139,7 +140,7 @@ class MicrostateMapsWindow(QDialog):
             
             microlabel_attr = getattr(self, "microlabel{}".format(i))
             microlabel_attr.setText(y_pred)
-        self.micro_labeled = 1
+        self.micro_labeled = True
     
     def pass_labels(self):
         if self.micro_labeled:
