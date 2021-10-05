@@ -23,7 +23,9 @@ from PyQt5.QtWidgets import QProgressBar, QCheckBox, QTextEdit
 import numpy as np
 from functions.concatenate_data import concatenate_files
 from functions import extract_features_functions
-from functions import clustering_functions
+from functions.clustering_functions import _pre_clustering, initialize_centers, eegInfo
+from functions.clustering_functions import clustering_func, clustering_minibatch
+
 
 from windows.PreprocessingWindow import PreprocessingWindow
 from windows.SettingsWindow import SettingsWindow
@@ -409,7 +411,7 @@ class SecondWindow(QMainWindow):
         
         self._finished_clustering = False
         ### change
-        self.foldername_preprocessed = "/home/amin/Encfs/TMSEEG_DATA/EEG-Microstate-Feature-Extraction/test_data/output/"
+        self.foldername_preprocessed = "/media/amin/Seagate Expansion Drive/AMIN/Microstate Toolbox/EEG-Microstate-Feature-Extraction/test_data/output/"
         #self.labeling_button.clicked.connect(self.filter_data)
         
         self.browse_button.clicked.connect(self.browsefiles)
@@ -450,6 +452,7 @@ class SecondWindow(QMainWindow):
         
         self.clustering_method = QComboBox(self)
         self.clustering_method.addItem("K-MEANS")
+        self.clustering_method.addItem("Mini Batch K-MEANS")
         self.clustering_method.addItem("MODIFIED K-MEANS")
         self.clustering_method.addItem("X-MEANS")
         self.clustering_method.addItem("BSAS")
@@ -603,15 +606,14 @@ class SecondWindow(QMainWindow):
         #DATA = INPUT_DATA #from previous window
         #print(DATA.shape)
         
-        folder = self.foldername_preprocessed
-        print(folder)
+        FOLDER = self.foldername_preprocessed
+        print(FOLDER)
         # Concatenate data
         if self.concatenate_rb.isChecked()==True:
-            DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(folder)
+            DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(FOLDER)
         
-        
-        self.listoffiles = FILENAMES
-        self.lengthoffiles = LENGTH_DATA
+            self.listoffiles = FILENAMES
+            self.lengthoffiles = LENGTH_DATA
         
         print(self.SettingsWindow.smooth_controller())
         if self.SettingsWindow.smooth_controller():
@@ -619,10 +621,13 @@ class SecondWindow(QMainWindow):
         else:
             SMOOTHING = []
         print(SMOOTHING)
-        MAPS, PEAKS = clustering_functions._pre_clustering(DATA, Fs, SMOOTHING)
+        
+        if self.SettingsWindow.randinit_rb.isChecked():
+                INITIALIZER = "Random"
+        elif self.SettingsWindow.kppinit_rb.isChecked():
+                INITIALIZER = "K-Means++"
+        
         METHOD = self.clustering_method.currentText()
-        print(PEAKS.shape)
-        print(MAPS.shape)
         print(METHOD)
         # modify
         #if self.SettingsWindow.elbow_rb.isChecked():
@@ -636,19 +641,44 @@ class SecondWindow(QMainWindow):
         TOLERANCE = float(self.SettingsWindow.tol.text())
         print(TOLERANCE)
         
+        if METHOD == "Mini Batch K-MEANS":
+                        
+            best_maps, final_segmentation, gev = clustering_minibatch(
+                                                                FOLDER,
+                                                                Fs,
+                                                                SMOOTHING,
+                                                                N_STATES,
+                                                                INITIALIZER,
+                                                                TOLERANCE)
+            
+            
+        else:
+            
+            MAPS, PEAKS = _pre_clustering(DATA, Fs, SMOOTHING)
+            
+            INITIAL_CENTERS = initialize_centers(
+                DATA,                                                 
+                MAPS,
+                PEAKS,
+                N_STATES,
+                INITIALIZER)
+            print(INITIAL_CENTERS.shape)
         
-        if self.SettingsWindow.randinit_rb.isChecked():
-            INITIALIZER = "Random"
-        elif self.SettingsWindow.kppinit_rb.isChecked():
-            INITIALIZER = "K-Means++"
-        
-        INITIAL_CENTERS = clustering_functions.initialize_centers(DATA, MAPS, PEAKS, N_STATES, INITIALIZER)
-        print(INITIAL_CENTERS.shape)
-        
-        METRIC = self.SettingsWindow.arg.currentText()
-        print(METRIC)
-        
-        REPEAT = int(self.SettingsWindow.repeat.text())
+            METRIC = self.SettingsWindow.arg.currentText()
+            print(METRIC)
+            
+            REPEAT = int(self.SettingsWindow.repeat.text())
+            
+            best_maps, final_segmentation, gev = clustering_func(
+                DATA,
+                N_CHANNELS,
+                MAPS,
+                METHOD,
+                N_STATES,
+                INITIAL_CENTERS,
+                REPEAT,
+                TOLERANCE,
+                METRIC)
         
         
         self.logclustering.append("Smoothing: "+str(SMOOTHING))
@@ -656,17 +686,14 @@ class SecondWindow(QMainWindow):
         self.logclustering.append("Number of Maps: "+str(self.n_maps))
         self.logclustering.append("Tolerance: "+str(TOLERANCE))
         self.logclustering.append("Center Initializer: "+str(INITIALIZER))
-        self.logclustering.append("Metric: "+str(METRIC))
-        self.logclustering.append("Number of Repeats: "+str(REPEAT))
+        #self.logclustering.append("Metric: "+str(METRIC))
+        #self.logclustering.append("Number of Repeats: "+str(REPEAT))
         
-        best_maps, final_segmentation, gev = clustering_functions.clustering_func(DATA, N_CHANNELS, MAPS, METHOD,
-                                                                                  N_STATES, INITIAL_CENTERS,
-                                                                                  REPEAT, TOLERANCE, METRIC)
-
+        
         self.final_segmentation = final_segmentation
         self._finished_clustering = True
         
-        self.MicrostateDialog.plot_maps(best_maps, gev, clustering_functions.eegInfo(folder))
+        self.MicrostateDialog.plot_maps(best_maps, gev, eegInfo(FOLDER))
         
     def pass_labels(self):
         if self.MicrostateDialog.micro_labeled:
@@ -719,6 +746,8 @@ class SecondWindow(QMainWindow):
             self.SettingsWindow.arg.addItem("Chebyshev")
             self.SettingsWindow.arg.addItem("Minkowski")
             self.SettingsWindow.arg.setCurrentText("Euclidean Square")
+        #elif METHOD == "MINI BATCH K-MEANS":
+        #    
         elif METHOD == "X-MEANS":
             self.SettingsWindow.other1.setText("X-Means Splitting Criterion:")
             self.SettingsWindow.arg.clear()
