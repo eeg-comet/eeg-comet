@@ -4,8 +4,4 @@ Requirements:
 
 Python3:
 
-pip install pyqt5
-pip install h5py
-pip install mne
-pip install pyclustering
-pip install keras
+pip install pyqt5 h5py mne pyclustering keras
