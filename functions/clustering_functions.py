@@ -11,6 +11,7 @@ import mne
 import numpy as np
 import h5py
 import pickle
+from fnmatch import fnmatch
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.signal import find_peaks
 from matplotlib import pyplot as plt
@@ -18,6 +19,7 @@ from matplotlib import pyplot as plt
 from pyclustering.cluster import kmeans, xmeans, bsas, clarans, mbsas, optics, rock, elbow
 from pyclustering.utils.metric import distance_metric, type_metric
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
+from sklearn.cluster import MiniBatchKMeans
 
 from functions import modified_kmeans
 
@@ -136,9 +138,7 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers, r
                                                              n_states=int(n_states/2),
                                                              n_inits=repeat,
                                                              thresh=tolerance)
-        print(best_gev)
-        print(best_maps.shape)
-        print(final_segmentation.shape)
+            
     else:
         if method == 'K-MEANS':
             if metric == 'Euclidean':
@@ -154,6 +154,7 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers, r
             clustering_instance = kmeans.kmeans(maps, initial_centers,
                                          tolerance=tolerance, itermax=100,
                                          metric=distance_metric(METRIC))
+        
         elif method == 'X-MEANS':
             if metric == 'Bayesian Information Criterion':
                 CRITERION = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
@@ -215,5 +216,41 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers, r
         
         activation = np.array(best_maps).dot(data)
         final_segmentation = np.argmax(np.abs(activation), axis=0)  
+    
+    return best_maps, final_segmentation, best_gev
+
+
+
+def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance):
+    
+    minibatchk = MiniBatchKMeans(n_clusters=n_states,
+                                 init=initializer.lower(),
+                                 max_iter=100,
+                                 batch_size=100,
+                                 verbose=1,
+                                 tol=tolerance)
+    
+    eeglist = []
+    extension="*.h5"
+    for path, subdirs, files in os.walk(folder):
+        for name in files:
+            if fnmatch(name, extension):
+                eeglist.append(os.path.join(path, name))
+    
+    for filename in eeglist:
+        with h5py.File(filename, "r") as f:
+            print("Keys: %s" % f.keys())
+            a_group_key = list(f.keys())[0]
+            data = list(f[a_group_key])
+        data = np.asarray(data)
+        maps, peaks = _pre_clustering(data, fs, smoothing)
+        
+        minibatchk = minibatchk.partial_fit(maps)
+    
+    best_maps = minibatchk.cluster_centers_
+    final_segmentation = minibatchk.labels_
+    
+    best_gev = _gev(data, np.array(best_maps))
+    print('\nBest GEV = ', best_gev)
     
     return best_maps, final_segmentation, best_gev
