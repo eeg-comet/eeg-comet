@@ -62,14 +62,14 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QRadioButton" name="preprocessedDataSelect">
+        <widget class="QRadioButton" name="preprocessed_radio">
          <property name="text">
           <string>Raw Data</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QRadioButton" name="rawDataSelect">
+        <widget class="QRadioButton" name="raw_radio">
          <property name="text">
           <string>Preprocessed Data</string>
          </property>
@@ -87,7 +87,7 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_2">
        <item>
-        <widget class="QToolButton" name="fileBrowseSelect">
+        <widget class="QToolButton" name="browse_button">
          <property name="text">
           <string>Browse</string>
          </property>

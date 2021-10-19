@@ -2,9 +2,31 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4ffc1512-0a52-43af-bde6-c7ce9c51de2a" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/windows/test_file.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/api/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/functions/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/gui/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/gui/firststep.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/gui/firstwidget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/gui/mainwindow.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/microstate_tool/settings.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/designer/FirstWindow.ui" beforeDir="false" afterPath="$PROJECT_DIR$/designer/FirstWindow.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/designer/FirstWindow.ui" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/gui/designer/FirstWindow.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/classify_move.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/classify_move.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/clustering_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/clustering_functions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/clustering_microstates.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/clustering_microstates.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/concatenate_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/concatenate_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/extract_features_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/extract_features_functions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/find_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/find_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/load_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/load_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/maps_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/maps_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/modified_kmeans.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/modified_kmeans.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/preprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/preprocess.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/preprocess_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/preprocess_functions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/test_classifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/test_classifier.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/train_classifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/train_classifier.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/test_file.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,8 +54,19 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/microstate_tool/api" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/microstate_tool/api" />
+      <recent name="$PROJECT_DIR$/microstate_tool/gui" />
+      <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/microstate_tool/gui" />
+      <recent name="$PROJECT_DIR$/microstate_tool" />
+    </key>
   </component>
   <component name="RunManager" selected="Python.test_file">
     <configuration name="MICROTOOL_GUI" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
@@ -80,20 +113,17 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="test_file" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
       <option name="SDK_HOME" value="$USER_HOME$/PycharmProjects/MicroState/venv/bin/python" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/windows" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <module name="" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/windows/test_file.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/microstate_tool/main.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="true" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -102,8 +132,33 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="test_file" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="$USER_HOME$/PycharmProjects/MicroState/venv/bin/python" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test_file.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python.test_file" />
+      <item itemvalue="Python.MICROTOOL_GUI" />
+      <item itemvalue="Python.main" />
+    </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.main" />
         <item itemvalue="Python.MICROTOOL_GUI" />
       </list>
     </recent_temporary>
@@ -122,8 +177,17 @@
       <workItem from="1633713159481" duration="4739000" />
       <workItem from="1634092543428" duration="1894000" />
       <workItem from="1634512895132" duration="4051000" />
-      <workItem from="1634621774173" duration="433000" />
+      <workItem from="1634621774173" duration="1553000" />
+      <workItem from="1634623578499" duration="9229000" />
     </task>
+    <task id="LOCAL-00001" summary="Testing ui import">
+      <created>1634622387794</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1634622387794</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -131,6 +195,10 @@
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Testing ui import" />
+    <option name="LAST_COMMIT_MESSAGE" value="" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -145,6 +213,7 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$MICROTOOL_GUI.coverage" NAME="MICROTOOL_GUI Coverage Results" MODIFIED="1634513273426" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$test_file.coverage" NAME="test_file Coverage Results" MODIFIED="1634521918469" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/windows" />
+    <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$test_file.coverage" NAME="test_file Coverage Results" MODIFIED="1634675857696" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$main.coverage" NAME="main Coverage Results" MODIFIED="1634636206861" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
   </component>
 </project>
