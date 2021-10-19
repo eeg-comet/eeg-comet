@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>460</width>
-    <height>838</height>
+    <width>993</width>
+    <height>832</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>457</width>
+      <width>629</width>
       <height>790</height>
      </rect>
     </property>
@@ -27,21 +27,21 @@
      <item>
       <widget class="QLabel" name="instructLabel_1">
        <property name="text">
-        <string>Instructions</string>
+        <string>Instructions - (Place all files within a folder and it's subfolders, use tools below to filter)</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QLabel" name="instructLabel_3">
        <property name="text">
-        <string>Step 1: Load Raw Data and Pre-process (optional)</string>
+        <string>Step 1: Load Raw Data and Pre-process and Convert (optional)</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QLabel" name="instructLabel_2">
        <property name="text">
-        <string>Step 2: Load Pre-processed Data and Click Next</string>
+        <string>Step 2: Load Converted Data and Click Next</string>
        </property>
       </widget>
      </item>
@@ -109,54 +109,104 @@
       <widget class="QComboBox" name="fileExtSelect"/>
      </item>
      <item>
-      <layout class="QGridLayout" name="gridLayout_2">
-       <item row="1" column="0">
-        <layout class="QGridLayout" name="gridLayout">
-         <item row="2" column="1">
-          <widget class="QTextEdit" name="endsWithBox"/>
-         </item>
-         <item row="0" column="1">
-          <widget class="QTextEdit" name="startsWithBox"/>
-         </item>
-         <item row="0" column="0">
-          <widget class="QLabel" name="startsWith">
-           <property name="text">
-            <string>Starts With</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="contains">
-           <property name="text">
-            <string>Contains</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="endsWith">
-           <property name="text">
-            <string>Ends With</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QTextEdit" name="containsBox"/>
-         </item>
-        </layout>
-       </item>
-       <item row="1" column="1">
-        <widget class="QPushButton" name="findEEGButton">
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <item>
+        <widget class="QPushButton" name="pushButton">
          <property name="text">
-          <string>Find EEGs</string>
+          <string>Add Files To List</string>
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_2">
+         <property name="text">
+          <string>Reset File List</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QGridLayout" name="gridLayout_2">
        <item row="0" column="0">
         <widget class="QLabel" name="filterLabel">
          <property name="text">
           <string>Filter by Full Name of EEG Files</string>
          </property>
         </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QPushButton" name="findEEGButton">
+         <property name="text">
+          <string>Run Filter</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <layout class="QGridLayout" name="gridLayout">
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="lineEdit"/>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="lineEdit_4"/>
+         </item>
+         <item row="2" column="0">
+          <widget class="QCheckBox" name="checkBox_3">
+           <property name="text">
+            <string>Ends With</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QCheckBox" name="checkBox">
+           <property name="text">
+            <string>Starts With</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="lineEdit_3"/>
+         </item>
+         <item row="1" column="0">
+          <widget class="QCheckBox" name="checkBox_2">
+           <property name="text">
+            <string>Contains</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <item>
+            <widget class="QRadioButton" name="radioButton_2">
+             <property name="text">
+              <string>All conditions met</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="radioButton_3">
+             <property name="text">
+              <string>Any conditions met</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="radioButton">
+             <property name="text">
+              <string>Keep All Files</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>Filter Type</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </item>
@@ -198,7 +248,7 @@
      <item>
       <widget class="QPushButton" name="preprocessButton">
        <property name="text">
-        <string>Preprocess EEGs</string>
+        <string>Preprocess and Convert EEGs</string>
        </property>
       </widget>
      </item>
@@ -228,18 +278,10 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>460</width>
+     <width>993</width>
      <height>24</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuLoad">
-    <property name="title">
-     <string>Load and Save</string>
-    </property>
-    <addaction name="actionLoad_Configuration"/>
-    <addaction name="actionSave_Current_Configuration"/>
-   </widget>
-   <addaction name="menuLoad"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionLoad_Configuration">
@@ -254,102 +296,5 @@
   </action>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>startsWithBox</sender>
-   <signal>textChanged()</signal>
-   <receiver>findEEGButton</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>240</x>
-     <y>372</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>383</x>
-     <y>451</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>containsBox</sender>
-   <signal>textChanged()</signal>
-   <receiver>findEEGButton</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>319</x>
-     <y>433</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>362</x>
-     <y>435</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>endsWithBox</sender>
-   <signal>textChanged()</signal>
-   <receiver>findEEGButton</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>218</x>
-     <y>534</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>407</x>
-     <y>451</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>findEEGButton</sender>
-   <signal>clicked()</signal>
-   <receiver>selectedFileList</receiver>
-   <slot>doItemsLayout()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>426</x>
-     <y>445</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>376</x>
-     <y>626</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>rawDataSelect</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>preprocessedDataSelect</receiver>
-   <slot>toggle()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>236</x>
-     <y>147</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>140</x>
-     <y>147</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>fileExtSelect</sender>
-   <signal>currentIndexChanged(int)</signal>
-   <receiver>findEEGButton</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>405</x>
-     <y>262</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>432</x>
-     <y>439</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>
