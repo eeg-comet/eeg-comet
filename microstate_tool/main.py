@@ -37,8 +37,8 @@ def main(argv=None):
     if not QApplication.instance():
         app = QApplication(sys.argv)
 
-    from microstate_tool.gui.mainwindow import MainWindow
-    window = MainWindow()
+    from microstate_tool.gui.mainmicrostatewindow import MainMicrostateWindow
+    window = MainMicrostateWindow()
     window.show()
 
     if app:

@@ -2,31 +2,18 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4ffc1512-0a52-43af-bde6-c7ce9c51de2a" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/microstate_tool/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/microstate_tool/api/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/microstate_tool/functions/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/microstate_tool/gui/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/microstate_tool/gui/firststep.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/microstate_tool/gui/firstwidget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/microstate_tool/gui/mainwindow.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/microstate_tool/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/microstate_tool/settings.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/designer/FirstWindow.ui" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/gui/designer/FirstWindow.ui" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/classify_move.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/classify_move.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/clustering_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/clustering_functions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/clustering_microstates.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/clustering_microstates.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/concatenate_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/concatenate_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/extract_features_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/extract_features_functions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/find_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/find_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/load_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/load_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/maps_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/maps_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/modified_kmeans.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/modified_kmeans.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/preprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/preprocess.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/preprocess_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/preprocess_functions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/test_classifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/test_classifier.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/train_classifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/functions/train_classifier.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/windows/test_file.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/designer/FirstStep.ui" beforeDir="false" afterPath="$PROJECT_DIR$/oldui/FirstStep.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/designer/FirstWidget.ui" beforeDir="false" afterPath="$PROJECT_DIR$/oldui/FirstWidget.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/designer/FirstWindow.ui" beforeDir="false" afterPath="$PROJECT_DIR$/oldui/FirstWindow.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/designer/MainWindow.ui" beforeDir="false" afterPath="$PROJECT_DIR$/oldui/MainWindow.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/designer/Preprocessing.ui" beforeDir="false" afterPath="$PROJECT_DIR$/oldui/Preprocessing.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/designer/SecondWindow.ui" beforeDir="false" afterPath="$PROJECT_DIR$/oldui/SecondWindow.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/designer/microstates.ui" beforeDir="false" afterPath="$PROJECT_DIR$/oldui/microstates.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/firststep.py" beforeDir="false" afterPath="$PROJECT_DIR$/old/firststep.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/firstwidget.py" beforeDir="false" afterPath="$PROJECT_DIR$/old/firstwidget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/gui/mainwindow.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/gui/MainMicrostateWindow.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/microstate_tool/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/microstate_tool/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,11 +51,14 @@
       <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/" />
+      <recent name="$PROJECT_DIR$/old" />
+      <recent name="$PROJECT_DIR$/microstate_tool/old" />
       <recent name="$PROJECT_DIR$/microstate_tool/gui" />
       <recent name="$PROJECT_DIR$/microstate_tool" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.test_file">
+  <component name="RunManager" selected="Python.main">
     <configuration name="MICROTOOL_GUI" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -116,6 +106,9 @@
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
       <option name="SDK_HOME" value="$USER_HOME$/PycharmProjects/MicroState/venv/bin/python" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/" />
       <option name="IS_MODULE_SDK" value="false" />
@@ -135,6 +128,9 @@
     <configuration name="test_file" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
       <option name="SDK_HOME" value="$USER_HOME$/PycharmProjects/MicroState/venv/bin/python" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="false" />
@@ -178,7 +174,7 @@
       <workItem from="1634092543428" duration="1894000" />
       <workItem from="1634512895132" duration="4051000" />
       <workItem from="1634621774173" duration="1553000" />
-      <workItem from="1634623578499" duration="9229000" />
+      <workItem from="1634623578499" duration="10132000" />
     </task>
     <task id="LOCAL-00001" summary="Testing ui import">
       <created>1634622387794</created>
@@ -213,7 +209,7 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$MICROTOOL_GUI.coverage" NAME="MICROTOOL_GUI Coverage Results" MODIFIED="1634513273426" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$test_file.coverage" NAME="test_file Coverage Results" MODIFIED="1634675857696" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$test_file.coverage" NAME="test_file Coverage Results" MODIFIED="1634727337058" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$main.coverage" NAME="main Coverage Results" MODIFIED="1634636206861" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
   </component>
 </project>
