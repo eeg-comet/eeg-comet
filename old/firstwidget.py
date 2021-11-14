@@ -13,5 +13,5 @@ class FirstWidget(QWidget):
         # load the ui
         basepath = os.path.dirname(__file__)
         basename = self.__class__.__name__.lower()
-        uifile = os.path.join(basepath, 'designer/%s.ui' % basename)
+        uifile = os.path.join(basepath, 'customwidgets/%s.ui' % basename)
         self.ui = uic.loadUi(uifile, self)
