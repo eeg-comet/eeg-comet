@@ -5,7 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4ffc1512-0a52-43af-bde6-c7ce9c51de2a" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/readme.md" beforeDir="false" afterPath="$PROJECT_DIR$/readme.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/EEG-Microstate-Feature-Extraction.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/EEG-Microstate-Feature-Extraction.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/mainmicrostatewindow.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/mainmicrostatewindow.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,7 +36,7 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/src/main/python/microstate_tool/gui" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -123,11 +125,8 @@
       <module name="EEG-Microstate-Feature-Extraction" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/main/python" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
@@ -164,10 +163,10 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="Python.test_file" />
       <item itemvalue="Python.MICROTOOL_GUI" />
       <item itemvalue="Python.main" />
       <item itemvalue="Python.main_gui" />
-      <item itemvalue="Python.test_file" />
     </list>
     <recent_temporary>
       <list>
@@ -199,7 +198,7 @@
       <workItem from="1636764992298" duration="295000" />
       <workItem from="1636765303679" duration="1738000" />
       <workItem from="1636864284412" duration="4885000" />
-      <workItem from="1636869829451" duration="5032000" />
+      <workItem from="1636869829451" duration="9361000" />
     </task>
     <task id="LOCAL-00001" summary="Testing ui import">
       <created>1634622387794</created>
@@ -226,11 +225,6 @@
           <line>28</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/venv/lib/python3.6/site-packages/tensorflow/__init__.py</url>
-          <line>17</line>
-          <option name="timeStamp" value="4" />
-        </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
@@ -245,5 +239,6 @@
     <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$MICROTOOL_GUI.coverage" NAME="MICROTOOL_GUI Coverage Results" MODIFIED="1634513273426" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$test_file.coverage" NAME="test_file Coverage Results" MODIFIED="1634727337058" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$main.coverage" NAME="main_gui Coverage Results" MODIFIED="1636357830674" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/MICROTOOL_GUI_py$main_gui.coverage" NAME="main_gui Coverage Results" MODIFIED="1636879651874" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/main/python" />
   </component>
 </project>

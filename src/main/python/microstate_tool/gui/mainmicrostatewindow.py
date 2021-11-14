@@ -3,6 +3,7 @@ import shutil
 import numpy as np
 import pickle
 import csv
+import json
 from configparser import ConfigParser
 from PyQt5 import uic
 from PyQt5 import QtCore
@@ -19,6 +20,17 @@ from functions.clustering_functions import _pre_clustering, initialize_centers, 
 from functions.clustering_functions import clustering_func, clustering_minibatch
 from functions import extract_features_functions
 
+# Settings Class
+class SettingsModel:
+
+    def __init__(self, settings=None):
+        super(SettingsModel, self).__init__()
+        self.settings = settings or []
+
+    def show_settings(self):
+        return print(self.settings)
+
+# Main Class
 class MainMicrostateWindow(QMainWindow):
 
     def __init__(self, context, parent=None):
@@ -68,6 +80,28 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step3_extractfeatures_button.clicked.connect(self.mainwindow_check_options)
 
         self.ui.step0_exit_button.clicked.connect(self.exit_msg)
+
+        # Set actions
+
+        self.ui.import_settings_action.triggered.connect(self.import_settings)
+        self.ui.export_settings_action.triggered.connect(self.export_settings)
+
+        # Initialize settings
+        default_settings = [("Amin", "Is cool"), ("Raaj", "Is nice"), ("Paul", "Is great"), ("Marian", "Is awesome")]
+        self.app_settings = SettingsModel(default_settings)
+
+    # Raaj Testing adding a persistent settings store
+    def import_settings(self):
+        fname = QFileDialog.getOpenFileName(self, "Open file", "", "JSON files (*.json)")
+        with open(fname[0], 'r') as f:
+            self.app_settings.settings = json.load(f)
+        return print("Settings Loaded")
+
+    def export_settings(self):
+        fname = QFileDialog.getSaveFileName(self, "Save file", "", "JSON files (*.json)")
+        with open(fname[0], 'w') as f:
+            data = json.dump(self.app_settings.settings, f)
+        return print("Exported Settings")
 
         # # #
 
