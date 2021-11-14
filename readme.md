@@ -4,6 +4,8 @@ Authors: Amin Kabir, Raaj Chatterjee
 
 This git repository is for developing and publishing new versions of the app.
 
+To download the stand-alone versions of the app for your OS, please visit our google drive folder [linked here](https://drive.google.com/drive/folders/1W786fr4vwZJAcKBJHkQbKZQ7R8S9G0y7?usp=sharing).
+
 # Setup and Run the program
 
 To Initialize the development environment:
