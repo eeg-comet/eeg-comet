@@ -5,12 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4ffc1512-0a52-43af-bde6-c7ce9c51de2a" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/readme.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/EEG-Microstate-Feature-Extraction.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/EEG-Microstate-Feature-Extraction.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements/base.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements/base.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/functions/concatenate_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/functions/concatenate_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/functions/extract_features_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/functions/extract_features_functions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/functions/preprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/functions/preprocess.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/mainmicrostatewindow.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/mainmicrostatewindow.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/preprocessdialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/preprocessdialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/base/MainMicrostateWindow.ui" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/base/MainMicrostateWindow.ui" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,9 +51,9 @@
       <recent name="$PROJECT_DIR$/microstate_tool/gui" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/main/resources/base" />
       <recent name="$PROJECT_DIR$/src/main/python/microstate_tool/customwidgets" />
       <recent name="$PROJECT_DIR$/src/main/python/microstate_tool" />
-      <recent name="$PROJECT_DIR$/src/main/resources/base" />
       <recent name="$PROJECT_DIR$/src/main/python/microstate_tool/gui/CustomWidgets" />
       <recent name="$PROJECT_DIR$/src/main/resources/base/widgets" />
     </key>
@@ -204,7 +205,7 @@
       <workItem from="1636764992298" duration="295000" />
       <workItem from="1636765303679" duration="1738000" />
       <workItem from="1636864284412" duration="4885000" />
-      <workItem from="1636869829451" duration="2888000" />
+      <workItem from="1636869829451" duration="4060000" />
     </task>
     <task id="LOCAL-00001" summary="Testing ui import">
       <created>1634622387794</created>

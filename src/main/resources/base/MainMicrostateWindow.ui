@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>940</width>
-    <height>813</height>
+    <width>1019</width>
+    <height>902</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -227,7 +227,7 @@
           </item>
           <item>
            <layout class="QGridLayout" name="gridLayout_3">
-            <item row="0" column="1">
+            <item row="1" column="1">
              <widget class="QComboBox" name="step1_importformat_combobox">
               <property name="currentIndex">
                <number>7</number>
@@ -294,30 +294,7 @@
               </item>
              </widget>
             </item>
-            <item row="2" column="1" colspan="2">
-             <widget class="QPushButton" name="step1_load_preprocess_button">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>10</pointsize>
-                <weight>75</weight>
-                <bold>true</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Load / Preprocess Data</string>
-              </property>
-              <property name="iconSize">
-               <size>
-                <width>20</width>
-                <height>20</height>
-               </size>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="2">
+            <item row="2" column="2">
              <widget class="QPushButton" name="step1_importraw_button">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Minimum" vsizetype="Maximum">
@@ -341,7 +318,7 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="1">
+            <item row="2" column="1">
              <layout class="QHBoxLayout" name="horizontalLayout">
               <item>
                <widget class="QRadioButton" name="step1_import_continuous_radio">
@@ -368,7 +345,17 @@
               </item>
              </layout>
             </item>
-            <item row="0" column="0" rowspan="2">
+            <item row="1" column="2">
+             <widget class="QLineEdit" name="step1_importpattern_lineedit">
+              <property name="text">
+               <string>*</string>
+              </property>
+              <property name="maxLength">
+               <number>50</number>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0" colspan="2">
              <widget class="QRadioButton" name="step1_import_raw_radio">
               <property name="text">
                <string>Load Raw Data</string>
@@ -381,7 +368,32 @@
               </attribute>
              </widget>
             </item>
-            <item row="2" column="0">
+            <item row="4" column="2">
+             <widget class="QPushButton" name="step1_savepath_button">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>9</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Save Path</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0" colspan="2">
+             <widget class="QLineEdit" name="step1_savedir_lineedit">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
              <widget class="QRadioButton" name="step1_import_preprocessed_radio">
               <property name="text">
                <string>Load Preprocessed Data</string>
@@ -391,13 +403,26 @@
               </attribute>
              </widget>
             </item>
-            <item row="0" column="2">
-             <widget class="QLineEdit" name="step1_importpattern_lineedit">
-              <property name="text">
-               <string>*</string>
+            <item row="5" column="1" colspan="2">
+             <widget class="QPushButton" name="step1_load_preprocess_button">
+              <property name="enabled">
+               <bool>false</bool>
               </property>
-              <property name="maxLength">
-               <number>50</number>
+              <property name="font">
+               <font>
+                <pointsize>10</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Preprocess Raw Data</string>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
               </property>
              </widget>
             </item>
@@ -1220,7 +1245,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>940</width>
+     <width>1019</width>
      <height>26</height>
     </rect>
    </property>
@@ -1266,10 +1291,10 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_5"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

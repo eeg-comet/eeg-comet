@@ -25,8 +25,8 @@ def filter_eeg(data, fs, lowcut, highcut, order):
     return filtered_data
 
 
-def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_bool,
-                    filtermethod, lowcut, highcut, downsample_bool,
+def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
+                    filtermethod, lowcut, highcut, downsample_true,
                     fs, save_folder):
     channels2remove = ['']
     # temp # remove
@@ -69,7 +69,7 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_bool,
     print(INFO)
 
     # Filter
-    if filter_bool:
+    if filter_true:
         EEG = EEG.filter(l_freq=lowcut, h_freq=highcut,
                          method=filtermethod)
     # else:
@@ -78,7 +78,7 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_bool,
     #                             method=filtermethod)
     # DATA = filter_eeg(DATA, fs, lowcut, highcut, order)
     # Downsample
-    if downsample_bool:
+    if downsample_true:
         if Fs != fs:
             EEG = EEG.resample(fs)
             # if datatype == "epoched":
