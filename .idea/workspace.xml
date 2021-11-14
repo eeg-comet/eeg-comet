@@ -5,7 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4ffc1512-0a52-43af-bde6-c7ce9c51de2a" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/EEG-Microstate-Feature-Extraction.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/EEG-Microstate-Feature-Extraction.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/mainmicrostatewindow.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/mainmicrostatewindow.py" afterDir="false" />
     </list>
@@ -125,6 +124,9 @@
       <module name="EEG-Microstate-Feature-Extraction" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/main/python" />
       <option name="IS_MODULE_SDK" value="true" />
@@ -163,10 +165,10 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.test_file" />
       <item itemvalue="Python.MICROTOOL_GUI" />
       <item itemvalue="Python.main" />
       <item itemvalue="Python.main_gui" />
+      <item itemvalue="Python.test_file" />
     </list>
     <recent_temporary>
       <list>
@@ -198,7 +200,7 @@
       <workItem from="1636764992298" duration="295000" />
       <workItem from="1636765303679" duration="1738000" />
       <workItem from="1636864284412" duration="4885000" />
-      <workItem from="1636869829451" duration="9361000" />
+      <workItem from="1636869829451" duration="9771000" />
     </task>
     <task id="LOCAL-00001" summary="Testing ui import">
       <created>1634622387794</created>

@@ -91,8 +91,9 @@ class MainMicrostateWindow(QMainWindow):
         self.app_settings = SettingsModel(default_settings)
 
     # Raaj Testing adding a persistent settings store
-    def import_settings(self):
-        fname = QFileDialog.getOpenFileName(self, "Open file", "", "JSON files (*.json)")
+    def import_settings(self, fname=None):
+        if not fname
+            fname = QFileDialog.getOpenFileName(self, "Open file", "", "JSON files (*.json)")
         with open(fname[0], 'r') as f:
             self.app_settings.settings = json.load(f)
         return print("Settings Loaded")
