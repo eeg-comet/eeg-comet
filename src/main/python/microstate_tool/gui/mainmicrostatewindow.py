@@ -92,7 +92,7 @@ class MainMicrostateWindow(QMainWindow):
 
     # Raaj Testing adding a persistent settings store
     def import_settings(self, fname=None):
-        if not fname
+        if not fname:
             fname = QFileDialog.getOpenFileName(self, "Open file", "", "JSON files (*.json)")
         with open(fname[0], 'r') as f:
             self.app_settings.settings = json.load(f)
