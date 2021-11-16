@@ -9,12 +9,17 @@ To download the stand-alone versions of the app for your OS, please visit our go
 # Setup and Run the program
 
 To Initialize the development environment:
-After cloning the repository, navigate to the repository in terminal
+
 Please ensure you are running a virtual environment with python version 3.6
+
+Create a virtual environment using Anaconda:
+https://uoa-eresearch.github.io/eresearch-cookbook/recipe/2014/11/20/conda/
+
+After cloning the repository, navigate to the repository in terminal.
 
 Type in:
 
-    pip install -r requirements
+    pip install -r requirements/base.txt
 
 Please do not change or upgrade the python package dependencies.
 
