@@ -65,6 +65,7 @@ class MainMicrostateWindow(QMainWindow):
 
         self.ui.step1_load_preprocess_button.clicked.connect(self.open_preprocessing_dialog)
 
+        self.ui.step1_savepath_button.clicked.connect(self.mainwindow_check_options)
         self.ui.step1_load_preprocess_button.clicked.connect(self.mainwindow_check_options)
         self.ui.step1_importraw_button.clicked.connect(self.mainwindow_check_options)
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_check_options)
@@ -160,6 +161,7 @@ class MainMicrostateWindow(QMainWindow):
 
     def reset_selected(self):
         self.ui.step0_selectedfiles_list.clear()
+        self.ui.step1_savedir_lineedit.clear()
         self.done_preprocessing = False
         self.done_clustering = False
 
@@ -228,22 +230,55 @@ class MainMicrostateWindow(QMainWindow):
             self.done_preprocessing = True
 
     def mainwindow_check_options(self):
+
+        #
         if self.ui.step1_import_raw_radio.isChecked():
+            self.use_raw_data = True
+        else:
+            self.use_raw_data = False
+        if self.ui.step1_import_preprocessed_radio.isChecked():
+            self.use_preprocessed_data = True
+        else:
+            self.use_preprocessed_data = False
+        if self.ui.step0_selectedfiles_list.count() == 0:
+            self.data_found = False
+        else:
+            self.data_found = True
+        if self.ui.step1_savedir_lineedit.text():
+            self.save_directory_selected = True
+        else:
+            self.save_directory_selected = False
+        #
+
+        if self.use_raw_data:
             self.ui.step1_load_preprocess_button.setText("Preprocess Raw Data")
             self.ui.step1_importformat_combobox.setEnabled(True)
             self.ui.step1_importpattern_lineedit.setEnabled(True)
             self.ui.step1_import_continuous_radio.setEnabled(True)
             self.ui.step1_import_epoched_radio.setEnabled(True)
             self.ui.step1_importraw_button.setEnabled(True)
-            self.ui.step1_load_preprocess_button.setDisabled(True)
-        if self.ui.step1_import_preprocessed_radio.isChecked():
+
+        if self.use_preprocessed_data:
             self.ui.step1_load_preprocess_button.setText("Load Preprocessed Data")
             self.ui.step1_importformat_combobox.setDisabled(True)
             self.ui.step1_importpattern_lineedit.setDisabled(True)
             self.ui.step1_import_continuous_radio.setDisabled(True)
             self.ui.step1_import_epoched_radio.setDisabled(True)
             self.ui.step1_importraw_button.setDisabled(True)
-            self.ui.step1_load_preprocess_button.setEnabled(True)
+            self.ui.step1_savedir_lineedit.setEnabled(True)
+            self.ui.step1_savepath_button.setEnabled(True)
+
+        if self.data_found:
+            self.ui.step0_exploreraw_button.setEnabled(True)
+            self.ui.step1_savedir_lineedit.setEnabled(True)
+            self.ui.step1_savepath_button.setEnabled(True)
+            if self.save_directory_selected:
+                self.ui.step1_load_preprocess_button.setEnabled(True)
+            else:
+                self.ui.step1_load_preprocess_button.setDisabled(True)
+        else:
+            self.ui.step0_exploreraw_button.setDisabled(True)
+            self.ui.step1_load_preprocess_button.setDisabled(True)
 
         if self.done_preprocessing:
             self.ui.step1_preprocessed_led_radio.setStyleSheet("QRadioButton::indicator"
@@ -302,16 +337,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_separate_performclustering_radio.setDisabled(True)
             self.ui.step2_concat_performclustering_radio.setDisabled(True)
             self.ui.step2_clustering_button.setDisabled(True)
-
-        if not self.ui.step0_selectedfiles_list.count() == 0:
-            self.ui.step0_exploreraw_button.setEnabled(True)
-            self.ui.step1_load_preprocess_button.setEnabled(True)
-            self.ui.step1_savepath_button.setEnabled(True)
-            self.ui.step1_savedir_lineedit.setEnabled(True)
-        else:
-            self.ui.step0_exploreraw_button.setDisabled(True)
-            self.ui.step1_savepath_button.setDisabled(True)
-            self.ui.step1_savedir_lineedit.setDisabled(True)
 
         if self.ui.step2_auto_numberofmaps_radio.isChecked():
             self.ui.step2_user_numberofmaps_input.setDisabled(True)
@@ -519,6 +544,7 @@ class MainMicrostateWindow(QMainWindow):
         self.final_segmentation = final_segmentation
         self.final_maps = best_maps
 
+        self.MicrostateDialog.save_dir = self.ui.save_dir
         self.MicrostateDialog.plot_maps(best_maps, gev, eegInfo(FOLDER))
         self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.MicrostateDialog.show()

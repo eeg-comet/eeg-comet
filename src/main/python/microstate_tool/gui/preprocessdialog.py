@@ -35,14 +35,12 @@ class PreprocessDialog(QDialog):
         if self.ui.no_option_checkbox.isChecked():
             self.ui.filter_option_checkbox.setChecked(False)
             self.ui.filter_option_checkbox.setDisabled(True)
-            self.ui.filter_data = False
             self.ui.lowcut_freq_input.setDisabled(True)
             self.ui.highcut_freq_input.setDisabled(True)
             self.ui.fir_filtermethod_radio.setDisabled(True)
             self.ui.iir_filtermethod_radio.setDisabled(True)
             self.ui.downsamp_option_checkbox.setChecked(False)
             self.ui.downsamp_option_checkbox.setDisabled(True)
-            self.ui.downsample_data = False
             self.ui.downsamp_freq_input.setDisabled(True)
         else:
             self.ui.filter_option_checkbox.setEnabled(True)
@@ -67,6 +65,13 @@ class PreprocessDialog(QDialog):
                 self.ui.downsamp_freq_input.setDisabled(True)
 
     def preprocess_data(self):
+        if self.ui.no_option_checkbox.isChecked():
+            self.ui.filter_data = False
+            self.ui.lowcut_freq = ''
+            self.ui.highcut_freq = ''
+            self.ui.downsample_data = False
+            self.ui.sample_rate = ''
+
         if self.ui.lowcut_freq_input.text() >= self.ui.highcut_freq_input.text():
             QMessageBox.information(self, "Filter Error",
                                     "Please modify the filter range!",
@@ -107,6 +112,8 @@ class PreprocessDialog(QDialog):
                 # save config
                 config = ConfigParser()
                 config_file = os.path.join(self.ui.save_dir, 'config.ini')
+                if os.path.isfile(config_file):
+                    os.remove(config_file)
                 config.read(config_file)
                 config.add_section('step1')
                 config.set('step1', 'data_extension', eeg_format)
@@ -117,7 +124,7 @@ class PreprocessDialog(QDialog):
                 config.set('step1', 'highcut_freq', str(self.ui.highcut_freq))
                 config.set('step1', 'downsample_data', str(self.ui.downsample_data))
                 config.set('step1', 'sample_rate', str(self.ui.sample_rate))
-                with open(config_file, 'w') as f:
+                with open(config_file, 'w+') as f:
                     config.write(f)
 
                 self.ui.close()

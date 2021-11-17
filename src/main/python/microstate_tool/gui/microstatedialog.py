@@ -5,6 +5,7 @@ Created on Tue Jul 13 10:35:44 2021
 
 @author: amin
 """
+import os.path
 
 from PyQt5 import QtGui, QtCore
 
@@ -14,6 +15,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
+import os.path
 import numpy as np
 import mne
 from matplotlib import pyplot as plt
@@ -29,7 +31,8 @@ class MicrostateDialog(QDialog):
         #self.setFixedWidth(700)
         #self.setFixedHeight(340)
         self.setWindowTitle("Microstate Maps")
-        
+
+        self.save_dir = ""
         self.micro_labeled = False
         self.n_maps = None
         self.micro_labels = []
@@ -110,7 +113,7 @@ class MicrostateDialog(QDialog):
         for i in range(maps.shape[0]):
             fig = plt.figure()
             mne.viz.plot_topomap(maps[i,:], info, sensors=False)
-            fig.savefig(str(i)+'.png', bbox_inches='tight', dpi=80)
+            fig.savefig(os.path.join(self.save_dir, str(i)+'.png'), bbox_inches='tight', dpi=80)
             fig.show()
             plt.close(fig)
         
@@ -129,6 +132,7 @@ class MicrostateDialog(QDialog):
         for i in range(self.n_maps):
             microlabel_attr = getattr(self, "microlabel{}".format(i))
             self.micro_labels.append(microlabel_attr.text())
+        self.manual_labeling_button.setStyleSheet("background-color: green")
         self.micro_labeled = True
         #ClusteringWindow.micro_labels = self.micro_labels
         #self.close()
