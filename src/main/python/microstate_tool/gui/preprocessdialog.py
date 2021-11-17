@@ -14,7 +14,7 @@ class PreprocessDialog(QDialog):
 
 
         # load the ui
-        self.ui = uic.loadUi(context.get_resource("preprocessdialog.ui"), self)
+        self.ui = uic.loadUi(context.get_resource("PreprocessDialog.ui"), self)
 
         self.ui.setWindowTitle("Preprocessing Raw Data")
         # self.ui.list_eegs = []

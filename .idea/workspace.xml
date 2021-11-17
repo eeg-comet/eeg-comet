@@ -5,8 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4ffc1512-0a52-43af-bde6-c7ce9c51de2a" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/EEG-Microstate-Feature-Extraction.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/EEG-Microstate-Feature-Extraction.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/readme.md" beforeDir="false" afterPath="$PROJECT_DIR$/readme.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/eegvisualizationdialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/eegvisualizationdialog.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/mainmicrostatewindow.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/mainmicrostatewindow.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/preprocessdialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/python/microstate_tool/gui/preprocessdialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_data/output/sub-010010_EC.h5" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_data/output/sub-010020_EC.h5" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_data/output/sub-010030_EC.h5" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_data/output/sub-010040_EC.h5" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,7 +45,7 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/src/main/python/microstate_tool/gui" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
+    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -201,7 +211,9 @@
       <workItem from="1636765303679" duration="1738000" />
       <workItem from="1636864284412" duration="4885000" />
       <workItem from="1636869829451" duration="10347000" />
-      <workItem from="1637019731647" duration="62000" />
+      <workItem from="1637019731647" duration="1069000" />
+      <workItem from="1637118442073" duration="835000" />
+      <workItem from="1637137330531" duration="917000" />
     </task>
     <task id="LOCAL-00001" summary="Testing ui import">
       <created>1634622387794</created>
@@ -216,7 +228,21 @@
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="VcsManagerConfiguration">
+    <ignored-roots>
+      <path value="$PROJECT_DIR$/keras" />
+    </ignored-roots>
     <MESSAGE value="Testing ui import" />
     <option name="LAST_COMMIT_MESSAGE" value="" />
   </component>
