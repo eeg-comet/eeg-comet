@@ -16,7 +16,7 @@ class RawVisualizationDialog(QDialog):
         
         # load the ui
         basepath = os.path.dirname(__file__)
-        self.ui = uic.loadUi(context.get_resource("rawdatavisualization.ui"), self)
+        self.ui = uic.loadUi(context.get_resource("RawDataVisualization.ui"), self)
         
         self.ui.setWindowTitle("Explore Raw Data")
         

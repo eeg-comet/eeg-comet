@@ -8,13 +8,28 @@ To download the stand-alone versions of the app for your OS, please visit our go
 
 # Setup and Run the program
 
-To Initialize the development environment:
+Using a virtual environment:
+The easiest (and non-intrusive) way of installing fbs is via pip and a Python virtual environment. To create a virtual environment in the current directory, execute the following command:
+
+python3 -m venv venv
+Then, activate the environment with one of the commands below:
+
+# On Mac/Linux:
+source venv/bin/activate
+# On Windows:
+call venv\scripts\activate.bat
+
+To install necessary packages:
 After cloning the repository, navigate to the repository in terminal
-Please ensure you are running a virtual environment with python version 3.6
 
-Type in:
+First ensure that you have the most recent version of pip3 and that wheel is installed:
+    
+    pip3 install --upgrade pip3
+    pip3 install wheel
 
-    pip install -r requirements
+Then install the remaining requirements:
+
+    pip3 install -r requirements/base.txt
 
 Please do not change or upgrade the python package dependencies.
 
@@ -57,6 +72,6 @@ To install your app, your users simply open the .dmg file, then drag the app's i
 
 ### For linux:
 
-On Linux, the installer command requires that you have fpm. You can for instance follow these instructions to install it.
+On Linux, the installer command requires that you have [fpm](https://github.com/jordansissel/fpm). You can for instance follow [these instructions](https://fpm.readthedocs.io/en/latest/installation.html) to install it.
 
 Depending on your Linux distribution, fbs creates the installer at target/YourApp.deb, ...pkg.tar.xz or ...rpm. Your users can use these files to install your app with their respective package manager.

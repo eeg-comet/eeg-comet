@@ -38,7 +38,7 @@ class MainMicrostateWindow(QMainWindow):
 
         # load the ui
         basepath = os.path.dirname(__file__)
-        self.ui = uic.loadUi(context.get_resource("mainmicrostatewindow.ui"), self)
+        self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
 
         self.ui.setWindowTitle("Microstate Toolbox")
 
