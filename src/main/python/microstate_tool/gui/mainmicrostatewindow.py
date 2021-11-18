@@ -1,8 +1,5 @@
 import os.path
-import shutil
 import numpy as np
-import pickle
-import csv
 import json
 from configparser import ConfigParser
 from PyQt5 import uic
@@ -162,8 +159,15 @@ class MainMicrostateWindow(QMainWindow):
     def reset_selected(self):
         self.ui.step0_selectedfiles_list.clear()
         self.ui.step1_savedir_lineedit.clear()
+        self.ui.foldername_preprocessed_data = ""
+        self.ui.list_eegs = []
+        self.listoffiles = []
+        self.lengthoffiles = []
+        self.n_maps = None
         self.done_preprocessing = False
         self.done_clustering = False
+        self.done_feature_extraction = False
+
 
     def open_exploreraw_dialog(self):
         self.RawVisualizationDialog.extension = self.ui.extension
@@ -177,8 +181,8 @@ class MainMicrostateWindow(QMainWindow):
     def open_preprocessing_dialog(self):
 
         if self.ui.step1_import_preprocessed_radio.isChecked():
-            fname = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
-            self.ui.save_preprocessed_path = fname
+            self.ui.save_preprocessed_path = QFileDialog.getExistingDirectory(
+                self, "Select the folder containing preprocessed folder and config file")
 
             if not self.ui.step1_savedir_lineedit.text():
                 self.ui.save_dir = self.ui.save_preprocessed_path
@@ -267,6 +271,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step1_importraw_button.setDisabled(True)
             self.ui.step1_savedir_lineedit.setEnabled(True)
             self.ui.step1_savepath_button.setEnabled(True)
+            self.ui.step1_load_preprocess_button.setEnabled(True)
 
         if self.data_found:
             self.ui.step0_exploreraw_button.setEnabled(True)
@@ -278,7 +283,8 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step1_load_preprocess_button.setDisabled(True)
         else:
             self.ui.step0_exploreraw_button.setDisabled(True)
-            self.ui.step1_load_preprocess_button.setDisabled(True)
+            if self.use_raw_data:
+                self.ui.step1_load_preprocess_button.setDisabled(True)
 
         if self.done_preprocessing:
             self.ui.step1_preprocessed_led_radio.setStyleSheet("QRadioButton::indicator"
@@ -429,7 +435,7 @@ class MainMicrostateWindow(QMainWindow):
         # DATA = INPUT_DATA #from previous window
         # print(DATA.shape)
 
-        FOLDER = self.ui.save_preprocessed_path
+        FOLDER = os.path.join(self.ui.save_preprocessed_path, "preprocessed_data")
         print(FOLDER)
 
         # Concatenate data
@@ -479,7 +485,8 @@ class MainMicrostateWindow(QMainWindow):
                 N_STATES,
                 INITIALIZER,
                 TOLERANCE)
-
+            METRIC = ""
+            REPEAT = ""
 
         else:
 
@@ -492,6 +499,7 @@ class MainMicrostateWindow(QMainWindow):
                 N_STATES,
                 INITIALIZER)
             print(INITIAL_CENTERS.shape)
+
 
             METRIC = self.ui.step2_other_options_combobox.currentText()
             print(METRIC)
