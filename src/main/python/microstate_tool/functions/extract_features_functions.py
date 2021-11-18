@@ -82,7 +82,7 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                     tm_df.to_json(save_name + '.json')
 
     if save_maps:
-        with open(os.path.join(eeg_info_path, 'EEG_INFO.pickle'), 'rb') as p:
+        with open(os.path.join(eeg_info_path, 'preprocessed_data', 'EEG_INFO.pickle'), 'rb') as p:
             eeg_info = pickle.load(p)
         save_name = os.path.join(save_path, 'microstate_maps')
         maps_df = pd.DataFrame(maps.T, columns=micro_labels, index=eeg_info.ch_names)
