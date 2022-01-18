@@ -75,3 +75,8 @@ To install your app, your users simply open the .dmg file, then drag the app's i
 On Linux, the installer command requires that you have [fpm](https://github.com/jordansissel/fpm). You can for instance follow [these instructions](https://fpm.readthedocs.io/en/latest/installation.html) to install it.
 
 Depending on your Linux distribution, fbs creates the installer at target/YourApp.deb, ...pkg.tar.xz or ...rpm. Your users can use these files to install your app with their respective package manager.
+
+
+
+### Download Test Data
+https://vault.sfu.ca/index.php/s/85JFXmvAL3nRGKd
