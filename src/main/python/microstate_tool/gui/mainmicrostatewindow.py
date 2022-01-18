@@ -1,6 +1,11 @@
 import os.path
+import shutil
 import numpy as np
+import pickle
+import csv
 import json
+import pandas as pd
+import webbrowser
 from configparser import ConfigParser
 from PyQt5 import uic
 from PyQt5 import QtCore
@@ -14,7 +19,7 @@ from gui.microstatedialog import MicrostateDialog
 from functions import find_data, load_data
 from functions.concatenate_data import concatenate_files
 from functions.clustering_functions import _pre_clustering, initialize_centers, eegInfo
-from functions.clustering_functions import clustering_func, clustering_minibatch
+from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
 from functions import extract_features_functions
 
 # Settings Class
@@ -38,6 +43,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
 
         self.ui.setWindowTitle("Microstate Toolbox")
+        #self.ui.setFixedSize(3000, 1500)
 
         self.ui.RawVisualizationDialog = RawVisualizationDialog(context)
         self.ui.PreprocessDialog = PreprocessDialog(context)
@@ -49,6 +55,12 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.foldername_raw_data = ""
         self.ui.foldername_preprocessed_data = ""
         self.ui.list_eegs = []
+
+
+        self.ui.open_github_action.triggered.connect(self.open_github)
+        self.ui.report_issues_action.triggered.connect(self.report_issues)
+
+        self.ui.load_results_action.triggered.connect(self.load_results)
 
         self.ui.step0_exploreraw_button.clicked.connect(self.open_exploreraw_dialog)
         self.ui.step0_reset_selectedfiles_button.clicked.connect(self.reset_selected)
@@ -65,6 +77,8 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step1_savepath_button.clicked.connect(self.mainwindow_check_options)
         self.ui.step1_load_preprocess_button.clicked.connect(self.mainwindow_check_options)
         self.ui.step1_importraw_button.clicked.connect(self.mainwindow_check_options)
+        self.ui.step1_load_all_radio.clicked.connect(self.mainwindow_check_options)
+        self.ui.step1_load_pattern_radio.clicked.connect(self.mainwindow_check_options)
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_check_options)
         self.ui.step2_auto_numberofmaps_radio.clicked.connect(self.mainwindow_check_options)
         self.ui.step2_user_numberofmaps_radio.clicked.connect(self.mainwindow_check_options)
@@ -103,6 +117,17 @@ class MainMicrostateWindow(QMainWindow):
         return print("Exported Settings")
 
         # # #
+
+    def open_github(self):
+        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction')
+
+    def report_issues(self):
+        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/issues/new')
+
+    def load_results(self):
+        fname = QFileDialog.getExistingDirectory(self, "Select the folder containing microstate results")
+        self.ui.save_dir = fname
+        self.done_clustering = True
 
     def get_extension(self):
         selected_extension = self.ui.step1_importformat_combobox.currentText()
@@ -143,7 +168,10 @@ class MainMicrostateWindow(QMainWindow):
         fname = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
         self.ui.foldername_raw_data = fname
         self.ui.input_folder = self.ui.foldername_raw_data
-        pattern = self.ui.step1_importpattern_lineedit.text()
+        if self.ui.step1_load_all_radio.isChecked():
+            pattern = '*'
+        if self.ui.step1_load_pattern_radio.isChecked():
+            pattern = '*'+self.ui.step1_importpattern_lineedit.text()
         self.ui.extension = self.get_extension()
         self.ui.data_type = self.get_data_type()
         self.ui.list_eegs = find_data.find_eeg(self.ui.input_folder, self.ui.extension, pattern)
@@ -159,15 +187,8 @@ class MainMicrostateWindow(QMainWindow):
     def reset_selected(self):
         self.ui.step0_selectedfiles_list.clear()
         self.ui.step1_savedir_lineedit.clear()
-        self.ui.foldername_preprocessed_data = ""
-        self.ui.list_eegs = []
-        self.listoffiles = []
-        self.lengthoffiles = []
-        self.n_maps = None
         self.done_preprocessing = False
         self.done_clustering = False
-        self.done_feature_extraction = False
-
 
     def open_exploreraw_dialog(self):
         self.RawVisualizationDialog.extension = self.ui.extension
@@ -181,8 +202,8 @@ class MainMicrostateWindow(QMainWindow):
     def open_preprocessing_dialog(self):
 
         if self.ui.step1_import_preprocessed_radio.isChecked():
-            self.ui.save_preprocessed_path = QFileDialog.getExistingDirectory(
-                self, "Select the folder containing preprocessed folder and config file")
+            fname = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
+            self.ui.save_preprocessed_path = fname
 
             if not self.ui.step1_savedir_lineedit.text():
                 self.ui.save_dir = self.ui.save_preprocessed_path
@@ -257,21 +278,28 @@ class MainMicrostateWindow(QMainWindow):
         if self.use_raw_data:
             self.ui.step1_load_preprocess_button.setText("Preprocess Raw Data")
             self.ui.step1_importformat_combobox.setEnabled(True)
+            self.ui.step1_load_all_radio.setEnabled(True)
+            self.ui.step1_load_pattern_radio.setEnabled(True)
             self.ui.step1_importpattern_lineedit.setEnabled(True)
             self.ui.step1_import_continuous_radio.setEnabled(True)
             self.ui.step1_import_epoched_radio.setEnabled(True)
             self.ui.step1_importraw_button.setEnabled(True)
+            if self.ui.step1_load_all_radio.isChecked():
+                self.ui.step1_importpattern_lineedit.setDisabled(True)
+            if self.ui.step1_load_pattern_radio.isChecked():
+                self.ui.step1_importpattern_lineedit.setEnabled(True)
 
         if self.use_preprocessed_data:
             self.ui.step1_load_preprocess_button.setText("Load Preprocessed Data")
             self.ui.step1_importformat_combobox.setDisabled(True)
+            self.ui.step1_load_all_radio.setDisabled(True)
+            self.ui.step1_load_pattern_radio.setDisabled(True)
             self.ui.step1_importpattern_lineedit.setDisabled(True)
             self.ui.step1_import_continuous_radio.setDisabled(True)
             self.ui.step1_import_epoched_radio.setDisabled(True)
             self.ui.step1_importraw_button.setDisabled(True)
             self.ui.step1_savedir_lineedit.setEnabled(True)
             self.ui.step1_savepath_button.setEnabled(True)
-            self.ui.step1_load_preprocess_button.setEnabled(True)
 
         if self.data_found:
             self.ui.step0_exploreraw_button.setEnabled(True)
@@ -283,7 +311,9 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step1_load_preprocess_button.setDisabled(True)
         else:
             self.ui.step0_exploreraw_button.setDisabled(True)
-            if self.use_raw_data:
+            if self.use_preprocessed_data:
+                self.ui.step1_load_preprocess_button.setEnabled(True)
+            else:
                 self.ui.step1_load_preprocess_button.setDisabled(True)
 
         if self.done_preprocessing:
@@ -292,12 +322,21 @@ class MainMicrostateWindow(QMainWindow):
                                                                "background-color : green;"
                                                                "}")
 
+            self.ui.step2_save_clustering_checkbox.setEnabled(True)
             self.ui.step2_clustering_title_label.setEnabled(True)
             self.ui.step2_clustermethod_combo_label.setEnabled(True)
             self.ui.step2_clustermethod_combobox.setEnabled(True)
             self.ui.step2_numberofmaps_label.setEnabled(True)
             self.ui.step2_auto_numberofmaps_radio.setEnabled(True)
             self.ui.step2_user_numberofmaps_radio.setEnabled(True)
+            if self.ui.step2_auto_numberofmaps_radio.isChecked():
+                self.ui.step2_user_numberofmaps_input.setDisabled(True)
+            if self.ui.step2_user_numberofmaps_radio.isChecked():
+                self.ui.step2_user_numberofmaps_input.setEnabled(True)
+            if self.ui.step2_smoothgfp_checkbox.isChecked():
+                self.ui.step2_kernel_size_input.setEnabled(True)
+            else:
+                self.ui.step2_kernel_size_input.setDisabled(True)
             self.ui.step2_numberofrepeats_label.setEnabled(True)
             self.ui.step2_user_numberofrepeats_input.setEnabled(True)
             self.ui.step2_other_label.setEnabled(True)
@@ -312,8 +351,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_kernel_size_label.setEnabled(True)
             self.ui.step2_kernel_size_input.setEnabled(True)
             self.ui.step2_performclustering_label.setEnabled(True)
-            self.ui.step2_separate_performclustering_radio.setEnabled(True)
-            self.ui.step2_concat_performclustering_radio.setEnabled(True)
             self.ui.step2_clustering_button.setEnabled(True)
         else:
             self.ui.step1_preprocessed_led_radio.setStyleSheet("QRadioButton::indicator"
@@ -326,6 +363,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_numberofmaps_label.setDisabled(True)
             self.ui.step2_auto_numberofmaps_radio.setDisabled(True)
             self.ui.step2_user_numberofmaps_radio.setDisabled(True)
+            self.ui.step2_user_numberofmaps_input.setDisabled(True)
             self.ui.step2_numberofrepeats_label.setDisabled(True)
             self.ui.step2_user_numberofrepeats_input.setDisabled(True)
             self.ui.step2_other_label.setDisabled(True)
@@ -340,18 +378,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_kernel_size_label.setDisabled(True)
             self.ui.step2_kernel_size_input.setDisabled(True)
             self.ui.step2_performclustering_label.setDisabled(True)
-            self.ui.step2_separate_performclustering_radio.setDisabled(True)
-            self.ui.step2_concat_performclustering_radio.setDisabled(True)
             self.ui.step2_clustering_button.setDisabled(True)
 
-        if self.ui.step2_auto_numberofmaps_radio.isChecked():
-            self.ui.step2_user_numberofmaps_input.setDisabled(True)
-        if self.ui.step2_user_numberofmaps_radio.isChecked():
-            self.ui.step2_user_numberofmaps_input.setEnabled(True)
-        if self.ui.step2_smoothgfp_checkbox.isChecked():
-            self.ui.step2_kernel_size_input.setEnabled(True)
-        else:
-            self.ui.step2_kernel_size_input.setDisabled(True)
+
 
         METHOD = self.step2_clustermethod_combobox.currentText()
         if METHOD == "K-MEANS":
@@ -383,15 +412,12 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_visualize_clustering_button.setEnabled(True)
             self.ui.step3_features_title_label.setEnabled(True)
             self.ui.step3_featurestoextract_label.setEnabled(True)
-            self.ui.step3_featuresettings_label.setEnabled(True)
             self.ui.step3_outputformats_label.setEnabled(True)
             self.ui.step3_coverage_featurestoextract_checkbox.setEnabled(True)
             self.ui.step3_foc_featurestoextract_checkbox.setEnabled(True)
             self.ui.step3_mmd_featurestoextract_checkbox.setEnabled(True)
             self.ui.step3_gev_featurestoextract_checkbox.setEnabled(True)
             self.ui.step3_tp_featurestoextract_checkbox.setEnabled(True)
-            self.ui.step3_save_segmentation_checkbox.setEnabled(True)
-            self.ui.step3_save_maps_checkbox.setEnabled(True)
             self.ui.step3_save_transitions_checkbox.setEnabled(True)
             self.ui.step3_outputformats_combobox.setEnabled(True)
             self.ui.step3_extractfeatures_button.setEnabled(True)
@@ -403,15 +429,12 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_visualize_clustering_button.setDisabled(True)
             self.ui.step3_features_title_label.setDisabled(True)
             self.ui.step3_featurestoextract_label.setDisabled(True)
-            self.ui.step3_featuresettings_label.setDisabled(True)
             self.ui.step3_outputformats_label.setDisabled(True)
             self.ui.step3_coverage_featurestoextract_checkbox.setDisabled(True)
             self.ui.step3_foc_featurestoextract_checkbox.setDisabled(True)
             self.ui.step3_mmd_featurestoextract_checkbox.setDisabled(True)
             self.ui.step3_gev_featurestoextract_checkbox.setDisabled(True)
             self.ui.step3_tp_featurestoextract_checkbox.setDisabled(True)
-            self.ui.step3_save_segmentation_checkbox.setDisabled(True)
-            self.ui.step3_save_maps_checkbox.setDisabled(True)
             self.ui.step3_save_transitions_checkbox.setDisabled(True)
             self.ui.step3_outputformats_combobox.setDisabled(True)
             self.ui.step3_extractfeatures_button.setDisabled(True)
@@ -435,17 +458,16 @@ class MainMicrostateWindow(QMainWindow):
         # DATA = INPUT_DATA #from previous window
         # print(DATA.shape)
 
-        FOLDER = os.path.join(self.ui.save_preprocessed_path, "preprocessed_data")
+        FOLDER = self.ui.save_preprocessed_path
         print(FOLDER)
 
         # Concatenate data
-        if self.step2_concat_performclustering_radio.isChecked():
-            CONCATENATE = True
-            DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(
-                FOLDER, self.ui.save_dir)
+        CONCATENATE = True
+        DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(
+            FOLDER, self.ui.save_dir)
 
-            self.listoffiles = FILENAMES
-            self.lengthoffiles = LENGTH_DATA
+        self.listoffiles = FILENAMES
+        self.lengthoffiles = LENGTH_DATA
 
         if self.ui.step2_smoothgfp_checkbox.isChecked():
             SMOOTHING = True
@@ -462,21 +484,17 @@ class MainMicrostateWindow(QMainWindow):
 
         METHOD = self.ui.step2_clustermethod_combobox.currentText()
         print(METHOD)
-        # modify
-        if self.ui.step2_auto_numberofmaps_radio.isChecked():
-            CLUSTERS = "AUTO"
-            # N_STATES = clustering_functions.number_of_clusters(MAPS)
-        elif self.ui.step2_user_numberofmaps_radio.isChecked():
-            CLUSTERS = "USER"
-            # N_STATES = int(self.SettingsWindow.nmaps.text())*2
-        N_STATES = int(self.ui.step2_user_numberofmaps_input.text())
-        print(N_STATES)
-        self.n_maps = int(N_STATES / 2)
 
         TOLERANCE = float(self.ui.step2_stopcondition_input.text())
         print(TOLERANCE)
 
         if METHOD == "Mini Batch K-MEANS":
+
+            # modify
+            if self.ui.step2_user_numberofmaps_radio.isChecked():
+                CLUSTERS = "USER"
+                N_STATES = int(self.ui.step2_user_numberofmaps_input.text())
+                print(N_STATES)
 
             best_maps, final_segmentation, gev = clustering_minibatch(
                 FOLDER,
@@ -485,12 +503,21 @@ class MainMicrostateWindow(QMainWindow):
                 N_STATES,
                 INITIALIZER,
                 TOLERANCE)
-            METRIC = ""
-            REPEAT = ""
+
 
         else:
 
             MAPS, PEAKS = _pre_clustering(DATA, Fs, SMOOTHING_KERNEL)
+
+            # modify
+            if self.ui.step2_auto_numberofmaps_radio.isChecked():
+                CLUSTERS = "AUTO"
+                N_STATES = number_of_clusters(MAPS)
+                print('Using Elbow method to find the optimal number of microstate maps')
+            elif self.ui.step2_user_numberofmaps_radio.isChecked():
+                CLUSTERS = "USER"
+                N_STATES = int(self.ui.step2_user_numberofmaps_input.text())
+            print(N_STATES)
 
             INITIAL_CENTERS = initialize_centers(
                 DATA,
@@ -499,7 +526,6 @@ class MainMicrostateWindow(QMainWindow):
                 N_STATES,
                 INITIALIZER)
             print(INITIAL_CENTERS.shape)
-
 
             METRIC = self.ui.step2_other_options_combobox.currentText()
             print(METRIC)
@@ -517,6 +543,25 @@ class MainMicrostateWindow(QMainWindow):
                 REPEAT,
                 TOLERANCE,
                 METRIC)
+
+        if self.ui.step2_save_clustering_checkbox.isChecked():
+            save_raw_path = os.path.join(self.ui.save_dir, 'raw_features')
+            if not os.path.exists(save_raw_path):
+                os.makedirs(save_raw_path)
+            # Save Maps
+            with open(os.path.join(FOLDER, 'preprocessed_data', 'EEG_INFO.pickle'), 'rb') as p:
+                eeg_info = pickle.load(p)
+            save_name = os.path.join(save_raw_path, 'microstate_maps')
+            maps_df = pd.DataFrame(best_maps.T, index=eeg_info.ch_names)
+            maps_df.to_csv(save_name + '.csv')
+            # Save Segmentation
+            time = np.arange(0, (1000 / int(Fs)) * len(final_segmentation), (1000 / int(Fs)))
+            segmentation_df = pd.DataFrame(final_segmentation,
+                                           columns=['segmentation'],
+                                           index=time)
+            save_name = os.path.join(self.ui.save_dir, 'raw_features',
+                                     'raw_segmentation')
+            segmentation_df.to_csv(save_name + '.csv')
 
         # self.logclustering.append("Smoothing: "+str(SMOOTHING))
         # self.logclustering.append("Clustering Method: "+str(METHOD))
@@ -536,7 +581,7 @@ class MainMicrostateWindow(QMainWindow):
         LENGTH_DATA_save = ','.join(map(str, LENGTH_DATA))
 
         config.set('step2', 'clustering_method', METHOD)
-        config.set('step2', 'option', METRIC)
+        #config.set('step2', 'option', METRIC)
         config.set('step2', 'choose_number_of_maps', str(CLUSTERS))
         config.set('step2', 'number_of_maps', str(N_STATES))
         config.set('step2', 'initializer', INITIALIZER)
@@ -545,7 +590,7 @@ class MainMicrostateWindow(QMainWindow):
         config.set('step2', 'tolerance', str(TOLERANCE))
         config.set('step2', 'concatenate_data', str(CONCATENATE))
         config.set('step2', 'length_data', LENGTH_DATA_save)
-        config.set('step2', 'number_of_repeats', str(REPEAT))
+        #config.set('step2', 'number_of_repeats', str(REPEAT))
         with open(config_file, 'w+') as f:
             config.write(f)
 
@@ -608,19 +653,12 @@ class MainMicrostateWindow(QMainWindow):
         LengthOfFiles = self.lengthoffiles
         Extracted_Maps = self.final_maps
 
-        if self.ui.step3_save_segmentation_checkbox.isChecked():
-            save_segmentation = True
-        else:
-            save_segmentation = False
-        if self.ui.step3_save_maps_checkbox.isChecked():
-            save_maps = True
-        else:
-            save_maps = False
         if self.ui.step3_save_transitions_checkbox.isChecked():
             save_transitions = True
         else:
             save_transitions = False
-
+        save_maps = True
+        save_segmentation = True
         extract_features_functions.save_raw_results(ListOfFiles, LengthOfFiles, Fs,
                                                     save_segmentation, Segmentation,
                                                     save_maps, Extracted_Maps,
@@ -630,7 +668,7 @@ class MainMicrostateWindow(QMainWindow):
                                                     saveformat, self.ui.save_raw_path)
 
         '''
-        if self.ui.step3_save_segmentation_checkbox.isChecked():
+        if self.ui.step2_save_clustering_checkbox.isChecked():
             if saveformat == 'csv':
                 with open(os.path.join(self.ui.foldername_preprocessed_data,"Segmentation.csv"), "w") as f:
                     write = csv.writer(f)
