@@ -23,6 +23,7 @@ from fnmatch import fnmatch
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.signal import find_peaks
 from matplotlib import pyplot as plt
+from itertools import groupby
 
 from pyclustering.cluster import kmeans, xmeans, bsas, clarans, mbsas, optics, rock, elbow
 from pyclustering.utils.metric import distance_metric, type_metric
@@ -34,7 +35,7 @@ from functions import modified_kmeans
 
 
 def eegInfo(folder):
-    with open(os.path.join(folder,"EEG_INFO.pickle"), 'rb') as f:
+    with open(os.path.join(folder, "preprocessed_data", "EEG_INFO.pickle"), 'rb') as f:
         info = pickle.load(f)
     return info
     
@@ -88,7 +89,7 @@ def plot_maps(maps, info):
         plt.title('%d' % i)
 
 
-def number_of_clusters(maps, cmin=4, cmax=20):
+def number_of_clusters(maps, cmin=2, cmax=10):
     # create instance of Elbow method using C value from 2 to 10.
     elbow_instance = elbow.elbow(maps, cmin, cmax)
     # process input data and obtain results of analysis
@@ -162,7 +163,7 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
                 METRIC = type_metric.CHEBYSHEV
             elif metric == 'Minkowski':
                 METRIC = type_metric.MINKOWSKI
-            clustering_instance = kmeans.kmeans(maps, initial_centers,
+            clustering_instance = kmeans.kmeans(np.abs(maps), initial_centers,
                                          tolerance=tolerance, itermax=100,
                                          metric=distance_metric(METRIC))
         
@@ -171,24 +172,24 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
                 CRITERION = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
             elif metric == 'Minimum Noiseless Description Length':
                 CRITERION = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH 
-            clustering_instance = xmeans.xmeans(maps, initial_centers, n_states,
+            clustering_instance = xmeans.xmeans(np.abs(maps), initial_centers, n_states,
                                  tolerance=tolerance, criterion=CRITERION)
         elif method == 'BSAS':
-            clustering_instance = bsas.bsas(maps, n_states, tolerance);
+            clustering_instance = bsas.bsas(np.abs(maps), n_states, tolerance);
         elif method == 'CLARANS':
-            clustering_instance = clarans.clarans(maps, n_states, 100, 10);
+            clustering_instance = clarans.clarans(np.abs(maps), n_states, 100, 10);
         elif method == 'MBSAS':
-            clustering_instance = mbsas.mbsas(maps, n_states, tolerance);
+            clustering_instance = mbsas.mbsas(np.abs(maps), n_states, tolerance);
         elif method == 'OPTICS':
-            clustering_instance = optics.optics(maps, 2.0, 3,
+            clustering_instance = optics.optics(np.abs(maps), 2.0, 3,
                                          amount_of_clusters=n_states);
         elif method == 'ROCK':
-            clustering_instance = rock.rock(maps, 1.0, n_states);
+            clustering_instance = rock.rock(np.abs(maps), 1.0, n_states);
         
         
         for r in range(repeat):
             print('\nClustering: ', r+1)
-            print('Number of Microstate Maps: ', int(n_states/2))
+            print('Number of Microstate Maps: ', int(n_states))
             
             
             centers = np.zeros((n_states, n_channels))
@@ -227,7 +228,19 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
         
         activation = np.array(best_maps).dot(data)
         final_segmentation = np.argmax(np.abs(activation), axis=0)  
-    
+        '''
+        # remove isolated segments
+        count_dups = [sum(1 for _ in group) for _, group in groupby(final_segmentation)]
+        for C in range(len(count_dups)):
+            if count_dups[C] < 2:
+                print(100*C/len(count_dups))
+                start = int(np.sum(count_dups[0:C]))
+                stop = int(start + count_dups[C])
+                if C == 0:
+                    final_segmentation[start:stop] = final_segmentation[stop + 1]
+                else:
+                    final_segmentation[start:stop] = final_segmentation[start - 1]
+        '''
     return best_maps, final_segmentation, best_gev
 
 
@@ -256,7 +269,7 @@ def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance
         data = np.asarray(data)
         maps, peaks = _pre_clustering(data, fs, smoothing)
         
-        minibatchk = minibatchk.partial_fit(maps)
+        minibatchk = minibatchk.partial_fit(np.abs(maps))
     
     best_maps = minibatchk.cluster_centers_
     final_segmentation = minibatchk.labels_
