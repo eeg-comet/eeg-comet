@@ -35,7 +35,10 @@ from functions import modified_kmeans
 
 
 def eegInfo(folder):
-    with open(os.path.join(folder, "preprocessed_data", "EEG_INFO.pickle"), 'rb') as f:
+    for dirpath, dirnames, filenames in os.walk(folder):
+        for filename in [f for f in filenames if f.startswith("EEG_INFO")]:
+            eegInfo_path = os.path.join(dirpath, filename)
+    with open(eegInfo_path, 'rb') as f:
         info = pickle.load(f)
     return info
     

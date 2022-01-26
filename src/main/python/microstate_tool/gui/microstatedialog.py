@@ -72,18 +72,18 @@ class MicrostateDialog(QDialog):
     def plot_maps(self, maps, gev, info):
         
         # Set the Layout
-        self.Layout0 = QVBoxLayout()
-        self.Layout1 = QHBoxLayout()
-        self.Layout2 = QHBoxLayout()
-        self.Layout3 = QVBoxLayout()
+        Layout0 = QVBoxLayout()
+        Layout1 = QHBoxLayout()
+        Layout2 = QHBoxLayout()
+        Layout3 = QVBoxLayout()
         
-        self.Layout0.addWidget(self.toolbar)
-        self.Layout0.addWidget(self.canvas)
+        Layout0.addWidget(self.toolbar)
+        Layout0.addWidget(self.canvas)
         
         for i in range(maps.shape[0]):
             exec(f'self.microlabel{i} = QLineEdit(self)')
             microlabel_attr = getattr(self, "microlabel{}".format(i))
-            self.Layout1.addWidget(microlabel_attr)
+            Layout1.addWidget(microlabel_attr)
             microlabel_attr.setAlignment(QtCore.Qt.AlignCenter)
             regex = QtCore.QRegExp("[a-z-A-Z]")
             validator = QtGui.QRegExpValidator(regex, microlabel_attr)
@@ -93,17 +93,17 @@ class MicrostateDialog(QDialog):
             microlabel_attr.setMaxLength(1)
             microlabel_attr.setFixedWidth(40)
             
-        self.Layout2.addWidget(self.label)
-        self.Layout2.addWidget(self.labelgev)
+        Layout2.addWidget(self.label)
+        Layout2.addWidget(self.labelgev)
         
-        self.Layout3.addWidget(self.manual_labeling_button)
-        self.Layout3.addWidget(self.auto_labeling_button)
-        self.Layout3.addWidget(self.finish_button)
+        Layout3.addWidget(self.manual_labeling_button)
+        Layout3.addWidget(self.auto_labeling_button)
+        Layout3.addWidget(self.finish_button)
         
-        self.Layout0.addLayout(self.Layout1)
-        self.Layout0.addLayout(self.Layout2)
-        self.Layout0.addLayout(self.Layout3)
-        self.setLayout(self.Layout0)
+        Layout0.addLayout(Layout1)
+        Layout0.addLayout(Layout2)
+        Layout0.addLayout(Layout3)
+        self.setLayout(Layout0)
         
         self.n_maps = maps.shape[0]
         maps = np.array(maps)
