@@ -209,7 +209,6 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
 
-
     def preprocess_data(self):
 
         self.save_preprocessed_path = os.path.join(self.save_dir, 'preprocessed_data')
@@ -262,7 +261,7 @@ class NewStudyWindow(QDialog):
                 list_eegs_save = ','.join(map(str, list_eegs))
                 # save config
                 config = ConfigParser()
-                config_file = os.path.join(self.save_dir, 'config.ini')
+                config_file = os.path.join(self.save_dir, 'log.ini')
                 if os.path.isfile(config_file):
                     os.remove(config_file)
                 config.read(config_file)
@@ -282,7 +281,6 @@ class NewStudyWindow(QDialog):
                     config.write(f)
 
                 self.ui.close()
-
 
 
     def plot_CHANNELS(self):

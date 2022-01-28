@@ -10,8 +10,8 @@ import os.path
 from PyQt5 import QtGui, QtCore
 
 from PyQt5.QtWidgets import QDialog, QLabel, QPushButton, QLineEdit
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
-
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QSizePolicy
+from configparser import ConfigParser
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
@@ -52,16 +52,22 @@ class MicrostateDialog(QDialog):
         # Labeling Button
         self.manual_labeling_button = QPushButton(self)
         self.manual_labeling_button.setText("manual labeling")
-        self.manual_labeling_button.setFixedHeight(50)
-        
+        self.manual_labeling_button.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Expanding)
+
         self.auto_labeling_button = QPushButton(self)
         self.auto_labeling_button.setText("automatic labeling")
-        self.auto_labeling_button.setFixedHeight(50)
-        
+        self.auto_labeling_button.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Expanding)
+
         self.finish_button = QPushButton(self)
         self.finish_button.setText("save labels")
-        self.finish_button.setFixedHeight(50)
-        
+        self.finish_button.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Expanding)
+
         self.labelgev = QLabel(self)
         
         self.label = QLabel(self)
@@ -124,8 +130,17 @@ class MicrostateDialog(QDialog):
             #self.figure.savefig(str(i)+'.png', bbox_inches='tight', dpi=200)
 
         self.labelgev.setText(str(gev))
-        self.labelgev.setFixedWidth(300)
-        
+        self.labelgev.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Expanding)
+        # save config
+        config = ConfigParser()
+        config_file = os.path.join(self.save_dir, 'log.ini')
+        config.read(config_file)
+        config.set('step2', 'gev', str(gev))
+        with open(config_file, 'w+') as f:
+            config.write(f)
+
         self.canvas.draw()
     
     def manual_micro_label(self):
@@ -134,6 +149,14 @@ class MicrostateDialog(QDialog):
             self.micro_labels.append(microlabel_attr.text())
         self.manual_labeling_button.setStyleSheet("background-color: green")
         self.micro_labeled = True
+        # save config
+        config = ConfigParser()
+        config_file = os.path.join(self.save_dir, 'log.ini')
+        config.read(config_file)
+        str_micro_labels = ','.join(map(str, self.micro_labels))
+        config.set('step2', 'micro_labels', str_micro_labels)
+        with open(config_file, 'w+') as f:
+            config.write(f)
         #ClusteringWindow.micro_labels = self.micro_labels
         #self.close()
     

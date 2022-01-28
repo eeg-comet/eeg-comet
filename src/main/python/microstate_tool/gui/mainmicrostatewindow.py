@@ -149,7 +149,7 @@ class MainMicrostateWindow(QMainWindow):
         self.save_dir = self.ui.save_preprocessed_path
         # load config
         config = ConfigParser()
-        config_file = os.path.join(self.save_dir, 'config.ini')
+        config_file = os.path.join(self.save_dir, 'log.ini')
         config.read(config_file)
         study_name = config.get('step1', 'study_name')
         self.ui.step0_study_name_mainwin_lineedit.setText(study_name)
@@ -284,7 +284,9 @@ class MainMicrostateWindow(QMainWindow):
     def do_clustering(self):
 
         # Fs = 250 #from previous window
-        Fs = self.ui.NewStudyWindow.downsamp_freq_input.text()
+        if self.downsample_data:
+            Fs = self.sample_rate
+        #Fs = self.ui.NewStudyWindow.downsamp_freq_input.text()
         print(Fs)
         # DATA = INPUT_DATA #from previous window
         # print(DATA.shape)
@@ -410,13 +412,14 @@ class MainMicrostateWindow(QMainWindow):
 
         # save config
         config = ConfigParser()
-        config_file = os.path.join(self.save_dir, 'config.ini')
+        config_file = os.path.join(self.save_dir, 'log.ini')
         config.read(config_file)
         if config.has_section('step2'):
+            LENGTH_DATA_save = config.get('step2', 'length_data')
             config.remove_section('step2')
+        else:
+            LENGTH_DATA_save = ','.join(map(str, LENGTH_DATA))
         config.add_section('step2')
-        LENGTH_DATA_save = ','.join(map(str, LENGTH_DATA))
-
         config.set('step2', 'clustering_method', METHOD)
         #config.set('step2', 'option', METRIC)
         config.set('step2', 'choose_number_of_maps', str(CLUSTERS))
@@ -542,7 +545,7 @@ class MainMicrostateWindow(QMainWindow):
 
         # save config
         config = ConfigParser()
-        config_file = os.path.join(self.save_dir, 'config.ini')
+        config_file = os.path.join(self.save_dir, 'log.ini')
         config.read(config_file)
         if config.has_section('step3'):
             config.remove_section('step3')
