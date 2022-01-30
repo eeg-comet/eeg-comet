@@ -65,8 +65,9 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
     INFO['highpass'] = lowcut
     INFO['lowpass'] = highcut
     Fs = INFO['sfreq']
+    sample_rate = Fs
 
-    print(INFO)
+    #print(INFO)
 
     # Filter
     if filter_true:
@@ -81,6 +82,7 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
     if downsample_true:
         if Fs != fs:
             EEG = EEG.resample(fs)
+            sample_rate = fs
             # if datatype == "epoched":
             #    EEG = EEG.resample(fs)
             # else:

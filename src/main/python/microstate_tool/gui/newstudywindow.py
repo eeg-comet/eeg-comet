@@ -222,18 +222,12 @@ class NewStudyWindow(QDialog):
             self.downsample_data = False
             self.sample_rate = ''
 
-        if self.ui.step0_lowcut_freq_input.text() >= self.ui.step0_highcut_freq_input.text():
-            QMessageBox.information(self, "Filter Error",
-                                    "Please modify the filter range!",
-                                    QMessageBox.Ok)
-        else:
-            print("preprocessing data ...")
-            list_eegs = self.list_eegs
-            print(list_eegs)
-
-            eeg_format = self.extension
-            data_type = self.data_type
-
+        if self.ui.step0_filter_option_checkbox.isChecked():
+            self.filter_data = True
+            if self.ui.step0_lowcut_freq_input.text() >= self.ui.step0_highcut_freq_input.text():
+                QMessageBox.information(self, "Filter Error",
+                                        "Please modify the filter range!",
+                                        QMessageBox.Ok)
             if self.ui.step0_fir_filtermethod_radio.isChecked():
                 self.filertmethod = 'fir'
             elif self.ui.step0_iir_filtermethod_radio.isChecked():
@@ -242,41 +236,68 @@ class NewStudyWindow(QDialog):
             self.lowcut_freq = int(self.ui.step0_lowcut_freq_input.text())
             self.highcut_freq = int(self.ui.step0_highcut_freq_input.text())
 
-            self.sample_rate = int(self.ui.step0_downsamp_freq_input.text())
+        else:
+            self.filter_data = False
+            self.filertmethod = ''
+            self.lowcut_freq = ''
+            self.highcut_freq = ''
 
-            for file in list_eegs:
-                self.ui.__progress = preprocess.preprocess_eegs(file, list_eegs,
-                                                                eeg_format,
-                                                                data_type,
-                                                                self.filter_data,
-                                                                self.filertmethod,
-                                                                self.lowcut_freq,
-                                                                self.highcut_freq,
-                                                                self.downsample_data,
-                                                                self.sample_rate,
-                                                                self.save_preprocessed_path)
-                print("progress: ", self.__progress)
-                self.ui.step0_preprocessing_progress.setValue(int(self.__progress))
+        if self.ui.step0_downsamp_option_checkbox.isChecked():
+            self.sample_rate = int(self.ui.step0_downsamp_freq_input.text())
+        else:
+            self.downsample_data = False
+            self.sample_rate = ''
+
+        print("preprocessing data ...")
+        list_eegs = self.list_eegs
+        print(list_eegs)
+
+        eeg_format = self.extension
+        data_type = self.data_type
+
+        for file in list_eegs:
+            self.ui.__progress = preprocess.preprocess_eegs(file, list_eegs,
+                                                            eeg_format,
+                                                            data_type,
+                                                            self.filter_data,
+                                                            self.filertmethod,
+                                                            self.lowcut_freq,
+                                                            self.highcut_freq,
+                                                            self.downsample_data,
+                                                            self.sample_rate,
+                                                            self.save_preprocessed_path)
+            print("progress: ", self.__progress)
+            self.ui.step0_preprocessing_progress.setValue(int(self.__progress))
             if self.__progress == 100:
-                list_eegs_save = ','.join(map(str, list_eegs))
-                # save config
+                # Save settings log
                 config = ConfigParser()
-                config_file = os.path.join(self.save_dir, 'log.ini')
+                config_file = os.path.join(self.save_dir, 'settings_log.ini')
                 if os.path.isfile(config_file):
                     os.remove(config_file)
                 config.read(config_file)
-                config.add_section('step1')
-                config.set('step1', 'study_name', self.ui.step0_study_name_lineedit.text())
-                config.set('step1', 'input_folder', self.ui.step0_input_path_lineedit.text())
-                config.set('step1', 'save_folder', self.save_dir)
-                config.set('step1', 'data_extension', eeg_format)
-                config.set('step1', 'data_type', data_type)
-                config.set('step1', 'list_eegs', list_eegs_save)
-                config.set('step1', 'filter_data', str(self.filter_data))
-                config.set('step1', 'lowcut_freq', str(self.lowcut_freq))
-                config.set('step1', 'highcut_freq', str(self.highcut_freq))
-                config.set('step1', 'downsample_data', str(self.downsample_data))
-                config.set('step1', 'sample_rate', str(self.sample_rate))
+                config.add_section('input_settings')
+                config.set('input_settings', 'study_name', self.ui.step0_study_name_lineedit.text())
+                config.set('input_settings', 'input_folder', self.ui.step0_input_path_lineedit.text())
+                config.set('input_settings', 'save_folder', self.save_dir)
+                config.set('input_settings', 'data_extension', eeg_format)
+                config.set('input_settings', 'data_type', data_type)
+                config.set('input_settings', 'filter_data', str(self.filter_data))
+                config.set('input_settings', 'lowcut_freq', str(self.lowcut_freq))
+                config.set('input_settings', 'highcut_freq', str(self.highcut_freq))
+                config.set('input_settings', 'downsample_data', str(self.downsample_data))
+                config.set('input_settings', 'sample_rate', str(self.sample_rate))
+                with open(config_file, 'w+') as f:
+                    config.write(f)
+
+                # Save data log
+                list_eegs_save = ','.join(map(str, list_eegs))
+                config = ConfigParser()
+                config_file = os.path.join(self.save_dir, 'data_log.ini')
+                if os.path.isfile(config_file):
+                    os.remove(config_file)
+                config.read(config_file)
+                config.add_section('input_data')
+                config.set('input_data', 'list_eegs', list_eegs_save)
                 with open(config_file, 'w+') as f:
                     config.write(f)
 

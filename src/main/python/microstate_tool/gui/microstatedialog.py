@@ -135,9 +135,12 @@ class MicrostateDialog(QDialog):
             QSizePolicy.Expanding)
         # save config
         config = ConfigParser()
-        config_file = os.path.join(self.save_dir, 'log.ini')
+        config_file = os.path.join(self.save_dir, 'data_log.ini')
         config.read(config_file)
-        config.set('step2', 'gev', str(gev))
+        if config.has_section('clustering_results'):
+            config.remove_section('clustering_results')
+        config.add_section('clustering_results')
+        config.set('clustering_results', 'gev', str(gev))
         with open(config_file, 'w+') as f:
             config.write(f)
 
@@ -151,10 +154,10 @@ class MicrostateDialog(QDialog):
         self.micro_labeled = True
         # save config
         config = ConfigParser()
-        config_file = os.path.join(self.save_dir, 'log.ini')
+        config_file = os.path.join(self.save_dir, 'data_log.ini')
         config.read(config_file)
         str_micro_labels = ','.join(map(str, self.micro_labels))
-        config.set('step2', 'micro_labels', str_micro_labels)
+        config.set('clustering_results', 'micro_labels', str_micro_labels)
         with open(config_file, 'w+') as f:
             config.write(f)
         #ClusteringWindow.micro_labels = self.micro_labels

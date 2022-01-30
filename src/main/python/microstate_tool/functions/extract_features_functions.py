@@ -37,7 +37,7 @@ def transition_matrix(segmentation, visualize=False, colormap='Blues'):
 
 def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                      save_maps, maps, micro_labels,
-                     save_transitions, eeg_info_path, saveformat, save_path):
+                     save_transitions, output_path, saveformat, save_path):
     micro_maps = np.unique(segmentation).tolist()
     if segmentation is not None:
         for i in range(len(len_data)):
@@ -82,8 +82,11 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                     tm_df.to_json(save_name + '.json')
 
     if save_maps:
-        with open(os.path.join(eeg_info_path, 'preprocessed_data', 'EEG_INFO.pickle'), 'rb') as p:
-            eeg_info = pickle.load(p)
+        for dirpath, dirnames, filenames in os.walk(output_path):
+            for filename in [f for f in filenames if f.startswith("EEG_INFO")]:
+                eegInfo_path = os.path.join(dirpath, filename)
+        with open(eegInfo_path, 'rb') as f:
+            eeg_info = pickle.load(f)
         save_name = os.path.join(save_path, 'microstate_maps')
         maps_df = pd.DataFrame(maps.T, columns=micro_labels, index=eeg_info.ch_names)
         if saveformat == 'csv':

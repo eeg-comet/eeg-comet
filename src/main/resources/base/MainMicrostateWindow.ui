@@ -402,42 +402,6 @@
               <enum>QLayout::SetMaximumSize</enum>
              </property>
              <item>
-              <widget class="QCheckBox" name="step2_save_clustering_checkbox">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="maximumSize">
-                <size>
-                 <width>16777215</width>
-                 <height>16777215</height>
-                </size>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>11</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Save Raw Clustering Results</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item>
               <widget class="QPushButton" name="step2_clustering_button">
                <property name="enabled">
                 <bool>false</bool>
@@ -1274,7 +1238,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

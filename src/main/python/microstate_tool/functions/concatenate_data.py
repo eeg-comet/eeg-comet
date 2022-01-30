@@ -60,10 +60,10 @@ def concatenate_files(inputfolder, outputfolder):
         catdata = np.asarray(catdata)
         # load config
         config = ConfigParser()
-        config_file = os.path.join(inputfolder, 'log.ini')
+        config_file = os.path.join(inputfolder, 'data_log.ini')
         config.read(config_file)
-        filenames = config.get('step1', 'list_eegs')
-        data_length = config.get('step2', 'length_data')
+        filenames = config.get('input_data', 'list_eegs')
+        data_length = config.get('input_data', 'length_data')
     nchan = catdata.shape[0]
     return catdata, nchan, filenames, data_length
 
