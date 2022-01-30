@@ -38,8 +38,9 @@ def eegInfo(folder):
     for dirpath, dirnames, filenames in os.walk(folder):
         for filename in [f for f in filenames if f.startswith("EEG_INFO")]:
             eegInfo_path = os.path.join(dirpath, filename)
-    with open(eegInfo_path, 'rb') as f:
-        info = pickle.load(f)
+    if os.path.exists(eegInfo_path):
+        with open(eegInfo_path, 'rb') as f:
+            info = pickle.load(f)
     return info
     
 def _corr_vectors(A, B, axis=0):
@@ -54,7 +55,7 @@ def smooth_data(gfp, kernel_size):
     smoothed_data = np.convolve(gfp, kernel, mode='same')
     return smoothed_data
 
-def _pre_clustering(data, fs, smoothing):
+def pre_clustering(data, fs, smoothing):
     # Global Field Potential (GFP)
     gfp = np.std(data, axis=0)
     if smoothing:
@@ -270,7 +271,7 @@ def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance
             a_group_key = list(f.keys())[0]
             data = list(f[a_group_key])
         data = np.asarray(data)
-        maps, peaks = _pre_clustering(data, fs, smoothing)
+        maps, peaks = pre_clustering(data, fs, smoothing)
         
         minibatchk = minibatchk.partial_fit(np.abs(maps))
     

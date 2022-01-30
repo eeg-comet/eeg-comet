@@ -15,7 +15,7 @@ from gui.microstatedialog import MicrostateDialog
 
 
 from functions.concatenate_data import concatenate_files
-from functions.clustering_functions import _pre_clustering, initialize_centers, eegInfo
+from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo
 from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
 from functions import extract_features_functions
 
@@ -169,13 +169,14 @@ class MainMicrostateWindow(QMainWindow):
         for dirpath, dirnames, filenames in os.walk(self.save_dir):
             for filename in [f for f in filenames if f.startswith("EEG_INFO")]:
                 eegInfo_path = os.path.join(dirpath, filename)
+
         with open(eegInfo_path, 'rb') as f:
-            eeg_info = pickle.load(f)
+            self.eeg_info = pickle.load(f)
         if str2bool(self.downsample_data):
             print('downsampling true')
             self.Fs = float(self.sample_rate)
         else:
-            self.Fs = float(eeg_info['sfreq'])
+            self.Fs = float(self.eeg_info['sfreq'])
 
         # Load data log
         config = ConfigParser()
@@ -203,7 +204,6 @@ class MainMicrostateWindow(QMainWindow):
         if config.has_option('clustering_results', 'micro_labels'):
             self.micro_labels = config.get('clustering_results', 'micro_labels')
             self.micro_labels = self.micro_labels.split(",")
-
 
         self.mainwindow_controller()
 
@@ -318,13 +318,10 @@ class MainMicrostateWindow(QMainWindow):
             self.step3_features_title_label.setStyleSheet("background-color: lightgreen")
 
     def do_clustering(self):
-        # DATA = INPUT_DATA #from previous window
-        # print(DATA.shape)
 
         # Concatenate data
         CONCATENATE = True
-        DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(
-            FOLDER, self.save_dir)
+        DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(self.save_dir)
 
         # Save data log
         config = ConfigParser()
@@ -335,13 +332,11 @@ class MainMicrostateWindow(QMainWindow):
             config.remove_option('input_data', 'length_data')
         else:
             LENGTH_DATA_save = ','.join(map(str, LENGTH_DATA))
+            self.listoffiles = FILENAMES
+            self.lengthoffiles = LENGTH_DATA
         config.set('input_data', 'length_data', LENGTH_DATA_save)
         with open(config_file, 'w+') as f:
             config.write(f)
-
-        self.listoffiles = FILENAMES
-        self.lengthoffiles = LENGTH_DATA
-        print(self.lengthoffiles)
 
         if self.ui.step2_smoothgfp_checkbox.isChecked():
             SMOOTHING = True
@@ -371,18 +366,15 @@ class MainMicrostateWindow(QMainWindow):
                 print(N_STATES)
 
             best_maps, final_segmentation, gev = clustering_minibatch(
-                FOLDER,
+                self.input_folder,
                 self.Fs,
                 SMOOTHING_KERNEL,
                 N_STATES,
                 INITIALIZER,
                 TOLERANCE)
 
-
         else:
-
-            MAPS, PEAKS = _pre_clustering(DATA, self.Fs, SMOOTHING_KERNEL)
-
+            MAPS, PEAKS = pre_clustering(DATA, self.Fs, SMOOTHING_KERNEL)
             # modify
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 CLUSTERS = "AUTO"
@@ -422,10 +414,10 @@ class MainMicrostateWindow(QMainWindow):
         if not os.path.exists(save_raw_path):
             os.makedirs(save_raw_path)
         # Save Maps
-        #with open(os.path.join(FOLDER, 'EEG_INFO.pickle'), 'rb') as p:
+        #with open(os.path.join(self.input_folder, 'EEG_INFO.pickle'), 'rb') as p:
         #    eeg_info = pickle.load(p)
         save_name = os.path.join(save_raw_path, 'microstate_maps')
-        maps_df = pd.DataFrame(best_maps.T, index=eeg_info.ch_names)
+        maps_df = pd.DataFrame(best_maps.T, index=self.eeg_info.ch_names)
         maps_df.to_csv(save_name + '.csv')
         # Save Segmentation
         time = np.arange(0, (1000 / int(self.Fs)) * len(final_segmentation), (1000 / int(self.Fs)))
@@ -452,7 +444,7 @@ class MainMicrostateWindow(QMainWindow):
             config.remove_section('clustering_settings')
         config.add_section('clustering_settings')
         config.set('clustering_settings', 'clustering_method', METHOD)
-        #config.set('clustering_settings', 'option', METRIC)
+        config.set('clustering_settings', 'option', METRIC)
         config.set('clustering_settings', 'choose_number_of_maps', str(CLUSTERS))
         config.set('clustering_settings', 'number_of_maps', str(N_STATES))
         config.set('clustering_settings', 'initializer', INITIALIZER)
@@ -460,7 +452,7 @@ class MainMicrostateWindow(QMainWindow):
         config.set('clustering_settings', 'smoothing_kernel_size', str(SMOOTHING_KERNEL))
         config.set('clustering_settings', 'tolerance', str(TOLERANCE))
         config.set('clustering_settings', 'concatenate_data', str(CONCATENATE))
-        #config.set('clustering_settings', 'number_of_repeats', str(REPEAT))
+        config.set('clustering_settings', 'number_of_repeats', str(REPEAT))
         with open(config_file, 'w+') as f:
             config.write(f)
 
@@ -468,10 +460,11 @@ class MainMicrostateWindow(QMainWindow):
         self.final_maps = best_maps
 
         self.MicrostateDialog.save_dir = self.save_dir
-        self.MicrostateDialog.plot_maps(best_maps, gev, eegInfo(FOLDER))
+        self.MicrostateDialog.plot_maps(best_maps, gev, self.eeg_info)
         self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.MicrostateDialog.showMaximized()
         self.done_clustering = True
+        self.use_saved_results = True
 
     def visualize_results(self):
         if self.use_saved_results:

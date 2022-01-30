@@ -12,15 +12,18 @@ from fnmatch import fnmatch
 import h5py
 from configparser import ConfigParser
 
-# input_folder="/home/amin/Encfs/TMSEEG_DATA/EEG-Microstate-Feature-Extraction/test_data/save_folder/"
 
-def concatenate_files(inputfolder, outputfolder):
-    catdata_dir = os.path.join(inputfolder, 'catdata.h5')
-    if not os.path.exists(catdata_dir):
+def concatenate_files(outputfolder):
+
+    # load data log
+    config = ConfigParser()
+    config_file = os.path.join(outputfolder, 'data_log.ini')
+    config.read(config_file)
+    if not config.has_option('input_data', 'concat_data_available'):
         counter = 0
         eeglist = []
         extension = "*.h5"
-        for path, subdirs, files in os.walk(inputfolder):
+        for path, subdirs, files in os.walk(os.path.join(outputfolder, 'preprocessed_data')):
             for name in files:
                 if fnmatch(name, extension):
                     eeglist.append(os.path.join(path, name))
@@ -53,29 +56,21 @@ def concatenate_files(inputfolder, outputfolder):
         print("\nSaving the concatenated data ...")
         with h5py.File(os.path.join(outputfolder, 'catdata.h5'), 'w') as f:
             f.create_dataset('catdata', data=catdata)
+        config.set('input_data', 'concat_data_available', 'True')
+        with open(config_file, 'w+') as f:
+            config.write(f)
+
     else:
+        catdata_dir = os.path.join(outputfolder, 'catdata.h5')
         with h5py.File(catdata_dir, "r") as f:
             a_group_key = list(f.keys())[0]
             catdata = list(f[a_group_key])
         catdata = np.asarray(catdata)
         # load config
         config = ConfigParser()
-        config_file = os.path.join(inputfolder, 'data_log.ini')
+        config_file = os.path.join(outputfolder, 'data_log.ini')
         config.read(config_file)
         filenames = config.get('input_data', 'list_eegs')
         data_length = config.get('input_data', 'length_data')
     nchan = catdata.shape[0]
     return catdata, nchan, filenames, data_length
-
-
-# INPUT_DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(input_folder)
-
-'''
-print(INPUT_DATA.shape)
-# Load Variable
-with open(os.path.join(input_folder,'EEG_INFO.pickle'), 'rb') as f:
-    EEG_INFO = pickle.load(f)
-n_channels = EEG_INFO['nchan']
-Fs = 250
-'''
-
