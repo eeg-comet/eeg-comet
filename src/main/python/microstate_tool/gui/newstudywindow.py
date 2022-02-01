@@ -1,12 +1,7 @@
 import os.path
 from PyQt5 import uic
-import sys
 import shutil
-from PyQt5 import QtCore
-from PyQt5.QtWidgets import QDialog, QFileDialog, QDialog, QMessageBox
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
-from customwidgets.mplwidget import MplWidget
+from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
 from configparser import ConfigParser
 
 from functions import find_data, load_data, preprocess
@@ -21,6 +16,7 @@ class NewStudyWindow(QDialog):
         self.ui = uic.loadUi(context.get_resource("NewStudyWindow.ui"), self)
         
         self.ui.setWindowTitle("New Study - Import Raw Data and Preprocess")
+        self.preprocessing_done = False
 
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_pattern_radio.clicked.connect(self.newstudy_controller)
@@ -38,6 +34,8 @@ class NewStudyWindow(QDialog):
         self.ui.step0_selected_files_list.itemClicked.connect(self.plot_CHANNELS)
         self.ui.step0_selected_files_list.itemClicked.connect(self.plot_PSD)
         self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
+        self.ui.step0_remove_file_button.clicked.connect(self.remove_file)
+        self.ui.step0_clear_files_button.clicked.connect(self.clear_files)
 
 
     def newstudy_controller(self):
@@ -55,14 +53,21 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_button.setEnabled(True)
             if self.ui.step0_selected_files_list.count() == 0:
                 self.data_found = False
+                self.ui.MplWidget_chan.canvas.axes.clear()
+                self.ui.MplWidget_chan.canvas.draw()
+                self.ui.MplWidget_psd.canvas.axes.clear()
+                self.ui.MplWidget_psd.canvas.draw()
             else:
                 self.data_found = True
+
 
         else:
             self.ui.step0_import_raw_button.setDisabled(True)
 
         if self.data_found and self.ui.step0_study_name_lineedit.text() and self.ui.step0_save_path_lineedit.text():
-            self.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
+            self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
+            self.ui.step0_remove_file_button.setEnabled(True)
+            self.ui.step0_clear_files_button.setEnabled(True)
             # Enable Plot Options
             self.ui.rawdata_plot_button.setEnabled(True)
             self.ui.rawdata_show_channel_names_checkbox.setEnabled(True)
@@ -128,7 +133,24 @@ class NewStudyWindow(QDialog):
                     self.ui.step0_downsamp_freq_label.setDisabled(True)
                     self.ui.step0_downsamp_freq_input.setDisabled(True)
                     self.ui.step0_downsamp_hz.setDisabled(True)
-
+        else:
+            # Disable Next Steps
+            self.ui.step0_import_raw_button.setStyleSheet("background-color: light gray")
+            self.ui.step0_remove_file_button.setDisabled(True)
+            self.ui.step0_clear_files_button.setDisabled(True)
+            self.ui.rawdata_plot_button.setDisabled(True)
+            self.ui.rawdata_show_channel_names_checkbox.setDisabled(True)
+            self.ui.rawdata_range_psd_label.setDisabled(True)
+            self.ui.rawdata_range_psd_min_label.setDisabled(True)
+            self.ui.rawdata_range_psd_max_label.setDisabled(True)
+            self.ui.rawdata_range_psd_min.setDisabled(True)
+            self.ui.rawdata_range_psd_max.setDisabled(True)
+            self.ui.rawdata_range_hz1.setDisabled(True)
+            self.ui.rawdata_range_hz2.setDisabled(True)
+            self.ui.step0_no_option_checkbox.setDisabled(True)
+            self.ui.step0_filter_option_checkbox.setDisabled(True)
+            self.ui.step0_downsamp_option_checkbox.setDisabled(True)
+            self.ui.step0_preprocess_data_button.setDisabled(True)
 
     def choose_input(self):
         fname = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
@@ -172,13 +194,14 @@ class NewStudyWindow(QDialog):
         return data_type
 
     def load_raw(self):
+        self.ui.step0_selected_files_list.clear()
         if self.ui.step0_load_all_radio.isChecked():
-            pattern = '*'
+            self.pattern = '*'
         if self.ui.step0_load_pattern_radio.isChecked():
-            pattern = '*'+self.ui.step0_import_pattern_lineedit.text()
+            self.pattern = '*'+self.ui.step0_import_pattern_lineedit.text()
         self.extension = self.get_extension()
         self.data_type = self.get_data_type()
-        self.list_eegs = find_data.find_eeg(self.input_folder, self.extension, pattern)
+        self.list_eegs = find_data.find_eeg(self.input_folder, self.extension, self.pattern)
         for i in range(len(self.list_eegs)):
             self.ui.step0_selected_files_list.addItem(str(self.list_eegs[i]))
         # self.ui.foldername_preprocessed_data = os.path.join(self.ui.input_folder, 'output')
@@ -209,6 +232,17 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
 
+    def remove_file(self):
+        listItems = self.step0_selected_files_list.selectedItems()
+        if not listItems: return
+        for item in listItems:
+            self.step0_selected_files_list.takeItem(self.step0_selected_files_list.row(item))
+        self.newstudy_controller()
+
+    def clear_files(self):
+        self.ui.step0_selected_files_list.clear()
+        self.newstudy_controller()
+
     def preprocess_data(self):
 
         self.save_preprocessed_path = os.path.join(self.save_dir, 'preprocessed_data')
@@ -229,16 +263,16 @@ class NewStudyWindow(QDialog):
                                         "Please modify the filter range!",
                                         QMessageBox.Ok)
             if self.ui.step0_fir_filtermethod_radio.isChecked():
-                self.filertmethod = 'fir'
+                self.filter_method = 'fir'
             elif self.ui.step0_iir_filtermethod_radio.isChecked():
-                self.filertmethod = 'iir'
+                self.filter_method = 'iir'
 
             self.lowcut_freq = int(self.ui.step0_lowcut_freq_input.text())
             self.highcut_freq = int(self.ui.step0_highcut_freq_input.text())
 
         else:
             self.filter_data = False
-            self.filertmethod = ''
+            self.filter_method = ''
             self.lowcut_freq = ''
             self.highcut_freq = ''
 
@@ -256,19 +290,20 @@ class NewStudyWindow(QDialog):
         data_type = self.data_type
 
         for file in list_eegs:
-            self.ui.__progress = preprocess.preprocess_eegs(file, list_eegs,
+            self.progress = preprocess.preprocess_eegs(file, list_eegs,
                                                             eeg_format,
                                                             data_type,
                                                             self.filter_data,
-                                                            self.filertmethod,
+                                                            self.filter_method,
                                                             self.lowcut_freq,
                                                             self.highcut_freq,
                                                             self.downsample_data,
                                                             self.sample_rate,
                                                             self.save_preprocessed_path)
-            print("progress: ", self.__progress)
-            self.ui.step0_preprocessing_progress.setValue(int(self.__progress))
-            if self.__progress == 100:
+            print("progress: ", self.progress)
+            self.ui.step0_preprocessing_progress.setValue(int(self.progress))
+            if self.progress == 100:
+                self.preprocessing_done = True
                 # Save settings log
                 config = ConfigParser()
                 config_file = os.path.join(self.save_dir, 'settings_log.ini')
@@ -278,10 +313,12 @@ class NewStudyWindow(QDialog):
                 config.add_section('input_settings')
                 config.set('input_settings', 'study_name', self.ui.step0_study_name_lineedit.text())
                 config.set('input_settings', 'input_folder', self.ui.step0_input_path_lineedit.text())
+                config.set('input_settings', 'pattern', self.pattern)
                 config.set('input_settings', 'save_folder', self.save_dir)
                 config.set('input_settings', 'data_extension', eeg_format)
                 config.set('input_settings', 'data_type', data_type)
                 config.set('input_settings', 'filter_data', str(self.filter_data))
+                config.set('input_settings', 'filter_method', str(self.filter_method))
                 config.set('input_settings', 'lowcut_freq', str(self.lowcut_freq))
                 config.set('input_settings', 'highcut_freq', str(self.highcut_freq))
                 config.set('input_settings', 'downsample_data', str(self.downsample_data))

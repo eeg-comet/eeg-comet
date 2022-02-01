@@ -21,7 +21,6 @@ import mne
 from matplotlib import pyplot as plt
 from functions.test_classifier import label_micromap
 
-#from windows.ClusteringWindow import ClusteringWindow
 
 class MicrostateDialog(QDialog):
     def __init__(self, parent=None):

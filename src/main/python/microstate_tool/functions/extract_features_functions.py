@@ -14,6 +14,7 @@ import pickle
 from itertools import groupby
 import matplotlib.pyplot as plt
 from functions.clustering_functions import compute_gev
+from functions.lempel_ziv_complexity import lempel_ziv_complexity
 
 
 def transition_matrix(segmentation, visualize=False, colormap='Blues'):
@@ -34,6 +35,32 @@ def transition_matrix(segmentation, visualize=False, colormap='Blues'):
         plt.show()
     return trans_mat
 
+# remove consecutive duplicates from string
+def remove_consec_duplicates(s):
+    new_s = ""
+    prev = ""
+    for c in s:
+        if len(new_s) == 0:
+            new_s += c
+            prev = c
+        if c == prev:
+            continue
+        else:
+            new_s += c
+            prev = c
+    return new_s
+
+
+def listToString(s):
+    # initialize an empty string
+    str1 = ""
+
+    # traverse in the string
+    for ele in s:
+        str1 += ele
+
+        # return string
+    return str1
 
 def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                      save_maps, maps, micro_labels,
@@ -102,6 +129,28 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
 def extract_features(filenames, len_data, segmentation, maps, fs, features):
     if segmentation is not None:
         extracted_features_df = pd.DataFrame()
+        if "LZC" in features:
+            for i in range(len(len_data)):
+                if i == 0:
+                    start = 0
+                    stop = len_data[i]
+                    stop_pre = stop
+                else:
+                    start = stop_pre
+                    stop = stop_pre + len_data[i]
+                    stop_pre = stop
+                segment_each_tmp = segmentation[start:stop]
+
+                list_segment_each_tmp = listToString(segment_each_tmp)
+                list_unique_segment_each = remove_consec_duplicates(list_segment_each_tmp)
+                # number of transitioning sequence
+                transitioning_sequence = len(list_unique_segment_each)
+                if i == 0:
+                    min_transitioning_sequence = transitioning_sequence
+                else:
+                    if transitioning_sequence < min_transitioning_sequence:
+                        min_transitioning_sequence = transitioning_sequence
+
         for i in range(len(len_data)):
             if i == 0:
                 start = 0
@@ -159,9 +208,17 @@ def extract_features(filenames, len_data, segmentation, maps, fs, features):
                     headers = np.append(headers, "GEV_" + c)
                     extracted_features = np.append(extracted_features, GEV)
 
+            if "LZC" in features:
+                list_segment_each = listToString(segment_each)
+                transitioning_sequence = remove_consec_duplicates(list_segment_each)
+                LZC = lempel_ziv_complexity(transitioning_sequence[:min_transitioning_sequence])
+                headers = np.append(headers, "LZC")
+                extracted_features = np.append(extracted_features, LZC)
+
             extracted_features_df = extracted_features_df.append(
                 pd.DataFrame(extracted_features.reshape(1, len(extracted_features)),
                              columns=headers.tolist()))
+
     return extracted_features_df
 
 

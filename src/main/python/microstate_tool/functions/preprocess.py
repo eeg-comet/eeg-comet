@@ -6,14 +6,13 @@ Created on Tue Jul 13 09:54:12 2021
 @author: amin
 """
 
-import mne
 import os
 import h5py
 import numpy as np
 import collections
 import pickle
 from functions.load_data import load_eegs
-from scipy.signal import butter, lfilter, resample
+from scipy.signal import butter, lfilter
 
 
 def filter_eeg(data, fs, lowcut, highcut, order):
@@ -119,9 +118,5 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
         pickle.dump(INFO, p)
     progress = 100 * (list_eegs.index(eegfile) + 1) / len(list_eegs)
     return progress
-# def save_preprocessed_eeg(data, filename, save_folder):
-#    name = os.path.basename(filename)
-#    name = os.path.splitext(name)[0]
-#    with h5py.File(save_folder+'/'+name+'.h5','w') as f:
-#        f.create_dataset(name, data=data)
+
 
