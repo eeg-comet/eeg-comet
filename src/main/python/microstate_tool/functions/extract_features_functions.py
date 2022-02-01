@@ -126,7 +126,7 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
             maps_df.to_json(save_name + '.json')
 
 
-def extract_features(filenames, len_data, segmentation, maps, fs, features):
+def extract_features(filenames, len_data, h5files, segmentation, maps, fs, features):
     if segmentation is not None:
         extracted_features_df = pd.DataFrame()
         if "LZC" in features:
@@ -197,8 +197,7 @@ def extract_features(filenames, len_data, segmentation, maps, fs, features):
                             extracted_features = np.append(extracted_features, TP)
 
             if "GEV" in features:
-                with h5py.File(filenames[i], "r") as f:
-                    print("Keys: %s" % f.keys())
+                with h5py.File(h5files[i], "r") as f:
                     a_group_key = list(f.keys())[0]
                     data = list(f[a_group_key])
                 data = np.asarray(data)

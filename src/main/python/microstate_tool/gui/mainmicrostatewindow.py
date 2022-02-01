@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
 from gui.newstudywindow import NewStudyWindow
 from gui.microstatedialog import MicrostateDialog
 
+from functions.find_data import find_eeg
 from functions.concatenate_data import concatenate_files
 from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo
 from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
@@ -493,6 +494,8 @@ class MainMicrostateWindow(QMainWindow):
     def extract_features(self):
         print("Extracting Features ...")
 
+        self.listofh5files = find_eeg(os.path.join(self.save_dir, 'preprocessed_data'), '.h5', '*')
+
         self.ui.save_raw_path = os.path.join(self.save_dir, 'raw_features')
         if not os.path.exists(self.ui.save_raw_path):
             os.makedirs(self.ui.save_raw_path)
@@ -554,7 +557,7 @@ class MainMicrostateWindow(QMainWindow):
         if self.ui.step3_gev_featurestoextract_checkbox.isChecked():
             Features.append("GEV")
 
-        extracted_features_df = extract_features( self.listoffiles, self.lengthoffiles,
+        extracted_features_df = extract_features(self.listoffiles, self.lengthoffiles, self.listofh5files,
                                                   Segmentation, self.final_maps, self.Fs, Features)
 
         # Save Features
