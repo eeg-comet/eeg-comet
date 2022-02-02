@@ -556,7 +556,7 @@ class MainMicrostateWindow(QMainWindow):
 
         Features = []
         if self.ui.step3_coverage_featurestoextract_checkbox.isChecked():
-            Features.append("COVERAGE")
+            Features.append("COV")
         if self.ui.step3_foc_featurestoextract_checkbox.isChecked():
             Features.append("FOC")
         if self.ui.step3_mmd_featurestoextract_checkbox.isChecked():

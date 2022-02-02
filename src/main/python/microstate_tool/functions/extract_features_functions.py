@@ -172,13 +172,13 @@ def extract_features(filenames, len_data, h5files, segmentation, maps, fs, featu
 
             micro_maps = np.unique(segmentation).tolist()
             for c in micro_maps:
-                if "COVERAGE" in features:
+                if "COV" in features:
                     # Coverage of each map per data
-                    COVERAGE = 100 * np.count_nonzero(segment_each == c) / len(segment_each)
-                    headers = np.append(headers, "COVERAGE_" + c)
-                    extracted_features = np.append(extracted_features, COVERAGE)
+                    COV = 100 * np.count_nonzero(segment_each == c) / len(segment_each)
+                    headers = np.append(headers, "COV_" + c)
+                    extracted_features = np.append(extracted_features, COV)
                 if "FOC" in features:
-                    # Frequency of Occurence for each map per second
+                    # Frequency of Occurrence for each map per second
                     FOC = np.count_nonzero(segment_each == c) / fs
                     headers = np.append(headers, "FOC_" + c)
                     extracted_features = np.append(extracted_features, FOC)

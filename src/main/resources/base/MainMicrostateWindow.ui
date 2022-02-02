@@ -1012,7 +1012,7 @@
               </font>
              </property>
              <property name="text">
-              <string>Frequency of Occurence (FOC)</string>
+              <string>Frequency of Occurrence (FOC)</string>
              </property>
              <property name="checked">
               <bool>true</bool>
@@ -1069,7 +1069,7 @@
               </font>
              </property>
              <property name="text">
-              <string>Coverage</string>
+              <string>Coverage (COV)</string>
              </property>
             </widget>
            </item>
@@ -1241,7 +1241,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>
