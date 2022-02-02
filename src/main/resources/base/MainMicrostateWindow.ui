@@ -102,6 +102,23 @@
           </widget>
          </item>
          <item>
+          <widget class="QPushButton" name="step3_label_maps_button">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>12</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Label Microstate Maps</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QPushButton" name="step3_visualize_clustering_button">
            <property name="enabled">
             <bool>false</bool>
@@ -121,6 +138,8 @@
            <property name="font">
             <font>
              <pointsize>12</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
             </font>
            </property>
            <property name="text">
@@ -1222,7 +1241,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
  </buttongroups>
 </ui>

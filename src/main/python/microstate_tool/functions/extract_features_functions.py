@@ -115,7 +115,10 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
         with open(eegInfo_path, 'rb') as f:
             eeg_info = pickle.load(f)
         save_name = os.path.join(save_path, 'microstate_maps')
-        maps_df = pd.DataFrame(maps.T, columns=micro_labels, index=eeg_info.ch_names)
+        if micro_labels != []:
+            maps_df = pd.DataFrame(maps.T, columns=micro_labels, index=eeg_info.ch_names)
+        else:
+            maps_df = pd.DataFrame(maps.T, index=eeg_info.ch_names)
         if saveformat == 'csv':
             maps_df.to_csv(save_name + '.csv')
         elif saveformat == 'pkl':

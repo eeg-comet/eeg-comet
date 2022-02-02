@@ -2,6 +2,8 @@
 
 from configparser import ConfigParser
 import os.path
+import numpy as np
+import pandas as pd
 
 from functions import find_data, preprocess
 from functions.concatenate_data import concatenate_files
@@ -11,7 +13,7 @@ from functions.extract_features_functions import save_raw_results, extract_featu
 
 
 # Input: 'settings_log.ini'
-settings_path = os.path.join('C:\\Users\\amin_\\Documents\\GitHub\\output_test\\test_study',
+settings_path = os.path.join('C:\\Users\\amin_\\Documents\\GitHub\\output_test\\',
                              'settings_log.ini')
 
 # Load Input Settings
@@ -50,6 +52,7 @@ output_format = config.get('features_settings', 'output_format')
 # Find raw EEG files inside the input folder
 list_eegs = find_data.find_eeg(input_folder, extension, pattern)
 # Preprocessing the raw data
+save_preprocessed_path = os.path.join(save_dir, 'preprocessed_data')
 for file in list_eegs:
     progress = preprocess.preprocess_eegs(file, list_eegs,
                                 extension,
@@ -62,8 +65,26 @@ for file in list_eegs:
                                 sample_rate,
                                 save_preprocessed_path)
     print("progress: ", progress)
+
+# Save data log
+list_eegs_save = ','.join(map(str, list_eegs))
+config = ConfigParser()
+config_file = os.path.join(save_dir, 'data_log.ini')
+if os.path.isfile(config_file):
+    os.remove(config_file)
+config.read(config_file)
+config.add_section('input_data')
+config.set('input_data', 'list_eegs', list_eegs_save)
+with open(config_file, 'w+') as f:
+    config.write(f)
+
 # Concatenating the preprocessed data
 DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(save_dir)
+# Save data log
+LENGTH_DATA_save = ','.join(map(str, LENGTH_DATA))
+config.set('input_data', 'length_data', LENGTH_DATA_save)
+with open(config_file, 'w+') as f:
+    config.write(f)
 # Smoothing the input data
 MAPS, PEAKS = pre_clustering(DATA, sample_rate, smoothing_kernel_size)
 # Finding the initial maps
@@ -85,17 +106,37 @@ best_maps, final_segmentation, gev = clustering_func(
                 number_of_repeats,
                 tolerance,
                 option)
-# Saving the results
+config.add_section('clustering_results')
+config.set('clustering_results', 'gev', str(gev))
+with open(config_file, 'w+') as f:
+    config.write(f)
+# Saving the raw results
+save_raw_path = os.path.join(save_dir, 'raw_features')
+if not os.path.exists(save_raw_path):
+    os.makedirs(save_raw_path)
+# Save Segmentation
+time = np.arange(0, (1000 / int(sample_rate)) * len(final_segmentation), (1000 / int(sample_rate)))
+segmentation_df = pd.DataFrame(final_segmentation,
+                               columns=['segmentation'],
+                               index=time)
+save_name = os.path.join(save_raw_path, 'raw_segmentation')
+segmentation_df.to_csv(save_name + '.csv')
+
+micro_labels = []
+
 save_raw_results(FILENAMES, LENGTH_DATA, sample_rate,
                     save_raw_segmentation, final_segmentation,
                     save_microstate_maps, best_maps,
-                    self.micro_labels,
+                    micro_labels,
                     save_transition_matrices,
                     save_dir,
-                    output_format, self.ui.save_raw_path)
+                    output_format, save_raw_path)
 
+
+# Save Features
+'''
 extracted_features_df = extract_features(FILENAMES, LENGTH_DATA,
                                          final_segmentation, best_maps,
                                          sample_rate, features)
-# Save Features
-save_features(extracted_features_df, output_format, self.ui.save_features_path)
+save_features(extracted_features_df, output_format, save_features_path)
+'''

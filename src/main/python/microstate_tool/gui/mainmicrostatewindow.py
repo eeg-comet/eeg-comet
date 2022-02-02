@@ -65,6 +65,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step2_smoothgfp_checkbox.clicked.connect(self.mainwindow_controller)
 
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
+        self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
         self.ui.step3_visualize_clustering_button.clicked.connect(self.visualize_results)
 
         self.ui.step3_extractfeatures_button.clicked.connect(self.extract_features)
@@ -299,6 +300,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.done_clustering:
             self.step2_clustering_title_label.setStyleSheet("background-color: lightgreen")
+            self.ui.step3_label_maps_button.setEnabled(True)
             self.ui.step3_visualize_clustering_button.setEnabled(True)
             self.ui.step3_features_title_label.setEnabled(True)
             self.ui.step3_featurestoextract_label.setEnabled(True)
@@ -314,6 +316,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_outputformats_combobox.setEnabled(True)
             self.ui.step3_extractfeatures_button.setEnabled(True)
         else:
+            self.ui.step3_label_maps_button.setDisabled(True)
             self.ui.step3_visualize_clustering_button.setDisabled(True)
             self.ui.step3_features_title_label.setDisabled(True)
             self.ui.step3_featurestoextract_label.setDisabled(True)
@@ -467,10 +470,11 @@ class MainMicrostateWindow(QMainWindow):
         self.final_segmentation = final_segmentation
         self.final_maps = best_maps
 
-        self.MicrostateDialog.save_dir = self.save_dir
-        self.MicrostateDialog.plot_maps(best_maps, self.gev, self.eeg_info)
-        self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.MicrostateDialog.showMaximized()
+        self.label_maps()
+        #self.MicrostateDialog.save_dir = self.save_dir
+        #self.MicrostateDialog.plot_maps(best_maps, self.gev, self.eeg_info)
+        #self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        #self.MicrostateDialog.showMaximized()
         self.done_clustering = True
         self.use_saved_results = True
         self.ui.step0_log_textbrowser.insertPlainText("\n" + "Global Explained Variance: " + str(self.gev) + "\n")
@@ -479,6 +483,12 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step0_log_textbrowser.insertPlainText(20 * "* " + "\n")
 
         self.mainwindow_controller()
+
+    def label_maps(self):
+        self.MicrostateDialog.save_dir = self.save_dir
+        self.MicrostateDialog.plot_maps(self.final_maps, self.gev, self.eeg_info)
+        self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.MicrostateDialog.showMaximized()
 
     def visualize_results(self):
         if self.use_saved_results:
@@ -518,7 +528,8 @@ class MainMicrostateWindow(QMainWindow):
             Segmentation = self.final_segmentation
         else:
             Segmentation = self.final_segmentation.tolist()
-            self.micro_labels = self.MicrostateDialog.micro_labels
+
+        self.micro_labels = self.MicrostateDialog.micro_labels
 
         Segmentation = list(map(str, Segmentation))
         for i in range(len(self.micro_labels)):
