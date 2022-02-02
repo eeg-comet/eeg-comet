@@ -232,21 +232,17 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
         
         activation = np.array(best_maps).dot(data)
         final_segmentation = np.argmax(np.abs(activation), axis=0)  
-        '''
+
         # remove isolated segments
         count_dups = [sum(1 for _ in group) for _, group in groupby(final_segmentation)]
         for C in range(len(count_dups)):
             if count_dups[C] < 2:
-                print(100*C/len(count_dups))
-                start = int(np.sum(count_dups[0:C]))
-                stop = int(start + count_dups[C])
+                index = int(np.sum(count_dups[0:C]))
                 if C == 0:
-                    final_segmentation[start:stop] = final_segmentation[stop + 1]
+                    final_segmentation[index] = final_segmentation[index + 1]
                 else:
-                    final_segmentation[start:stop] = final_segmentation[start - 1]
-        '''
+                    final_segmentation[index] = final_segmentation[index - 1]
     return best_maps, final_segmentation, best_gev
-
 
 
 def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance):
