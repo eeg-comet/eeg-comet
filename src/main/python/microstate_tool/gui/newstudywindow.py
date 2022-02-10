@@ -198,7 +198,7 @@ class NewStudyWindow(QDialog):
         if self.ui.step0_load_all_radio.isChecked():
             self.pattern = '*'
         if self.ui.step0_load_pattern_radio.isChecked():
-            self.pattern = '*'+self.ui.step0_import_pattern_lineedit.text()
+            self.pattern = '*'+self.ui.step0_import_pattern_lineedit.text()+'*'
         self.extension = self.get_extension()
         self.data_type = self.get_data_type()
         self.list_eegs = find_data.find_eeg(self.input_folder, self.extension, self.pattern)

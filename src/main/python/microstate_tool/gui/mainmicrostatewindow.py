@@ -113,6 +113,11 @@ class MainMicrostateWindow(QMainWindow):
             webbrowser.open(
                 'https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/archive/refs/heads/main.zip')
 
+    def load_config(self, config_file):
+        config = ConfigParser()
+        config.read(config_file)
+        return config
+
     def open_new_study_dialog(self):
         self.ui.step0_log_textbrowser.clear()
         self.ui.step0_study_name_mainwin_lineedit.clear()
@@ -130,9 +135,8 @@ class MainMicrostateWindow(QMainWindow):
         self.save_dir = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
         if self.save_dir != "":
             # Load settings log
-            config = ConfigParser()
             config_file = os.path.join(self.save_dir, 'settings_log.ini')
-            config.read(config_file)
+            config = self.load_config(config_file)
             self.study_name = config.get('input_settings', 'study_name')
             self.ui.step0_study_name_mainwin_lineedit.setText(self.study_name)
             self.ui.step0_log_textbrowser.insertPlainText("Study Name: " + self.study_name + "\n")
@@ -161,9 +165,8 @@ class MainMicrostateWindow(QMainWindow):
                 self.Fs = float(self.eeg_info['sfreq'])
 
             # Load data log
-            config = ConfigParser()
             config_file = os.path.join(self.save_dir, 'data_log.ini')
-            config.read(config_file)
+            config = self.load_config(config_file)
             if config.has_option('input_data', 'list_eegs'):
                 self.list_eegs_str = config.get('input_data', 'list_eegs')
                 self.list_eegs = self.list_eegs_str.split(",")
@@ -343,17 +346,18 @@ class MainMicrostateWindow(QMainWindow):
         DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(self.save_dir)
 
         # Save data log
-        config = ConfigParser()
         config_file = os.path.join(self.save_dir, 'data_log.ini')
-        config.read(config_file)
+        config = self.load_config(config_file)
+
         if config.has_option('input_data', 'length_data'):
             LENGTH_DATA_save = config.get('input_data', 'length_data')
             config.remove_option('input_data', 'length_data')
         else:
             LENGTH_DATA_save = ','.join(map(str, LENGTH_DATA))
-            self.listoffiles = FILENAMES
-            self.lengthoffiles = LENGTH_DATA
+            #self.listoffiles = FILENAMES
+            #self.lengthoffiles = LENGTH_DATA
         config.set('input_data', 'length_data', LENGTH_DATA_save)
+
         with open(config_file, 'w+') as f:
             config.write(f)
 
@@ -448,9 +452,8 @@ class MainMicrostateWindow(QMainWindow):
         segmentation_df.to_csv(save_name + '.csv')
 
         # Save settings log
-        config = ConfigParser()
         config_file = os.path.join(self.save_dir, 'settings_log.ini')
-        config.read(config_file)
+        config = self.load_config(config_file)
         if config.has_section('clustering_settings'):
             config.remove_section('clustering_settings')
         config.add_section('clustering_settings')
@@ -576,9 +579,8 @@ class MainMicrostateWindow(QMainWindow):
         print('finished')
 
         # save config
-        config = ConfigParser()
         config_file = os.path.join(self.save_dir, 'settings_log.ini')
-        config.read(config_file)
+        config = self.load_config(config_file)
         if config.has_section('features_settings'):
             config.remove_section('features_settings')
         config.add_section('features_settings')

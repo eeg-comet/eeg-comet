@@ -57,12 +57,24 @@ def smooth_data(gfp, kernel_size):
 
 def pre_clustering(data, fs, smoothing):
     # Global Field Potential (GFP)
+    if smoothing:
+        for i in range(len(data)):
+            data[i] = smooth_data(data[i], smoothing)
     gfp = np.std(data, axis=0)
+    #test_gfp = gfp[0:500]
+    #plt.plot(test_gfp)
     if smoothing:
         gfp = smooth_data(gfp, smoothing)
+        #test_gfp = gfp[0:500]
+        #plt.plot(test_gfp)
     # Find GFP Peaks
-    min_dist = 50
+
+    min_dist = smoothing
     peaks, _ = find_peaks(gfp, distance=min_dist)
+    #test_peaks_in = peaks <= 500
+    #test_peaks = peaks[test_peaks_in]
+    #plt.plot(test_peaks, test_gfp[test_peaks], "x")
+    #plt.show()
     # Create Maps
     maps = data[:, peaks].T
     maps /= np.linalg.norm(maps, axis=1, keepdims=True)
@@ -101,6 +113,19 @@ def number_of_clusters(maps, cmin=2, cmax=10):
     amount_clusters = elbow_instance.get_amount()   # most probable amount of clusters
     #wce = elbow_instance.get_wce()                  # total within-cluster errors for each K
     return amount_clusters
+
+def plot_gev_maps(data, cmin, cmax, repeat, tolerance, smoothing):
+    # plot gev versus number of maps
+    N, GEV = [], []
+    for n_maps in range(cmin, cmax):
+        best_gev = modified_kmeans.segment(data=data,
+                                           n_states=n_maps,
+                                           n_inits=repeat,
+                                           thresh=tolerance,
+                                           min_peak_dist=smoothing)[2]
+        N = np.append(N, n_maps)
+        GEV = np.append(GEV, best_gev)
+    plt.plot(N, GEV)
 
 def initialize_centers(data, maps, peaks, n_states, initializer):
     # create instance of K-Means algorithm with prepared centers
@@ -149,6 +174,9 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
     #n_channels = data.shape[0]
     
     if method == 'MODIFIED K-MEANS':
+        #
+        #plot_gev_maps(data, 2, 10, repeat, tolerance, smoothing)
+        #
         best_maps, final_segmentation, best_gev = modified_kmeans.segment(data=data,
                                                              n_states=n_states,
                                                              n_inits=repeat,
@@ -167,7 +195,7 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
                 METRIC = type_metric.CHEBYSHEV
             elif metric == 'Minkowski':
                 METRIC = type_metric.MINKOWSKI
-            clustering_instance = kmeans.kmeans(np.abs(maps), initial_centers,
+            clustering_instance = kmeans.kmeans(maps, initial_centers,
                                          tolerance=tolerance, itermax=100,
                                          metric=distance_metric(METRIC))
         
@@ -176,19 +204,19 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
                 CRITERION = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
             elif metric == 'Minimum Noiseless Description Length':
                 CRITERION = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH 
-            clustering_instance = xmeans.xmeans(np.abs(maps), initial_centers, n_states,
+            clustering_instance = xmeans.xmeans(maps, initial_centers, n_states,
                                  tolerance=tolerance, criterion=CRITERION)
         elif method == 'BSAS':
-            clustering_instance = bsas.bsas(np.abs(maps), n_states, tolerance);
+            clustering_instance = bsas.bsas(maps, n_states, tolerance);
         elif method == 'CLARANS':
-            clustering_instance = clarans.clarans(np.abs(maps), n_states, 100, 10);
+            clustering_instance = clarans.clarans(maps, n_states, 100, 10);
         elif method == 'MBSAS':
-            clustering_instance = mbsas.mbsas(np.abs(maps), n_states, tolerance);
+            clustering_instance = mbsas.mbsas(maps, n_states, tolerance);
         elif method == 'OPTICS':
-            clustering_instance = optics.optics(np.abs(maps), 2.0, 3,
+            clustering_instance = optics.optics(maps, 2.0, 3,
                                          amount_of_clusters=n_states);
         elif method == 'ROCK':
-            clustering_instance = rock.rock(np.abs(maps), 1.0, n_states);
+            clustering_instance = rock.rock(maps, 1.0, n_states);
         
         
         for r in range(repeat):
@@ -231,7 +259,7 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
         print('\nBest GEV = ', best_gev)
         
         activation = np.array(best_maps).dot(data)
-        final_segmentation = np.argmax(np.abs(activation), axis=0)  
+        final_segmentation = np.argmax(np.abs(activation), axis=0)
 
         # remove isolated segments
         count_dups = [sum(1 for _ in group) for _, group in groupby(final_segmentation)]
@@ -250,7 +278,7 @@ def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance
     minibatchk = MiniBatchKMeans(n_clusters=n_states,
                                  init=initializer.lower(),
                                  max_iter=100,
-                                 batch_size=100,
+                                 batch_size=10,
                                  verbose=1,
                                  tol=tolerance)
     
