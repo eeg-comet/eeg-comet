@@ -16,7 +16,7 @@ from functions.find_data import find_eeg
 from functions.concatenate_data import concatenate_files
 from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo
 from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
-from functions.extract_features_functions import save_raw_results, extract_features, transition_matrix, save_features
+from functions.extract_features_functions import save_raw_results, extract_features, transition_matrix, save_features, substitude_maps_with_duration
 
 # Settings Class
 class SettingsModel:
@@ -63,6 +63,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step2_auto_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step2_user_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step2_smoothgfp_checkbox.clicked.connect(self.mainwindow_controller)
+        self.ui.step3_remove_segs_checkbox.clicked.connect(self.mainwindow_controller)
 
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
         self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
@@ -308,6 +309,13 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_features_title_label.setEnabled(True)
             self.ui.step3_featurestoextract_label.setEnabled(True)
             self.ui.step3_outputformats_label.setEnabled(True)
+            self.ui.step3_remove_segs_checkbox.setEnabled(True)
+            if self.ui.step3_remove_segs_checkbox.isChecked():
+                self.ui.step3_remove_segs_input.setEnabled(True)
+                self.ui.step3_remove_segs_label.setEnabled(True)
+            elif not self.ui.step3_remove_segs_checkbox.isChecked():
+                self.ui.step3_remove_segs_input.setDisabled(True)
+                self.ui.step3_remove_segs_label.setDisabled(True)
             self.ui.step3_coverage_featurestoextract_checkbox.setEnabled(True)
             self.ui.step3_foc_featurestoextract_checkbox.setEnabled(True)
             self.ui.step3_mmd_featurestoextract_checkbox.setEnabled(True)
@@ -324,6 +332,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_features_title_label.setDisabled(True)
             self.ui.step3_featurestoextract_label.setDisabled(True)
             self.ui.step3_outputformats_label.setDisabled(True)
+            self.ui.step3_remove_segs_checkbox.setDisabled(True)
+            self.ui.step3_remove_segs_input.setDisabled(True)
+            self.ui.step3_remove_segs_label.setDisabled(True)
             self.ui.step3_coverage_featurestoextract_checkbox.setDisabled(True)
             self.ui.step3_foc_featurestoextract_checkbox.setDisabled(True)
             self.ui.step3_mmd_featurestoextract_checkbox.setDisabled(True)
@@ -533,6 +544,9 @@ class MainMicrostateWindow(QMainWindow):
             Segmentation = self.final_segmentation.tolist()
 
         self.micro_labels = self.MicrostateDialog.micro_labels
+
+        if self.ui.step3_remove_segs_checkbox.isChecked():
+            Segmentation = substitude_maps_with_duration(Segmentation, int(int(self.ui.step3_remove_segs_input.text())/(1000/int(self.Fs))))
 
         Segmentation = list(map(str, Segmentation))
         for i in range(len(self.micro_labels)):

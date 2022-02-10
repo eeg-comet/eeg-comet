@@ -62,6 +62,20 @@ def listToString(s):
         # return string
     return str1
 
+
+def substitude_maps_with_duration(segmentation, min_duration):
+    segmentation = np.array(segmentation)
+    count_dups = [sum(1 for _ in group) for _, group in groupby(segmentation)]
+    for C in range(len(count_dups)):
+        if count_dups[C] <= min_duration:
+            start = int(np.sum(count_dups[0:C]))
+            stop = int(start + count_dups[C])
+            if C == 0:
+                segmentation[start:stop] = segmentation[stop + 1]
+            else:
+                segmentation[start:stop] = segmentation[start - 1]
+    return segmentation
+
 def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                      save_maps, maps, micro_labels,
                      save_transitions, output_path, saveformat, save_path):
@@ -131,6 +145,8 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
 
 def extract_features(filenames, len_data, h5files, segmentation, maps, fs, features):
     if segmentation is not None:
+
+
         extracted_features_df = pd.DataFrame()
         if "LZC" in features:
             for i in range(len(len_data)):
@@ -146,7 +162,6 @@ def extract_features(filenames, len_data, h5files, segmentation, maps, fs, featu
 
                 list_segment_each_tmp = listToString(segment_each_tmp)
                 list_unique_segment_each = remove_consec_duplicates(list_segment_each_tmp)
-                list_unique_segment_each = remove_consec_duplicates(list_unique_segment_each)
                 # number of transitioning sequence
                 transitioning_sequence = len(list_unique_segment_each)
                 if i == 0:
