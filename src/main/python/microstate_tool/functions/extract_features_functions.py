@@ -146,6 +146,7 @@ def extract_features(filenames, len_data, h5files, segmentation, maps, fs, featu
 
                 list_segment_each_tmp = listToString(segment_each_tmp)
                 list_unique_segment_each = remove_consec_duplicates(list_segment_each_tmp)
+                list_unique_segment_each = remove_consec_duplicates(list_unique_segment_each)
                 # number of transitioning sequence
                 transitioning_sequence = len(list_unique_segment_each)
                 if i == 0:
