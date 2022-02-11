@@ -181,7 +181,8 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
                                                              n_states=n_states,
                                                              n_inits=repeat,
                                                              thresh=tolerance,
-                                                             min_peak_dist=smoothing)
+                                                             min_peak_dist=smoothing,
+                                                             max_n_peaks=None)
             
     else:
         if method == 'K-MEANS':
