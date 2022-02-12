@@ -360,6 +360,7 @@ class MainMicrostateWindow(QMainWindow):
         config_file = os.path.join(self.save_dir, 'data_log.ini')
         config = self.load_config(config_file)
 
+        '''
         if config.has_option('input_data', 'length_data'):
             LENGTH_DATA_save = config.get('input_data', 'length_data')
             config.remove_option('input_data', 'length_data')
@@ -368,9 +369,10 @@ class MainMicrostateWindow(QMainWindow):
             #self.listoffiles = FILENAMES
             #self.lengthoffiles = LENGTH_DATA
         config.set('input_data', 'length_data', LENGTH_DATA_save)
-
+        
         with open(config_file, 'w+') as f:
             config.write(f)
+        '''
 
         if self.ui.step2_smoothgfp_checkbox.isChecked():
             SMOOTHING = True

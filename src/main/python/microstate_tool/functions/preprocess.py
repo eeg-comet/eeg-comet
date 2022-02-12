@@ -102,6 +102,8 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
     else:
         eeg_data = EEG.get_data()
 
+    length_data = eeg_data.shape[1]
+
     # DATA = EEG[:,:][0]
     # Save data
     name = os.path.basename(eegfile)
@@ -117,6 +119,6 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
     with open(os.path.join(save_folder, 'EEG_INFO.pickle'), 'wb') as p:
         pickle.dump(INFO, p)
     progress = 100 * (list_eegs.index(eegfile) + 1) / len(list_eegs)
-    return progress
+    return progress, length_data
 
 
