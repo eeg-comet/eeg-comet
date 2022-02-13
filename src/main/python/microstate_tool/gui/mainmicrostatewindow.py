@@ -177,7 +177,9 @@ class MainMicrostateWindow(QMainWindow):
                                                               + "\n".join(self.list_eegs)+"\n")
                 self.done_preprocessing = True
                 self.listoffiles = self.list_eegs
-
+            if config.has_option('input_data', 'length_data'):
+                self.lengthoffiles_str = config.get('input_data', 'length_data')
+                self.lengthoffiles = self.lengthoffiles_str.split(",")
             if self.filter_data:
                 self.ui.step0_log_textbrowser.insertPlainText(
                     "\n" + "Filtered data using " + self.filter_method.upper() + " between " +
@@ -195,6 +197,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.done_clustering = True
                 self.lengthoffiles = config.get('input_data', 'length_data')
                 self.lengthoffiles = self.lengthoffiles.split(",")
+                self.lengthoffiles = list(map(float, self.lengthoffiles))
                 self.lengthoffiles = list(map(int, self.lengthoffiles))
                 # Load raw clustering results
                 raw_results_path = os.path.join(self.save_dir, 'raw_features')
@@ -354,26 +357,11 @@ class MainMicrostateWindow(QMainWindow):
 
         # Concatenate data
         CONCATENATE = True
-        DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(self.save_dir)
+        DATA, N_CHANNELS, FILENAMES = concatenate_files(self.save_dir)
 
         # Save data log
         config_file = os.path.join(self.save_dir, 'data_log.ini')
         config = self.load_config(config_file)
-
-        print(LENGTH_DATA)
-        '''
-        if config.has_option('input_data', 'length_data'):
-            LENGTH_DATA_save = config.get('input_data', 'length_data')
-            config.remove_option('input_data', 'length_data')
-        else:
-            LENGTH_DATA_save = ','.join(map(str, LENGTH_DATA))
-            #self.listoffiles = FILENAMES
-            #self.lengthoffiles = LENGTH_DATA
-        config.set('input_data', 'length_data', LENGTH_DATA_save)
-        
-        with open(config_file, 'w+') as f:
-            config.write(f)
-        '''
 
         if self.ui.step2_smoothgfp_checkbox.isChecked():
             SMOOTHING = True
@@ -603,7 +591,7 @@ class MainMicrostateWindow(QMainWindow):
 
         # Save Features
         save_features(extracted_features_df, saveformat, self.ui.save_features_path)
-        print('finished')
+        print('\n*** Finished ***')
 
 
         Features_save = ','.join(map(str, Features))

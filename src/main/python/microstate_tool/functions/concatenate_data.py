@@ -46,11 +46,9 @@ def concatenate_files(outputfolder):
             if counter == 0:
                 filenames = filename
                 catdata = data_tmp
-                data_length = data_len
             else:
                 filenames = np.append(filenames, filename)
                 catdata = np.append(catdata, data_tmp, axis=1)
-                data_length = np.append(data_length, data_len)
             counter += 1
 
         print("\nSaving the concatenated data ...")
@@ -71,6 +69,5 @@ def concatenate_files(outputfolder):
         config_file = os.path.join(outputfolder, 'data_log.ini')
         config.read(config_file)
         filenames = config.get('input_data', 'list_eegs')
-        data_length = config.get('input_data', 'length_data')
     nchan = catdata.shape[0]
-    return catdata, nchan, filenames, data_length
+    return catdata, nchan, filenames
