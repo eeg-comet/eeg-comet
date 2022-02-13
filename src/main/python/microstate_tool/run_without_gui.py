@@ -9,7 +9,7 @@ from functions import find_data, preprocess
 from functions.concatenate_data import concatenate_files
 from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo
 from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
-from functions.extract_features_functions import save_raw_results, extract_features, save_features
+from functions.extract_features_functions import save_raw_results, extract_features, save_features, substitude_maps_with_duration
 
 
 # Input: 'settings_log.ini'
@@ -44,6 +44,7 @@ concatenate_data = config.get('clustering_settings', 'concatenate_data')
 number_of_repeats = int(config.get('clustering_settings', 'number_of_repeats'))
 # Load Features Settings
 features = config.get('features_settings', 'features')
+remove_segments_less_than = int(config.get('features_settings', 'remove_segments_less_than'))
 save_raw_segmentation = config.get('features_settings', 'save_raw_segmentation')
 save_microstate_maps = config.get('features_settings', 'save_microstate_maps')
 save_transition_matrices = config.get('features_settings', 'save_transition_matrices')
@@ -116,6 +117,7 @@ if not os.path.exists(save_raw_path):
     os.makedirs(save_raw_path)
 # Save Segmentation
 time = np.arange(0, (1000 / int(sample_rate)) * len(final_segmentation), (1000 / int(sample_rate)))
+final_segmentation = substitude_maps_with_duration(final_segmentation, int(remove_segments_less_than/(1000/int(sample_rate))))
 segmentation_df = pd.DataFrame(final_segmentation,
                                columns=['segmentation'],
                                index=time)

@@ -360,6 +360,7 @@ class MainMicrostateWindow(QMainWindow):
         config_file = os.path.join(self.save_dir, 'data_log.ini')
         config = self.load_config(config_file)
 
+        print(LENGTH_DATA)
         '''
         if config.has_option('input_data', 'length_data'):
             LENGTH_DATA_save = config.get('input_data', 'length_data')
@@ -520,6 +521,14 @@ class MainMicrostateWindow(QMainWindow):
     def extract_features(self):
         print("Extracting Features ...")
 
+        # save config
+        config_file = os.path.join(self.save_dir, 'settings_log.ini')
+        config = self.load_config(config_file)
+        if config.has_section('features_settings'):
+            config.remove_section('features_settings')
+        config.add_section('features_settings')
+
+
         self.listofh5files = find_eeg(os.path.join(self.save_dir, 'preprocessed_data'), '.h5', '*')
 
         self.ui.save_raw_path = os.path.join(self.save_dir, 'raw_features')
@@ -548,7 +557,9 @@ class MainMicrostateWindow(QMainWindow):
         self.micro_labels = self.MicrostateDialog.micro_labels
 
         if self.ui.step3_remove_segs_checkbox.isChecked():
-            Segmentation = substitude_maps_with_duration(Segmentation, int(int(self.ui.step3_remove_segs_input.text())/(1000/int(self.Fs))))
+            self.remove_short_segments = int(self.ui.step3_remove_segs_input.text())
+            config.set('features_settings', 'remove_segments_less_than', str(self.remove_short_segments))
+            Segmentation = substitude_maps_with_duration(Segmentation, int(self.remove_short_segments/(1000/int(self.Fs))))
 
         Segmentation = list(map(str, Segmentation))
         for i in range(len(self.micro_labels)):
@@ -594,12 +605,7 @@ class MainMicrostateWindow(QMainWindow):
         save_features(extracted_features_df, saveformat, self.ui.save_features_path)
         print('finished')
 
-        # save config
-        config_file = os.path.join(self.save_dir, 'settings_log.ini')
-        config = self.load_config(config_file)
-        if config.has_section('features_settings'):
-            config.remove_section('features_settings')
-        config.add_section('features_settings')
+
         Features_save = ','.join(map(str, Features))
         config.set('features_settings', 'features', Features_save)
         config.set('features_settings', 'save_raw_segmentation', str(save_segmentation))
