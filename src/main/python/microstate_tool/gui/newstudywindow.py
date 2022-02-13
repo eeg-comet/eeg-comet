@@ -290,7 +290,7 @@ class NewStudyWindow(QDialog):
         eeg_format = self.extension
         data_type = self.data_type
 
-        length_data_all = []
+        length_all_data = []
         for file in list_eegs:
             self.progress, length_data = preprocess.preprocess_eegs(file, list_eegs,
                                                             eeg_format,
@@ -302,7 +302,7 @@ class NewStudyWindow(QDialog):
                                                             self.downsample_data,
                                                             self.sample_rate,
                                                             self.save_preprocessed_path)
-            length_data_all = np.append(length_data_all, int(length_data))
+            length_all_data = np.append(length_all_data, int(length_data))
             print("progress: ", self.progress)
 
             self.ui.step0_preprocessing_progress.setValue(int(self.progress))
@@ -339,7 +339,7 @@ class NewStudyWindow(QDialog):
                 config.read(config_file)
                 config.add_section('input_data')
                 config.set('input_data', 'list_eegs', list_eegs_save)
-                length_data_save = ','.join(map(str, length_data_all))
+                length_data_save = ','.join(map(str, length_all_data))
                 config.set('input_data', 'length_data', length_data_save)
                 with open(config_file, 'w+') as f:
                     config.write(f)

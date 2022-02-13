@@ -54,8 +54,10 @@ output_format = config.get('features_settings', 'output_format')
 list_eegs = find_data.find_eeg(input_folder, extension, pattern)
 # Preprocessing the raw data
 save_preprocessed_path = os.path.join(save_dir, 'preprocessed_data')
+
+length_all_data = []
 for file in list_eegs:
-    progress = preprocess.preprocess_eegs(file, list_eegs,
+    progress, length_data = preprocess.preprocess_eegs(file, list_eegs,
                                 extension,
                                 data_type,
                                 filter_data,
@@ -65,6 +67,7 @@ for file in list_eegs:
                                 downsample_data,
                                 sample_rate,
                                 save_preprocessed_path)
+    length_all_data = np.append(length_all_data, int(length_data))
     print("progress: ", progress)
 
 # Save data log
@@ -76,16 +79,13 @@ if os.path.isfile(config_file):
 config.read(config_file)
 config.add_section('input_data')
 config.set('input_data', 'list_eegs', list_eegs_save)
+length_data_save = ','.join(map(str, length_all_data))
+config.set('input_data', 'length_data', length_data_save)
 with open(config_file, 'w+') as f:
     config.write(f)
 
 # Concatenating the preprocessed data
-DATA, N_CHANNELS, FILENAMES, LENGTH_DATA = concatenate_files(save_dir)
-# Save data log
-LENGTH_DATA_save = ','.join(map(str, LENGTH_DATA))
-config.set('input_data', 'length_data', LENGTH_DATA_save)
-with open(config_file, 'w+') as f:
-    config.write(f)
+DATA, N_CHANNELS, FILENAMES = concatenate_files(save_dir)
 # Smoothing the input data
 MAPS, PEAKS = pre_clustering(DATA, sample_rate, smoothing_kernel_size)
 # Finding the initial maps
@@ -124,9 +124,10 @@ segmentation_df = pd.DataFrame(final_segmentation,
 save_name = os.path.join(save_raw_path, 'raw_segmentation')
 segmentation_df.to_csv(save_name + '.csv')
 
-micro_labels = []
+micro_labels = ['MAP'+str(i) for i in range(1, int(number_of_maps)+1)]
+#micro_labels = ['M1', 'M2', 'M3', 'M4', 'M5']
 
-save_raw_results(FILENAMES, LENGTH_DATA, sample_rate,
+save_raw_results(FILENAMES, length_all_data, sample_rate,
                     save_raw_segmentation, final_segmentation,
                     save_microstate_maps, best_maps,
                     micro_labels,
@@ -136,9 +137,11 @@ save_raw_results(FILENAMES, LENGTH_DATA, sample_rate,
 
 
 # Save Features
-'''
-extracted_features_df = extract_features(FILENAMES, LENGTH_DATA,
+save_features_path = os.path.join(save_dir, 'extracted_features')
+if not os.path.exists(save_features_path):
+    os.makedirs(save_features_path)
+
+extracted_features_df = extract_features(FILENAMES, length_all_data,
                                          final_segmentation, best_maps,
                                          sample_rate, features)
 save_features(extracted_features_df, output_format, save_features_path)
-'''
