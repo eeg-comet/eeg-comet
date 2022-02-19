@@ -173,7 +173,7 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
     
     #n_channels = data.shape[0]
     
-    if method == 'MODIFIED K-MEANS':
+    if method == 'Modified K-means':
         #
         #plot_gev_maps(data, 2, 10, repeat, tolerance, smoothing)
         #
@@ -185,20 +185,31 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
                                                              max_n_peaks=None)
             
     else:
-        if method == 'K-MEANS':
+        if method == 'K-means':
             if metric == 'Euclidean':
-                METRIC = type_metric.EUCLIDEAN
+                METRIC = distance_metric(type_metric.EUCLIDEAN)
             elif metric == 'Euclidean Square':
-                METRIC = type_metric.EUCLIDEAN_SQUARE
+                METRIC = distance_metric(type_metric.EUCLIDEAN_SQUARE)
             elif metric == 'Manhattan':
-                METRIC = type_metric.MANHATTAN
+                METRIC = distance_metric(type_metric.MANHATTAN)
             elif metric == 'Chebyshev':
-                METRIC = type_metric.CHEBYSHEV
+                METRIC = distance_metric(type_metric.CHEBYSHEV)
             elif metric == 'Minkowski':
-                METRIC = type_metric.MINKOWSKI
+                METRIC = distance_metric(type_metric.MINKOWSKI)
+            elif metric == 'Cosine Similarity':
+                def cosine_sim(point1, point2):
+                    from scipy.spatial.distance import cosine
+                    return 1 - cosine(point1, point2)
+                METRIC = distance_metric(type_metric.USER_DEFINED, func=cosine_sim)
+            elif metric == 'Spatial Correlation':
+                def spatial_corr(point1, point2):
+                    from scipy.spatial.distance import correlation
+                    return 1 - correlation(point1, point2)
+                METRIC = distance_metric(type_metric.USER_DEFINED, func=spatial_corr)
+
             clustering_instance = kmeans.kmeans(maps, initial_centers,
-                                         tolerance=tolerance, itermax=100,
-                                         metric=distance_metric(METRIC))
+                                         tolerance=tolerance, itermax=1000,
+                                         metric=METRIC)
         
         elif method == 'X-MEANS':
             if metric == 'Bayesian Information Criterion':

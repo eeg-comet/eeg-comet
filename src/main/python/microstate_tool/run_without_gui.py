@@ -2,6 +2,7 @@
 import argparse
 from configparser import ConfigParser
 import os.path
+import sys
 import numpy as np
 import pandas as pd
 
@@ -13,7 +14,7 @@ from functions.extract_features_functions import save_raw_results, extract_featu
 
 def main(args):
     # Input: 'settings_log.ini'
-    settings_folder = args.setting_path
+    settings_path = args.setting_path
     #settings_folder = 'C://Users//amin_//Documents//GitHub//output_test//'
     #settings_folder = '//home//aminka//scratch//rs_eeg//RS_MICROSTATES_RESULTS//RS_MICROSTATES_EC_5MAPS_2_20Hz'
     #settings_path = os.path.join(settings_folder, 'settings_log.ini')
@@ -152,4 +153,7 @@ def main(args):
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--setting_path', type=str, default='settings_log.ini')
+    return parser.parse_args()
 
+if __name__ == '__main__':
+    main(parse_arguments(sys.argv[1:]))

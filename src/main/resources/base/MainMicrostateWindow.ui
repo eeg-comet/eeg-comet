@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1066</width>
+    <width>981</width>
     <height>838</height>
    </rect>
   </property>
@@ -286,7 +286,7 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>670</width>
+          <width>616</width>
           <height>775</height>
          </rect>
         </property>
@@ -358,226 +358,88 @@
            </item>
            <item row="2" column="0" colspan="2">
             <layout class="QGridLayout" name="gridLayout_8">
-             <item row="10" column="1" colspan="2">
-              <widget class="QComboBox" name="step2_other_options_combobox">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-              </widget>
-             </item>
-             <item row="9" column="1" colspan="2">
-              <widget class="QLineEdit" name="step2_user_numberofrepeats_input">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="inputMethodHints">
-                <set>Qt::ImhDigitsOnly</set>
-               </property>
-               <property name="text">
-                <string>5</string>
-               </property>
-               <property name="maxLength">
-                <number>4</number>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="11" column="1" colspan="2">
-              <layout class="QHBoxLayout" name="horizontalLayout_10">
-               <item>
-                <widget class="QRadioButton" name="step2_random_initializer_radio">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Random</string>
-                 </property>
-                 <property name="checked">
-                  <bool>true</bool>
-                 </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup</string>
-                 </attribute>
-                </widget>
+             <item row="11" column="0" rowspan="5" colspan="4">
+              <layout class="QGridLayout" name="gridLayout_3">
+               <item row="1" column="1" colspan="2">
+                <layout class="QHBoxLayout" name="horizontalLayout_10">
+                 <item>
+                  <widget class="QRadioButton" name="step2_random_initializer_radio">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Random</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroup</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QRadioButton" name="step2_kmeans_initializer_radio">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>K-Means++</string>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroup</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                </layout>
                </item>
-               <item>
-                <widget class="QRadioButton" name="step2_kmeans_initializer_radio">
+               <item row="0" column="1" colspan="2">
+                <widget class="QComboBox" name="step2_other_options_combobox">
                  <property name="enabled">
                   <bool>false</bool>
+                 </property>
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
                  </property>
                  <property name="font">
                   <font>
                    <pointsize>12</pointsize>
                   </font>
-                 </property>
-                 <property name="text">
-                  <string>K-Means++</string>
-                 </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup</string>
-                 </attribute>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item row="1" column="1" rowspan="8" colspan="2">
-              <widget class="QLineEdit" name="step2_user_numberofmaps_input">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>16</pointsize>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="inputMethodHints">
-                <set>Qt::ImhDigitsOnly</set>
-               </property>
-               <property name="text">
-                <string>5</string>
-               </property>
-               <property name="maxLength">
-                <number>2</number>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="12" column="0">
-              <layout class="QHBoxLayout" name="horizontalLayout_7">
-               <item>
-                <widget class="QLabel" name="step2_stopcondition_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Stop Condition</string>
                  </property>
                 </widget>
                </item>
-               <item>
-                <widget class="QLabel" name="step2_tolerance_label">
+               <item row="0" column="0">
+                <widget class="QLabel" name="step2_other_label">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
                  <property name="font">
                   <font>
                    <pointsize>12</pointsize>
+                   <weight>75</weight>
+                   <bold>true</bold>
                   </font>
                  </property>
                  <property name="text">
-                  <string>Tolerance:</string>
+                  <string>Other Options:</string>
                  </property>
                 </widget>
                </item>
-              </layout>
-             </item>
-             <item row="10" column="0">
-              <widget class="QLabel" name="step2_other_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="text">
-                <string>Other Options:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="9" column="0">
-              <widget class="QLabel" name="step2_numberofrepeats_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Number of Repeats:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="11" column="0">
-              <widget class="QLabel" name="step2_initializer_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Initializer:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="12" column="1" colspan="2">
-              <widget class="QLineEdit" name="step2_stopcondition_input">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>1E-5</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="13" column="0">
-              <layout class="QHBoxLayout" name="horizontalLayout_9">
-               <item>
-                <widget class="QCheckBox" name="step2_smoothgfp_checkbox">
+               <item row="3" column="1" colspan="2">
+                <widget class="QLineEdit" name="step2_stopcondition_input">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -587,15 +449,52 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>Smooth GFP</string>
+                  <string>1E-5</string>
                  </property>
-                 <property name="checked">
-                  <bool>true</bool>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
                  </property>
                 </widget>
                </item>
-               <item>
-                <widget class="QLabel" name="step2_kernel_size_label">
+               <item row="2" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_9">
+                 <item>
+                  <widget class="QCheckBox" name="step2_smoothgfp_checkbox">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Smooth GFP</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="step2_kernel_size_label">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Kernel Size:</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="step2_initializer_label">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -605,16 +504,46 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>Kernel Size:</string>
+                  <string>Initializer:</string>
                  </property>
                 </widget>
                </item>
-              </layout>
-             </item>
-             <item row="4" column="0" rowspan="5">
-              <layout class="QHBoxLayout" name="horizontalLayout_3">
-               <item>
-                <widget class="QRadioButton" name="step2_auto_numberofmaps_radio">
+               <item row="3" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_7">
+                 <item>
+                  <widget class="QLabel" name="step2_stopcondition_label">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Stop Condition</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="step2_tolerance_label">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Tolerance:</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="2" column="1" colspan="2">
+                <widget class="QLineEdit" name="step2_kernel_size_input">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -623,16 +552,22 @@
                    <pointsize>12</pointsize>
                   </font>
                  </property>
-                 <property name="text">
-                  <string>Auto</string>
+                 <property name="inputMethodHints">
+                  <set>Qt::ImhDigitsOnly</set>
                  </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup_2</string>
-                 </attribute>
+                 <property name="text">
+                  <string>20</string>
+                 </property>
+                 <property name="maxLength">
+                  <number>4</number>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
                 </widget>
                </item>
-               <item>
-                <widget class="QRadioButton" name="step2_user_numberofmaps_radio">
+               <item row="5" column="1" colspan="2">
+                <widget class="QLabel" name="step2_performclustering_label">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -642,154 +577,233 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>User</string>
+                  <string>Performing clustering on all EEG data concatenated</string>
                  </property>
-                 <property name="checked">
-                  <bool>true</bool>
+                 <property name="alignment">
+                  <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                  </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup_2</string>
-                 </attribute>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <widget class="QLabel" name="step2_numberofrepeats_label">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Number of Repeats:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1" colspan="2">
+                <widget class="QLineEdit" name="step2_user_numberofrepeats_input">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                  </font>
+                 </property>
+                 <property name="inputMethodHints">
+                  <set>Qt::ImhDigitsOnly</set>
+                 </property>
+                 <property name="text">
+                  <string>5</string>
+                 </property>
+                 <property name="maxLength">
+                  <number>4</number>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
                 </widget>
                </item>
               </layout>
              </item>
-             <item row="0" column="0">
-              <widget class="QLabel" name="step2_clustermethod_combo_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="text">
-                <string>Select Method:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1" colspan="2">
-              <widget class="QComboBox" name="step2_clustermethod_combobox">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <item>
-                <property name="text">
-                 <string>MODIFIED K-MEANS</string>
-                </property>
+             <item row="0" column="0" rowspan="11" colspan="4">
+              <layout class="QGridLayout" name="gridLayout_2">
+               <item row="1" column="0">
+                <widget class="QLabel" name="step2_numberofmaps_label">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Number of Microstate Maps:</string>
+                 </property>
+                </widget>
                </item>
-               <item>
-                <property name="text">
-                 <string>K-MEANS</string>
-                </property>
+               <item row="2" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_3">
+                 <item>
+                  <widget class="QRadioButton" name="step2_auto_numberofmaps_radio">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Auto</string>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroup_2</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QRadioButton" name="step2_user_numberofmaps_radio">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>User</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroup_2</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                </layout>
                </item>
-               <item>
-                <property name="text">
-                 <string>Mini Batch K-MEANS</string>
-                </property>
+               <item row="0" column="0">
+                <widget class="QLabel" name="step2_clustermethod_combo_label">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                   <weight>75</weight>
+                   <bold>true</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Select Method:</string>
+                 </property>
+                </widget>
                </item>
-               <item>
-                <property name="text">
-                 <string>X-MEANS</string>
-                </property>
+               <item row="0" column="1" colspan="3">
+                <widget class="QComboBox" name="step2_clustermethod_combobox">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                  </font>
+                 </property>
+                 <item>
+                  <property name="text">
+                   <string>Modified K-means</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>K-means</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Mini Batch K-means</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>X-means</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>BSAS</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>CLARANS</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>MBSAS</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>OPTICS</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>ROCK</string>
+                  </property>
+                 </item>
+                </widget>
                </item>
-               <item>
-                <property name="text">
-                 <string>BSAS</string>
-                </property>
+               <item row="1" column="1" rowspan="2" colspan="3">
+                <widget class="QLineEdit" name="step2_user_numberofmaps_input">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>16</pointsize>
+                   <weight>75</weight>
+                   <bold>true</bold>
+                  </font>
+                 </property>
+                 <property name="inputMethodHints">
+                  <set>Qt::ImhDigitsOnly</set>
+                 </property>
+                 <property name="text">
+                  <string>5</string>
+                 </property>
+                 <property name="maxLength">
+                  <number>2</number>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                </widget>
                </item>
-               <item>
-                <property name="text">
-                 <string>CLARANS</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>MBSAS</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>OPTICS</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>ROCK</string>
-                </property>
-               </item>
-              </widget>
-             </item>
-             <item row="1" column="0" rowspan="3">
-              <widget class="QLabel" name="step2_numberofmaps_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Number of Microstate Maps:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="13" column="1" colspan="2">
-              <widget class="QLineEdit" name="step2_kernel_size_input">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="inputMethodHints">
-                <set>Qt::ImhDigitsOnly</set>
-               </property>
-               <property name="text">
-                <string>20</string>
-               </property>
-               <property name="maxLength">
-                <number>4</number>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="14" column="1" colspan="2">
-              <widget class="QLabel" name="step2_performclustering_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Performing clustering on all EEG data concatenated</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-               </property>
-              </widget>
+              </layout>
              </item>
             </layout>
            </item>
@@ -1193,7 +1207,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1066</width>
+     <width>981</width>
      <height>22</height>
     </rect>
    </property>
@@ -1296,7 +1310,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
  </buttongroups>
 </ui>

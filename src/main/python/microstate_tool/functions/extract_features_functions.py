@@ -84,11 +84,11 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
         for i in range(len(len_data)):
             if i == 0:
                 start = 0
-                stop = len_data[i]
+                stop = int(len_data[i])
                 stop_pre = stop
             else:
                 start = stop_pre
-                stop = stop_pre + len_data[i]
+                stop = stop_pre + int(len_data[i])
                 stop_pre = stop
             segment_each = segmentation[start:stop]
             time = np.arange(0, (1000 / fs) * len(segment_each), (1000 / fs))

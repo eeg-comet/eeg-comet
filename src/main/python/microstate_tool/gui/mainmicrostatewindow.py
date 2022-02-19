@@ -284,7 +284,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustering_button.setDisabled(True)
 
         METHOD = self.step2_clustermethod_combobox.currentText()
-        if METHOD == "K-MEANS":
+        if METHOD == "K-means":
             self.ui.step2_other_label.setText("K-Means Distance Metric:")
             self.ui.step2_other_options_combobox.clear()
             self.ui.step2_other_options_combobox.addItem("Euclidean")
@@ -292,10 +292,12 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_other_options_combobox.addItem("Manhattan")
             self.ui.step2_other_options_combobox.addItem("Chebyshev")
             self.ui.step2_other_options_combobox.addItem("Minkowski")
-            self.ui.step2_other_options_combobox.setCurrentText("Euclidean Square")
+            self.ui.step2_other_options_combobox.addItem("Cosine Similarity")
+            self.ui.step2_other_options_combobox.addItem("Spatial Correlation")
+            self.ui.step2_other_options_combobox.setCurrentText("Cosine Similarity")
         # elif METHOD == "MINI BATCH K-MEANS":
         #
-        elif METHOD == "X-MEANS":
+        elif METHOD == "X-means":
             self.ui.step2_other_label.setText("X-Means Splitting Criterion:")
             self.ui.step2_other_options_combobox.clear()
             self.ui.step2_other_options_combobox.addItem("Bayesian Information Criterion")
@@ -382,7 +384,7 @@ class MainMicrostateWindow(QMainWindow):
         TOLERANCE = float(self.ui.step2_stopcondition_input.text())
         print(TOLERANCE)
 
-        if METHOD == "Mini Batch K-MEANS":
+        if METHOD == "Mini Batch K-means":
 
             # modify
             if self.ui.step2_user_numberofmaps_radio.isChecked():
