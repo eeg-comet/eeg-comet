@@ -84,11 +84,11 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
         for i in range(len(len_data)):
             if i == 0:
                 start = 0
-                stop = int(len_data[i])
+                stop = int(float(len_data[i]))
                 stop_pre = stop
             else:
                 start = stop_pre
-                stop = stop_pre + int(len_data[i])
+                stop = stop_pre + int(float(len_data[i]))
                 stop_pre = stop
             segment_each = segmentation[start:stop]
             time = np.arange(0, (1000 / fs) * len(segment_each), (1000 / fs))
@@ -146,7 +146,7 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
 def extract_features(filenames, len_data, h5files, segmentation, maps, fs, features):
     if segmentation is not None:
 
-
+        len_data = [int(i) for i in len_data]
         extracted_features_df = pd.DataFrame()
         if "LZC" in features:
             for i in range(len(len_data)):
@@ -229,7 +229,7 @@ def extract_features(filenames, len_data, h5files, segmentation, maps, fs, featu
             if "LZC" in features:
                 list_segment_each = listToString(segment_each)
                 transitioning_sequence = remove_consec_duplicates(list_segment_each)
-                LZC = lempel_ziv_complexity(transitioning_sequence[:min_transitioning_sequence])
+                LZC = lempel_ziv_complexity(transitioning_sequence[:min(len_data)])
                 headers = np.append(headers, "LZC")
                 extracted_features = np.append(extracted_features, LZC)
 
