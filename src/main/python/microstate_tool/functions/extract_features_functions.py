@@ -92,9 +92,7 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                 stop_pre = stop
             segment_each = segmentation[start:stop]
             time = np.arange(0, (1000 / fs) * len(segment_each), (1000 / fs))
-            segmentation_df = pd.DataFrame(segment_each,
-                                           columns=['segmentation'],
-                                           index=time)
+            segmentation_df = pd.DataFrame({'time': time, 'segmentation': segment_each})
             filename = os.path.splitext(os.path.basename(filenames[i]))
             if save_segmentation:
                 save_name = os.path.join(save_path, 'raw_segmentation_' + filename[0])

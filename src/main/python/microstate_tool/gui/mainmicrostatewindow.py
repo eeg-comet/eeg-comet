@@ -401,7 +401,7 @@ class MainMicrostateWindow(QMainWindow):
                 TOLERANCE)
 
         else:
-            MAPS, PEAKS = pre_clustering(DATA, self.Fs, SMOOTHING_KERNEL)
+            MAPS, PEAKS, TROUGHS = pre_clustering(DATA, self.Fs, SMOOTHING_KERNEL)
             # modify
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 CLUSTERS = "AUTO"

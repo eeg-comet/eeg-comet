@@ -21,7 +21,7 @@ import pickle
 # End
 from fnmatch import fnmatch
 from sklearn.metrics.pairwise import cosine_similarity
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, find_peaks_cwt
 from matplotlib import pyplot as plt
 from itertools import groupby
 
@@ -57,20 +57,21 @@ def smooth_data(gfp, kernel_size):
 
 def pre_clustering(data, fs, smoothing):
     # Global Field Potential (GFP)
-    if smoothing:
-        for i in range(len(data)):
-            data[i] = smooth_data(data[i], smoothing)
+    #if smoothing:
+    #    for i in range(len(data)):
+    #        data[i] = smooth_data(data[i], smoothing)
     gfp = np.std(data, axis=0)
     #test_gfp = gfp[0:500]
     #plt.plot(test_gfp)
     if smoothing:
+        #min_dist = int(smoothing / fs)
         gfp = smooth_data(gfp, smoothing)
         #test_gfp = gfp[0:500]
         #plt.plot(test_gfp)
     # Find GFP Peaks
-
-    min_dist = smoothing
-    peaks, _ = find_peaks(gfp, distance=min_dist)
+    peaks, _ = find_peaks(gfp, distance=smoothing)
+    troughs, _ = find_peaks(-gfp, distance=smoothing)
+    #peaks = find_peaks_cwt(gfp, widths=10)
     #test_peaks_in = peaks <= 500
     #test_peaks = peaks[test_peaks_in]
     #plt.plot(test_peaks, test_gfp[test_peaks], "x")
@@ -78,7 +79,7 @@ def pre_clustering(data, fs, smoothing):
     # Create Maps
     maps = data[:, peaks].T
     maps /= np.linalg.norm(maps, axis=1, keepdims=True)
-    return maps, peaks
+    return maps, peaks, troughs
 
 
 def compute_gev(data, maps):
@@ -307,7 +308,7 @@ def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance
             a_group_key = list(f.keys())[0]
             data = list(f[a_group_key])
         data = np.asarray(data)
-        maps, peaks = pre_clustering(data, fs, smoothing)
+        maps, peaks, troughs = pre_clustering(data, fs, smoothing)
         
         minibatchk = minibatchk.partial_fit(np.abs(maps))
     
