@@ -285,26 +285,29 @@ class MainMicrostateWindow(QMainWindow):
 
         METHOD = self.step2_clustermethod_combobox.currentText()
         if METHOD == "K-means":
-            self.ui.step2_other_label.setText("K-Means Distance Metric:")
+            self.ui.step2_other_label.setText("K-means distance metric:")
             self.ui.step2_other_options_combobox.clear()
             self.ui.step2_other_options_combobox.addItem("Euclidean")
             self.ui.step2_other_options_combobox.addItem("Euclidean Square")
-            self.ui.step2_other_options_combobox.addItem("Manhattan")
-            self.ui.step2_other_options_combobox.addItem("Chebyshev")
-            self.ui.step2_other_options_combobox.addItem("Minkowski")
             self.ui.step2_other_options_combobox.addItem("Cosine Similarity")
             self.ui.step2_other_options_combobox.addItem("Spatial Correlation")
             self.ui.step2_other_options_combobox.setCurrentText("Cosine Similarity")
-        # elif METHOD == "MINI BATCH K-MEANS":
-        #
+        elif METHOD == "Agglomerative hierarchical clustering":
+            self.ui.step2_other_label.setText("Type of link between clusters:")
+            self.ui.step2_other_options_combobox.clear()
+            self.ui.step2_other_options_combobox.addItem("Single Link")
+            self.ui.step2_other_options_combobox.addItem("Complete Link")
+            self.ui.step2_other_options_combobox.addItem("Average Link")
+            self.ui.step2_other_options_combobox.addItem("Centroid Link")
+            self.ui.step2_other_options_combobox.setCurrentText("Single Link")
         elif METHOD == "X-means":
-            self.ui.step2_other_label.setText("X-Means Splitting Criterion:")
+            self.ui.step2_other_label.setText("X-means splitting criterion:")
             self.ui.step2_other_options_combobox.clear()
             self.ui.step2_other_options_combobox.addItem("Bayesian Information Criterion")
             self.ui.step2_other_options_combobox.addItem("Minimum Noiseless Description Length")
             self.ui.step2_other_options_combobox.setCurrentText("Bayesian Information Criterion")
         else:
-            self.ui.step2_other_label.setText("Other Options:")
+            self.ui.step2_other_label.setText("Other options:")
             self.ui.step2_other_options_combobox.clear()
 
         if self.done_clustering:
@@ -401,7 +404,7 @@ class MainMicrostateWindow(QMainWindow):
                 TOLERANCE)
 
         else:
-            MAPS, PEAKS, TROUGHS = pre_clustering(DATA, self.Fs, SMOOTHING_KERNEL)
+            MAPS, PEAKS = pre_clustering(DATA, SMOOTHING_KERNEL)
             # modify
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 CLUSTERS = "AUTO"

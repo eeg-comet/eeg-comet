@@ -85,10 +85,13 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
                 (n_states, n_inits))
 
     if normalize:
+        #for i in range(data.shape[0]):
+        #    data[i,:] = np.convolve(data[i,:], min_peak_dist, mode='same')
         data = zscore(data, axis=1)
 
     # Find peaks in the global field power (GFP)
     gfp = np.std(data, axis=0)
+    gfp = np.convolve(gfp, min_peak_dist, mode='same')
     peaks, _ = find_peaks(gfp, distance=min_peak_dist)
     n_peaks = len(peaks)
 
@@ -110,22 +113,37 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
     best_maps = None
     best_segmentation = None
     best_polarity = None
+
     for _ in range(n_inits):
-        maps = _mod_kmeans(data[:, peaks], n_states, n_inits, max_iter, thresh,
+        maps, residual = _mod_kmeans(data[:, peaks], n_states, n_inits, max_iter, thresh,
                            random_state, verbose)
         activation = maps.dot(data)
+        #activation = maps.dot(data[:, peaks])
         segmentation = np.argmax(np.abs(activation), axis=0)
+        #seg = np.argmax(np.abs(activation), axis=0)
+
+        '''
+        troughs = [0]
+        for p in range(len(peaks) - 1):
+            print(p/(len(peaks) - 1))
+            array = gfp[peaks[p]:peaks[p + 1]]
+            min_ind = np.argmin(array)
+            troughs = np.append(troughs, np.where(gfp == array[min_ind]))
+        #print(troughs)
+
+        segmentation = np.empty(data.shape[1])
+        for s in range(len(seg)-1):
+            print(s/(len(seg)))
+            print((troughs[s+1]-troughs[s])*[seg[s]])
+            segmentation[troughs[s]:troughs[s+1]] = (troughs[s+1]-troughs[s])*[seg[s]]
+        #segmentation = segmentation.flatten()
+        print(segmentation.shape)
+        
+        segmentation = segmentation.astype(int)
+        print(segmentation)
+        '''
+
         map_corr = _corr_vectors(data, maps[segmentation].T)
-        """
-        map_corr = []
-        batchsize = 1000
-        for i in range(0, len(data[0]), batchsize):
-            #map_corr.append(pearsonr(data[:, i], maps[segmentation].T[:, i])[0])        
-            batch1 = data[i:i+batchsize]
-            batch2 = maps[segmentation].T[i:i+batchsize]
-            map_corr.append(_corr_vectors(batch1, batch2))
-            print(100*i/len(data[0]))
-        """
         # assigned_activations = np.choose(segmentations, activation)
 
         # Compare across iterations using global explained variance (GEV) of
@@ -133,13 +151,13 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
         gev = sum((gfp * map_corr) ** 2) / gfp_sum_sq
         logger.info('GEV of found microstates: %f' % gev)
         if gev > best_gev:
-            best_gev, best_maps, best_segmentation = gev, maps, segmentation
+            best_residual, best_gev, best_maps, best_segmentation = residual, gev, maps, segmentation
             best_polarity = np.sign(np.choose(segmentation, activation))
 
     if return_polarity:
         return best_maps, best_segmentation, best_polarity, best_gev
     else:
-        return best_maps, best_segmentation, best_gev
+        return best_maps, best_segmentation, best_gev, best_residual
 
 
 @verbose
@@ -198,7 +216,7 @@ def _mod_kmeans(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
     else:
         warnings.warn('Modified K-means algorithm failed to converge.')
 
-    return maps
+    return maps, prev_residual
 
 
 def _corr_vectors(A, B, axis=0):
