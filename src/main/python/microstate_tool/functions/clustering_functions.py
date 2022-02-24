@@ -118,14 +118,13 @@ def number_of_clusters(maps, cmin=2, cmax=10):
     #wce = elbow_instance.get_wce()                  # total within-cluster errors for each K
     return amount_clusters
 
-def plot_gev_maps(data, cmin, cmax, repeat, tolerance, smoothing):
+def get_elbow(data, cmin, cmax, repeat, tolerance, smoothing):
     # plot gev versus number of maps
     N, GEV, RES = [], [], []
     for n_maps in range(cmin, cmax):
         maps, peaks = pre_clustering(data, smoothing)
         initial_centers = initialize_centers(data, maps, peaks, n_maps, 'Random')
         _, _, best_gev, best_residual = modified_kmeans.segment(data=data,
-                                           initial_centers=initial_centers,
                                            n_states=n_maps,
                                            n_inits=repeat,
                                            thresh=tolerance,
@@ -134,11 +133,13 @@ def plot_gev_maps(data, cmin, cmax, repeat, tolerance, smoothing):
         GEV = np.append(GEV, best_gev)
         RES = np.append(RES, best_residual)
     plt.figure()
-    #plt.plot(N, GEV)
-    plt.plot(N, RES)
+    # plt.plot(N, GEV)
+    plt.plot(N, RES, linestyle='--', marker='o', color='b')
     plt.title('Residual vs. Number of Microstates')
     plt.xlabel('Number of Microstates')
     plt.ylabel('Residual')
+    plt.show()
+    return N, GEV, RES
 
 def initialize_centers(data, maps, peaks, n_states, initializer):
     # create instance of K-Means algorithm with prepared centers
@@ -187,9 +188,6 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
     #n_channels = data.shape[0]
     
     if method == 'Modified K-means':
-        #
-        #plot_gev_maps(data, 2, 10, repeat, tolerance, smoothing)
-        #
         best_maps, final_segmentation, best_gev, best_residual = modified_kmeans.segment(data=data,
                                                              n_states=n_states,
                                                              n_inits=repeat,

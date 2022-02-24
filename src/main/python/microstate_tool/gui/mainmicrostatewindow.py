@@ -4,6 +4,7 @@ import pickle
 import json
 import pandas as pd
 import webbrowser
+from matplotlib import pyplot as plt
 from configparser import ConfigParser
 from PyQt5 import uic
 from PyQt5 import QtCore
@@ -14,7 +15,7 @@ from gui.microstatedialog import MicrostateDialog
 
 from functions.find_data import find_eeg
 from functions.concatenate_data import concatenate_files
-from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo
+from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo, get_elbow
 from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
 from functions.extract_features_functions import save_raw_results, extract_features, transition_matrix, save_features, substitude_maps_with_duration
 
@@ -65,6 +66,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step2_smoothgfp_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step3_remove_segs_checkbox.clicked.connect(self.mainwindow_controller)
 
+        self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.plot_elbow)
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
         self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
         self.ui.step3_visualize_clustering_button.clicked.connect(self.visualize_results)
@@ -236,6 +238,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_numberofmaps_label.setEnabled(True)
             self.ui.step2_auto_numberofmaps_radio.setEnabled(True)
             self.ui.step2_user_numberofmaps_radio.setEnabled(True)
+            self.ui.step2_numberofmaps_elbow_button.setEnabled(True)
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 self.ui.step2_user_numberofmaps_input.setDisabled(True)
             if self.ui.step2_user_numberofmaps_radio.isChecked():
@@ -267,6 +270,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_auto_numberofmaps_radio.setDisabled(True)
             self.ui.step2_user_numberofmaps_radio.setDisabled(True)
             self.ui.step2_user_numberofmaps_input.setDisabled(True)
+            self.ui.step2_numberofmaps_elbow_button.setDisabled(True)
             self.ui.step2_numberofrepeats_label.setDisabled(True)
             self.ui.step2_user_numberofrepeats_input.setDisabled(True)
             self.ui.step2_other_label.setDisabled(True)
@@ -356,6 +360,16 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.done_feature_extraction:
             self.step3_features_title_label.setStyleSheet("background-color: lightgreen")
+
+    def plot_elbow(self):
+        DATA, _, _ = concatenate_files(self.save_dir)
+        if self.ui.step2_smoothgfp_checkbox.isChecked():
+            SMOOTHING_KERNEL = int(self.ui.step2_kernel_size_input.text())
+        else:
+            SMOOTHING_KERNEL = []
+        TOLERANCE = float(self.ui.step2_stopcondition_input.text())
+        REPEAT = int(self.ui.step2_user_numberofrepeats_input.text())
+        N, GEV, RES = get_elbow(DATA, 2, 11, REPEAT, TOLERANCE, SMOOTHING_KERNEL)
 
     def do_clustering(self):
         self.use_saved_results = False
