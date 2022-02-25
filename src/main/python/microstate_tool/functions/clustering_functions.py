@@ -188,7 +188,7 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
     #n_channels = data.shape[0]
     
     if method == 'Modified K-means':
-        best_maps, final_segmentation, best_gev, best_residual = modified_kmeans.segment(data=data,
+        best_maps, final_segmentation, best_gev, _ = modified_kmeans.segment(data=data,
                                                              n_states=n_states,
                                                              n_inits=repeat,
                                                              thresh=tolerance,

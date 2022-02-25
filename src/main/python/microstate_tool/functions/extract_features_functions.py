@@ -50,7 +50,6 @@ def remove_consec_duplicates(s):
             prev = c
     return new_s
 
-
 def listToString(s):
     # initialize an empty string
     str1 = ""
@@ -61,7 +60,6 @@ def listToString(s):
 
         # return string
     return str1
-
 
 def substitude_maps_with_duration(segmentation, min_duration):
     segmentation = np.array(segmentation)
@@ -95,7 +93,10 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
             segmentation_df = pd.DataFrame({'time': time, 'segmentation': segment_each})
             filename = os.path.splitext(os.path.basename(filenames[i]))
             if save_segmentation:
-                save_name = os.path.join(save_path, 'raw_segmentation_' + filename[0])
+                save_path_raw_segmentation = os.path.join(save_path, 'raw_segmentation')
+                if not os.path.exists(save_path_raw_segmentation):
+                    os.makedirs(save_path_raw_segmentation)
+                save_name = os.path.join(save_path_raw_segmentation, 'raw_segmentation_' + filename[0])
                 if saveformat == 'csv':
                     segmentation_df.to_csv(save_name + '.csv')
                 elif saveformat == 'pkl':
@@ -105,7 +106,10 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                 elif saveformat == 'json':
                     segmentation_df.to_json(save_name + '.json')
             if save_transitions:
-                save_name = os.path.join(save_path, 'transition_matrix_' + filename[0])
+                save_path_raw_transitions = os.path.join(save_path, 'raw_transitions')
+                if not os.path.exists(save_path_raw_transitions):
+                    os.makedirs(save_path_raw_transitions)
+                save_name = os.path.join(save_path_raw_transitions, 'transition_matrix_' + filename[0])
                 tm = transition_matrix(segment_each)
                 headers = []
                 for c in micro_maps:

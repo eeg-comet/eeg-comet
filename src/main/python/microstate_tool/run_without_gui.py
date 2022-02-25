@@ -15,10 +15,11 @@ from functions.extract_features_functions import save_raw_results, extract_featu
 def main(args):
     # Input: 'settings_log.ini'
     settings_path = args.setting_path
-    #settings_folder = 'C://Users//amin_//Documents//GitHub//output_test//'
+    #settings_folder = 'C://Users//amin_//Documents//GitHub//output_test//test_new//'
     #settings_folder = '//home//aminka//scratch//rs_eeg//RS_MICROSTATES_RESULTS//RS_MICROSTATES_EC_5MAPS_2_20Hz'
     #settings_path = os.path.join(settings_folder, 'settings_log.ini')
 
+    print(settings_path)
     # Load Input Settings
     config = ConfigParser()
     config.read(settings_path)
@@ -90,7 +91,7 @@ def main(args):
     # Concatenating the preprocessed data
     DATA, N_CHANNELS, FILENAMES = concatenate_files(save_dir)
     # Smoothing the input data
-    MAPS, PEAKS = pre_clustering(DATA, sample_rate, smoothing_kernel_size)
+    MAPS, PEAKS = pre_clustering(DATA, smoothing_kernel_size)
     # Finding the initial maps
     INITIAL_CENTERS = initialize_centers(
                     DATA,
@@ -121,14 +122,16 @@ def main(args):
     # Save Segmentation
     time = np.arange(0, (1000 / int(sample_rate)) * len(final_segmentation), (1000 / int(sample_rate)))
     final_segmentation = substitude_maps_with_duration(final_segmentation, int(remove_segments_less_than/(1000/int(sample_rate))))
-    segmentation_df = pd.DataFrame(final_segmentation,
-                                   columns=['segmentation'],
-                                   index=time)
+    segmentation_df = pd.DataFrame({'time': time, 'segmentation': final_segmentation})
     save_name = os.path.join(save_raw_path, 'raw_segmentation')
     segmentation_df.to_csv(save_name + '.csv')
 
     micro_labels = ['MAP'+str(i) for i in range(1, int(number_of_maps)+1)]
     #micro_labels = ['M1', 'M2', 'M3', 'M4', 'M5']
+
+    final_segmentation = list(map(str, final_segmentation))
+    for i in range(len(micro_labels)):
+        final_segmentation = np.char.replace(final_segmentation, str(i), micro_labels[i])
 
     save_raw_results(FILENAMES, length_all_data, sample_rate,
                         save_raw_segmentation, final_segmentation,
@@ -144,7 +147,8 @@ def main(args):
     if not os.path.exists(save_features_path):
         os.makedirs(save_features_path)
 
-    extracted_features_df = extract_features(FILENAMES, length_all_data,
+    listofh5files = find_data.find_eeg(os.path.join(save_dir, 'preprocessed_data'), '.h5', '*')
+    extracted_features_df = extract_features(FILENAMES, length_all_data, listofh5files,
                                              final_segmentation, best_maps,
                                              sample_rate, features)
     save_features(extracted_features_df, output_format, save_features_path)
