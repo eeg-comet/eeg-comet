@@ -87,13 +87,13 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
     if normalize:
         #for i in range(data.shape[0]):
         #    data[i,:] = np.convolve(data[i,:], min_peak_dist, mode='same')
-        from scipy.ndimage.filters import gaussian_filter1d
-        data = gaussian_filter1d(data, sigma=3)
+        #from scipy.ndimage.filters import gaussian_filter1d
+        #data = gaussian_filter1d(data, sigma=3)
         data = zscore(data, axis=1)
 
     # Find peaks in the global field power (GFP)
     gfp = np.std(data, axis=0)
-    #gfp = np.convolve(gfp, min_peak_dist, mode='same')
+    gfp = np.convolve(gfp, min_peak_dist, mode='same')
     peaks, _ = find_peaks(gfp, distance=min_peak_dist)
     troughs = [0]
     for p in range(len(peaks)-1):
