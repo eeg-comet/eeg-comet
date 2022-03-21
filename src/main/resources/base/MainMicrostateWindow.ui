@@ -286,8 +286,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>687</width>
-          <height>775</height>
+          <width>625</width>
+          <height>788</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -556,7 +556,7 @@
                   <set>Qt::ImhDigitsOnly</set>
                  </property>
                  <property name="text">
-                  <string>20</string>
+                  <string>10</string>
                  </property>
                  <property name="maxLength">
                   <number>4</number>
@@ -1234,7 +1234,7 @@
      <x>0</x>
      <y>0</y>
      <width>1092</width>
-     <height>22</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">

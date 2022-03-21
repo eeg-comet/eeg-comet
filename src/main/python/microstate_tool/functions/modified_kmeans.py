@@ -88,7 +88,7 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
         #for i in range(data.shape[0]):
         #    data[i,:] = np.convolve(data[i,:], min_peak_dist, mode='same')
         from scipy.ndimage.filters import gaussian_filter1d
-        data = gaussian_filter1d(data, sigma=min_peak_dist)
+        data = gaussian_filter1d(data, sigma=3)
         data = zscore(data, axis=1)
 
     # Find peaks in the global field power (GFP)
