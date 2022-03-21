@@ -87,12 +87,20 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
     if normalize:
         #for i in range(data.shape[0]):
         #    data[i,:] = np.convolve(data[i,:], min_peak_dist, mode='same')
+        from scipy.ndimage.filters import gaussian_filter1d
+        data = gaussian_filter1d(data, sigma=min_peak_dist)
         data = zscore(data, axis=1)
 
     # Find peaks in the global field power (GFP)
     gfp = np.std(data, axis=0)
-    gfp = np.convolve(gfp, min_peak_dist, mode='same')
+    #gfp = np.convolve(gfp, min_peak_dist, mode='same')
     peaks, _ = find_peaks(gfp, distance=min_peak_dist)
+    troughs = [0]
+    for p in range(len(peaks)-1):
+        min_arg = np.argmin((gfp[peaks[p]:peaks[p+1]]))
+        troughs = np.append(troughs, peaks[p]+min_arg)
+    troughs = np.append(troughs, len(gfp))
+    diff_troughs = np.diff(troughs)
     n_peaks = len(peaks)
 
     # Limit the number of peaks by randomly selecting them
@@ -117,11 +125,11 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
     for _ in range(n_inits):
         maps, residual = _mod_kmeans(data[:, peaks], n_states, n_inits, max_iter, thresh,
                            random_state, verbose)
-        activation = maps.dot(data)
-        #activation = maps.dot(data[:, peaks])
-        segmentation = np.argmax(np.abs(activation), axis=0)
-        #seg = np.argmax(np.abs(activation), axis=0)
-
+        #activation = maps.dot(data)
+        #segmentation = np.argmax(np.abs(activation), axis=0)
+        activation = maps.dot(data[:, peaks])
+        segmentation_peaks = np.argmax(np.abs(activation), axis=0)
+        segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
         '''
         troughs = [0]
         for p in range(len(peaks) - 1):
@@ -152,7 +160,7 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
         logger.info('GEV of found microstates: %f' % gev)
         if gev > best_gev:
             best_residual, best_gev, best_maps, best_segmentation = residual, gev, maps, segmentation
-            best_polarity = np.sign(np.choose(segmentation, activation))
+            #best_polarity = np.sign(np.choose(segmentation, activation))
 
     if return_polarity:
         return best_maps, best_segmentation, best_polarity, best_gev
