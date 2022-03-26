@@ -18,7 +18,7 @@ from scipy.signal import find_peaks
 from mne.utils import logger, verbose
 
 @verbose
-def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
+def segment(data, peaks, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
             normalize=True, min_peak_dist=4, max_n_peaks=10000,
             return_polarity=False, random_state=None, verbose=None):
     """Segment a continuous signal into microstates.
@@ -84,16 +84,17 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
     logger.info('Finding %d microstates, using %d random intitializations' %
                 (n_states, n_inits))
 
-    if normalize:
+    #if normalize:
         #for i in range(data.shape[0]):
         #    data[i,:] = np.convolve(data[i,:], min_peak_dist, mode='same')
         #from scipy.ndimage.filters import gaussian_filter1d
         #data = gaussian_filter1d(data, sigma=3)
-        data = zscore(data, axis=1)
+        #data = zscore(data, axis=1)
 
     # Find peaks in the global field power (GFP)
     gfp = np.std(data, axis=0)
-    gfp = np.convolve(gfp, min_peak_dist, mode='same')
+    #gfp = np.convolve(gfp, min_peak_dist, mode='same')
+    '''
     peaks, _ = find_peaks(gfp, distance=min_peak_dist)
     troughs = [0]
     for p in range(len(peaks)-1):
@@ -101,6 +102,7 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
         troughs = np.append(troughs, peaks[p]+min_arg)
     troughs = np.append(troughs, len(gfp))
     diff_troughs = np.diff(troughs)
+    '''
     n_peaks = len(peaks)
 
     # Limit the number of peaks by randomly selecting them
@@ -125,31 +127,11 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
     for _ in range(n_inits):
         maps, residual = _mod_kmeans(data[:, peaks], n_states, n_inits, max_iter, thresh,
                            random_state, verbose)
-        #activation = maps.dot(data)
-        #segmentation = np.argmax(np.abs(activation), axis=0)
-        activation = maps.dot(data[:, peaks])
-        segmentation_peaks = np.argmax(np.abs(activation), axis=0)
-        segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
-        '''
-        troughs = [0]
-        for p in range(len(peaks) - 1):
-            print(p/(len(peaks) - 1))
-            array = gfp[peaks[p]:peaks[p + 1]]
-            min_ind = np.argmin(array)
-            troughs = np.append(troughs, np.where(gfp == array[min_ind]))
-        #print(troughs)
-
-        segmentation = np.empty(data.shape[1])
-        for s in range(len(seg)-1):
-            print(s/(len(seg)))
-            print((troughs[s+1]-troughs[s])*[seg[s]])
-            segmentation[troughs[s]:troughs[s+1]] = (troughs[s+1]-troughs[s])*[seg[s]]
-        #segmentation = segmentation.flatten()
-        print(segmentation.shape)
-        
-        segmentation = segmentation.astype(int)
-        print(segmentation)
-        '''
+        activation = maps.dot(data)
+        segmentation = np.argmax(np.abs(activation), axis=0)
+        #activation = maps.dot(data[:, peaks])
+        #segmentation_peaks = np.argmax(np.abs(activation), axis=0)
+        #segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
 
         map_corr = _corr_vectors(data, maps[segmentation].T)
         # assigned_activations = np.choose(segmentations, activation)
@@ -159,13 +141,13 @@ def segment(data, n_states=4, n_inits=10, max_iter=1000, thresh=1e-6,
         gev = sum((gfp * map_corr) ** 2) / gfp_sum_sq
         logger.info('GEV of found microstates: %f' % gev)
         if gev > best_gev:
-            best_residual, best_gev, best_maps, best_segmentation = residual, gev, maps, segmentation
+            best_residual, best_gev, best_maps = residual, gev, maps
             #best_polarity = np.sign(np.choose(segmentation, activation))
 
     if return_polarity:
-        return best_maps, best_segmentation, best_polarity, best_gev
+        return best_maps, best_polarity, best_gev
     else:
-        return best_maps, best_segmentation, best_gev, best_residual
+        return best_maps, best_gev, best_residual
 
 
 @verbose

@@ -21,7 +21,7 @@ import pickle
 # End
 from fnmatch import fnmatch
 from sklearn.metrics.pairwise import cosine_similarity
-from scipy.signal import find_peaks, find_peaks_cwt
+from scipy.signal import find_peaks
 from matplotlib import pyplot as plt
 from itertools import groupby
 from scipy.spatial import distance
@@ -56,7 +56,7 @@ def smooth_data(gfp, kernel_size):
     smoothed_data = np.convolve(gfp, kernel, mode='same')
     return smoothed_data
 
-def pre_clustering(data, smoothing):
+def pre_clustering(data, min_dist):
     # Global Field Potential (GFP)
     #if smoothing:
     #    for i in range(len(data)):
@@ -64,14 +64,15 @@ def pre_clustering(data, smoothing):
     gfp = np.std(data, axis=0)
     #test_gfp = gfp[0:500]
     #plt.plot(test_gfp)
-    if smoothing:
+    if min_dist:
+        # Find GFP Peaks
         #smoothing = smoothing / (1000/fs)
         #min_dist = int(smoothing / fs)
-        gfp = smooth_data(gfp, smoothing)
+        #gfp = smooth_data(gfp, min_dist)
         #test_gfp = gfp[0:500]
         #plt.plot(test_gfp)
-        # Find GFP Peaks
-        peaks, _ = find_peaks(gfp, distance=smoothing)
+
+        peaks, _ = find_peaks(gfp, distance=min_dist)
     else:
         peaks, _ = find_peaks(gfp)
     #peaks = find_peaks_cwt(gfp, widths=10)
@@ -182,18 +183,19 @@ def remove_similar_maps(data, centers, clusters):
     final_centers = np.delete(centers, remove_maps, axis=0)
     return final_centers, final_clusters
 
-def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
+def clustering_func(data, peaks, n_channels, maps, method, n_states, initial_centers,
                     smoothing, repeat, tolerance, metric):
     
     #n_channels = data.shape[0]
     
     if method == 'Modified K-means':
-        best_maps, final_segmentation, best_gev, _ = modified_kmeans.segment(data=data,
-                                                             n_states=n_states,
-                                                             n_inits=repeat,
-                                                             thresh=tolerance,
-                                                             min_peak_dist=smoothing,
-                                                             max_n_peaks=None)
+        best_maps, best_gev, _ = modified_kmeans.segment(data=data,
+                                                         peaks=peaks,
+                                                         n_states=n_states,
+                                                         n_inits=repeat,
+                                                         thresh=tolerance,
+                                                         min_peak_dist=smoothing,
+                                                         max_n_peaks=None)
     else:
         if method == 'K-means':
             if metric == 'Euclidean':
@@ -288,21 +290,36 @@ def clustering_func(data, n_channels, maps, method, n_states, initial_centers,
                 best_maps = centers
     
         print('\nBest GEV = ', best_gev)
-        
-        activation = np.array(best_maps).dot(data)
-        final_segmentation = np.argmax(np.abs(activation), axis=0)
 
-        # remove isolated segments
-        count_dups = [sum(1 for _ in group) for _, group in groupby(final_segmentation)]
-        for C in range(len(count_dups)):
-            if count_dups[C] < 2:
-                index = int(np.sum(count_dups[0:C]))
-                if C == 0:
-                    final_segmentation[index] = final_segmentation[index + 1]
-                else:
-                    final_segmentation[index] = final_segmentation[index - 1]
-    return best_maps, final_segmentation, best_gev
+    return best_maps, best_gev
 
+def backfit_func(data, maps, method):
+    if method=='all':
+        activation = np.array(maps).dot(data)
+        segmentation = np.argmax(np.abs(activation), axis=0)
+    elif method=='peaks':
+        gfp = np.std(data, axis=0)
+        peaks, _ = find_peaks(gfp)
+        troughs = [0]
+        for p in range(len(peaks) - 1):
+            min_arg = np.argmin((gfp[peaks[p]:peaks[p + 1]]))
+            troughs = np.append(troughs, peaks[p] + min_arg)
+        troughs = np.append(troughs, len(gfp))
+        diff_troughs = np.diff(troughs)
+        activation = maps.dot(data[:, peaks])
+        segmentation_peaks = np.argmax(np.abs(activation), axis=0)
+        segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
+
+    # remove isolated segments
+    count_dups = [sum(1 for _ in group) for _, group in groupby(segmentation)]
+    for C in range(len(count_dups)):
+        if count_dups[C] < 2:
+            index = int(np.sum(count_dups[0:C]))
+            if C == 0:
+                segmentation[index] = segmentation[index + 1]
+            else:
+                segmentation[index] = segmentation[index - 1]
+    return segmentation
 
 def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance):
     

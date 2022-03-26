@@ -13,10 +13,11 @@ from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
 from gui.newstudywindow import NewStudyWindow
 from gui.microstatedialog import MicrostateDialog
 
+from scipy.stats import zscore
 from functions.find_data import find_eeg
 from functions.concatenate_data import concatenate_files
 from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo, get_elbow
-from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
+from functions.clustering_functions import number_of_clusters, clustering_func, backfit_func, clustering_minibatch
 from functions.extract_features_functions import save_raw_results, extract_features, transition_matrix, save_features, substitude_maps_with_duration
 
 # Settings Class
@@ -63,12 +64,11 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_auto_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step2_user_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_smoothgfp_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step3_remove_segs_checkbox.clicked.connect(self.mainwindow_controller)
 
         self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.plot_elbow)
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
-        self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
+        self.ui.step2_backfit_button.clicked.connect(self.do_backfitting)
         self.ui.step3_visualize_clustering_button.clicked.connect(self.visualize_results)
 
         self.ui.step3_extractfeatures_button.clicked.connect(self.extract_features)
@@ -243,10 +243,8 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step2_user_numberofmaps_input.setDisabled(True)
             if self.ui.step2_user_numberofmaps_radio.isChecked():
                 self.ui.step2_user_numberofmaps_input.setEnabled(True)
-            if self.ui.step2_smoothgfp_checkbox.isChecked():
-                self.ui.step2_kernel_size_input.setEnabled(True)
-            else:
-                self.ui.step2_kernel_size_input.setDisabled(True)
+            self.ui.step2_kernel_size_input.setEnabled(True)
+
             self.ui.step2_numberofrepeats_label.setEnabled(True)
             self.ui.step2_user_numberofrepeats_input.setEnabled(True)
             self.ui.step2_other_label.setEnabled(True)
@@ -257,11 +255,17 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_stopcondition_label.setEnabled(True)
             self.ui.step2_tolerance_label.setEnabled(True)
             self.ui.step2_stopcondition_input.setEnabled(True)
-            self.ui.step2_smoothgfp_checkbox.setEnabled(True)
             self.ui.step2_kernel_size_label.setEnabled(True)
             self.ui.step2_kernel_size_input.setEnabled(True)
+            self.ui.step2_kernel_size_label_2.setEnabled(True)
             self.ui.step2_performclustering_label.setEnabled(True)
             self.ui.step2_clustering_button.setEnabled(True)
+
+            self.ui.step2_backfit_title_label.setEnabled(True)
+            self.ui.step2_backfit_all_radio.setEnabled(True)
+            self.ui.step2_backfit_peaks_radio.setEnabled(True)
+            self.ui.step2_backfit_button.setEnabled(True)
+
         else:
             self.ui.step2_clustering_title_label.setDisabled(True)
             self.ui.step2_clustermethod_combo_label.setDisabled(True)
@@ -281,11 +285,17 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_stopcondition_label.setDisabled(True)
             self.ui.step2_tolerance_label.setDisabled(True)
             self.ui.step2_stopcondition_input.setDisabled(True)
-            self.ui.step2_smoothgfp_checkbox.setDisabled(True)
             self.ui.step2_kernel_size_label.setDisabled(True)
             self.ui.step2_kernel_size_input.setDisabled(True)
+            self.ui.step2_kernel_size_label_2.setDisabled(True)
             self.ui.step2_performclustering_label.setDisabled(True)
             self.ui.step2_clustering_button.setDisabled(True)
+
+            self.ui.step2_backfit_title_label.setDisabled(True)
+            self.ui.step2_backfit_all_radio.setDisabled(True)
+            self.ui.step2_backfit_peaks_radio.setDisabled(True)
+            self.ui.step2_backfit_button.setDisabled(True)
+
 
         METHOD = self.step2_clustermethod_combobox.currentText()
         if METHOD == "K-means":
@@ -316,6 +326,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.done_clustering:
             self.step2_clustering_title_label.setStyleSheet("background-color: lightgreen")
+            self.step2_backfit_title_label.setStyleSheet("background-color: lightgreen")
             self.ui.step3_label_maps_button.setEnabled(True)
             self.ui.step3_visualize_clustering_button.setEnabled(True)
             self.ui.step3_features_title_label.setEnabled(True)
@@ -363,13 +374,12 @@ class MainMicrostateWindow(QMainWindow):
 
     def plot_elbow(self):
         DATA, _, _ = concatenate_files(self.save_dir)
-        if self.ui.step2_smoothgfp_checkbox.isChecked():
-            SMOOTHING_KERNEL = int(self.ui.step2_kernel_size_input.text())
-        else:
-            SMOOTHING_KERNEL = []
+        #if self.ui.step2_smoothgfp_checkbox.isChecked():
+        MIN_DISTANCE = int(self.ui.step2_kernel_size_input.text())
+        #MIN_DISTANCE = []
         TOLERANCE = float(self.ui.step2_stopcondition_input.text())
         REPEAT = int(self.ui.step2_user_numberofrepeats_input.text())
-        N, GEV, RES = get_elbow(DATA, 2, 11, REPEAT, TOLERANCE, SMOOTHING_KERNEL)
+        N, GEV, RES = get_elbow(DATA, 2, 11, REPEAT, TOLERANCE, MIN_DISTANCE)
 
     def do_clustering(self):
         self.use_saved_results = False
@@ -377,18 +387,20 @@ class MainMicrostateWindow(QMainWindow):
         # Concatenate data
         CONCATENATE = True
         DATA, N_CHANNELS, FILENAMES = concatenate_files(self.save_dir)
+        DATA = zscore(DATA, axis=1)
+        self.concatenated_data = DATA
 
         # Save data log
         config_file = os.path.join(self.save_dir, 'data_log.ini')
         config = self.load_config(config_file)
 
-        if self.ui.step2_smoothgfp_checkbox.isChecked():
+        if self.ui.step2_kernel_size_input.text():
             SMOOTHING = True
-            SMOOTHING_KERNEL = int(self.ui.step2_kernel_size_input.text())
+            MIN_DISTANCE = int(int(self.ui.step2_kernel_size_input.text())/self.Fs)
         else:
             SMOOTHING = False
-            SMOOTHING_KERNEL = []
-        print(SMOOTHING_KERNEL)
+            MIN_DISTANCE = []
+        print(MIN_DISTANCE)
 
         if self.ui.step2_random_initializer_radio.isChecked():
             INITIALIZER = "Random"
@@ -412,13 +424,14 @@ class MainMicrostateWindow(QMainWindow):
             best_maps, final_segmentation, self.gev = clustering_minibatch(
                 self.input_folder,
                 self.Fs,
-                SMOOTHING_KERNEL,
+                MIN_DISTANCE,
                 N_STATES,
                 INITIALIZER,
                 TOLERANCE)
 
         else:
-            MAPS, PEAKS = pre_clustering(DATA, SMOOTHING_KERNEL)
+            MAPS, PEAKS = pre_clustering(DATA, MIN_DISTANCE)
+            self.gfp_peaks = PEAKS
             # modify
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 CLUSTERS = "AUTO"
@@ -442,17 +455,20 @@ class MainMicrostateWindow(QMainWindow):
 
             REPEAT = int(self.ui.step2_user_numberofrepeats_input.text())
 
-            best_maps, final_segmentation, self.gev = clustering_func(
+            best_maps, self.gev = clustering_func(
                 DATA,
+                PEAKS,
                 N_CHANNELS,
                 MAPS,
                 METHOD,
                 N_STATES,
                 INITIAL_CENTERS,
-                SMOOTHING_KERNEL,
+                MIN_DISTANCE,
                 REPEAT,
                 TOLERANCE,
                 METRIC)
+
+        self.microstate_maps = best_maps
 
         save_raw_path = os.path.join(self.save_dir, 'raw_features')
         if not os.path.exists(save_raw_path):
@@ -463,14 +479,7 @@ class MainMicrostateWindow(QMainWindow):
         save_name = os.path.join(save_raw_path, 'microstate_maps')
         maps_df = pd.DataFrame(best_maps.T, index=self.eeg_info.ch_names)
         maps_df.to_csv(save_name + '.csv')
-        # Save Segmentation
-        time = np.arange(0, (1000 / int(self.Fs)) * len(final_segmentation), (1000 / int(self.Fs)))
-        segmentation_df = pd.DataFrame(final_segmentation,
-                                       columns=['segmentation'],
-                                       index=time)
-        save_name = os.path.join(self.save_dir, 'raw_features',
-                                 'raw_segmentation')
-        segmentation_df.to_csv(save_name + '.csv')
+
 
         # Save settings log
         config_file = os.path.join(self.save_dir, 'settings_log.ini')
@@ -484,14 +493,13 @@ class MainMicrostateWindow(QMainWindow):
         config.set('clustering_settings', 'number_of_maps', str(N_STATES))
         config.set('clustering_settings', 'initializer', INITIALIZER)
         config.set('clustering_settings', 'smoothing_gfp', str(SMOOTHING))
-        config.set('clustering_settings', 'smoothing_kernel_size', str(SMOOTHING_KERNEL))
+        config.set('clustering_settings', 'MIN_DISTANCE_size', str(MIN_DISTANCE))
         config.set('clustering_settings', 'tolerance', str(TOLERANCE))
         config.set('clustering_settings', 'concatenate_data', str(CONCATENATE))
         config.set('clustering_settings', 'number_of_repeats', str(REPEAT))
         with open(config_file, 'w+') as f:
             config.write(f)
 
-        self.final_segmentation = final_segmentation
         self.final_maps = best_maps
 
         self.label_maps()
@@ -507,6 +515,27 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step0_log_textbrowser.insertPlainText(20 * "* " + "\n")
 
         self.mainwindow_controller()
+
+    def do_backfitting(self):
+        print('doing backfitting')
+        if self.ui.step2_backfit_all_radio.isChecked():
+            segmentation_method = 'all'
+        elif self.ui.step2_backfit_peaks_radio.isChecked():
+            segmentation_method = 'peaks'
+
+        final_segmentation = backfit_func(self.concatenated_data,
+                                          self.final_maps,
+                                          segmentation_method)
+
+        # Save Segmentation
+        time = np.arange(0, (1000 / int(self.Fs)) * len(final_segmentation), (1000 / int(self.Fs)))
+        segmentation_df = pd.DataFrame(final_segmentation,
+                                       columns=['segmentation'],
+                                       index=time)
+        save_name = os.path.join(self.save_dir, 'raw_features',
+                                 'raw_segmentation')
+        segmentation_df.to_csv(save_name + '.csv')
+        print('done')
 
     def label_maps(self):
         self.MicrostateDialog.save_dir = self.save_dir
