@@ -293,7 +293,21 @@ def clustering_func(data, peaks, n_channels, maps, method, n_states, initial_cen
 
     return best_maps, best_gev
 
-def backfit_func(data, maps, method):
+
+def substitude_maps_with_duration(segmentation, min_duration):
+    segmentation = np.array(segmentation)
+    count_dups = [sum(1 for _ in group) for _, group in groupby(segmentation)]
+    for C in range(len(count_dups)):
+        if count_dups[C] <= min_duration:
+            start = int(np.sum(count_dups[0:C]))
+            stop = int(start + count_dups[C])
+            if C == 0:
+                segmentation[start:stop] = segmentation[stop + 1]
+            else:
+                segmentation[start:stop] = segmentation[start - 1]
+    return segmentation
+
+def backfit_func(data, maps, method, min_duration):
     if method=='all':
         activation = np.array(maps).dot(data)
         segmentation = np.argmax(np.abs(activation), axis=0)
@@ -311,14 +325,9 @@ def backfit_func(data, maps, method):
         segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
 
     # remove isolated segments
-    count_dups = [sum(1 for _ in group) for _, group in groupby(segmentation)]
-    for C in range(len(count_dups)):
-        if count_dups[C] < 2:
-            index = int(np.sum(count_dups[0:C]))
-            if C == 0:
-                segmentation[index] = segmentation[index + 1]
-            else:
-                segmentation[index] = segmentation[index - 1]
+    if min_duration:
+        segmentation = substitude_maps_with_duration(segmentation, min_duration)
+
     return segmentation
 
 def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance):

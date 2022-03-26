@@ -4,6 +4,7 @@ import pickle
 import json
 import pandas as pd
 import webbrowser
+import h5py
 from matplotlib import pyplot as plt
 from configparser import ConfigParser
 from PyQt5 import uic
@@ -16,9 +17,9 @@ from gui.microstatedialog import MicrostateDialog
 from scipy.stats import zscore
 from functions.find_data import find_eeg
 from functions.concatenate_data import concatenate_files
-from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo, get_elbow
+from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo, get_elbow, substitude_maps_with_duration
 from functions.clustering_functions import number_of_clusters, clustering_func, backfit_func, clustering_minibatch
-from functions.extract_features_functions import save_raw_results, extract_features, transition_matrix, save_features, substitude_maps_with_duration
+from functions.extract_features_functions import save_raw_results, extract_features, transition_matrix, save_features
 
 # Settings Class
 class SettingsModel:
@@ -48,6 +49,7 @@ class MainMicrostateWindow(QMainWindow):
 
         self.done_preprocessing = False
         self.done_clustering = False
+        self.done_backfitting = False
         self.done_feature_extraction = False
         self.ui.foldername_raw_data = ""
         self.ui.foldername_preprocessed_data = ""
@@ -68,6 +70,7 @@ class MainMicrostateWindow(QMainWindow):
 
         self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.plot_elbow)
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
+        self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
         self.ui.step2_backfit_button.clicked.connect(self.do_backfitting)
         self.ui.step3_visualize_clustering_button.clicked.connect(self.visualize_results)
 
@@ -159,6 +162,13 @@ class MainMicrostateWindow(QMainWindow):
                 for filename in [f for f in filenames if f.startswith("EEG_INFO")]:
                     eegInfo_path = os.path.join(dirpath, filename)
 
+            conatenated_data_path = os.path.join(self.save_dir, 'catdata.h5')
+            if os.path.exists(conatenated_data_path):
+                with h5py.File(conatenated_data_path, "r") as f:
+                    a_group_key = list(f.keys())[0]
+                    data = list(f[a_group_key])
+                self.concatenated_data = np.asarray(data)
+
             with open(eegInfo_path, 'rb') as f:
                 self.eeg_info = pickle.load(f)
             if str2bool(self.downsample_data):
@@ -201,14 +211,21 @@ class MainMicrostateWindow(QMainWindow):
                 self.lengthoffiles = self.lengthoffiles.split(",")
                 self.lengthoffiles = list(map(float, self.lengthoffiles))
                 self.lengthoffiles = list(map(int, self.lengthoffiles))
-                # Load raw clustering results
-                raw_results_path = os.path.join(self.save_dir, 'raw_features')
-                self.final_segmentation = pd.read_csv(os.path.join(raw_results_path, 'raw_segmentation.csv'))
-                self.final_segmentation = self.final_segmentation.iloc[:, 1:]
-                self.final_segmentation = self.final_segmentation['segmentation'].to_list()
-                self.final_maps = pd.read_csv(os.path.join(raw_results_path, 'microstate_maps.csv'))
+            # Load raw clustering results
+            raw_results_path = os.path.join(self.save_dir, 'raw_features')
+            final_maps_path = os.path.join(raw_results_path, 'microstate_maps.csv')
+            final_segmentation_path = os.path.join(raw_results_path, 'raw_segmentation.csv')
+
+            if os.path.exists(final_maps_path):
+                self.final_maps = pd.read_csv(final_maps_path)
                 self.final_maps = self.final_maps.iloc[:, 1:]
                 self.final_maps = self.final_maps.values.T
+
+            if os.path.exists(final_segmentation_path):
+                self.final_segmentation = pd.read_csv(final_segmentation_path)
+                self.final_segmentation = self.final_segmentation.iloc[:, 1:]
+                self.final_segmentation = self.final_segmentation['segmentation'].to_list()
+
             if config.has_option('clustering_results', 'gev'):
                 self.gev = config.get('clustering_results', 'gev')
                 self.ui.step0_log_textbrowser.insertPlainText("\n" + "Global Explained Variance: " + self.gev + "\n")
@@ -219,6 +236,10 @@ class MainMicrostateWindow(QMainWindow):
                 self.micro_labels = config.get('clustering_results', 'micro_labels')
                 self.ui.step0_log_textbrowser.insertPlainText("\n" + "Microstate labels: " + self.micro_labels + "\n")
                 self.micro_labels = self.micro_labels.split(",")
+
+            if config.has_section('backfitting_settings'):
+                self.segmentation_method = config.get('backfitting_settings', 'backfit_to')
+                self.remove_short_segments = config.get('backfitting_settings', 'remove_segments_less_than')
 
             self.mainwindow_controller()
 
@@ -326,12 +347,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.done_clustering:
             self.step2_clustering_title_label.setStyleSheet("background-color: lightgreen")
-            self.step2_backfit_title_label.setStyleSheet("background-color: lightgreen")
             self.ui.step3_label_maps_button.setEnabled(True)
-            self.ui.step3_visualize_clustering_button.setEnabled(True)
-            self.ui.step3_features_title_label.setEnabled(True)
-            self.ui.step3_featurestoextract_label.setEnabled(True)
-            self.ui.step3_outputformats_label.setEnabled(True)
             self.ui.step3_remove_segs_checkbox.setEnabled(True)
             if self.ui.step3_remove_segs_checkbox.isChecked():
                 self.ui.step3_remove_segs_input.setEnabled(True)
@@ -339,6 +355,19 @@ class MainMicrostateWindow(QMainWindow):
             elif not self.ui.step3_remove_segs_checkbox.isChecked():
                 self.ui.step3_remove_segs_input.setDisabled(True)
                 self.ui.step3_remove_segs_label.setDisabled(True)
+        else:
+            self.ui.step3_label_maps_button.setDisabled(True)
+            self.ui.step3_remove_segs_checkbox.setDisabled(True)
+            self.ui.step3_remove_segs_input.setDisabled(True)
+            self.ui.step3_remove_segs_label.setDisabled(True)
+
+
+        if self.done_backfitting:
+            self.step2_backfit_title_label.setStyleSheet("background-color: lightgreen")
+            self.ui.step3_visualize_clustering_button.setEnabled(True)
+            self.ui.step3_features_title_label.setEnabled(True)
+            self.ui.step3_featurestoextract_label.setEnabled(True)
+            self.ui.step3_outputformats_label.setEnabled(True)
             self.ui.step3_coverage_featurestoextract_checkbox.setEnabled(True)
             self.ui.step3_foc_featurestoextract_checkbox.setEnabled(True)
             self.ui.step3_mmd_featurestoextract_checkbox.setEnabled(True)
@@ -349,15 +378,12 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_save_transitions_checkbox.setEnabled(True)
             self.ui.step3_outputformats_combobox.setEnabled(True)
             self.ui.step3_extractfeatures_button.setEnabled(True)
+
         else:
-            self.ui.step3_label_maps_button.setDisabled(True)
             self.ui.step3_visualize_clustering_button.setDisabled(True)
             self.ui.step3_features_title_label.setDisabled(True)
             self.ui.step3_featurestoextract_label.setDisabled(True)
             self.ui.step3_outputformats_label.setDisabled(True)
-            self.ui.step3_remove_segs_checkbox.setDisabled(True)
-            self.ui.step3_remove_segs_input.setDisabled(True)
-            self.ui.step3_remove_segs_label.setDisabled(True)
             self.ui.step3_coverage_featurestoextract_checkbox.setDisabled(True)
             self.ui.step3_foc_featurestoextract_checkbox.setDisabled(True)
             self.ui.step3_mmd_featurestoextract_checkbox.setDisabled(True)
@@ -396,7 +422,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.ui.step2_kernel_size_input.text():
             SMOOTHING = True
-            MIN_DISTANCE = int(int(self.ui.step2_kernel_size_input.text())/self.Fs)
+            MIN_DISTANCE = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.Fs))
         else:
             SMOOTHING = False
             MIN_DISTANCE = []
@@ -518,14 +544,32 @@ class MainMicrostateWindow(QMainWindow):
 
     def do_backfitting(self):
         print('doing backfitting')
+
+        # save config
+        config_file = os.path.join(self.save_dir, 'settings_log.ini')
+        config = self.load_config(config_file)
+        if config.has_section('backfitting_settings'):
+            config.remove_section('backfitting_settings')
+        config.add_section('backfitting_settings')
+
         if self.ui.step2_backfit_all_radio.isChecked():
-            segmentation_method = 'all'
+            self.segmentation_method = 'all'
         elif self.ui.step2_backfit_peaks_radio.isChecked():
-            segmentation_method = 'peaks'
+            self.segmentation_method = 'peaks'
+        config.set('backfitting_settings', 'backfit_to', self.segmentation_method)
+
+        if self.ui.step3_remove_segs_checkbox.isChecked():
+            self.remove_short_segments = int(self.ui.step3_remove_segs_input.text())
+        else:
+            self.remove_short_segments = []
+        config.set('backfitting_settings', 'remove_segments_less_than', str(self.remove_short_segments))
+        with open(config_file, 'w+') as f:
+            config.write(f)
 
         final_segmentation = backfit_func(self.concatenated_data,
                                           self.final_maps,
-                                          segmentation_method)
+                                          self.segmentation_method,
+                                          self.remove_short_segments)
 
         # Save Segmentation
         time = np.arange(0, (1000 / int(self.Fs)) * len(final_segmentation), (1000 / int(self.Fs)))
@@ -535,7 +579,10 @@ class MainMicrostateWindow(QMainWindow):
         save_name = os.path.join(self.save_dir, 'raw_features',
                                  'raw_segmentation')
         segmentation_df.to_csv(save_name + '.csv')
+        self.done_backfitting = True
         print('done')
+
+        self.mainwindow_controller()
 
     def label_maps(self):
         self.MicrostateDialog.save_dir = self.save_dir
@@ -592,10 +639,6 @@ class MainMicrostateWindow(QMainWindow):
 
         self.micro_labels = self.MicrostateDialog.micro_labels
 
-        if self.ui.step3_remove_segs_checkbox.isChecked():
-            self.remove_short_segments = int(self.ui.step3_remove_segs_input.text())
-            config.set('features_settings', 'remove_segments_less_than', str(self.remove_short_segments))
-            Segmentation = substitude_maps_with_duration(Segmentation, int(self.remove_short_segments/(1000/int(self.Fs))))
 
         Segmentation = list(map(str, Segmentation))
         for i in range(len(self.micro_labels)):
