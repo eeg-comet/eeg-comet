@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>948</width>
+    <width>1043</width>
     <height>836</height>
    </rect>
   </property>
@@ -240,7 +240,7 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>541</width>
+          <width>597</width>
           <height>786</height>
          </rect>
         </property>
@@ -284,6 +284,24 @@
             <layout class="QGridLayout" name="gridLayout_8">
              <item row="11" column="0" rowspan="5" colspan="4">
               <layout class="QGridLayout" name="gridLayout_3">
+               <item row="0" column="1" colspan="2">
+                <widget class="QComboBox" name="step2_other_options_combobox">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                  </font>
+                 </property>
+                </widget>
+               </item>
                <item row="1" column="1" colspan="2">
                 <layout class="QHBoxLayout" name="horizontalLayout_10">
                  <item>
@@ -326,24 +344,6 @@
                   </widget>
                  </item>
                 </layout>
-               </item>
-               <item row="0" column="1" colspan="2">
-                <widget class="QComboBox" name="step2_other_options_combobox">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                </widget>
                </item>
                <item row="0" column="0">
                 <widget class="QLabel" name="step2_other_label">
@@ -396,24 +396,6 @@
                  </property>
                 </widget>
                </item>
-               <item row="3" column="1" colspan="2">
-                <widget class="QLineEdit" name="step2_stopcondition_input">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>1E-5</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
                <item row="3" column="0">
                 <layout class="QHBoxLayout" name="horizontalLayout_7">
                  <item>
@@ -448,39 +430,6 @@
                  </item>
                 </layout>
                </item>
-               <item row="4" column="0">
-                <widget class="QLabel" name="step2_numberofrepeats_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Number of Repeats:</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="5" column="1" colspan="2">
-                <widget class="QLabel" name="step2_performclustering_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Performing clustering on all EEG data concatenated</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-                 </property>
-                </widget>
-               </item>
                <item row="4" column="1" colspan="2">
                 <widget class="QLineEdit" name="step2_user_numberofrepeats_input">
                  <property name="enabled">
@@ -511,7 +460,83 @@
                  </property>
                 </widget>
                </item>
-               <item row="2" column="1">
+               <item row="4" column="0">
+                <widget class="QLabel" name="step2_numberofrepeats_label">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Number of Repeats:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="0">
+                <widget class="QLabel" name="step2_performclustering_label">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Performing clustering on:</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1" colspan="2">
+                <layout class="QHBoxLayout" name="horizontalLayout_4">
+                 <item>
+                  <widget class="QRadioButton" name="step2_performclustering_concat_radio">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>All EEG data concatenated</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroup_3</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QRadioButton" name="step2_performclustering_each_radio">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Each file separately</string>
+                   </property>
+                   <attribute name="buttonGroup">
+                    <string notr="true">buttonGroup_3</string>
+                   </attribute>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="2" column="1" colspan="2">
                 <layout class="QHBoxLayout" name="horizontalLayout_2">
                  <item>
                   <widget class="QLineEdit" name="step2_kernel_size_input">
@@ -553,6 +578,24 @@
                   </widget>
                  </item>
                 </layout>
+               </item>
+               <item row="3" column="1" colspan="2">
+                <widget class="QLineEdit" name="step2_stopcondition_input">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>1E-5</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                </widget>
                </item>
               </layout>
              </item>
@@ -1337,7 +1380,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>948</width>
+     <width>1043</width>
      <height>18</height>
     </rect>
    </property>
@@ -1442,5 +1485,6 @@
  <buttongroups>
   <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>

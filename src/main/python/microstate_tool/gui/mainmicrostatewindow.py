@@ -280,12 +280,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_kernel_size_input.setEnabled(True)
             self.ui.step2_kernel_size_label_2.setEnabled(True)
             self.ui.step2_performclustering_label.setEnabled(True)
+            self.ui.step2_performclustering_concat_radio.setEnabled(True)
+            self.ui.step2_performclustering_each_radio.setEnabled(True)
             self.ui.step2_clustering_button.setEnabled(True)
-
-            self.ui.step2_backfit_title_label.setEnabled(True)
-            self.ui.step2_backfit_all_radio.setEnabled(True)
-            self.ui.step2_backfit_peaks_radio.setEnabled(True)
-            self.ui.step2_backfit_button.setEnabled(True)
 
         else:
             self.ui.step2_clustering_title_label.setDisabled(True)
@@ -310,13 +307,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_kernel_size_input.setDisabled(True)
             self.ui.step2_kernel_size_label_2.setDisabled(True)
             self.ui.step2_performclustering_label.setDisabled(True)
+            self.ui.step2_performclustering_concat_radio.setDisabled(True)
+            self.ui.step2_performclustering_each_radio.setDisabled(True)
             self.ui.step2_clustering_button.setDisabled(True)
-
-            self.ui.step2_backfit_title_label.setDisabled(True)
-            self.ui.step2_backfit_all_radio.setDisabled(True)
-            self.ui.step2_backfit_peaks_radio.setDisabled(True)
-            self.ui.step2_backfit_button.setDisabled(True)
-
 
         METHOD = self.step2_clustermethod_combobox.currentText()
         if METHOD == "K-means":
@@ -348,6 +341,10 @@ class MainMicrostateWindow(QMainWindow):
         if self.done_clustering:
             self.step2_clustering_title_label.setStyleSheet("background-color: lightgreen")
             self.ui.step3_label_maps_button.setEnabled(True)
+            self.ui.step2_backfit_title_label.setEnabled(True)
+            self.ui.step2_backfit_all_radio.setEnabled(True)
+            self.ui.step2_backfit_peaks_radio.setEnabled(True)
+            self.ui.step2_backfit_button.setEnabled(True)
             self.ui.step3_remove_segs_checkbox.setEnabled(True)
             if self.ui.step3_remove_segs_checkbox.isChecked():
                 self.ui.step3_remove_segs_input.setEnabled(True)
@@ -356,6 +353,11 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step3_remove_segs_input.setDisabled(True)
                 self.ui.step3_remove_segs_label.setDisabled(True)
         else:
+            self.ui.step3_label_maps_button.setDisabled(True)
+            self.ui.step2_backfit_title_label.setDisabled(True)
+            self.ui.step2_backfit_all_radio.setDisabled(True)
+            self.ui.step2_backfit_peaks_radio.setDisabled(True)
+            self.ui.step2_backfit_button.setDisabled(True)
             self.ui.step3_label_maps_button.setDisabled(True)
             self.ui.step3_remove_segs_checkbox.setDisabled(True)
             self.ui.step3_remove_segs_input.setDisabled(True)
@@ -411,10 +413,10 @@ class MainMicrostateWindow(QMainWindow):
         self.use_saved_results = False
 
         # Concatenate data
-        CONCATENATE = True
-        DATA, N_CHANNELS, FILENAMES = concatenate_files(self.save_dir)
-        DATA = zscore(DATA, axis=1)
-        self.concatenated_data = DATA
+        if self.ui.step2_performclustering_concat_radio.isChecked():
+            self.concat_data = True
+        elif self.ui.step2_performclustering_each_radio.isChecked():
+            self.concat_data = False
 
         # Save data log
         config_file = os.path.join(self.save_dir, 'data_log.ini')
@@ -428,6 +430,13 @@ class MainMicrostateWindow(QMainWindow):
             MIN_DISTANCE = []
         print(MIN_DISTANCE)
 
+        if self.ui.step2_auto_numberofmaps_radio.isChecked():
+            CLUSTERS = "auto"
+        elif self.ui.step2_user_numberofmaps_radio.isChecked():
+            CLUSTERS = "user"
+            N_STATES = int(self.ui.step2_user_numberofmaps_input.text())
+        print(N_STATES)
+
         if self.ui.step2_random_initializer_radio.isChecked():
             INITIALIZER = "Random"
         elif self.ui.step2_kmeans_initializer_radio.isChecked():
@@ -439,60 +448,37 @@ class MainMicrostateWindow(QMainWindow):
         TOLERANCE = float(self.ui.step2_stopcondition_input.text())
         print(TOLERANCE)
 
-        if METHOD == "Mini Batch K-means":
+        METRIC = self.ui.step2_other_options_combobox.currentText()
+        print(METRIC)
 
-            # modify
-            if self.ui.step2_user_numberofmaps_radio.isChecked():
-                CLUSTERS = "USER"
-                N_STATES = int(self.ui.step2_user_numberofmaps_input.text())
-                print(N_STATES)
+        REPEAT = int(self.ui.step2_user_numberofrepeats_input.text())
 
-            best_maps, final_segmentation, self.gev = clustering_minibatch(
-                self.input_folder,
-                self.Fs,
-                MIN_DISTANCE,
-                N_STATES,
-                INITIALIZER,
-                TOLERANCE)
-
-        else:
-            MAPS, PEAKS = pre_clustering(DATA, MIN_DISTANCE)
-            self.gfp_peaks = PEAKS
-            # modify
-            if self.ui.step2_auto_numberofmaps_radio.isChecked():
-                CLUSTERS = "AUTO"
-                N_STATES = number_of_clusters(MAPS)
-                print('Using Elbow method to find the optimal number of microstate maps')
-            elif self.ui.step2_user_numberofmaps_radio.isChecked():
-                CLUSTERS = "USER"
-                N_STATES = int(self.ui.step2_user_numberofmaps_input.text())
-            print(N_STATES)
-
-            INITIAL_CENTERS = initialize_centers(
-                DATA,
-                MAPS,
-                PEAKS,
-                N_STATES,
-                INITIALIZER)
-            print(INITIAL_CENTERS.shape)
-
-            METRIC = self.ui.step2_other_options_combobox.currentText()
-            print(METRIC)
-
-            REPEAT = int(self.ui.step2_user_numberofrepeats_input.text())
+        if self.concat_data:
+            DATA, N_CHANNELS, FILENAMES = concatenate_files(self.save_dir)
+            DATA = zscore(DATA, axis=1)
+            self.concatenated_data = DATA
 
             best_maps, self.gev = clustering_func(
                 DATA,
-                PEAKS,
                 N_CHANNELS,
-                MAPS,
                 METHOD,
                 N_STATES,
-                INITIAL_CENTERS,
+                INITIALIZER,
                 MIN_DISTANCE,
                 REPEAT,
                 TOLERANCE,
                 METRIC)
+        else:
+
+            best_maps, self.gev = clustering_minibatch(self.save_dir,
+                                                       METHOD,
+                                                       N_STATES,
+                                                       INITIALIZER,
+                                                       MIN_DISTANCE,
+                                                       REPEAT,
+                                                       TOLERANCE,
+                                                       METRIC)
+
 
         self.microstate_maps = best_maps
 
@@ -521,7 +507,7 @@ class MainMicrostateWindow(QMainWindow):
         config.set('clustering_settings', 'smoothing_gfp', str(SMOOTHING))
         config.set('clustering_settings', 'MIN_DISTANCE_size', str(MIN_DISTANCE))
         config.set('clustering_settings', 'tolerance', str(TOLERANCE))
-        config.set('clustering_settings', 'concatenate_data', str(CONCATENATE))
+        config.set('clustering_settings', 'concatenate_data', str(self.concat_data))
         config.set('clustering_settings', 'number_of_repeats', str(REPEAT))
         with open(config_file, 'w+') as f:
             config.write(f)

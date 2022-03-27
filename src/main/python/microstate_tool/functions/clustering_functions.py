@@ -183,18 +183,31 @@ def remove_similar_maps(data, centers, clusters):
     final_centers = np.delete(centers, remove_maps, axis=0)
     return final_centers, final_clusters
 
-def clustering_func(data, peaks, n_channels, maps, method, n_states, initial_centers,
-                    smoothing, repeat, tolerance, metric):
+def clustering_func(data, n_channels, method, n_states, initializer,
+                    min_dist, repeat, tolerance, metric):
     
     #n_channels = data.shape[0]
-    
+
+    maps, peaks = pre_clustering(data, min_dist)
+
+    if n_states=='auto':
+        print('Using Elbow method to find the optimal number of microstate maps')
+        n_states = number_of_clusters(maps)
+
+    initial_centers = initialize_centers(
+        data,
+        maps,
+        peaks,
+        n_states,
+        initializer)
+
     if method == 'Modified K-means':
         best_maps, best_gev, _ = modified_kmeans.segment(data=data,
                                                          peaks=peaks,
                                                          n_states=n_states,
                                                          n_inits=repeat,
                                                          thresh=tolerance,
-                                                         min_peak_dist=smoothing,
+                                                         min_peak_dist=min_dist,
                                                          max_n_peaks=None)
     else:
         if method == 'K-means':
@@ -330,36 +343,37 @@ def backfit_func(data, maps, method, min_duration):
 
     return segmentation
 
-def clustering_minibatch(folder, fs, smoothing, n_states, initializer, tolerance):
-    
-    minibatchk = MiniBatchKMeans(n_clusters=n_states,
-                                 init=initializer.lower(),
-                                 max_iter=100,
-                                 batch_size=10,
-                                 verbose=1,
-                                 tol=tolerance)
-    
+
+def clustering_minibatch(outputfolder, method, n_states, initializer,
+                    min_dist, repeat, tolerance, metric):
     eeglist = []
-    extension="*.h5"
-    for path, subdirs, files in os.walk(folder):
+    extension = "*.h5"
+    for path, _, files in os.walk(os.path.join(outputfolder, 'preprocessed_data')):
         for name in files:
             if fnmatch(name, extension):
                 eeglist.append(os.path.join(path, name))
-    
-    for filename in eeglist:
-        with h5py.File(filename, "r") as f:
-            print("Keys: %s" % f.keys())
+
+    for file in eeglist:
+        print(file)
+        with h5py.File(file, "r") as f:
             a_group_key = list(f.keys())[0]
             data = list(f[a_group_key])
         data = np.asarray(data)
-        maps, peaks = pre_clustering(data, smoothing)
-        
-        minibatchk = minibatchk.partial_fit(np.abs(maps))
-    
-    best_maps = minibatchk.cluster_centers_
-    final_segmentation = minibatchk.labels_
-    
-    best_gev = compute_gev(data, np.array(best_maps))
-    print('\nBest GEV = ', best_gev)
-    
-    return best_maps, final_segmentation, best_gev
+        n_channels = data.shape[0]
+        maps, _ = clustering_func(data, n_channels, method, n_states, initializer,
+                    min_dist, repeat, tolerance, metric)
+        best_gev, avg_gev = 0, 0
+        for file in eeglist:
+            with h5py.File(file, "r") as f:
+                # List all groups
+                a_group_key = list(f.keys())[0]
+                # Get the data
+                data = list(f[a_group_key])
+            gev = compute_gev(data, np.array(maps))
+            avg_gev = avg_gev + gev
+        avg_gev = avg_gev/len(eeglist)
+        print(avg_gev)
+        if avg_gev > best_gev:
+            best_maps, best_gev = maps, gev
+
+    return best_maps, best_gev
