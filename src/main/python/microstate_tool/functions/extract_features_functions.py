@@ -17,7 +17,25 @@ from functions.clustering_functions import compute_gev
 from functions.lempel_ziv_complexity import lempel_ziv_complexity
 
 
+def save_features(df, filename, file_format, path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    save_path = os.path.join(path, filename + file_format)
+    if file_format == '.csv':
+        df.to_csv(save_path, header=True)
+    elif file_format == '.pkl':
+        df.to_pickle(save_path)
+    elif file_format == '.hdf':
+        df.to_hdf(save_path)
+    elif file_format == '.json':
+        df.to_json(save_path)
+
+
 def transition_matrix(segmentation, visualize=False, colormap='Blues'):
+    list_segment_each_tmp = listToString(segmentation)
+    list_unique_segment_each = remove_consec_duplicates(list_segment_each_tmp)
+    list_unique_segment_each = [(list_unique_segment_each[i:i + 1]) for i in range(0, len(list_unique_segment_each), 1)]
+    segmentation = np.asarray(list_unique_segment_each)
     df = pd.DataFrame(segmentation)
     df['shift'] = df[0].shift(-1)
     df['count'] = 1
@@ -63,7 +81,7 @@ def listToString(s):
 
 def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                      save_maps, maps, micro_labels,
-                     save_transitions, output_path, saveformat, save_path):
+                     save_transitions, output_path, file_format, save_path):
     micro_maps = np.unique(segmentation).tolist()
     if segmentation is not None:
         for i in range(len(len_data)):
@@ -83,33 +101,20 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                 save_path_raw_segmentation = os.path.join(save_path, 'raw_segmentation')
                 if not os.path.exists(save_path_raw_segmentation):
                     os.makedirs(save_path_raw_segmentation)
-                save_name = os.path.join(save_path_raw_segmentation, 'raw_segmentation_' + filename[0])
-                if saveformat == 'csv':
-                    segmentation_df.to_csv(save_name + '.csv')
-                elif saveformat == 'pkl':
-                    segmentation_df.to_pickle(save_name + '.pkl')
-                elif saveformat == 'hdf':
-                    segmentation_df.to_hdf(save_name + '.hdf')
-                elif saveformat == 'json':
-                    segmentation_df.to_json(save_name + '.json')
+                save_features(segmentation_df, 'raw_segmentation_' + filename[0], file_format,
+                              save_path_raw_segmentation)
+
             if save_transitions:
                 save_path_raw_transitions = os.path.join(save_path, 'raw_transitions')
                 if not os.path.exists(save_path_raw_transitions):
                     os.makedirs(save_path_raw_transitions)
-                save_name = os.path.join(save_path_raw_transitions, 'transition_matrix_' + filename[0])
                 tm = transition_matrix(segment_each)
                 headers = []
                 for c in micro_maps:
                     headers = np.append(headers, c)
                 tm_df = pd.DataFrame(tm, columns=headers, index=headers)
-                if saveformat == 'csv':
-                    tm_df.to_csv(save_name + '.csv')
-                elif saveformat == 'pkl':
-                    tm_df.to_pickle(save_name + '.pkl')
-                elif saveformat == 'hdf':
-                    tm_df.to_hdf(save_name + '.hdf')
-                elif saveformat == 'json':
-                    tm_df.to_json(save_name + '.json')
+                save_features(tm_df, 'transition_matrix_' + filename[0], file_format,
+                              save_path_raw_transitions)
 
     if save_maps:
         for dirpath, dirnames, filenames in os.walk(output_path):
@@ -117,19 +122,11 @@ def save_raw_results(filenames, len_data, fs, save_segmentation, segmentation,
                 eegInfo_path = os.path.join(dirpath, filename)
         with open(eegInfo_path, 'rb') as f:
             eeg_info = pickle.load(f)
-        save_name = os.path.join(save_path, 'microstate_maps')
         if micro_labels != []:
             maps_df = pd.DataFrame(maps.T, columns=micro_labels, index=eeg_info.ch_names)
         else:
             maps_df = pd.DataFrame(maps.T, index=eeg_info.ch_names)
-        if saveformat == 'csv':
-            maps_df.to_csv(save_name + '.csv')
-        elif saveformat == 'pkl':
-            maps_df.to_pickle(save_name + '.pkl')
-        elif saveformat == 'hdf':
-            maps_df.to_hdf(save_name + '.hdf')
-        elif saveformat == 'json':
-            maps_df.to_json(save_name + '.json')
+        save_features(maps_df, 'microstate_maps', file_format, save_path)
 
 
 def extract_features(filenames, len_data, h5files, segmentation, maps, fs, features):
@@ -227,18 +224,3 @@ def extract_features(filenames, len_data, h5files, segmentation, maps, fs, featu
                              columns=headers.tolist()))
 
     return extracted_features_df
-
-
-def save_features(extracted_features_df, saveformat, save_path):
-    if saveformat == 'csv':
-        save_name = os.path.join(save_path, 'extracted_features.csv')
-        extracted_features_df.to_csv(save_name, index=False, header=True)
-    elif saveformat == 'pkl':
-        save_name = os.path.join(save_path, 'extracted_features.pkl')
-        extracted_features_df.to_pickle(save_name)
-    elif saveformat == 'hdf':
-        save_name = os.path.join(save_path, 'extracted_features.h5')
-        extracted_features_df.to_hdf(save_name)
-    elif saveformat == 'json':
-        save_name = os.path.join(save_path, 'extracted_features.json')
-        extracted_features_df.to_json(save_name)

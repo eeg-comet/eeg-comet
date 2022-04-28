@@ -222,6 +222,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.final_maps = self.final_maps.values.T
 
             if os.path.exists(final_segmentation_path):
+                self.done_backfitting = True
                 self.final_segmentation = pd.read_csv(final_segmentation_path)
                 self.final_segmentation = self.final_segmentation.iloc[:, 1:]
                 self.final_segmentation = self.final_segmentation['segmentation'].to_list()
@@ -238,7 +239,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.micro_labels = self.micro_labels.split(",")
 
             if config.has_section('backfitting_settings'):
-                self.segmentation_method = config.get('backfitting_settings', 'backfit_to')
+                self.backfit_to = config.get('backfitting_settings', 'backfit_to')
                 self.remove_short_segments = config.get('backfitting_settings', 'remove_segments_less_than')
 
             self.mainwindow_controller()
@@ -539,10 +540,10 @@ class MainMicrostateWindow(QMainWindow):
         config.add_section('backfitting_settings')
 
         if self.ui.step2_backfit_all_radio.isChecked():
-            self.segmentation_method = 'all'
+            self.backfit_to = 'all'
         elif self.ui.step2_backfit_peaks_radio.isChecked():
-            self.segmentation_method = 'peaks'
-        config.set('backfitting_settings', 'backfit_to', self.segmentation_method)
+            self.backfit_to = 'peaks'
+        config.set('backfitting_settings', 'backfit_to', self.backfit_to)
 
         if self.ui.step3_remove_segs_checkbox.isChecked():
             self.remove_short_segments = int(self.ui.step3_remove_segs_input.text())
@@ -554,7 +555,7 @@ class MainMicrostateWindow(QMainWindow):
 
         final_segmentation = backfit_func(self.concatenated_data,
                                           self.final_maps,
-                                          self.segmentation_method,
+                                          self.backfit_to,
                                           self.remove_short_segments)
 
         # Save Segmentation
@@ -610,15 +611,15 @@ class MainMicrostateWindow(QMainWindow):
 
         outputformat = self.ui.step3_outputformats_combobox.currentText()
         if outputformat == "Comma-Separated Values (.csv)":
-            saveformat = 'csv'
+            self.file_format = '.csv'
         elif outputformat == "Pickle (.pkl)":
-            saveformat = 'pkl'
+            self.file_format = '.pkl'
         elif outputformat == "Hierarchical Data Format (.h5)":
-            saveformat = 'hdf'
+            self.file_format = '.hdf'
         elif outputformat == "Java Script Object Notation (.json)":
-            saveformat = 'json'
+            self.file_format = '.json'
 
-        if self.use_saved_results:
+        if isinstance(self.final_segmentation, list):
             Segmentation = self.final_segmentation
         else:
             Segmentation = self.final_segmentation.tolist()
@@ -646,7 +647,7 @@ class MainMicrostateWindow(QMainWindow):
                             self.micro_labels,
                             save_transitions,
                             self.save_dir,
-                            saveformat, self.ui.save_raw_path)
+                            self.file_format, self.ui.save_raw_path)
 
 
         Features = []
@@ -667,7 +668,7 @@ class MainMicrostateWindow(QMainWindow):
                                                   Segmentation, self.final_maps, self.Fs, Features)
 
         # Save Features
-        save_features(extracted_features_df, saveformat, self.ui.save_features_path)
+        save_features(extracted_features_df, 'extracted_features', self.file_format, self.ui.save_features_path)
         print('\n*** Finished ***')
 
 
@@ -676,7 +677,7 @@ class MainMicrostateWindow(QMainWindow):
         config.set('features_settings', 'save_raw_segmentation', str(save_segmentation))
         config.set('features_settings', 'save_microstate_maps', str(save_maps))
         config.set('features_settings', 'save_transition_matrices', str(save_transitions))
-        config.set('features_settings', 'output_format', str(saveformat))
+        config.set('features_settings', 'output_format', str(self.file_format))
         with open(config_file, 'w+') as f:
             config.write(f)
 

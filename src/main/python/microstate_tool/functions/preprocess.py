@@ -60,11 +60,6 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
     EEG = EEG.pick_types(meg=False, eeg=True, eog=False,
                          exclude=channels2remove[0], verbose='CRITICAL')
     EEG = EEG.set_eeg_reference('average')
-    INFO = EEG.info
-    INFO['highpass'] = lowcut
-    INFO['lowpass'] = highcut
-    Fs = INFO['sfreq']
-    sample_rate = Fs
 
     #print(INFO)
 
@@ -79,7 +74,7 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
     # DATA = filter_eeg(DATA, fs, lowcut, highcut, order)
     # Downsample
     if downsample_true:
-        if Fs != fs:
+        if EEG.info['sfreq'] != fs:
             EEG = EEG.resample(fs)
             sample_rate = fs
             # if datatype == "epoched":
@@ -89,6 +84,11 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, filter_true,
             #    EEG = mne.filter.resample(EEG, down=downsamp_factor ,npad='auto')
             # n_samples = round(len(DATA)*float(fs)/EEG.info['sfreq'])
             # DATA = resample(DATA, n_samples)
+
+    INFO = EEG.info
+    #Fs = INFO['sfreq']
+    #INFO['highpass'] = lowcut
+    #INFO['lowpass'] = highcut
 
     if datatype == "epoched":
         for index in range(EEG.__len__()):

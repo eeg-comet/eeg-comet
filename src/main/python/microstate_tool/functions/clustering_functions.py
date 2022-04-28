@@ -183,7 +183,7 @@ def remove_similar_maps(data, centers, clusters):
     final_centers = np.delete(centers, remove_maps, axis=0)
     return final_centers, final_clusters
 
-def clustering_func(data, n_channels, method, n_states, initializer,
+def clustering_func(data, n_channels, method, n_states, initial_centers,
                     min_dist, repeat, tolerance, metric):
     
     #n_channels = data.shape[0]
@@ -194,12 +194,12 @@ def clustering_func(data, n_channels, method, n_states, initializer,
         print('Using Elbow method to find the optimal number of microstate maps')
         n_states = number_of_clusters(maps)
 
-    initial_centers = initialize_centers(
-        data,
-        maps,
-        peaks,
-        n_states,
-        initializer)
+    #initial_centers = initialize_centers(
+    #    data,
+    #    maps,
+    #    peaks,
+    #    n_states,
+    #    initializer)
 
     if method == 'Modified K-means':
         best_maps, best_gev, _ = modified_kmeans.segment(data=data,
@@ -310,14 +310,17 @@ def clustering_func(data, n_channels, method, n_states, initializer,
 def substitude_maps_with_duration(segmentation, min_duration):
     segmentation = np.array(segmentation)
     count_dups = [sum(1 for _ in group) for _, group in groupby(segmentation)]
-    for C in range(len(count_dups)):
-        if count_dups[C] <= min_duration:
-            start = int(np.sum(count_dups[0:C]))
-            stop = int(start + count_dups[C])
-            if C == 0:
-                segmentation[start:stop] = segmentation[stop + 1]
-            else:
-                segmentation[start:stop] = segmentation[start - 1]
+
+    if min_duration:
+        for C in range(len(count_dups)):
+            print(100*C/len(count_dups))
+            if count_dups[C] <= min_duration:
+                start = int(np.sum(count_dups[0:C]))
+                stop = int(start + count_dups[C])
+                if C == 0:
+                    segmentation[start:stop] = segmentation[stop + 1]
+                else:
+                    segmentation[start:stop] = segmentation[start - 1]
     return segmentation
 
 def backfit_func(data, maps, method, min_duration):
@@ -340,7 +343,6 @@ def backfit_func(data, maps, method, min_duration):
     # remove isolated segments
     if min_duration:
         segmentation = substitude_maps_with_duration(segmentation, min_duration)
-
     return segmentation
 
 
@@ -353,6 +355,7 @@ def clustering_minibatch(outputfolder, method, n_states, initializer,
             if fnmatch(name, extension):
                 eeglist.append(os.path.join(path, name))
 
+    all_maps = []
     for file in eeglist:
         print(file)
         with h5py.File(file, "r") as f:
@@ -360,6 +363,10 @@ def clustering_minibatch(outputfolder, method, n_states, initializer,
             data = list(f[a_group_key])
         data = np.asarray(data)
         n_channels = data.shape[0]
+
+        maps, peaks = pre_clustering(data, min_dist)
+        all_maps = np.append(all_maps, maps)
+
         maps, _ = clustering_func(data, n_channels, method, n_states, initializer,
                     min_dist, repeat, tolerance, metric)
         best_gev, avg_gev = 0, 0
