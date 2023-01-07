@@ -4,3 +4,9 @@ test_data/output/
 src/main/python/microstate_tool/new_clustering.py
 src/main/python/microstate_tool/new_clustering.py
 src/main/python/microstate_tool/new_clustering.py
+src/main/python/microstate_tool/functions/utils/export_h5.py
+src/main/python/microstate_tool/functions/features/z_scores.npy
+src/main/python/microstate_tool/functions/features/source_time_series.npy
+src/main/python/microstate_tool/functions/features/eeg_info.pkl
+src/main/python/microstate_tool/functions/features/test_study.h5
+src/main/python/microstate_tool/functions/features/microstate_maps.csv

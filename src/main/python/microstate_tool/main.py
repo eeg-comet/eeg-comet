@@ -1,5 +1,5 @@
 """
-AminTools Main
+MicrostateTools Main
 
 """
 # define authorship information
@@ -25,15 +25,17 @@ from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from PyQt5.QtWidgets import QApplication
 
 if __name__ == '__main__':
-    appctxt = ApplicationContext()       # 1. Instantiate ApplicationContext
+
+    # 1. Instantiate ApplicationContext
+    appctxt = ApplicationContext()
     app = None
     if not QApplication.instance():
         app = QApplication(sys.argv)
 
     from gui.mainmicrostatewindow import MainMicrostateWindow
-
     window = MainMicrostateWindow(appctxt)
     window.show()
 
-    exit_code = appctxt.app.exec_()  # 2. Invoke appctxt.app.exec_()
+    # 2. Invoke appctxt.app.exec_()
+    exit_code = appctxt.app.exec_()
     sys.exit(exit_code)

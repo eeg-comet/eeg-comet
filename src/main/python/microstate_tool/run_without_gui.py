@@ -5,15 +5,12 @@ import os.path
 import sys
 import numpy as np
 import pandas as pd
-import pickle
 import h5py
 from scipy.ndimage.filters import gaussian_filter1d
 
-from functions import find_data, preprocess
-from functions.concatenate_data import concatenate_files
-from functions.clustering_functions import pre_clustering, initialize_centers, eegInfo
-from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch, backfit_func
-from functions.extract_features_functions import save_raw_results, extract_features, save_features
+from src.main.python.microstate_tool.functions.utils import find_data
+from functions.clustering_functions import backfit_func
+from src.main.python.microstate_tool.functions.features.extract_features_functions import save_raw_results, extract_features, save_features
 
 def main(args):
     # Input: 'settings_log.ini'

@@ -3,9 +3,11 @@ import numpy as np
 from PyQt5 import uic
 import shutil
 from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
-from configparser import ConfigParser
 
-from functions import find_data, load_data, preprocess
+from functions.utils.load_save_eeg_info import save_eeg_info
+from functions.utils.load_save_config import initialize_config, load_config, save_config
+from functions.utils import find_data, load_data, export_h5
+from functions import preprocess
 
 class NewStudyWindow(QDialog):
 
@@ -17,7 +19,7 @@ class NewStudyWindow(QDialog):
         self.ui = uic.loadUi(context.get_resource("NewStudyWindow.ui"), self)
         
         self.ui.setWindowTitle("New Study - Import Raw Data and Preprocess")
-        self.preprocessing_done = False
+        self.done_preprocessing = False
 
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_pattern_radio.clicked.connect(self.newstudy_controller)
@@ -84,6 +86,10 @@ class NewStudyWindow(QDialog):
             self.ui.step0_filter_option_checkbox.setEnabled(True)
             self.ui.step0_downsamp_option_checkbox.setEnabled(True)
             self.ui.step0_preprocess_data_button.setEnabled(True)
+            self.ui.step0_ch2rm_label.setEnabled(True)
+            self.ui.step0_ch2rm_radio.setEnabled(True)
+            self.ui.step0_ch2rm_missing_radio.setEnabled(True)
+            self.ui.step0_ch2rm_input.setEnabled(True)
 
             if self.ui.step0_no_option_checkbox.isChecked():
                 self.ui.step0_preprocessing_progress.setEnabled(True)
@@ -152,6 +158,10 @@ class NewStudyWindow(QDialog):
             self.ui.step0_filter_option_checkbox.setDisabled(True)
             self.ui.step0_downsamp_option_checkbox.setDisabled(True)
             self.ui.step0_preprocess_data_button.setDisabled(True)
+            self.ui.step0_ch2rm_label.setDisabled(True)
+            self.ui.step0_ch2rm_radio.setDisabled(True)
+            self.ui.step0_ch2rm_missing_radio.setDisabled(True)
+            self.ui.step0_ch2rm_input.setDisabled(True)
 
     def choose_input(self):
         fname = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
@@ -202,7 +212,7 @@ class NewStudyWindow(QDialog):
             self.pattern = '*'+self.ui.step0_import_pattern_lineedit.text()+'*'
         self.extension = self.get_extension()
         self.data_type = self.get_data_type()
-        self.list_eegs = find_data.find_eeg(self.input_folder, self.extension, self.pattern)
+        self.list_eegs = find_data.find_data(self.input_folder, self.extension, self.pattern)
         for i in range(len(self.list_eegs)):
             self.ui.step0_selected_files_list.addItem(str(self.list_eegs[i]))
         # self.ui.foldername_preprocessed_data = os.path.join(self.ui.input_folder, 'output')
@@ -222,6 +232,7 @@ class NewStudyWindow(QDialog):
                                          QMessageBox.No)
             if reply == QMessageBox.Yes:
                 shutil.rmtree(save_directory)
+                os.makedirs(save_directory)
             else:
                 folder_name = folder_name+'_new'
                 self.ui.step0_study_name_lineedit.setText(folder_name)
@@ -245,6 +256,11 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def preprocess_data(self):
+
+        # Initialize config
+        config_file = os.path.join(self.save_dir, 'log.ini')
+        config = load_config(config_file)
+        initialize_config(config_file, config)
 
         self.save_preprocessed_path = os.path.join(self.save_dir, 'preprocessed_data')
         if not os.path.exists(self.save_preprocessed_path):
@@ -283,75 +299,86 @@ class NewStudyWindow(QDialog):
             self.downsample_data = False
             self.sample_rate = ''
 
-        print("preprocessing data ...")
-        list_eegs = self.list_eegs
-        print(list_eegs)
+        if self.ui.step0_ch2rm_radio.isChecked():
+            self.ch2rm = self.ui.step0_ch2rm_input.text()
+            print(self.ch2rm)
+        elif self.ui.step0_ch2rm_missing_radio.isChecked():
+            self.ch2rm = 'missing'
 
-        eeg_format = self.extension
-        data_type = self.data_type
+        print("preprocessing data ...")
+
+        # Write "study info" to config
+        config['study info']['study_name'] = self.ui.step0_study_name_lineedit.text()
+        config['study info']['input_folder'] = self.ui.step0_input_path_lineedit.text()
+        config['study info']['input_data_extension'] = self.extension
+        config['study info']['input_data_type'] = self.data_type
+        config['study info']['input_name_pattern'] = self.pattern
+        list_eegs = []
+        for eegpath in self.list_eegs:
+            eegfilename = os.path.basename(eegpath)
+            eegfilename = os.path.splitext(eegfilename)[0]
+            list_eegs = np.append(list_eegs, eegfilename)
+        list_eegs = ','.join(map(str, list_eegs))
+        config['study info']['input_filenames'] = list_eegs
+        config['study info']['save_folder'] = self.save_dir
+        save_config(config_file, config)
 
         length_all_data = []
-        for file in list_eegs:
-            self.progress, length_data = preprocess.preprocess_eegs(file, list_eegs,
-                                                            eeg_format,
-                                                            data_type,
-                                                            self.filter_data,
-                                                            self.filter_method,
-                                                            self.lowcut_freq,
-                                                            self.highcut_freq,
-                                                            self.downsample_data,
-                                                            self.sample_rate,
-                                                            self.save_preprocessed_path)
+        for file in self.list_eegs:
+            self.progress, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(file,
+                                                                            self.list_eegs,
+                                                                            self.extension,
+                                                                            self.data_type,
+                                                                            self.filter_data,
+                                                                            self.filter_method,
+                                                                            self.lowcut_freq,
+                                                                            self.highcut_freq,
+                                                                            self.downsample_data,
+                                                                            self.sample_rate,
+                                                                            self.ch2rm)
+
+            # Save EEG info
+            eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
+            save_eeg_info(eeg_info_path, eeg_info)
+
+            self.ch_names, ch_location = list(eeg_info['ch_names']), eeg_info['chs']
+            self.n_chan = len(self.ch_names)
+            export_h5.export_h5(preprocessed_data, file, self.ch_names, self.extension, self.data_type,
+                      self.filter_method, self.lowcut_freq, self.highcut_freq,
+                      self.sample_rate, self.ch2rm, self.save_preprocessed_path)
+
             length_all_data = np.append(length_all_data, int(length_data))
             print("progress: ", self.progress)
 
             self.ui.step0_preprocessing_progress.setValue(int(self.progress))
             if self.progress == 100:
-                self.preprocessing_done = True
-                # Save settings log
-                config = ConfigParser()
-                config_file = os.path.join(self.save_dir, 'settings_log.ini')
-                if os.path.isfile(config_file):
-                    os.remove(config_file)
-                config.read(config_file)
-                config.add_section('input_settings')
-                config.set('input_settings', 'study_name', self.ui.step0_study_name_lineedit.text())
-                config.set('input_settings', 'input_folder', self.ui.step0_input_path_lineedit.text())
-                config.set('input_settings', 'pattern', self.pattern)
-                config.set('input_settings', 'save_folder', self.save_dir)
-                config.set('input_settings', 'data_extension', eeg_format)
-                config.set('input_settings', 'data_type', data_type)
-                config.set('input_settings', 'filter_data', str(self.filter_data))
-                config.set('input_settings', 'filter_method', str(self.filter_method))
-                config.set('input_settings', 'lowcut_freq', str(self.lowcut_freq))
-                config.set('input_settings', 'highcut_freq', str(self.highcut_freq))
-                config.set('input_settings', 'downsample_data', str(self.downsample_data))
-                config.set('input_settings', 'sample_rate', str(self.sample_rate))
-                with open(config_file, 'w+') as f:
-                    config.write(f)
+                self.done_preprocessing = True
 
-                # Save data log
-                list_eegs_save = ','.join(map(str, list_eegs))
-                config = ConfigParser()
-                config_file = os.path.join(self.save_dir, 'data_log.ini')
-                if os.path.isfile(config_file):
-                    os.remove(config_file)
-                config.read(config_file)
-                config.add_section('input_data')
-                config.set('input_data', 'list_eegs', list_eegs_save)
-                length_data_save = ','.join(map(str, length_all_data))
-                config.set('input_data', 'length_data', length_data_save)
-                with open(config_file, 'w+') as f:
-                    config.write(f)
+                # Write logs to config
+                config.set('progress', 'done_preprocessing', str(self.done_preprocessing))
+                # Write "preprocessing settings" to config
+                config['preprocessing settings']['filter_data'] = str(self.filter_data)
+                config['preprocessing settings']['filter_method'] = str(self.filter_method)
+                config['preprocessing settings']['lowcut_freq'] = str(self.lowcut_freq)
+                config['preprocessing settings']['highcut_freq'] = str(self.highcut_freq)
+                config['preprocessing settings']['downsample_data'] = str(self.downsample_data)
+                config['preprocessing settings']['sample_rate'] = str(self.sample_rate)
+                channels2remove = ','.join(map(str, channels2remove))
+                config['preprocessing settings']['channels2remove'] = channels2remove
+                # Write "preprocessing results" to config
+                length_data_str = ','.join(map(str, length_all_data))
+                config['preprocessing results']['length_data'] = length_data_str
+                ch_names = ','.join(map(str, self.ch_names))
+                config['preprocessing results']['n_chan'] = str(self.n_chan)
+                config['preprocessing results']['ch_names'] = ch_names
+                save_config(config_file, config)
 
                 self.ui.close()
 
 
     def plot_CHANNELS(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        extension = self.extension
-        data_type = self.data_type
-        EEG = load_data.load_eegs(filename, extension, data_type)
+        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
         if self.ui.rawdata_show_channel_names_checkbox.isChecked():
             show_names = True
         else:
@@ -366,16 +393,12 @@ class NewStudyWindow(QDialog):
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        extension = self.extension
-        data_type = self.data_type
-        EEG = load_data.load_eegs(filename, extension, data_type)
+        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
         EEG.plot()
 
     def plot_PSD(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        extension = self.extension
-        data_type = self.data_type
-        EEG = load_data.load_eegs(filename, extension, data_type)
+        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
         fmin = int(self.ui.rawdata_range_psd_min.text())
         fmax = int(self.ui.rawdata_range_psd_max.text())
         ax = self.ui.MplWidget_psd.canvas.axes

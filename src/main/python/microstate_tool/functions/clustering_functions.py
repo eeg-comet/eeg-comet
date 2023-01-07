@@ -23,16 +23,16 @@ from fnmatch import fnmatch
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.signal import find_peaks
 from matplotlib import pyplot as plt
-from itertools import groupby
 from scipy.spatial import distance
 
-from pyclustering.cluster import kmeans, xmeans, bsas, clarans, mbsas, optics, rock, agglomerative, elbow
+from pyclustering.cluster import kmeans, xmeans, bsas, clarans, mbsas, optics, rock, agglomerative, elbow, silhouette
 from pyclustering.utils.metric import distance_metric, type_metric
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from sklearn.cluster import MiniBatchKMeans
 
 
 from functions import modified_kmeans
+from functions.utils.compute_gev import compute_gev
 
 
 def eegInfo(folder):
@@ -43,13 +43,6 @@ def eegInfo(folder):
         with open(eegInfo_path, 'rb') as f:
             info = pickle.load(f)
     return info
-    
-def _corr_vectors(A, B, axis=0):
-    An = A - np.mean(A, axis=axis)
-    Bn = B - np.mean(B, axis=axis)
-    An /= np.linalg.norm(An, axis=axis)
-    Bn /= np.linalg.norm(Bn, axis=axis)
-    return np.sum(An * Bn, axis=axis)
 
 def smooth_data(gfp, kernel_size):
     kernel = np.ones(kernel_size)/kernel_size
@@ -86,30 +79,6 @@ def pre_clustering(data, min_dist):
     return maps, peaks
 
 
-def compute_gev(data, maps):
-    gfp = np.std(data, axis=0)
-    gfp_sum_sq = np.sum(gfp ** 2)
-    if maps.ndim == 1:
-        maps /= np.linalg.norm(maps, keepdims=True)
-        maps = np.reshape(maps, (1,-1))
-    else:
-        maps /= np.linalg.norm(maps, axis=1, keepdims=True)
-    activation = np.array(maps).dot(data)
-    segmentation = np.argmax(np.abs(activation), axis=0)
-    map_corr = _corr_vectors(data, maps[segmentation].T)
-    gev = sum((gfp * map_corr) ** 2) / gfp_sum_sq
-    return gev
-
-    
-def plot_maps(maps, info):
-    maps = np.array(maps)
-    plt.figure(figsize=(2 * len(maps), 2))
-    for i, map in enumerate(maps):
-        plt.subplot(1, len(maps), i + 1)
-        mne.viz.plot_topomap(map, info)
-        plt.title('%d' % i)
-
-
 def number_of_clusters(maps, cmin=2, cmax=10):
     # create instance of Elbow method using C value from 2 to 10.
     elbow_instance = elbow.elbow(maps, cmin, cmax)
@@ -118,29 +87,6 @@ def number_of_clusters(maps, cmin=2, cmax=10):
     amount_clusters = elbow_instance.get_amount()   # most probable amount of clusters
     #wce = elbow_instance.get_wce()                  # total within-cluster errors for each K
     return amount_clusters
-
-def get_elbow(data, cmin, cmax, repeat, tolerance, smoothing):
-    # plot gev versus number of maps
-    N, GEV, RES = [], [], []
-    for n_maps in range(cmin, cmax):
-        maps, peaks = pre_clustering(data, smoothing)
-        initial_centers = initialize_centers(data, maps, peaks, n_maps, 'Random')
-        _, _, best_gev, best_residual = modified_kmeans.segment(data=data,
-                                           n_states=n_maps,
-                                           n_inits=repeat,
-                                           thresh=tolerance,
-                                           min_peak_dist=smoothing)
-        N = np.append(N, n_maps)
-        GEV = np.append(GEV, best_gev)
-        RES = np.append(RES, best_residual)
-    plt.figure()
-    # plt.plot(N, GEV)
-    plt.plot(N, RES, linestyle='--', marker='o', color='b')
-    plt.title('Residual vs. Number of Microstates')
-    plt.xlabel('Number of Microstates')
-    plt.ylabel('Residual')
-    plt.show()
-    return N, GEV, RES
 
 def initialize_centers(data, maps, peaks, n_states, initializer):
     # create instance of K-Means algorithm with prepared centers
@@ -183,7 +129,7 @@ def remove_similar_maps(data, centers, clusters):
     final_centers = np.delete(centers, remove_maps, axis=0)
     return final_centers, final_clusters
 
-def clustering_func(data, n_channels, method, n_states, initial_centers,
+def clustering_func(data, n_channels, method, n_states, initializer,
                     min_dist, repeat, tolerance, metric):
     
     #n_channels = data.shape[0]
@@ -194,15 +140,8 @@ def clustering_func(data, n_channels, method, n_states, initial_centers,
         print('Using Elbow method to find the optimal number of microstate maps')
         n_states = number_of_clusters(maps)
 
-    #initial_centers = initialize_centers(
-    #    data,
-    #    maps,
-    #    peaks,
-    #    n_states,
-    #    initializer)
-
     if method == 'Modified K-means':
-        best_maps, best_gev, _ = modified_kmeans.segment(data=data,
+        best_maps, best_gev, best_residual = modified_kmeans.segment(data=data,
                                                          peaks=peaks,
                                                          n_states=n_states,
                                                          n_inits=repeat,
@@ -210,6 +149,14 @@ def clustering_func(data, n_channels, method, n_states, initial_centers,
                                                          min_peak_dist=min_dist,
                                                          max_n_peaks=None)
     else:
+
+        initial_centers = initialize_centers(
+            data,
+            maps,
+            peaks,
+            n_states,
+            initializer)
+
         if method == 'K-means':
             if metric == 'Euclidean':
                 #METRIC = distance_metric(type_metric.EUCLIDEAN)
@@ -233,7 +180,10 @@ def clustering_func(data, n_channels, method, n_states, initial_centers,
             clustering_instance = kmeans.kmeans(maps, initial_centers,
                                          tolerance=tolerance, itermax=1000,
                                          metric=METRIC)
-        
+
+
+
+
         elif method == 'X-means':
             if metric == 'Bayesian Information Criterion':
                 CRITERION = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
@@ -277,6 +227,8 @@ def clustering_func(data, n_channels, method, n_states, initial_centers,
             # Run Cluster Analysis
             clustering_instance.process()
             clusters = clustering_instance.get_clusters()
+            #score = silhouette.silhouette(maps, clusters).process().get_score()
+            best_residual = 0#clustering_instance.get_total_wce()
             centers = np.empty((n_states,n_channels))
             for cl in range(len(clusters)):
                 centers[cl,:] = np.mean(maps[clusters[cl],:],axis=0)
@@ -304,46 +256,7 @@ def clustering_func(data, n_channels, method, n_states, initial_centers,
     
         print('\nBest GEV = ', best_gev)
 
-    return best_maps, best_gev
-
-
-def substitude_maps_with_duration(segmentation, min_duration):
-    segmentation = np.array(segmentation)
-    count_dups = [sum(1 for _ in group) for _, group in groupby(segmentation)]
-
-    if min_duration:
-        for C in range(len(count_dups)):
-            print(100*C/len(count_dups))
-            if count_dups[C] <= min_duration:
-                start = int(np.sum(count_dups[0:C]))
-                stop = int(start + count_dups[C])
-                if C == 0:
-                    segmentation[start:stop] = segmentation[stop + 1]
-                else:
-                    segmentation[start:stop] = segmentation[start - 1]
-    return segmentation
-
-def backfit_func(data, maps, method, min_duration):
-    if method=='all':
-        activation = np.array(maps).dot(data)
-        segmentation = np.argmax(np.abs(activation), axis=0)
-    elif method=='peaks':
-        gfp = np.std(data, axis=0)
-        peaks, _ = find_peaks(gfp)
-        troughs = [0]
-        for p in range(len(peaks) - 1):
-            min_arg = np.argmin((gfp[peaks[p]:peaks[p + 1]]))
-            troughs = np.append(troughs, peaks[p] + min_arg)
-        troughs = np.append(troughs, len(gfp))
-        diff_troughs = np.diff(troughs)
-        activation = maps.dot(data[:, peaks])
-        segmentation_peaks = np.argmax(np.abs(activation), axis=0)
-        segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
-
-    # remove isolated segments
-    if min_duration:
-        segmentation = substitude_maps_with_duration(segmentation, min_duration)
-    return segmentation
+    return best_maps, best_gev, best_residual
 
 
 def clustering_minibatch(outputfolder, method, n_states, initializer,

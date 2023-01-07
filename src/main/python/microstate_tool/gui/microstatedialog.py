@@ -9,7 +9,7 @@ import os.path
 
 from PyQt5 import QtGui, QtCore
 
-from PyQt5.QtWidgets import QDialog, QLabel, QPushButton, QLineEdit
+from PyQt5.QtWidgets import QDialog, QLabel, QPushButton, QLineEdit, QLCDNumber
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QSizePolicy
 from configparser import ConfigParser
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
@@ -19,8 +19,9 @@ import os.path
 import numpy as np
 import mne
 from matplotlib import pyplot as plt
-from functions.test_classifier import label_micromap
 
+from functions.test_classifier import label_micromap
+from functions.utils.load_save_config import load_config, save_config
 
 class MicrostateDialog(QDialog):
     def __init__(self, parent=None):
@@ -47,7 +48,9 @@ class MicrostateDialog(QDialog):
         self.figure = Figure()
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.toolbar = NavigationToolbar(self.canvas, self)
-        
+
+        self.lcd_gev = QLCDNumber(self)
+
         # Labeling Button
         self.manual_labeling_button = QPushButton(self)
         self.manual_labeling_button.setText("manual labeling")
@@ -68,9 +71,7 @@ class MicrostateDialog(QDialog):
             QSizePolicy.Expanding)
 
         self.labelgev = QLabel(self)
-        
-        self.label = QLabel(self)
-        self.label.setText("Global Explained Variance: ")
+        self.labelgev.setText("Global Explained Variance: ")
         
         
         
@@ -98,9 +99,9 @@ class MicrostateDialog(QDialog):
             microlabel_attr.setMaxLength(1)
             microlabel_attr.setFixedWidth(40)
             
-        Layout2.addWidget(self.label)
         Layout2.addWidget(self.labelgev)
-        
+        Layout2.addWidget(self.lcd_gev)
+
         Layout3.addWidget(self.manual_labeling_button)
         Layout3.addWidget(self.auto_labeling_button)
         Layout3.addWidget(self.finish_button)
@@ -128,20 +129,19 @@ class MicrostateDialog(QDialog):
             mne.viz.plot_topomap(maps[i,:], info, sensors=False, axes=ax)
             #self.figure.savefig(str(i)+'.png', bbox_inches='tight', dpi=200)
 
-        self.labelgev.setText(str(gev))
+        self.lcd_gev.display(100*gev)
         self.labelgev.setSizePolicy(
-            QSizePolicy.Preferred,
+            QSizePolicy.Maximum,
             QSizePolicy.Expanding)
         # save config
         config = ConfigParser()
-        config_file = os.path.join(self.save_dir, 'data_log.ini')
+        config_file = os.path.join(self.save_dir, 'log.ini')
         config.read(config_file)
-        if config.has_section('clustering_results'):
-            config.remove_section('clustering_results')
-        config.add_section('clustering_results')
-        config.set('clustering_results', 'gev', str(gev))
-        with open(config_file, 'w+') as f:
-            config.write(f)
+        if config.has_section('clustering results'):
+            config.remove_section('clustering results')
+        config.add_section('clustering results')
+        config['clustering results']['gev'] = str(gev)
+        save_config(config_file, config)
 
         self.canvas.draw()
     
@@ -150,15 +150,13 @@ class MicrostateDialog(QDialog):
             microlabel_attr = getattr(self, "microlabel{}".format(i))
             self.micro_labels.append(microlabel_attr.text())
         self.manual_labeling_button.setStyleSheet("background-color: green")
-        self.micro_labeled = True
-        # save config
-        config = ConfigParser()
-        config_file = os.path.join(self.save_dir, 'data_log.ini')
-        config.read(config_file)
+        # Write microstates labels to config
+        config_file = os.path.join(self.save_dir, 'log.ini')
+        config = load_config(config_file)
         str_micro_labels = ','.join(map(str, self.micro_labels))
-        config.set('clustering_results', 'micro_labels', str_micro_labels)
-        with open(config_file, 'w+') as f:
-            config.write(f)
+        config['clustering results']['micro_labels'] = str_micro_labels
+        config['progress']['done_labeling_microstates'] = str(True)
+        save_config(config_file, config)
         #ClusteringWindow.micro_labels = self.micro_labels
         #self.close()
     
@@ -170,8 +168,15 @@ class MicrostateDialog(QDialog):
             
             microlabel_attr = getattr(self, "microlabel{}".format(i))
             microlabel_attr.setText(y_pred)
-        self.micro_labeled = True
-    
+
+            # Write microstates labels to config
+            config_file = os.path.join(self.save_dir, 'log.ini')
+            config = load_config(config_file)
+            str_micro_labels = ','.join(map(str, self.micro_labels))
+            config['clustering results']['micro_labels'] = str_micro_labels
+            config['progress']['done_labeling_microstates'] = str(True)
+            save_config(config_file, config)
+
     def pass_labels(self):
         if self.micro_labeled:
             self.micro_labels
