@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 13 10:52:42 2021
+Clustering Functions
 
-@author: amin
 """
 
 import os

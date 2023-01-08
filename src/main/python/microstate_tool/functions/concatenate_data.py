@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Sep 29 09:29:23 2021
+Concatenating Data
 
-@author: amin
 """
 
 import os

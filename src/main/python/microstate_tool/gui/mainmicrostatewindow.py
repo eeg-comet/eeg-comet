@@ -24,7 +24,7 @@ from functions.utils.micro_segments_data import micro_segments_data
 from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
     save_transitions, save_raw_results, extract_features, transition_matrix, save_features
-from functions.features.TESS import run_source_localization
+from functions.features.source_localization_tess import run_source_localization, visualize_sources
 
 # Settings Class
 class SettingsModel:
@@ -88,6 +88,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step4_extractfeatures_button.clicked.connect(self.extract_features)
         self.ui.step4_visualizefeatures_button.clicked.connect(self.open_visualize_features_dialog)
         self.ui.step5_estimate_sources_button.clicked.connect(self.source_localize_microstates)
+        self.ui.step5_visualize_sources_button.clicked.connect(self.visualize_source_localized_microstates)
         self.ui.step6_extract_microseg_button.clicked.connect(self.extract_microsegments)
         self.ui.step4_visualize_sensor_microseg_button.clicked.connect(self.visualize_microsegments)
 
@@ -174,7 +175,8 @@ class MainMicrostateWindow(QMainWindow):
             self.micro_segments_path = os.path.join(self.save_folder, 'micro_segments')
             self.eeg_info_path = os.path.join(self.save_folder, 'eeg_info.pkl')
             self.final_maps_path = os.path.join(self.raw_features_path, 'microstate_maps.csv')
-
+            self.localized_sources_path = os.path.join(self.raw_features_path, 'localized_sources')
+            self.stc_path = os.path.join(self.localized_sources_path, 'stc_data.npy')
 
             # Load config
             config = load_config(config_file)
@@ -303,9 +305,12 @@ class MainMicrostateWindow(QMainWindow):
                         self.features2extract = features2extract_str.split(",")
 
                 if self.done_source_localization:
+                    with open(self.stc_path, 'rb') as f:
+                        self.stc_data = np.load(f)
                     # Load "source localization settings" from config
-                    self.noise_covariancce_method = config['source localization settings']['noise_covariancce_method']
                     self.inverse_method = config['source localization settings']['inverse_method']
+                    self.nperm = config['source localization settings']['permutations']
+                    self.spacing = config['source localization settings']['spacing']
 
             # Update GUI
             self.update_mainwindow_gui()
@@ -510,9 +515,11 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.done_source_localization:
             self.ui.step5_source_localization_title_label.setStyleSheet("background-color: lightgreen")
+            self.ui.step5_visualize_sources_button.setEnabled(True)
             self.ui.step6_visualize_source_microseg_button.setEnabled(True)
         else:
             self.ui.step5_source_localization_title_label.setStyleSheet("background-color: none")
+            self.ui.step5_visualize_sources_button.setDisabled(True)
             self.ui.step6_visualize_source_microseg_button.setDisabled(True)
 
     def update_mainwindow_gui(self):
@@ -864,23 +871,30 @@ class MainMicrostateWindow(QMainWindow):
         spacing = self.ui.step5_spacing_combobox.currentText()
         self.spacing = spacing[spacing.find("(") + 1:spacing.find(")")].lower()
 
-        run_source_localization(self.study_name,
-                                self.eeg_info,
-                                self.hf_data_path,
-                                self.microstate_maps,
-                                self.inv_method,
-                                self.nperm,
-                                self.spacing)
+        self.stc_data = run_source_localization(self.study_name,
+                                                self.eeg_info,
+                                                self.hf_data_path,
+                                                self.microstate_maps,
+                                                self.inv_method,
+                                                self.nperm,
+                                                self.spacing)
+        if not os.path.exists(self.localized_sources_path):
+            os.makedirs(self.localized_sources_path)
+        self.stc_path = os.path.join(self.localized_sources_path, 'stc_data.npy')
+        with open(self.stc_path, 'wb') as f:
+            np.save(f, self.stc_data)
+        self.done_source_localization = True
         # Write "source localization settings" to config
         config_file = os.path.join(self.save_folder, 'log.ini')
         config = load_config(config_file)
         config['source localization settings']['inverse_method'] = str(self.inv_method)
-        config['source localization settings']['output_format'] = str(self.nperm)
+        config['source localization settings']['permutations'] = str(self.nperm)
         config['source localization settings']['spacing'] = str(self.spacing)
-        self.done_source_localization = True
         config['progress']['done_source_localization'] = str(self.done_source_localization)
         save_config(config_file, config)
 
+    def visualize_source_localized_microstates(self):
+        visualize_sources(self.stc_data, self.spacing)
 
     def exit_msg(self, event):
         reply = QMessageBox.question(self, "Quit",

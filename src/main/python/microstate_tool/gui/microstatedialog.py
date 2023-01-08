@@ -20,7 +20,7 @@ import numpy as np
 import mne
 from matplotlib import pyplot as plt
 
-from functions.test_classifier import label_micromap
+#from functions.test_classifier import label_micromap
 from functions.utils.load_save_config import load_config, save_config
 
 class MicrostateDialog(QDialog):
@@ -161,6 +161,8 @@ class MicrostateDialog(QDialog):
         #self.close()
     
     def auto_micro_label(self):
+        print("under development ...")
+        '''
         self.micro_labels = []
         for i in range(self.n_maps):
             y_pred = label_micromap(str(i)+'.png')
@@ -176,6 +178,7 @@ class MicrostateDialog(QDialog):
             config['clustering results']['micro_labels'] = str_micro_labels
             config['progress']['done_labeling_microstates'] = str(True)
             save_config(config_file, config)
+        '''
 
     def pass_labels(self):
         if self.micro_labeled:

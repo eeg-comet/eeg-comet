@@ -241,9 +241,7 @@ def run_source_localization(study_name, eeg_info, eeg_data_path, microstate_maps
         counter += 1
         print(study_name, filename)
         eeg_data = np.asarray(hf_group[study_name][filename][:]) * pow(10, 6)
-
         eeg_raw = mne.io.RawArray(eeg_data, eeg_info)
-
         ch_name = eeg_info.ch_names
         new_names = dict(
             (ch_name,
@@ -273,13 +271,13 @@ def run_source_localization(study_name, eeg_info, eeg_data_path, microstate_maps
         beta_coeff = second_regression(t_coeff, source_time_series)
 
         # Permutation of beta over t to determine significance
-        #nperm = 200
         z_scores = np.zeros(beta_coeff.shape)
         beta_dist = np.zeros((beta_coeff.shape[0], beta_coeff.shape[1], nperm))
         bonferroni = beta_coeff.shape[1]
         t_shuffle = t_coeff
 
         for ii in range(0, nperm):
+            print("Running ", str(nperm), "permutations ...")
             np.random.shuffle(t_shuffle)
             beta_dist[:, :, ii] = second_regression(t_shuffle, source_time_series)
             print(ii)
@@ -288,22 +286,25 @@ def run_source_localization(study_name, eeg_info, eeg_data_path, microstate_maps
             z_scores[idx] = stats.zscore(np.insert(beta_dist[idx[0]][idx[1]][:], 0, x))[0]
 
         p_values = bonferroni * stats.norm.sf(abs(z_scores))
-        print(p_values)
-        a = p_values < 0.05
-        print(a.sum())
+        #sig_ind = p_values < 0.05
+        #sig_scores = np.multiply(z_scores, sig_ind)
 
         # Source visualization:
         for i in range(np.size(z_scores, 0)):
             z_scores[i, :] = 2. * (z_scores[i, :] - np.min(z_scores[i, :])) / np.ptp(z_scores[i, :]) - 1
 
-        mystc = mne.SourceEstimate(np.transpose(z_scores),
-                                   [np.arange(np.size(beta_dist, 1) / 2), np.arange(np.size(beta_dist, 1) / 2)], 0,
-                                   1)
         if counter == 1:
-            all_stc_data = mystc._data  # stats.zscore(mystc._data)
-            break
+            avg_stc_data = z_scores
         else:
-            all_stc_data = all_stc_data + mystc._data  # stats.zscore(mystc._data)
+            avg_stc_data = avg_stc_data + z_scores
+    avg_stc_data = avg_stc_data / counter
+    print("Source localization is done!")
+    return avg_stc_data
+
+
+def visualize_sources(avg_stc_data, spacing):
+    mystc = mne.SourceEstimate(np.transpose(avg_stc_data),
+                       [np.arange(np.size(avg_stc_data, 1)/2), np.arange(np.size(avg_stc_data, 1)/2)], 0, 1)
 
     mystc.subject = 'fsaverage'
     brain = mystc.plot(subjects_dir=None,
@@ -318,127 +319,3 @@ def run_source_localization(study_name, eeg_info, eeg_data_path, microstate_maps
                        colormap='jet',
                        smoothing_steps=15)
     input("Visualize Microstate Sources")
-
-
-'''
-if __name__ == "__main__":
-    # Download fsaverage files
-    #fs_dir = fetch_fsaverage(verbose=True)
-    #subjects_dir = os.path.dirname(fs_dir)
-    
-    # The files live in:
-    #subject = 'fsaverage'
-    #trans = 'fsaverage'  # MNE has a built-in fsaverage transformation
-    #src = os.path.join(fs_dir, 'bem', 'fsaverage-ico-5-src.fif')
-    #bem = os.path.join(fs_dir, 'bem', 'fsaverage-5120-5120-5120-bem-sol.fif')
-    
-    # Load sensor time series - replace with real data
-    # sensor_raw = load_eegbci_eeg()
-    # Ensure data is channels x time points (could be improved)
-    # if sensor_raw._data.shape[0] < sensor_raw._data.shape[1]:
-    #     sensor_time_series = sensor_raw._data
-    # else:
-    # sensor_time_series = np.transpose(sensor_raw._data)
-    #eeg_data, eeg_info = load_eeg_data()
-    
-    eeg_info_path = "eeg_info.pkl"
-    eeg_data_path = "test_study.h5"
-    with open(eeg_info_path, 'rb') as f:
-        eeg_info = pickle.load(f)
-
-    hf_group = h5py.File(eeg_data_path, 'r')
-    study_name = list(hf_group.keys())[0]
-    file_names = list(hf_group[study_name].keys())
-    
-    counter = 0
-    for filename in file_names:
-        counter += 1
-        print(study_name, filename)
-        eeg_data = np.asarray(hf_group[study_name][filename][:])*pow(10,6)
-    
-        eeg_raw = mne.io.RawArray(eeg_data, eeg_info)
-        
-        ch_name = eeg_info.ch_names
-        new_names = dict(
-            (ch_name,
-             ch_name.rstrip('.').upper().replace('Z', 'z').replace('FP', 'Fp'))
-            for ch_name in eeg_raw.ch_names)
-        eeg_raw.rename_channels(new_names)
-        # Read and set the EEG electrode locations, which are already in fsaverage's
-        # space (MNI space) for standard_1020:
-        montage = mne.channels.make_standard_montage('standard_1020')
-        eeg_raw.set_montage(montage)
-        eeg_raw.set_eeg_reference('average', projection=True)
-
-         # to extract proper inverse models
-        (fwd, leadfield, fwd_free) = extract_forward_transform(eeg_info)
-        source_time_series = np.matmul(np.transpose(eeg_data), leadfield)
-    
-        # Source inverse space run
-        stc = inverse_source(eeg_raw, fwd_free)
-        source_time_series = stc.data
-        source_time_series = np.transpose(source_time_series)
-        #source_time_series = np.load('source_time_series.npy')
-        
-        # Run first (spatial) regression
-        microstate_maps_path = "C://Users//amin_//Documents//GitHub//TOOLBOX//EEG-Microstate-Feature-Extraction//src//main//python//microstate_tool//functions//features//microstate_maps.csv"
-        maps = load_microstate_topos(microstate_maps_path)
-        t_coeff = first_regression(eeg_data, maps)
-    
-        # Run second (temporal) regression
-        beta_coeff = second_regression(t_coeff, source_time_series)
-    
-        # Permutation of beta over t to determine significance
-        nperm = 200
-        z_scores = np.zeros(beta_coeff.shape)
-        beta_dist = np.zeros((beta_coeff.shape[0], beta_coeff.shape[1], nperm))
-        bonferroni = beta_coeff.shape[1]
-        t_shuffle = t_coeff
-        
-        for ii in range(0, nperm):
-            np.random.shuffle(t_shuffle)
-            beta_dist[:, :, ii] = second_regression(t_shuffle, source_time_series)
-            print(ii)
-        
-        
-        for idx, x in np.ndenumerate(beta_coeff):
-            z_scores[idx] = stats.zscore(np.insert(beta_dist[idx[0]][idx[1]][:], 0, x))[0]
-    
-        p_values = bonferroni * stats.norm.sf(abs(z_scores))
-        print(p_values)
-        a = p_values < 0.05
-        print(a.sum())
-    
-        # Source visualization:
-        for i in range(np.size(z_scores, 0)):
-            z_scores[i, :] = 2.*(z_scores[i, :] - np.min(z_scores[i, :]))/np.ptp(z_scores[i, :])-1
-
-        mystc = mne.SourceEstimate(np.transpose(z_scores), [np.arange(np.size(beta_dist,1)/2), np.arange(np.size(beta_dist,1)/2)], 0, 1)
-        if counter == 1:
-            all_stc_data = mystc._data #stats.zscore(mystc._data)
-            break
-        else:
-            all_stc_data = all_stc_data + mystc._data #stats.zscore(mystc._data)
-    
-    #mne.viz.plot_alignment(
-    #eeg_raw.info, src=src, eeg=['original', 'projected'], trans=trans,
-    #show_axes=True, mri_fiducials=True, dig='fiducials')
-
-    ###
-    #mystc = mne.SourceEstimate(np.transpose(avg_z_scores), [np.arange(642), np.arange(642)], 0, 1)
-
-    mystc.subject = 'fsaverage'
-    brain = mystc.plot(subjects_dir=None,
-                       initial_time=0,
-                       cortex='high_contrast',
-                       hemi='split',
-                       surface='inflated',
-                       clim=dict(kind='value', lims=[0, 0.5, 1]),
-                       time_viewer=True,
-                       background='white',
-                       spacing='ico4',
-                       colormap='jet',
-                       smoothing_steps=20)
-    input("Visualize Microstate Sources")
-
-'''
