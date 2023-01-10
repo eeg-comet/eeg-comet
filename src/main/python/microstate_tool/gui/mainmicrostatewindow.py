@@ -86,7 +86,6 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
         self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
         self.ui.step3_backfit_button.clicked.connect(self.do_backfitting)
-        self.ui.step3_visualize_clustering_button.clicked.connect(self.visualize_results)
         self.ui.step4_extractfeatures_button.clicked.connect(self.extract_features)
         self.ui.step4_visualizefeatures_button.clicked.connect(self.open_visualize_features_dialog)
         self.ui.step5_estimate_sources_button.clicked.connect(self.source_localize_microstates)
@@ -477,7 +476,6 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
-            self.ui.step3_visualize_clustering_button.setEnabled(True)
             self.ui.step4_features_title_label.setEnabled(True)
             self.ui.step4_featurestoextract_label.setEnabled(True)
             self.ui.step4_coverage_featurestoextract_checkbox.setEnabled(True)
@@ -505,7 +503,6 @@ class MainMicrostateWindow(QMainWindow):
             self.done_extracting_microsegments = False
 
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
-            self.ui.step3_visualize_clustering_button.setDisabled(True)
             self.ui.step4_features_title_label.setDisabled(True)
             self.ui.step4_featurestoextract_label.setDisabled(True)
             self.ui.step4_coverage_featurestoextract_checkbox.setDisabled(True)
@@ -885,17 +882,6 @@ class MainMicrostateWindow(QMainWindow):
             self.MicrostateDialog.plot_maps(self.final_maps, self.gev, self.eeg_info)
             self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
             self.MicrostateDialog.showMaximized()
-
-    def visualize_results(self):
-        if self.use_saved_results:
-            Segmentation = self.final_segmentation
-        else:
-            Segmentation = self.final_segmentation.tolist()
-            Segmentation = list(map(str, Segmentation))
-            self.micro_labels = self.MicrostateDialog.micro_labels
-            for i in range(len(self.micro_labels)):
-                Segmentation = np.char.replace(Segmentation, str(i), self.micro_labels[i])
-        transition_matrix(Segmentation, visualize=True, colormap='Blues')
 
     def extract_microsegments(self):
         print("Extracting Segments ...")
