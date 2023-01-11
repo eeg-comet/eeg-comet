@@ -464,7 +464,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_remove_segs_input.setDisabled(True)
             self.ui.step3_remove_segs_label.setDisabled(True)
 
-
         if self.done_labeling_microstates:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
         else:
@@ -637,9 +636,20 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.do_clustering_from_scratch:
             self.done_clustering = False
+            self.done_labeling_microstates = False
+            self.done_backfitting = False
+            self.done_extracting_features = False
+            self.done_extracting_microsegments = False
+            self.done_source_localization = False
             # Remove the previous log
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
+            config['progress']['done_clustering'] = str(self.done_clustering)
+            config['progress']['done_labeling_microstates'] = str(self.done_labeling_microstates)
+            config['progress']['done_backfitting'] = str(self.done_backfitting)
+            config['progress']['done_extracting_features'] = str(self.done_extracting_features)
+            config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
+            config['progress']['done_source_localization'] = str(self.done_source_localization)
             config['clustering settings'] = {}
             config['clustering results'] = {}
             config['backfitting settings'] = {}
@@ -774,9 +784,16 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.do_backfitting_from_scratch:
             self.done_backfitting = False
+            self.done_extracting_features = False
+            self.done_extracting_microsegments = False
+            self.done_source_localization = False
             # Remove the previous log
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
+            config['progress']['done_backfitting'] = str(self.done_backfitting)
+            config['progress']['done_extracting_features'] = str(self.done_extracting_features)
+            config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
+            config['progress']['done_source_localization'] = str(self.done_source_localization)
             config['backfitting settings'] = {}
             config['feature extraction settings'] = {}
             config['feature visualization groups'] = {}
@@ -865,16 +882,23 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.do_labeling_microstates_from_scratch:
             self.done_labeling_microstates = False
+            self.done_backfitting = False
+            self.done_extracting_features = False
+            self.done_extracting_microsegments = False
+            self.done_source_localization = False
             # Remove the previous log
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
+            config['progress']['done_labeling_microstates'] = str(self.done_labeling_microstates)
+            config['progress']['done_backfitting'] = str(self.done_backfitting)
+            config['progress']['done_extracting_features'] = str(self.done_extracting_features)
+            config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
+            config['progress']['done_source_localization'] = str(self.done_source_localization)
             config['backfitting settings'] = {}
             config['feature extraction settings'] = {}
             config['feature visualization groups'] = {}
             config['source localization settings'] = {}
             save_config(config_file, config)
-            self.mainwindow_controller()
-
             # Load EEG info
             self.eeg_info = load_eeg_info(self.eeg_info_path)
             # Load Microstate Dialog
@@ -882,26 +906,55 @@ class MainMicrostateWindow(QMainWindow):
             self.MicrostateDialog.plot_maps(self.final_maps, self.gev, self.eeg_info)
             self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
             self.MicrostateDialog.showMaximized()
+            self.done_labeling_microstates = self.MicrostateDialog.done_labeling
+            self.mainwindow_controller()
 
     def extract_microsegments(self):
-        print("Extracting Segments ...")
-        if not os.path.exists(self.micro_segments_path):
-            os.makedirs(self.micro_segments_path)
-        # Extract data segments
-        micro_segments_data(self.hf_data_path,
-                            self.hf_segmentation_path,
-                            self.n_chan,
-                            self.micro_labels,
-                            self.micro_segments_path)
-        self.done_extracting_microsegments = True
-        # Write "feature extraction settings" to config
+        # Load config
         config_file = os.path.join(self.save_folder, 'log.ini')
         config = load_config(config_file)
-        config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
-        save_config(config_file, config)
-        self.mainwindow_controller()
+        self.done_extracting_microsegments = config.getboolean('progress', 'done_extracting_microsegments')
+
+        if self.done_extracting_microsegments:
+            ret = QMessageBox.question(self, 'MessageBox', "Microstates have been labeled once,"
+                                                           " do you want to relabel microstates?",
+                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
+            self.do_extracting_microsegments_from_scratch = False
+            if ret == QMessageBox.Yes:
+                self.do_extracting_microsegments_from_scratch = True
+        else:
+            self.do_extracting_microsegments_from_scratch = True
+
+        if self.do_extracting_microsegments_from_scratch:
+            self.done_extracting_microsegments = False
+            # Remove the previous log
+            config_file = os.path.join(self.save_folder, 'log.ini')
+            config = load_config(config_file)
+            config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
+            save_config(config_file, config)
+            self.mainwindow_controller()
+
+            print("Extracting Segments ...")
+            if not os.path.exists(self.micro_segments_path):
+                os.makedirs(self.micro_segments_path)
+            # Extract data segments
+            micro_segments_data(self.hf_data_path,
+                                self.hf_segmentation_path,
+                                self.n_chan,
+                                self.micro_labels,
+                                self.micro_segments_path)
+            self.done_extracting_microsegments = True
+            # Write "feature extraction settings" to config
+            config_file = os.path.join(self.save_folder, 'log.ini')
+            config = load_config(config_file)
+            config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
+            save_config(config_file, config)
+            self.mainwindow_controller()
 
     def visualize_microsegments(self):
+        # UNDER DEVELOPMENT
+        print("under development ...")
+        '''
         self.MicroSegDialog.number_of_maps = int(self.number_of_maps)
         self.MicroSegDialog.micro_segments_path = self.micro_segments_path
         self.MicroSegDialog.ch_names = self.ch_names
@@ -909,7 +962,7 @@ class MainMicrostateWindow(QMainWindow):
         self.MicroSegDialog.showMaximized()
         if self.MicroSegDialog.done_extracting_microsegments:
             self.done_extracting_microsegments = True
-
+        '''
 
     def extract_features(self):
         # Load config
@@ -932,6 +985,7 @@ class MainMicrostateWindow(QMainWindow):
             # Remove the previous log
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
+            config['progress']['done_extracting_features'] = str(self.done_extracting_features)
             config['feature extraction settings'] = {}
             config['feature visualization groups'] = {}
             save_config(config_file, config)
@@ -1012,6 +1066,7 @@ class MainMicrostateWindow(QMainWindow):
             # Remove the previous log
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
+            config['progress']['done_source_localization'] = str(self.done_source_localization)
             config['source localization settings'] = {}
             save_config(config_file, config)
             self.mainwindow_controller()

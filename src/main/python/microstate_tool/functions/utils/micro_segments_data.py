@@ -23,7 +23,7 @@ def micro_segments_data(hf_data_path, hf_segmentation_path, n_chan, micro_labels
             data_map = data[:, ind_map]
             data_map_concatenated = np.concatenate((data_map_concatenated, data_map), axis=1)
         # save
-        output_path = os.path.join(save_path, micro_map + ".hdf")
+        output_path = os.path.join(save_path, study_name+"_MicroSegment_"+micro_map+".hdf")
         f = h5py.File(output_path, "w")
         f.create_dataset(micro_map, data=data_map_concatenated, compression="gzip", compression_opts=9)
 
