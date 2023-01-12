@@ -1,6 +1,7 @@
 
 import numpy as np
 
+
 def corr_vectors(A, B, axis=0):
     An = A - np.mean(A, axis=axis)
     Bn = B - np.mean(B, axis=axis)

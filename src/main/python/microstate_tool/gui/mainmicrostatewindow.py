@@ -603,7 +603,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step4_complexity_featurestoextract_checkbox.setChecked(False)
 
     def plot_elbow(self):
-        # Load preprocessed data
+        # Load concatenated data
         #self.concatenated_data = PREPROCESSED_DATA
         _, self.NumberMapsDialog.data, _, _ = concatenate_files(self.study_name, self.save_folder)
         self.NumberMapsDialog.setWindowModality(QtCore.Qt.ApplicationModal)

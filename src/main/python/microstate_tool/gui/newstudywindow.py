@@ -8,6 +8,7 @@ from functions.utils.load_save_eeg_info import save_eeg_info
 from functions.utils.load_save_config import initialize_config, load_config, save_config
 from functions.utils import find_data, load_data, export_h5
 from functions import preprocess
+from functions.concatenate_data import concatenate_files
 
 class NewStudyWindow(QDialog):
 
@@ -33,6 +34,8 @@ class NewStudyWindow(QDialog):
         self.ui.step0_filter_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_downsamp_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_preprocess_data_button.clicked.connect(self.preprocess_data)
+        self.ui.step0_preprocess_data_button.clicked.connect(self.concatenate_preprocessed_data)
+
 
         self.ui.step0_selected_files_list.itemClicked.connect(self.plot_CHANNELS)
         self.ui.step0_selected_files_list.itemClicked.connect(self.plot_PSD)
@@ -238,6 +241,7 @@ class NewStudyWindow(QDialog):
                 self.ui.step0_study_name_lineedit.setText(folder_name)
                 save_directory = os.path.join(path, folder_name)
 
+        self.study_name = self.ui.step0_study_name_lineedit.text()
         self.save_dir = save_directory
         self.ui.step0_save_path_lineedit.setText(save_directory)
         self.use_raw_data = True
@@ -375,6 +379,9 @@ class NewStudyWindow(QDialog):
 
                 self.ui.close()
 
+    def concatenate_preprocessed_data(self):
+        print("Concatenating the preprocessed data ...")
+        concatenate_files(self.study_name, self.save_dir)
 
     def plot_CHANNELS(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()

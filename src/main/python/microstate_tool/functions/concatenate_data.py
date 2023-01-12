@@ -98,6 +98,18 @@ def concatenate_files(study_name, outputfolder):
 
     catdata = zscore(catdata, axis=1)
     nchan = hf.attrs['nchan']
+
+    # Save hf
+
+    # Save catdata
+    catdata_filename = os.path.join(outputfolder, study_name+"_concatenated.h5")
+    f = h5py.File(catdata_filename, "w")
+    f.create_dataset(study_name, data=catdata, compression="gzip", compression_opts=9)
+    f.close()
+    # Save nchan
+
+    # Save filenames
+
     #nchan = catdata.shape[0]
     return hf, catdata, nchan, filenames
 
