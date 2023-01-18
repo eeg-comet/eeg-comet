@@ -2,6 +2,7 @@
 import os.path
 import h5py
 
+
 def export_h5(data, filename, ch_names, eeg_format, data_type, filter_method,
               lowcut_freq, highcut_freq, sample_rate, ch2rm, path):
     name = os.path.basename(filename)

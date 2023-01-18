@@ -42,7 +42,6 @@ def save_segmentation_results(filenames, len_data, fs, segmentation, file_format
 
 
 def extract_segments(list_h5, segmentation_dir, micro_labels):
-    print("Extracting Segments ...")
 
     for file in range(len(list_h5)):
         print(100 * file / (len(list_h5)))
@@ -164,7 +163,7 @@ def extract_features(hf_data_path, hf_segmentation_path, maps, micro_labels, fs,
             for row in range(len(micro_labels)):
                 for col in range(len(micro_labels)):
                     if not row == col:
-                        TP = 100 * TP_MATRIX[row, col]
+                        TP = TP_MATRIX[row, col]
                         headers = np.append(headers, "TP_" + micro_labels[row] + micro_labels[col])
                         extracted_features = np.append(extracted_features, TP)
         # Lempel-Ziv Complexity

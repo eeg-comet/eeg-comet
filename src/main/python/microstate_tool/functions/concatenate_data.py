@@ -21,7 +21,7 @@ def concatenate_files(study_name, outputfolder):
     config_file = os.path.join(outputfolder, 'log.ini')
     config = load_config(config_file)
     if not config.has_option('clustering settings', 'concat_data_available'):
-        counter = 0
+        counter = 1
         eeglist = []
         extension = "*.h5"
         for path, subdirs, files in os.walk(os.path.join(outputfolder, 'preprocessed_data')):
@@ -32,9 +32,9 @@ def concatenate_files(study_name, outputfolder):
         hf = h5py.File(os.path.join(outputfolder, study_name + '_data.hdf'), 'w')
         group = hf.create_group(study_name)
 
+        print('\nConcatenating EEG Data ... ')
         for filename in eeglist:
-            print(100 * counter / len(eeglist))
-            print('\nLoading EEG Files ... ', filename)
+            print('\nConcatenating EEG Data ... ', filename)
 
             f = h5py.File(filename, 'r')
             name = os.path.basename(filename)
@@ -56,7 +56,6 @@ def concatenate_files(study_name, outputfolder):
             f.close()
 
             group.create_dataset(name, data=data, compression="gzip", compression_opts=9)
-
             hf.attrs['data_length'] = data_length
             hf.attrs['eeg_format'] = eeg_format
             hf.attrs['data_type'] = data_type
@@ -67,6 +66,9 @@ def concatenate_files(study_name, outputfolder):
             hf.attrs['filter_method'] = filter_method
             hf.attrs['lowcut_freq'] = lowcut_freq
             hf.attrs['highcut_freq'] = highcut_freq
+
+            print("\n", str(100 * counter/len(eeglist)), "%")
+            counter += 1
 
         print("\nSaving the concatenated data ...")
 
@@ -84,11 +86,11 @@ def concatenate_files(study_name, outputfolder):
         #filenames = config.get('input_data', 'list_eegs')
 
     dset = hf[study_name]
-    counter = 0
+    counter = 1
     for k in list(dset.keys()):
         dataset_k = list(dset[k])
         dataset_k = np.asarray(dataset_k)
-        if counter == 0:
+        if counter == 1:
             filenames = k
             catdata = dataset_k
         else:
@@ -114,6 +116,7 @@ def concatenate_files(study_name, outputfolder):
     return hf, catdata, nchan, filenames
 
 
+'''
 def get_file_info(outputfolder):
 
     # load data log
@@ -167,3 +170,4 @@ def get_file_info(outputfolder):
         filenames = config['study info']['input_filenames']
     nchan = catdata.shape[0]
     return catdata, nchan, filenames
+'''

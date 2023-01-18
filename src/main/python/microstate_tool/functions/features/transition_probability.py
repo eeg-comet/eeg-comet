@@ -7,9 +7,9 @@ from functions.utils.remove_consecutive_duplicates import remove_consecutive_dup
 
 
 def transition_matrix(segmentation, visualize=False, colormap='Blues'):
-    list_unique_segment_each = remove_consecutive_duplicates(segmentation)
-    list_unique_segment_each = [(list_unique_segment_each[i:i + 1]) for i in range(0, len(list_unique_segment_each), 1)]
-    segmentation = np.asarray(list_unique_segment_each)
+    #list_unique_segment_each = remove_consecutive_duplicates(segmentation)
+    #list_unique_segment_each = [(list_unique_segment_each[i:i + 1]) for i in range(0, len(list_unique_segment_each), 1)]
+    #segmentation = np.asarray(list_unique_segment_each)
     df = pd.DataFrame(segmentation)
     df['shift'] = df[0].shift(-1)
     df['count'] = 1

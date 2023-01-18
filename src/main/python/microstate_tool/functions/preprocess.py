@@ -50,9 +50,12 @@ def preprocess_eegs(eegfile,
         eeg = eeg.filter(l_freq=lowcut, h_freq=highcut,
                          method=filtermethod, n_jobs=-1)
     # Downsample
+    sfreq = eeg.info['sfreq']
     if downsample_true:
-        if eeg.info['sfreq'] != fs:
+        if sfreq != fs:
             eeg = eeg.resample(fs)
+    else:
+        fs = sfreq
 
     if datatype == "epoched":
         for index in range(eeg.__len__()):

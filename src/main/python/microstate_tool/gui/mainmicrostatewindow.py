@@ -80,7 +80,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step2_user_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_backfit_all_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_backfit_peaks_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step3_remove_segs_checkbox.clicked.connect(self.mainwindow_controller)
+        self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
 
         self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.plot_elbow)
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
@@ -202,11 +202,13 @@ class MainMicrostateWindow(QMainWindow):
                 self.save_folder = config['study info']['save_folder']
                 # Load "preprocessing settings" from config
                 self.filter_data = config.getboolean('preprocessing settings', 'filter_data')
-                self.filter_method = config['preprocessing settings']['filter_method']
-                self.lowcut_freq = config.getint('preprocessing settings', 'lowcut_freq')
-                self.highcut_freq = config.getint('preprocessing settings', 'highcut_freq')
+                if self.filter_data:
+                    self.filter_method = config['preprocessing settings']['filter_method']
+                    self.lowcut_freq = config.getint('preprocessing settings', 'lowcut_freq')
+                    self.highcut_freq = config.getint('preprocessing settings', 'highcut_freq')
                 self.downsample_data = config.getboolean('preprocessing settings', 'downsample_data')
-                self.sample_rate = config.getint('preprocessing settings', 'sample_rate')
+                if self.downsample_data:
+                    self.sample_rate = config.getint('preprocessing settings', 'sample_rate')
                 self.channels2remove = config['preprocessing settings']['channels2remove']
                 # Load "preprocessing results" from config
                 length_data = config['preprocessing results']['length_data']
@@ -295,8 +297,11 @@ class MainMicrostateWindow(QMainWindow):
                     self.output_format = config['backfitting settings']['output_format']
                     self.filter_segments = config.getboolean('backfitting settings', 'filter_segments')
                     if self.filter_segments:
-                        self.remove_segments_less_than = config.getint('backfitting settings', 'remove_segments_less_than')
+                        self.filter_segments_option = config['backfitting settings']['filter_segments_option']
+                        self.remove_segments_less_than = config.getint('backfitting settings',
+                                                                       'remove_segments_less_than')
                     else:
+                        self.filter_segments_option = []
                         self.remove_segments_less_than = []
 
                     if self.done_extracting_features:
@@ -433,17 +438,21 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_backfit_button.setEnabled(True)
 
             if self.ui.step3_backfit_all_radio.isChecked():
-                self.ui.step3_remove_segs_checkbox.setEnabled(True)
-                if self.ui.step3_remove_segs_checkbox.isChecked():
-                    self.ui.step3_remove_segs_input.setEnabled(True)
-                    self.ui.step3_remove_segs_label.setEnabled(True)
-                elif not self.ui.step3_remove_segs_checkbox.isChecked():
-                    self.ui.step3_remove_segs_input.setDisabled(True)
-                    self.ui.step3_remove_segs_label.setDisabled(True)
+                self.ui.step3_filter_segments_checkbox.setEnabled(True)
+                if self.ui.step3_filter_segments_checkbox.isChecked():
+                    self.ui.step3_filter_segments_input.setEnabled(True)
+                    self.ui.step3_filter_segments_label.setEnabled(True)
+                    self.ui.step3_replace_segments_radio.setEnabled(True)
+                    self.ui.step3_remove_segments_radio.setEnabled(True)
+                elif not self.ui.step3_filter_segments_checkbox.isChecked():
+                    self.ui.step3_filter_segments_input.setDisabled(True)
+                    self.ui.step3_filter_segments_label.setDisabled(True)
+                    self.ui.step3_replace_segments_radio.setDisabled(True)
+                    self.ui.step3_remove_segments_radio.setDisabled(True)
             if self.ui.step3_backfit_peaks_radio.isChecked():
-                self.ui.step3_remove_segs_input.setDisabled(True)
-                self.ui.step3_remove_segs_label.setDisabled(True)
-                self.ui.step3_remove_segs_checkbox.setDisabled(True)
+                self.ui.step3_filter_segments_input.setDisabled(True)
+                self.ui.step3_filter_segments_label.setDisabled(True)
+                self.ui.step3_filter_segments_checkbox.setDisabled(True)
 
 
         else:
@@ -460,9 +469,11 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_backfit_peaks_radio.setDisabled(True)
             self.ui.step3_backfit_button.setDisabled(True)
             self.ui.step3_label_maps_button.setDisabled(True)
-            self.ui.step3_remove_segs_checkbox.setDisabled(True)
-            self.ui.step3_remove_segs_input.setDisabled(True)
-            self.ui.step3_remove_segs_label.setDisabled(True)
+            self.ui.step3_filter_segments_checkbox.setDisabled(True)
+            self.ui.step3_filter_segments_input.setDisabled(True)
+            self.ui.step3_filter_segments_label.setDisabled(True)
+            self.ui.step3_replace_segments_radio.setDisabled(True)
+            self.ui.step3_remove_segments_radio.setDisabled(True)
 
         if self.done_labeling_microstates:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
@@ -568,9 +579,9 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.done_backfitting:
             if self.filter_segments:
-                self.ui.step3_remove_segs_checkbox.setChecked(True)
+                self.ui.step3_filter_segments_checkbox.setChecked(True)
             else:
-                self.ui.step3_remove_segs_checkbox.setChecked(False)
+                self.ui.step3_filter_segments_checkbox.setChecked(False)
             if self.backfit_to == 'all':
                 self.ui.step3_backfit_all_radio.setChecked(True)
             elif self.backfit_to == 'peaks':
@@ -675,14 +686,14 @@ class MainMicrostateWindow(QMainWindow):
             else:
                 SMOOTHING = False
                 MIN_DISTANCE = []
-            print(MIN_DISTANCE)
+            #print(MIN_DISTANCE)
 
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 CLUSTERS = "auto"
             elif self.ui.step2_user_numberofmaps_radio.isChecked():
                 CLUSTERS = "user"
                 self.number_of_maps = int(self.ui.step2_user_numberofmaps_input.text())
-            print(self.number_of_maps)
+            #print(self.number_of_maps)
 
             if self.ui.step2_random_initializer_radio.isChecked():
                 INITIALIZER = "Random"
@@ -690,13 +701,13 @@ class MainMicrostateWindow(QMainWindow):
                 INITIALIZER = "K-Means++"
 
             METHOD = self.ui.step2_clustermethod_combobox.currentText()
-            print(METHOD)
+            #print(METHOD)
 
             TOLERANCE = float(self.ui.step2_stopcondition_input.text())
-            print(TOLERANCE)
+            #print(TOLERANCE)
 
             METRIC = self.ui.step2_other_options_combobox.currentText()
-            print(METRIC)
+            #print(METRIC)
 
             REPEAT = int(self.ui.step2_user_numberofrepeats_input.text())
 
@@ -801,8 +812,6 @@ class MainMicrostateWindow(QMainWindow):
             save_config(config_file, config)
             self.mainwindow_controller()
 
-            print('doing backfitting')
-
             # load and save config
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
@@ -816,13 +825,18 @@ class MainMicrostateWindow(QMainWindow):
                 self.backfit_to = 'peaks'
             config['backfitting settings']['backfit_to'] = self.backfit_to
 
-            if self.ui.step3_remove_segs_checkbox.isChecked():
+            if self.ui.step3_filter_segments_checkbox.isChecked():
                 self.filter_segments = True
-                self.remove_segments_less_than = self.ui.step3_remove_segs_input.text()
+                self.remove_segments_less_than = self.ui.step3_filter_segments_input.text()
+                if self.ui.step3_replace_segments_radio.isChecked():
+                    self.filter_segments_option = 'replace'
+                elif self.ui.step3_remove_segments_radio.isChecked():
+                    self.filter_segments_option = 'remove'
             else:
                 self.filter_segments = False
                 self.remove_segments_less_than = []
             config['backfitting settings']['filter_segments'] = str(self.filter_segments)
+            config['backfitting settings']['filter_segments_option'] = str(self.filter_segments_option)
             config['backfitting settings']['remove_segments_less_than'] = str(self.remove_segments_less_than)
             config['backfitting settings']['output_format'] = self.output_format
             save_config(config_file, config)
@@ -835,22 +849,25 @@ class MainMicrostateWindow(QMainWindow):
             micro_labels_str = config['clustering results']['micro_labels']
             self.micro_labels = micro_labels_str.split(",")
 
+            print('\nBackfitting Maps to Data ...')
             final_segmentation = backfit_func(self.hf_group_data,
                                               self.final_maps,
                                               self.backfit_to,
                                               self.sample_rate,
+                                              self.filter_segments_option,
                                               self.remove_segments_less_than,
                                               self.micro_labels,
                                               self.raw_features_path)
 
             # Save Segmentation
-            #save_segmentation_results(self.list_eegs,
-            #                          self.length_data,
-            #                          self.sample_rate,
-            #                          final_segmentation,
-            #                          self.output_format,
-            #                          self.raw_features_path)
-
+            '''
+            save_segmentation_results(self.list_eegs,
+                                      self.length_data,
+                                      self.sample_rate,
+                                      final_segmentation,
+                                      self.output_format,
+                                      self.raw_features_path)
+            '''
             # Add segment info to h5 data
             #extract_segments(self.listofh5files, self.raw_features_path, self.micro_labels)
 
@@ -934,7 +951,7 @@ class MainMicrostateWindow(QMainWindow):
             save_config(config_file, config)
             self.mainwindow_controller()
 
-            print("Extracting Segments ...")
+            print("\nExtracting Segments ...\n")
             if not os.path.exists(self.micro_segments_path):
                 os.makedirs(self.micro_segments_path)
             # Extract data segments
@@ -991,7 +1008,7 @@ class MainMicrostateWindow(QMainWindow):
             save_config(config_file, config)
             self.mainwindow_controller()
 
-            print("Extracting Features ...")
+            print("\nExtracting Features ...\n")
             if not os.path.exists(self.extracted_features_path):
                 os.makedirs(self.extracted_features_path)
             self.Features = []

@@ -34,7 +34,7 @@ class NewStudyWindow(QDialog):
         self.ui.step0_filter_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_downsamp_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_preprocess_data_button.clicked.connect(self.preprocess_data)
-        self.ui.step0_preprocess_data_button.clicked.connect(self.concatenate_preprocessed_data)
+        #self.ui.step0_preprocess_data_button.clicked.connect(self.concatenate_preprocessed_data)
 
 
         self.ui.step0_selected_files_list.itemClicked.connect(self.plot_CHANNELS)
@@ -406,12 +406,20 @@ class NewStudyWindow(QDialog):
     def plot_PSD(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
-        fmin = int(self.ui.rawdata_range_psd_min.text())
-        fmax = int(self.ui.rawdata_range_psd_max.text())
+        if self.ui.step0_filter_option_checkbox.isChecked():
+            lowcut = int(self.ui.step0_lowcut_freq_input.text())
+            highcut = int(self.ui.step0_highcut_freq_input.text())
+            if self.ui.step0_fir_filtermethod_radio.isChecked():
+                filter_method = 'fir'
+            elif self.ui.step0_iir_filtermethod_radio.isChecked():
+                filter_method = 'iir'
+            EEG = EEG.filter(l_freq=lowcut, h_freq=highcut, method=filter_method, n_jobs=-1)
+        fmin_plot = int(self.ui.rawdata_range_psd_min.text())
+        fmax_plot = int(self.ui.rawdata_range_psd_max.text())
         ax = self.ui.MplWidget_psd.canvas.axes
         ax.clear()
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
                      ax.get_xticklabels() + ax.get_yticklabels()):
             item.set_fontsize(18)
-        EEG.plot_psd(fmin=fmin, fmax=fmax, ax=ax)
+        EEG.plot_psd(fmin=fmin_plot, fmax=fmax_plot, ax=ax)
         self.ui.MplWidget_psd.canvas.draw()
