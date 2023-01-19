@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 23 15:04:11 2021
-
 Clustering Microstates
 
-@author: amin
 """
 
 
