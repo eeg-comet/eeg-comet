@@ -17,11 +17,12 @@ from gui.microsegdialog import MicroSegDialog
 
 from functions.utils.load_save_config import load_config, save_config
 from functions.utils.load_save_eeg_info import load_eeg_info
+from functions.utils.import_hdf_data import import_hdf_data
 from functions.utils.find_data import find_data
-from functions.concatenate_data import concatenate_files
 from functions.utils.backfit_func import backfit_func
 from functions.utils.micro_segments_data import micro_segments_data
-from functions.clustering_functions import number_of_clusters, clustering_func, clustering_minibatch
+from functions.clustering_functions import number_of_clusters, clustering_func
+from functions.modified_kmeans import run_minibatch_modified_kmeans
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
     save_transitions, save_raw_results, extract_features, transition_matrix, save_features
 from functions.features.source_localization_tess import run_source_localization, visualize_sources
@@ -209,6 +210,10 @@ class MainMicrostateWindow(QMainWindow):
                 self.downsample_data = config.getboolean('preprocessing settings', 'downsample_data')
                 if self.downsample_data:
                     self.sample_rate = config.getint('preprocessing settings', 'sample_rate')
+                else:
+                    self.eeg_info = load_eeg_info(self.eeg_info_path)
+                    self.sample_rate = self.eeg_info['sfreq']
+
                 self.channels2remove = config['preprocessing settings']['channels2remove']
                 # Load "preprocessing results" from config
                 length_data = config['preprocessing results']['length_data']
@@ -219,7 +224,7 @@ class MainMicrostateWindow(QMainWindow):
                 ch_names_str = config['preprocessing results']['ch_names']
                 self.ch_names = ch_names_str.split(",")
 
-                self.hf_data_path = os.path.join(self.save_folder, self.study_name+'_data.hdf')
+                self.hdf_concatenated_data_path = os.path.join(self.save_folder, self.study_name+'_concatenated_data.hdf')
                 self.hf_segmentation_path = os.path.join(self.raw_features_path, self.study_name+'_segmentation.hdf')
                 ###
                 #self.listofh5files = find_data(self.preprocessed_data_path, '.h5', '*')
@@ -265,8 +270,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.initializer = config['clustering settings']['initializer']
                 self.smoothing_gfp = config.getboolean('clustering settings', 'smoothing_gfp')
                 self.min_distance_size = config.getint('clustering settings', 'min_distance_size')
-                self.tolerance = config.getfloat('clustering settings', 'clustering_tolerance')
-                self.concatenate_data = config.getboolean('clustering settings', 'concatenate_data')
+                self.clustering_tolerance = config.getfloat('clustering settings', 'clustering_tolerance')
                 self.number_of_repeats = config.getint('clustering settings', 'number_of_repeats')
                 # Load "clustering results" from config
                 self.gev = config.getfloat('clustering results', 'gev')
@@ -391,8 +395,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_performclustering_each_radio.setDisabled(True)
             self.ui.step2_clustering_button.setDisabled(True)
 
-        METHOD = self.step2_clustermethod_combobox.currentText()
-        if METHOD == "K-means":
+        self.clustering_method = self.step2_clustermethod_combobox.currentText()
+        if self.clustering_method == "K-means":
             self.ui.step2_other_label.setText("K-means distance metric:")
             self.ui.step2_other_options_combobox.clear()
             self.ui.step2_other_options_combobox.addItem("Euclidean")
@@ -400,7 +404,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_other_options_combobox.addItem("Cosine Similarity")
             self.ui.step2_other_options_combobox.addItem("Spatial Correlation")
             self.ui.step2_other_options_combobox.setCurrentText("Cosine Similarity")
-        elif METHOD == "Agglomerative hierarchical clustering":
+        elif self.clustering_method == "Agglomerative hierarchical clustering":
             self.ui.step2_other_label.setText("Type of link between clusters:")
             self.ui.step2_other_options_combobox.clear()
             self.ui.step2_other_options_combobox.addItem("Single Link")
@@ -408,7 +412,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_other_options_combobox.addItem("Average Link")
             self.ui.step2_other_options_combobox.addItem("Centroid Link")
             self.ui.step2_other_options_combobox.setCurrentText("Single Link")
-        elif METHOD == "X-means":
+        elif self.clustering_method == "X-means":
             self.ui.step2_other_label.setText("X-means splitting criterion:")
             self.ui.step2_other_options_combobox.clear()
             self.ui.step2_other_options_combobox.addItem("Bayesian Information Criterion")
@@ -573,8 +577,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step2_kmeans_initializer_radio.setChecked(True)
             #self.smoothing_gfp
             self.ui.step2_kernel_size_input.setText(str(self.min_distance_size))
-            self.ui.step2_stopcondition_input.setText(str(self.tolerance))
-            #self.concatenate_data
+            self.ui.step2_stopcondition_input.setText(str(self.clustering_tolerance))
             self.ui.step2_user_numberofrepeats_input.setText(str(self.number_of_repeats))
 
         if self.done_backfitting:
@@ -614,9 +617,10 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step4_complexity_featurestoextract_checkbox.setChecked(False)
 
     def plot_elbow(self):
-        # Load concatenated data
-        #self.concatenated_data = PREPROCESSED_DATA
-        _, self.NumberMapsDialog.data, _, _ = concatenate_files(self.study_name, self.save_folder)
+        self.NumberMapsDialog.data = import_hdf_data(self.hdf_concatenated_data_path)
+        self.NumberMapsDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.sample_rate))
+        self.NumberMapsDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+        self.NumberMapsDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
         self.NumberMapsDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.NumberMapsDialog.showMaximized()
 
@@ -681,59 +685,63 @@ class MainMicrostateWindow(QMainWindow):
                 self.concat_data = False
 
             if self.ui.step2_kernel_size_input.text():
-                SMOOTHING = True
-                MIN_DISTANCE = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.sample_rate))
+                self.smoothing_gfp = True
+                self.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.sample_rate))
             else:
-                SMOOTHING = False
-                MIN_DISTANCE = []
-            #print(MIN_DISTANCE)
+                self.smoothing_gfp = False
+                self.min_distance_size = []
+            #print(self.min_distance_size)
 
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
-                CLUSTERS = "auto"
+                self.choose_number_of_maps = "auto"
             elif self.ui.step2_user_numberofmaps_radio.isChecked():
-                CLUSTERS = "user"
+                self.choose_number_of_maps = "user"
                 self.number_of_maps = int(self.ui.step2_user_numberofmaps_input.text())
             #print(self.number_of_maps)
 
             if self.ui.step2_random_initializer_radio.isChecked():
-                INITIALIZER = "Random"
+                self.initializer = "Random"
             elif self.ui.step2_kmeans_initializer_radio.isChecked():
-                INITIALIZER = "K-Means++"
+                self.initializer = "K-Means++"
 
-            METHOD = self.ui.step2_clustermethod_combobox.currentText()
-            #print(METHOD)
+            self.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
+            #print(self.clustering_method)
 
-            TOLERANCE = float(self.ui.step2_stopcondition_input.text())
-            #print(TOLERANCE)
+            self.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+            #print(self.clustering_tolerance)
 
-            METRIC = self.ui.step2_other_options_combobox.currentText()
-            #print(METRIC)
+            self.clustering_option = self.ui.step2_other_options_combobox.currentText()
+            #print(self.clustering_option)
 
-            REPEAT = int(self.ui.step2_user_numberofrepeats_input.text())
+            self.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
             if self.concat_data:
-                HF, PREPROCESSED_DATA, N_CHANNELS, FILENAMES = concatenate_files(self.study_name, self.save_folder)
-                self.concatenated_data = PREPROCESSED_DATA
-
+                #if not self.concat_data_available:
+                #    HF, PREPROCESSED_DATA, N_CHANNELS, FILENAMES = concatenate_files(self.study_name, self.save_folder)
+                #    self.concatenated_data = PREPROCESSED_DATA
+                print("Loading the concatenated data ...")
+                self.concatenated_data = import_hdf_data(self.hdf_concatenated_data_path)
                 best_maps, self.gev, _ = clustering_func(
-                    PREPROCESSED_DATA,
-                    N_CHANNELS,
-                    METHOD,
+                    self.concatenated_data,
+                    self.n_chan,
+                    self.clustering_method,
                     self.number_of_maps,
-                    INITIALIZER,
-                    MIN_DISTANCE,
-                    REPEAT,
-                    TOLERANCE,
-                    METRIC)
+                    self.initializer,
+                    self.min_distance_size,
+                    self.number_of_repeats,
+                    self.clustering_tolerance,
+                    self.clustering_option)
             else:
-                best_maps, self.gev = clustering_minibatch(self.save_folder,
-                                                           METHOD,
-                                                           self.number_of_maps,
-                                                           INITIALIZER,
-                                                           MIN_DISTANCE,
-                                                           REPEAT,
-                                                           TOLERANCE,
-                                                           METRIC)
+                # minibatch
+                print("minibatch")
+                best_maps, self.gev, _ = run_minibatch_modified_kmeans(self.study_name,
+                                                                       self.save_folder,
+                                                                       self.min_distance_size,
+                                                                       self.number_of_maps,
+                                                                       self.clustering_tolerance,
+                                                                       self.number_of_repeats,
+                                                                       self.initializer)
+
 
 
             self.microstate_maps = best_maps
@@ -748,16 +756,15 @@ class MainMicrostateWindow(QMainWindow):
             # Save settings log
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
-            config['clustering settings']['clustering_method'] = METHOD
-            config['clustering settings']['clustering_option'] = METRIC
-            config['clustering settings']['choose_number_of_maps'] = str(CLUSTERS)
+            config['clustering settings']['clustering_method'] = self.clustering_method
+            config['clustering settings']['clustering_option'] = self.clustering_option
+            config['clustering settings']['choose_number_of_maps'] = str(self.choose_number_of_maps)
             config['clustering settings']['number_of_maps'] = str(self.number_of_maps)
-            config['clustering settings']['initializer'] = INITIALIZER
-            config['clustering settings']['smoothing_gfp'] = str(SMOOTHING)
-            config['clustering settings']['min_distance_size'] = str(MIN_DISTANCE)
-            config['clustering settings']['clustering_tolerance'] = str(TOLERANCE)
-            config['clustering settings']['concatenate_data'] = str(self.concat_data)
-            config['clustering settings']['number_of_repeats'] = str(REPEAT)
+            config['clustering settings']['initializer'] = self.initializer
+            config['clustering settings']['smoothing_gfp'] = str(self.smoothing_gfp)
+            config['clustering settings']['min_distance_size'] = str(self.min_distance_size)
+            config['clustering settings']['clustering_tolerance'] = str(self.clustering_tolerance)
+            config['clustering settings']['number_of_repeats'] = str(self.number_of_repeats)
             save_config(config_file, config)
 
             self.final_maps = best_maps
@@ -794,7 +801,6 @@ class MainMicrostateWindow(QMainWindow):
             self.do_backfitting_from_scratch = True
 
         if self.do_backfitting_from_scratch:
-            self.done_backfitting = False
             self.done_extracting_features = False
             self.done_extracting_microsegments = False
             self.done_source_localization = False
@@ -810,7 +816,6 @@ class MainMicrostateWindow(QMainWindow):
             config['feature visualization groups'] = {}
             config['source localization settings'] = {}
             save_config(config_file, config)
-            self.mainwindow_controller()
 
             # load and save config
             config_file = os.path.join(self.save_folder, 'log.ini')
@@ -841,8 +846,12 @@ class MainMicrostateWindow(QMainWindow):
             config['backfitting settings']['output_format'] = self.output_format
             save_config(config_file, config)
 
-            self.hf_group_data, self.concatenated_data, _, _ = concatenate_files(self.study_name,
-                                                                                 self.save_folder)
+            #if not self.concat_data_available:
+            #    self.hf_group_data, self.concatenated_data, _, _ = concatenate_files(self.study_name,
+            #                                                                         self.save_folder)
+            #else:
+            print("Loading the concatenated data ...")
+            self.concatenated_data = import_hdf_data(self.hdf_concatenated_data_path)
             # Load microstate labels
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
@@ -850,7 +859,8 @@ class MainMicrostateWindow(QMainWindow):
             self.micro_labels = micro_labels_str.split(",")
 
             print('\nBackfitting Maps to Data ...')
-            final_segmentation = backfit_func(self.hf_group_data,
+            final_segmentation = backfit_func(self.study_name,
+                                              self.preprocessed_data_path,
                                               self.final_maps,
                                               self.backfit_to,
                                               self.sample_rate,
@@ -1027,7 +1037,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.Features.append("LZC")
             if self.ui.step4_gev_featurestoextract_checkbox.isChecked():
                 self.Features.append("GEV")
-            extracted_features_df = extract_features(self.hf_data_path,
+            extracted_features_df = extract_features(self.preprocessed_data_path,
                                                      self.hf_segmentation_path,
                                                      self.final_maps,
                                                      self.micro_labels,

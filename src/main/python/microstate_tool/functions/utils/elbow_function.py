@@ -5,10 +5,9 @@ import seaborn as sns
 import pandas as pd
 from scipy.signal import find_peaks
 from sklearn.metrics import silhouette_score
-from functions import modified_kmeans
+from functions.modified_kmeans import run_modified_kmeans
 
-
-def get_elbow(data, kmin, kmax, ax1, ax2):
+def get_elbow(data, min_dist, tolerance, n_inits, kmin, kmax, ax1, ax2):
 
     gfp = np.std(data, axis=0)
     peaks, _ = find_peaks(gfp)
@@ -17,15 +16,17 @@ def get_elbow(data, kmin, kmax, ax1, ax2):
 
     N, RES, GEV = [], [], []
     for k in range(kmin, kmax+1):
-        print(k)
-        maps, gev, residual = modified_kmeans.segment(data=data,
-                                                         peaks=peaks,
-                                                         n_states=k,
-                                                         n_inits=1,
-                                                         max_n_peaks=None)
+        print('\nClustering data with', k, 'microstates')
+        maps, gev, residual = run_modified_kmeans(data=data,
+                                                 min_dist=min_dist,
+                                                 n_states=k,
+                                                 thresh=tolerance,
+                                                 n_inits=n_inits,
+                                                 initializer="Random")
 
         N = np.append(N, k)
         RES = np.append(RES, residual)
+        print(RES)
         GEV = np.append(GEV, gev)
 
         #activation = np.array(maps).dot(data)

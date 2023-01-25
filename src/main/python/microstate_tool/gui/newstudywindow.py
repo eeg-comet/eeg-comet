@@ -1,5 +1,6 @@
 import os.path
 import numpy as np
+import h5py
 from PyQt5 import uic
 import shutil
 from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
@@ -8,7 +9,6 @@ from functions.utils.load_save_eeg_info import save_eeg_info
 from functions.utils.load_save_config import initialize_config, load_config, save_config
 from functions.utils import find_data, load_data, export_h5
 from functions import preprocess
-from functions.concatenate_data import concatenate_files
 
 class NewStudyWindow(QDialog):
 
@@ -34,7 +34,6 @@ class NewStudyWindow(QDialog):
         self.ui.step0_filter_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_downsamp_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_preprocess_data_button.clicked.connect(self.preprocess_data)
-        #self.ui.step0_preprocess_data_button.clicked.connect(self.concatenate_preprocessed_data)
 
 
         self.ui.step0_selected_files_list.itemClicked.connect(self.plot_CHANNELS)
@@ -328,8 +327,10 @@ class NewStudyWindow(QDialog):
         save_config(config_file, config)
 
         length_all_data = []
-        for file in self.list_eegs:
-            self.progress, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(file,
+
+        counter = 1
+        for filename in self.list_eegs:
+            self.progress, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(filename,
                                                                             self.list_eegs,
                                                                             self.extension,
                                                                             self.data_type,
@@ -347,16 +348,66 @@ class NewStudyWindow(QDialog):
 
             self.ch_names, ch_location = list(eeg_info['ch_names']), eeg_info['chs']
             self.n_chan = len(self.ch_names)
-            export_h5.export_h5(preprocessed_data, file, self.ch_names, self.extension, self.data_type,
-                      self.filter_method, self.lowcut_freq, self.highcut_freq,
-                      self.sample_rate, self.ch2rm, self.save_preprocessed_path)
+            name = os.path.basename(filename)
+            name = os.path.splitext(name)[0]
+            save_path = os.path.join(self.save_preprocessed_path, name + ".hdf")
+            hf = h5py.File(save_path, "w")
+            dataset = hf.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
+            # add metadata
+            dataset.attrs['data_length'] = preprocessed_data.shape[1]
+            dataset.attrs['eeg_format'] = self.extension
+            dataset.attrs['data_type'] = self.data_type
+            dataset.attrs['nchan'] = self.n_chan
+            dataset.attrs['ch_names'] = self.ch_names
+            dataset.attrs['ch_removed'] = self.ch2rm
+            dataset.attrs['sample_rate'] = self.sample_rate
+            dataset.attrs['filter_method'] = self.filter_method
+            dataset.attrs['lowcut_freq'] = self.lowcut_freq
+            dataset.attrs['highcut_freq'] = self.highcut_freq
+            hf.close()
+            # export_h5.export_h5(preprocessed_data, filename, self.ch_names, self.extension, self.data_type,
+            #                    self.filter_method, self.lowcut_freq, self.highcut_freq,
+            #                    self.sample_rate, self.ch2rm, self.save_preprocessed_path)
+
+            if counter == 1:
+                filenames = filename
+                catdata = preprocessed_data
+            else:
+                filenames = np.append(filenames, filename)
+                catdata = np.append(catdata, preprocessed_data, axis=1)
+            counter += 1
+
+            # Save concat data
+            '''
+            hf = h5py.File(os.path.join(self.save_preprocessed_path, self.study_name + '_data.hdf'), 'w')
+            group = hf.create_group(self.study_name)
+            print('\nConcatenating EEG Data ... ', filename)
+            group.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
+            # add metadata
+            hf.attrs['data_length'] = preprocessed_data.shape[1]
+            hf.attrs['eeg_format'] = self.extension
+            hf.attrs['data_type'] = self.data_type
+            hf.attrs['nchan'] = self.n_chan
+            hf.attrs['ch_names'] = self.ch_names
+            hf.attrs['ch_removed'] = self.ch2rm
+            hf.attrs['sample_rate'] = self.sample_rate
+            hf.attrs['filter_method'] = self.filter_method
+            hf.attrs['lowcut_freq'] = self.lowcut_freq
+            hf.attrs['highcut_freq'] = self.highcut_freq
+            hf.close()
+            '''
 
             length_all_data = np.append(length_all_data, int(length_data))
-            print("progress: ", self.progress)
+            print("Progress:", self.progress, "%")
 
             self.ui.step0_preprocessing_progress.setValue(int(self.progress))
             if self.progress == 100:
                 self.done_preprocessing = True
+                # Save catdata
+                catdata_filename = os.path.join(self.save_dir, self.study_name + "_concatenated_data.hdf")
+                catf = h5py.File(catdata_filename, "w")
+                catf.create_dataset(self.study_name, data=catdata, compression="gzip", compression_opts=9)
+                catf.close()
 
                 # Write logs to config
                 config.set('progress', 'done_preprocessing', str(self.done_preprocessing))
@@ -378,10 +429,6 @@ class NewStudyWindow(QDialog):
                 save_config(config_file, config)
 
                 self.ui.close()
-
-    def concatenate_preprocessed_data(self):
-        print("Concatenating the preprocessed data ...")
-        concatenate_files(self.study_name, self.save_dir)
 
     def plot_CHANNELS(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()

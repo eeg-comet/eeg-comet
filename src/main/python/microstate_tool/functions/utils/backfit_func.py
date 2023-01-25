@@ -4,18 +4,20 @@ import h5py
 import os.path
 from scipy.signal import find_peaks
 
+from functions.utils.find_data import find_data
 from functions.utils.substitude_maps_with_duration import substitude_maps_with_duration
 
 
-def backfit_func(hf_group, maps, method, fs, filter_segments_option, remove_segments_less_than, micro_labels, save_path):
-    study_name = list(hf_group.keys())[0]
-    file_names = list(hf_group[study_name].keys())
+def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_segments_option, remove_segments_less_than, micro_labels, save_path):
+    file_names = find_data(preprocessed_data_path, ".hdf", "*")
     # Save group segmentation data
     hf_segmentation = h5py.File(os.path.join(save_path, study_name + '_segmentation.hdf'), 'w')
     group = hf_segmentation.create_group(study_name)
     counter = 1
     for filename in file_names:
-        data = np.asarray(hf_group[study_name][filename][:])
+        hf = h5py.File(filename, "r")
+        data = hf[list(hf.keys())[0]]
+        data = np.asarray(data)
         print("\nSegmenting", filename)
 
         if method == 'all':
