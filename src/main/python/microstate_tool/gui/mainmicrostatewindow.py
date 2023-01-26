@@ -839,9 +839,11 @@ class MainMicrostateWindow(QMainWindow):
                     self.filter_segments_option = 'remove'
             else:
                 self.filter_segments = False
+                self.filter_segments_option = ''
                 self.remove_segments_less_than = []
             config['backfitting settings']['filter_segments'] = str(self.filter_segments)
-            config['backfitting settings']['filter_segments_option'] = str(self.filter_segments_option)
+            if self.filter_segments:
+                config['backfitting settings']['filter_segments_option'] = str(self.filter_segments_option)
             config['backfitting settings']['remove_segments_less_than'] = str(self.remove_segments_less_than)
             config['backfitting settings']['output_format'] = self.output_format
             save_config(config_file, config)

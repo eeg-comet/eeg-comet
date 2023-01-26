@@ -3,6 +3,7 @@ import numpy as np
 import h5py
 import os.path
 from scipy.signal import find_peaks
+from scipy.stats import zscore
 
 from functions.utils.find_data import find_data
 from functions.utils.substitude_maps_with_duration import substitude_maps_with_duration
@@ -18,6 +19,8 @@ def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_se
         hf = h5py.File(filename, "r")
         data = hf[list(hf.keys())[0]]
         data = np.asarray(data)
+        #data = zscore(data, axis=1)
+        filename = os.path.split(filename)[1].split('.')[0]
         print("\nSegmenting", filename)
 
         if method == 'all':
@@ -47,6 +50,7 @@ def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_se
             activation = maps.dot(data[:, peaks])
             segmentation_peaks = np.argmax(np.abs(activation), axis=0)
             segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
+            segmentation = segmentation + 1
 
         # Add Labels
         str_segmentation = list(map(str, segmentation))
