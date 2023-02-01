@@ -363,9 +363,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_kernel_size_label.setEnabled(True)
             self.ui.step2_kernel_size_input.setEnabled(True)
             self.ui.step2_kernel_size_label_2.setEnabled(True)
-            self.ui.step2_performclustering_label.setEnabled(True)
-            self.ui.step2_performclustering_concat_radio.setEnabled(True)
-            self.ui.step2_performclustering_each_radio.setEnabled(True)
             self.ui.step2_clustering_button.setEnabled(True)
 
         else:
@@ -390,9 +387,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_kernel_size_label.setDisabled(True)
             self.ui.step2_kernel_size_input.setDisabled(True)
             self.ui.step2_kernel_size_label_2.setDisabled(True)
-            self.ui.step2_performclustering_label.setDisabled(True)
-            self.ui.step2_performclustering_concat_radio.setDisabled(True)
-            self.ui.step2_performclustering_each_radio.setDisabled(True)
             self.ui.step2_clustering_button.setDisabled(True)
 
         self.clustering_method = self.step2_clustermethod_combobox.currentText()
@@ -634,7 +628,6 @@ class MainMicrostateWindow(QMainWindow):
             self.do_clustering_from_scratch = False
             if ret == QMessageBox.Yes:
                 self.do_clustering_from_scratch = True
-
                 # Remove the previous log
                 config_file = os.path.join(self.save_folder, 'log.ini')
                 config = load_config(config_file)
@@ -645,7 +638,6 @@ class MainMicrostateWindow(QMainWindow):
                 config['feature visualization groups'] = {}
                 config['source localization settings'] = {}
                 save_config(config_file, config)
-
         else:
             self.do_clustering_from_scratch = True
 
@@ -677,13 +669,6 @@ class MainMicrostateWindow(QMainWindow):
             self.use_saved_results = False
             if not os.path.exists(self.raw_features_path):
                 os.makedirs(self.raw_features_path)
-
-            # Concatenate data
-            if self.ui.step2_performclustering_concat_radio.isChecked():
-                self.concat_data = True
-            elif self.ui.step2_performclustering_each_radio.isChecked():
-                self.concat_data = False
-
             if self.ui.step2_kernel_size_input.text():
                 self.smoothing_gfp = True
                 self.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.sample_rate))
@@ -691,64 +676,51 @@ class MainMicrostateWindow(QMainWindow):
                 self.smoothing_gfp = False
                 self.min_distance_size = []
             #print(self.min_distance_size)
-
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 self.choose_number_of_maps = "auto"
             elif self.ui.step2_user_numberofmaps_radio.isChecked():
                 self.choose_number_of_maps = "user"
                 self.number_of_maps = int(self.ui.step2_user_numberofmaps_input.text())
             #print(self.number_of_maps)
-
             if self.ui.step2_random_initializer_radio.isChecked():
                 self.initializer = "Random"
             elif self.ui.step2_kmeans_initializer_radio.isChecked():
                 self.initializer = "K-Means++"
-
             self.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
-            #print(self.clustering_method)
-
+            print(self.clustering_method)
             self.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
             #print(self.clustering_tolerance)
-
             self.clustering_option = self.ui.step2_other_options_combobox.currentText()
             #print(self.clustering_option)
-
             self.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
-            if self.concat_data:
-                #if not self.concat_data_available:
-                #    HF, PREPROCESSED_DATA, N_CHANNELS, FILENAMES = concatenate_files(self.study_name, self.save_folder)
-                #    self.concatenated_data = PREPROCESSED_DATA
-                print("Loading the concatenated data ...")
-                self.concatenated_data = import_hdf_data(self.hdf_concatenated_data_path)
-                best_maps, self.gev, _ = clustering_func(
-                    self.concatenated_data,
-                    self.n_chan,
-                    self.clustering_method,
-                    self.number_of_maps,
-                    self.initializer,
-                    self.min_distance_size,
-                    self.number_of_repeats,
-                    self.clustering_tolerance,
-                    self.clustering_option)
+            #self.concatenated_data = import_hdf_data(self.hdf_concatenated_data_path)
+            best_maps, self.gev, _ = clustering_func(
+                self.preprocessed_data_path,
+                self.hdf_concatenated_data_path,
+                self.n_chan,
+                self.clustering_method,
+                self.number_of_maps,
+                self.initializer,
+                self.min_distance_size,
+                self.number_of_repeats,
+                self.clustering_tolerance,
+                self.clustering_option)
+            '''
             else:
                 # minibatch
                 print("minibatch")
-                best_maps, self.gev, _ = run_minibatch_modified_kmeans(self.study_name,
-                                                                       self.save_folder,
+                best_maps, self.gev, _ = run_minibatch_modified_kmeans(self.preprocessed_data_path,
                                                                        self.min_distance_size,
                                                                        self.number_of_maps,
                                                                        self.clustering_tolerance,
                                                                        self.number_of_repeats,
                                                                        self.initializer)
-
-
+            '''
 
             self.microstate_maps = best_maps
 
             # Save Maps
-            #with open(os.path.join(self.input_folder, 'EEG_INFO.pickle'), 'rb') as p:
-            #    eeg_info = pickle.load(p)
             save_name = os.path.join(self.raw_features_path, 'microstate_maps')
             maps_df = pd.DataFrame(best_maps.T, index=self.ch_names)
             maps_df.to_csv(save_name + '.csv')
@@ -848,12 +820,8 @@ class MainMicrostateWindow(QMainWindow):
             config['backfitting settings']['output_format'] = self.output_format
             save_config(config_file, config)
 
-            #if not self.concat_data_available:
-            #    self.hf_group_data, self.concatenated_data, _, _ = concatenate_files(self.study_name,
-            #                                                                         self.save_folder)
-            #else:
-            print("Loading the concatenated data ...")
-            self.concatenated_data = import_hdf_data(self.hdf_concatenated_data_path)
+            #print("Loading the concatenated data ...")
+            #self.concatenated_data = import_hdf_data(self.hdf_concatenated_data_path)
             # Load microstate labels
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
@@ -861,15 +829,15 @@ class MainMicrostateWindow(QMainWindow):
             self.micro_labels = micro_labels_str.split(",")
 
             print('\nBackfitting Maps to Data ...')
-            final_segmentation = backfit_func(self.study_name,
-                                              self.preprocessed_data_path,
-                                              self.final_maps,
-                                              self.backfit_to,
-                                              self.sample_rate,
-                                              self.filter_segments_option,
-                                              self.remove_segments_less_than,
-                                              self.micro_labels,
-                                              self.raw_features_path)
+            backfit_func(self.study_name,
+                         self.preprocessed_data_path,
+                         self.final_maps,
+                         self.backfit_to,
+                         self.sample_rate,
+                         self.filter_segments_option,
+                         self.remove_segments_less_than,
+                         self.micro_labels,
+                         self.raw_features_path)
 
             # Save Segmentation
             '''

@@ -403,6 +403,7 @@ class NewStudyWindow(QDialog):
             self.ui.step0_preprocessing_progress.setValue(int(self.progress))
             if self.progress == 100:
                 self.done_preprocessing = True
+                print("\nSaving the concatenated data ...")
                 # Save catdata
                 catdata_filename = os.path.join(self.save_dir, self.study_name + "_concatenated_data.hdf")
                 catf = h5py.File(catdata_filename, "w")

@@ -29,7 +29,8 @@ from pyclustering.utils.metric import distance_metric, type_metric
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from sklearn.cluster import MiniBatchKMeans
 
-from functions.modified_kmeans import run_modified_kmeans
+from functions.utils.import_hdf_data import import_hdf_data
+from functions.modified_kmeans import run_modified_kmeans, run_minibatch_modified_kmeans
 from functions.utils.compute_gev import compute_gev
 from functions.utils.extract_peaks_maps import extract_peaks_maps
 from functions.utils.map_initializer import map_initializer
@@ -74,24 +75,43 @@ def remove_similar_maps(data, centers, clusters):
     return final_centers, final_clusters
 
 
-def clustering_func(data, n_channels, method, n_states, initializer, min_dist, n_inits, tolerance, metric):
-
-    maps, peaks = extract_peaks_maps(data, min_dist)
+def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
+                    n_channels, method, n_states, initializer, min_dist, n_inits, tolerance, metric):
     if n_states == 'auto':
+        print("Loading the concatenated data ...")
+        concatenated_data = import_hdf_data(hdf_concatenated_data_path)
+        maps, _ = extract_peaks_maps(concatenated_data, min_dist)
         print('Using Elbow method to find the optimal number of microstate maps')
         n_states = number_of_clusters(maps)
 
     if method == 'Modified K-means':
-        best_maps, best_gev, best_residual = run_modified_kmeans(data=data,
-                                                                 min_dist=min_dist,
-                                                                 n_states=n_states,
-                                                                 thresh=tolerance,
-                                                                 n_inits=n_inits,
-                                                                 initializer=initializer)
+        print("Loading the concatenated data ...")
+        concatenated_data = import_hdf_data(hdf_concatenated_data_path)
+        best_maps, best_gev, best_residual = run_modified_kmeans(
+            data=concatenated_data,
+            min_dist=min_dist,
+            n_states=n_states,
+            thresh=tolerance,
+            n_inits=n_inits,
+            initializer=initializer)
+    elif method == 'Mini Batch Modified K-means':
+        best_maps, best_gev, best_residual = run_minibatch_modified_kmeans(
+            preprocessed_data_path=preprocessed_data_path,
+            min_dist=min_dist,
+            n_states=n_states,
+            thresh=tolerance,
+            n_inits=n_inits,
+            initializer=initializer)
+        concatenated_data = import_hdf_data(hdf_concatenated_data_path)
+        best_gev = compute_gev(concatenated_data, np.array(best_maps))
+        print('GEV:', str(best_gev))
     else:
+        print("Loading the concatenated data ...")
+        concatenated_data = import_hdf_data(hdf_concatenated_data_path)
+        maps, peaks = extract_peaks_maps(concatenated_data, min_dist)
 
         initial_centers = map_initializer(
-            data,
+            concatenated_data,
             maps,
             peaks,
             n_states,
@@ -183,7 +203,7 @@ def clustering_func(data, n_channels, method, n_states, initializer, min_dist, n
 
             #if not not_converged:
                 ###
-            GEV_R = compute_gev(data, np.array(centers))
+            GEV_R = compute_gev(concatenated_data, np.array(centers))
 
             print('Found', str(int(n_states)), 'Microstate Maps')
             print('GEV:', str(GEV_R))
