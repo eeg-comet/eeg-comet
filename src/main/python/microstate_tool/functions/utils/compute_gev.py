@@ -16,3 +16,8 @@ def compute_gev(data, maps):
     map_corr = corr_vectors(data, maps[segmentation].T)
     gev = sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
     return gev
+
+
+#def compute_gev_minibatch(data, maps):
+#
+#    return gev

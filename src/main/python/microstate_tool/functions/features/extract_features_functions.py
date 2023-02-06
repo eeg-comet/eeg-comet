@@ -115,22 +115,23 @@ def save_transitions(segmentation_folder, micro_labels, file_format, save_path):
         save_features(tm_df, 'transition_matrix_' + filename, file_format, save_path)
 
 
-def extract_features(hf_data_path, hf_segmentation_path, maps, micro_labels, fs, features, min_length):
-    # Load data and segment files
-    hf_data = h5py.File(hf_data_path, 'r')
+def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_labels, fs, features, min_length):
+    file_names = find_data(preprocessed_data_path, ".hdf", "*")
     hf_segmentation = h5py.File(hf_segmentation_path, 'r')
-    study_name = list(hf_data.keys())[0]
-    file_names = list(hf_data[study_name].keys())
-
+    study_name = list(hf_segmentation.keys())[0]
     extracted_features_df = pd.DataFrame()
-
+    fs = int(fs)
     for filename in file_names:
         extracted_features, headers = [], []
         lst_dict = []
         headers = np.append(headers, "Filename")
-        print(study_name, filename)
+        hf = h5py.File(filename, "r")
+        data = hf[list(hf.keys())[0]]
+        data = np.asarray(data)
+
+        filename = os.path.split(filename)[1].split('.')[0]
+        print("\nSegmenting", filename)
         extracted_features = np.append(extracted_features, filename)
-        data = np.asarray(hf_data[study_name][filename][:])
         segment = np.asarray(hf_segmentation[study_name][filename][:])
         segment = [" ".join(item) for item in segment.astype('U10')]
         segment = np.asarray(segment)

@@ -9,7 +9,7 @@ def export_h5(data, filename, ch_names, eeg_format, data_type, filter_method,
     name = os.path.splitext(name)[0]
     if not os.path.exists(path):
         os.makedirs(path)
-    save_path = os.path.join(path, name + ".h5")
+    save_path = os.path.join(path, name + ".hdf")
     f = h5py.File(save_path, "w")
     dataset = f.create_dataset(name, data=data, compression="gzip", compression_opts=9)
 
