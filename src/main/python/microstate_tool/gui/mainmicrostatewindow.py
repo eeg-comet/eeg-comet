@@ -20,6 +20,7 @@ from functions.utils.load_save_eeg_info import load_eeg_info
 from functions.utils.import_hdf_data import import_hdf_data
 from functions.utils.find_data import find_data
 from functions.utils.backfit_func import backfit_func
+from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data
 from functions.clustering_functions import number_of_clusters, clustering_func
 from functions.modified_kmeans import run_minibatch_modified_kmeans
@@ -167,255 +168,280 @@ class MainMicrostateWindow(QMainWindow):
             QMessageBox.information(self, "Load error",
                                     "The selected folder does not contain a valid study!",
                                     QMessageBox.Ok)
-        else:
-            # Define global directories
-            self.preprocessed_data_path = os.path.join(self.save_folder, 'preprocessed_data')
-            self.raw_features_path = os.path.join(self.save_folder, 'raw_features')
-            #self.raw_segmentation_path = os.path.join(self.raw_features_path, 'raw_segmentation')
-            self.raw_transitions_path = os.path.join(self.raw_features_path, 'raw_transitions')
-            self.extracted_features_path = os.path.join(self.save_folder, 'extracted_features')
-            self.micro_segments_path = os.path.join(self.save_folder, 'micro_segments')
-            self.eeg_info_path = os.path.join(self.save_folder, 'eeg_info.pkl')
+            return
+
+        # Define global directories
+        self.preprocessed_data_path = os.path.join(self.save_folder, 'preprocessed_data')
+        self.raw_features_path = os.path.join(self.save_folder, 'raw_features')
+        #self.raw_segmentation_path = os.path.join(self.raw_features_path, 'raw_segmentation')
+        self.raw_transitions_path = os.path.join(self.raw_features_path, 'raw_transitions')
+        self.extracted_features_path = os.path.join(self.save_folder, 'extracted_features')
+        self.micro_segments_path = os.path.join(self.save_folder, 'micro_segments')
+        self.eeg_info_path = os.path.join(self.save_folder, 'eeg_info.pkl')
+        self.final_maps_path = os.path.join(self.raw_features_path, 'microstate_maps.csv')
+        self.localized_sources_path = os.path.join(self.raw_features_path, 'localized_sources')
+        self.stc_path = os.path.join(self.localized_sources_path, 'stc_data.npy')
+
+        # Load config
+        config = load_config(config_file)
+        # Load "progress" from config
+        self.done_preprocessing = config.getboolean('progress', 'done_preprocessing')
+        self.done_clustering = config.getboolean('progress', 'done_clustering')
+        self.done_labeling_microstates = config.getboolean('progress', 'done_labeling_microstates')
+        self.done_backfitting = config.getboolean('progress', 'done_backfitting')
+        self.done_extracting_features = config.getboolean('progress', 'done_extracting_features')
+        self.done_extracting_microsegments = config.getboolean('progress', 'done_extracting_microsegments')
+        self.done_source_localization = config.getboolean('progress', 'done_source_localization')
+
+        # Load preprocessing information
+        if self.done_preprocessing:
+            # Load "study info" from config
+            self.study_name = config['study info']['study_name']
+            self.input_folder = config['study info']['input_folder']
+            self.extension = config['study info']['input_data_extension']
+            self.data_type = config['study info']['input_data_type']
+            filenames_str = config['study info']['input_filenames']
+            self.list_eegs = filenames_str.split(",")
+            self.save_folder = config['study info']['save_folder']
+            # Load "preprocessing settings" from config
+            self.filter_data = config.getboolean('preprocessing settings', 'filter_data')
+            if self.filter_data:
+                self.filter_method = config['preprocessing settings']['filter_method']
+                self.lowcut_freq = config.getint('preprocessing settings', 'lowcut_freq')
+                self.highcut_freq = config.getint('preprocessing settings', 'highcut_freq')
+            self.downsample_data = config.getboolean('preprocessing settings', 'downsample_data')
+            if self.downsample_data:
+                self.sample_rate = config.getint('preprocessing settings', 'sample_rate')
+            else:
+                self.eeg_info = load_eeg_info(self.eeg_info_path)
+                self.sample_rate = self.eeg_info['sfreq']
+
+            self.channels2remove = config['preprocessing settings']['channels2remove']
+            # Load "preprocessing results" from config
+            length_data = config['preprocessing results']['length_data']
+            length_data = length_data.split(",")
+            length_data = list(map(float, length_data))
+            self.length_data = list(map(int, length_data))
+            self.n_chan = config.getint('preprocessing results', 'n_chan')
+            ch_names_str = config['preprocessing results']['ch_names']
+            self.ch_names = ch_names_str.split(",")
+
+            self.hdf_concatenated_data_path = os.path.join(self.save_folder, self.study_name+'_concatenated_data.hdf')
+            self.hf_segmentation_path = os.path.join(self.raw_features_path, self.study_name+'_segmentation.hdf')
+            ###
+            #self.listofh5files = find_data(self.preprocessed_data_path, '.h5', '*')
+
+            # Load EEG info
+            #self.eeg_info = load_eeg_info(self.eeg_info_path)
+
+            # Show study name on the main window
+            self.ui.step0_study_name_mainwin_lineedit.setText(self.study_name)
+            self.ui.step0_log_textbrowser.insertPlainText("Study Name: " + self.study_name + "\n")
+            self.ui.step0_log_textbrowser.insertPlainText(20 * "* " + "\n")
+
+
+            #if self.downsample_data:
+            #    self.sample_rate = self.sample_rate
+            #else:
+            #    self.sample_rate = self.eeg_info['sfreq']
+
+            self.ui.step0_log_textbrowser.insertPlainText("\n"
+                                                          + str(len(self.list_eegs))
+                                                          + " EEG files are found:\n\n"
+                                                          + "\n".join(self.list_eegs)+"\n")
+
+            if self.filter_data:
+                self.ui.step0_log_textbrowser.insertPlainText(
+                    f"\nFiltered data using {self.filter_method.upper()} between {self.lowcut_freq} Hz and {self.highcut_freq} Hz\n")
+            if self.downsample_data:
+                self.ui.step0_log_textbrowser.insertPlainText(
+                    f"\nDownsampled data to {self.sample_rate} Hz\n")
+            self.ui.step0_log_textbrowser.insertPlainText("\n" + 20*"* ")
+            self.ui.step0_log_textbrowser.insertPlainText("\nPreprocessing is done.\n")
+            self.ui.step0_log_textbrowser.insertPlainText(20*"* " + "\n")
+
+        # Load clustering information
+        if self.done_clustering:
+            self.use_saved_results = True
+            # Load "clustering settings" from config
+            self.clustering_method = config['clustering settings']['clustering_method']
+            self.clustering_option = config['clustering settings']['clustering_option']
+            self.choose_number_of_maps = config['clustering settings']['choose_number_of_maps']
+            self.number_of_maps = config.getint('clustering settings', 'number_of_maps')
+            self.initializer = config['clustering settings']['initializer']
+            self.smoothing_gfp = config.getboolean('clustering settings', 'smoothing_gfp')
+            self.min_distance_size = config.getint('clustering settings', 'min_distance_size')
+            self.clustering_tolerance = config.getfloat('clustering settings', 'clustering_tolerance')
+            self.number_of_repeats = config.getint('clustering settings', 'number_of_repeats')
+            # Load "clustering results" from config
+            self.gev = config.getfloat('clustering results', 'gev')
+            if self.done_labeling_microstates:
+                micro_labels_str = config['clustering results']['micro_labels']
+                self.micro_labels = micro_labels_str.split(",")
+
+                self.ui.step0_log_textbrowser.insertPlainText(
+                    f"\nMicrostate labels: {micro_labels_str}\n")
+
+            # Load raw clustering results
             self.final_maps_path = os.path.join(self.raw_features_path, 'microstate_maps.csv')
-            self.localized_sources_path = os.path.join(self.raw_features_path, 'localized_sources')
-            self.stc_path = os.path.join(self.localized_sources_path, 'stc_data.npy')
 
-            # Load config
-            config = load_config(config_file)
-            # Load "progress" from config
-            self.done_preprocessing = config.getboolean('progress', 'done_preprocessing')
-            self.done_clustering = config.getboolean('progress', 'done_clustering')
-            self.done_labeling_microstates = config.getboolean('progress', 'done_labeling_microstates')
-            self.done_backfitting = config.getboolean('progress', 'done_backfitting')
-            self.done_extracting_features = config.getboolean('progress', 'done_extracting_features')
-            self.done_extracting_microsegments = config.getboolean('progress', 'done_extracting_microsegments')
-            self.done_source_localization = config.getboolean('progress', 'done_source_localization')
+            if os.path.exists(self.final_maps_path):
+                self.final_maps = pd.read_csv(self.final_maps_path)
+                self.final_maps = self.final_maps.iloc[:, 1:]
+                self.final_maps = self.final_maps.values.T
 
-            # Load preprocessing information
-            if self.done_preprocessing:
-                # Load "study info" from config
-                self.study_name = config['study info']['study_name']
-                self.input_folder = config['study info']['input_folder']
-                self.extension = config['study info']['input_data_extension']
-                self.data_type = config['study info']['input_data_type']
-                filenames_str = config['study info']['input_filenames']
-                self.list_eegs = filenames_str.split(",")
-                self.save_folder = config['study info']['save_folder']
-                # Load "preprocessing settings" from config
-                self.filter_data = config.getboolean('preprocessing settings', 'filter_data')
-                if self.filter_data:
-                    self.filter_method = config['preprocessing settings']['filter_method']
-                    self.lowcut_freq = config.getint('preprocessing settings', 'lowcut_freq')
-                    self.highcut_freq = config.getint('preprocessing settings', 'highcut_freq')
-                self.downsample_data = config.getboolean('preprocessing settings', 'downsample_data')
-                if self.downsample_data:
-                    self.sample_rate = config.getint('preprocessing settings', 'sample_rate')
+
+            self.ui.step0_log_textbrowser.insertPlainText(f"\nGlobal Explained Variance: {self.gev}\n")
+            self.ui.step0_log_textbrowser.insertPlainText("\n" + 20*"* ")
+            self.ui.step0_log_textbrowser.insertPlainText("\nClustering is done.\n")
+            self.ui.step0_log_textbrowser.insertPlainText(20*"* " + "\n")
+
+            # Load "backfitting settings" from config
+            if self.done_backfitting:
+                self.backfit_to = config['backfitting settings']['backfit_to']
+                self.output_format = config['backfitting settings']['output_format']
+                self.filter_segments = config.getboolean('backfitting settings', 'filter_segments')
+                if self.filter_segments:
+                    self.filter_segments_option = config['backfitting settings']['filter_segments_option']
+                    self.remove_segments_less_than = config.getint('backfitting settings',
+                                                                   'remove_segments_less_than')
                 else:
-                    self.eeg_info = load_eeg_info(self.eeg_info_path)
-                    self.sample_rate = self.eeg_info['sfreq']
+                    self.filter_segments_option = []
+                    self.remove_segments_less_than = []
 
-                self.channels2remove = config['preprocessing settings']['channels2remove']
-                # Load "preprocessing results" from config
-                length_data = config['preprocessing results']['length_data']
-                length_data = length_data.split(",")
-                length_data = list(map(float, length_data))
-                self.length_data = list(map(int, length_data))
-                self.n_chan = config.getint('preprocessing results', 'n_chan')
-                ch_names_str = config['preprocessing results']['ch_names']
-                self.ch_names = ch_names_str.split(",")
-
-                self.hdf_concatenated_data_path = os.path.join(self.save_folder, self.study_name+'_concatenated_data.hdf')
-                self.hf_segmentation_path = os.path.join(self.raw_features_path, self.study_name+'_segmentation.hdf')
-                ###
-                #self.listofh5files = find_data(self.preprocessed_data_path, '.h5', '*')
-
-                # Load EEG info
-                #self.eeg_info = load_eeg_info(self.eeg_info_path)
-
-                # Show study name on the main window
-                self.ui.step0_study_name_mainwin_lineedit.setText(self.study_name)
-                self.ui.step0_log_textbrowser.insertPlainText("Study Name: " + self.study_name + "\n")
-                self.ui.step0_log_textbrowser.insertPlainText(20 * "* " + "\n")
+                if self.done_extracting_features:
+                    # Load "feature extraction settings" from config
+                    features2extract_str = config['feature extraction settings']['features2extract']
+                    self.features2extract = features2extract_str.split(",")
 
 
-                #if self.downsample_data:
-                #    self.sample_rate = self.sample_rate
-                #else:
-                #    self.sample_rate = self.eeg_info['sfreq']
-
-                self.ui.step0_log_textbrowser.insertPlainText("\n"
-                                                              + str(len(self.list_eegs))
-                                                              + " EEG files are found:\n\n"
-                                                              + "\n".join(self.list_eegs)+"\n")
-
-                if self.filter_data:
-                    self.ui.step0_log_textbrowser.insertPlainText(
-                        "\n" + "Filtered data using " + self.filter_method.upper() + " between " +
-                        str(self.lowcut_freq) + " Hz " + str(self.highcut_freq) + " Hz\n")
-                if self.downsample_data:
-                    self.ui.step0_log_textbrowser.insertPlainText(
-                        "\n" + "Downsampled data to " + str(self.sample_rate) + " Hz\n")
-                self.ui.step0_log_textbrowser.insertPlainText("\n" + 20*"* ")
-                self.ui.step0_log_textbrowser.insertPlainText("\n" + "Preprocessing is done.\n")
-                self.ui.step0_log_textbrowser.insertPlainText(20*"* " + "\n")
-
-            # Load clustering information
-            if self.done_clustering:
-                self.use_saved_results = True
-                # Load "clustering settings" from config
-                self.clustering_method = config['clustering settings']['clustering_method']
-                self.clustering_option = config['clustering settings']['clustering_option']
-                self.choose_number_of_maps = config['clustering settings']['choose_number_of_maps']
-                self.number_of_maps = config.getint('clustering settings', 'number_of_maps')
-                self.initializer = config['clustering settings']['initializer']
-                self.smoothing_gfp = config.getboolean('clustering settings', 'smoothing_gfp')
-                self.min_distance_size = config.getint('clustering settings', 'min_distance_size')
-                self.clustering_tolerance = config.getfloat('clustering settings', 'clustering_tolerance')
-                self.number_of_repeats = config.getint('clustering settings', 'number_of_repeats')
-                # Load "clustering results" from config
-                self.gev = config.getfloat('clustering results', 'gev')
-                if self.done_labeling_microstates:
-                    micro_labels_str = config['clustering results']['micro_labels']
-                    self.micro_labels = micro_labels_str.split(",")
-
-                    self.ui.step0_log_textbrowser.insertPlainText(
-                        "\n" + "Microstate labels: " + micro_labels_str + "\n")
-
-                # Load raw clustering results
-                self.final_maps_path = os.path.join(self.raw_features_path, 'microstate_maps.csv')
-
-                if os.path.exists(self.final_maps_path):
-                    self.final_maps = pd.read_csv(self.final_maps_path)
-                    self.final_maps = self.final_maps.iloc[:, 1:]
-                    self.final_maps = self.final_maps.values.T
+            if self.done_source_localization:
+                with open(self.stc_path, 'rb') as f:
+                    self.stc_data = np.load(f)
+                # Load "source localization settings" from config
+                self.inverse_method = config['source localization settings']['inverse_method']
+                self.nperm = config['source localization settings']['permutations']
+                self.spacing = config['source localization settings']['spacing']
 
 
-                self.ui.step0_log_textbrowser.insertPlainText("\n" + "Global Explained Variance: " + str(self.gev) + "\n")
-                self.ui.step0_log_textbrowser.insertPlainText("\n" + 20*"* ")
-                self.ui.step0_log_textbrowser.insertPlainText("\n"+ "Clustering is done.\n")
-                self.ui.step0_log_textbrowser.insertPlainText(20*"* " + "\n")
+        # Update GUI
+        self.update_mainwindow_gui()
 
-                # Load "backfitting settings" from config
-                if self.done_backfitting:
-                    self.backfit_to = config['backfitting settings']['backfit_to']
-                    self.output_format = config['backfitting settings']['output_format']
-                    self.filter_segments = config.getboolean('backfitting settings', 'filter_segments')
-                    if self.filter_segments:
-                        self.filter_segments_option = config['backfitting settings']['filter_segments_option']
-                        self.remove_segments_less_than = config.getint('backfitting settings',
-                                                                       'remove_segments_less_than')
-                    else:
-                        self.filter_segments_option = []
-                        self.remove_segments_less_than = []
-
-                    if self.done_extracting_features:
-                        # Load "feature extraction settings" from config
-                        features2extract_str = config['feature extraction settings']['features2extract']
-                        self.features2extract = features2extract_str.split(",")
-
-
-                if self.done_source_localization:
-                    with open(self.stc_path, 'rb') as f:
-                        self.stc_data = np.load(f)
-                    # Load "source localization settings" from config
-                    self.inverse_method = config['source localization settings']['inverse_method']
-                    self.nperm = config['source localization settings']['permutations']
-                    self.spacing = config['source localization settings']['spacing']
-
-
-            # Update GUI
-            self.update_mainwindow_gui()
-
-            self.mainwindow_controller()
+        self.mainwindow_controller()
 
     def save_log(self):
         text = self.step0_log_textbrowser.toPlainText()
-        save_log_path = os.path.join(self.save_folder, self.study_name+'_log.txt')
+        save_log_path = os.path.join(self.save_folder, f'{self.study_name}_log.txt')
         with open(save_log_path, 'w') as f:
             f.write(text)
 
+    # def set_widgets_status(self, widgets, enable=True):
+    #     '''
+    #     widgets: list of widgets, or a single widget
+    #     enable: if True, setEnabled; if False, setDisabled.
+    #     '''
+    #     if type(widgets) == list:
+    #         for item in widgets:
+    #             item.setEnabled(True) if enable else item.setDisabled(True)
+    #     else:
+    #         widgets.setEnabled(True) if enable else widgets.setDisabled(True)
+
+    def reset_option_box(self, box, options=[], current=None):
+        '''
+        box: the option box that we want to reset
+        options: list of strings, the name of options
+        current: str, default option
+        
+        '''
+        box.clear()
+        for item in options:
+            box.addItem(item)
+        if current:
+            box.setCurrentText(current)
 
     def mainwindow_controller(self):
+        buttons_done_preprocessing = [
+        self.ui.step2_clustering_title_label,
+        self.ui.step2_clustermethod_combo_label,
+        self.ui.step2_clustermethod_combobox,
+        self.ui.step2_numberofmaps_label,
+        self.ui.step2_auto_numberofmaps_radio,
+        self.ui.step2_user_numberofmaps_radio,
+        self.ui.step2_numberofmaps_elbow_button,
+        self.ui.step2_numberofrepeats_label,
+        self.ui.step2_user_numberofrepeats_input,
+        self.ui.step2_other_label,
+        self.ui.step2_other_options_combobox,
+        self.ui.step2_initializer_label,
+        self.ui.step2_random_initializer_radio,
+        self.ui.step2_kmeans_initializer_radio,
+        self.ui.step2_stopcondition_label,
+        self.ui.step2_stopcondition_input,
+        self.ui.step2_kernel_size_label,
+        self.ui.step2_kernel_size_input,
+        self.ui.step2_kernel_size_label_2,
+        self.ui.step2_clustering_button
+        ]
         if self.done_preprocessing:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
-            self.ui.step2_clustering_title_label.setEnabled(True)
-            self.ui.step2_clustermethod_combo_label.setEnabled(True)
-            self.ui.step2_clustermethod_combobox.setEnabled(True)
-            self.ui.step2_numberofmaps_label.setEnabled(True)
-            self.ui.step2_auto_numberofmaps_radio.setEnabled(True)
-            self.ui.step2_user_numberofmaps_radio.setEnabled(True)
-            self.ui.step2_numberofmaps_elbow_button.setEnabled(True)
+            # set ui parts Enabled
+            # for button in buttons_done_preprocessing:
+            #     button.setEnabled(True)
+            set_widgets_status(buttons_done_preprocessing, enable=True)
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 self.ui.step2_user_numberofmaps_input.setDisabled(True)
             if self.ui.step2_user_numberofmaps_radio.isChecked():
                 self.ui.step2_user_numberofmaps_input.setEnabled(True)
-            self.ui.step2_kernel_size_input.setEnabled(True)
+            
 
-            self.ui.step2_numberofrepeats_label.setEnabled(True)
-            self.ui.step2_user_numberofrepeats_input.setEnabled(True)
-            self.ui.step2_other_label.setEnabled(True)
-            self.ui.step2_other_options_combobox.setEnabled(True)
-            self.ui.step2_initializer_label.setEnabled(True)
-            self.ui.step2_random_initializer_radio.setEnabled(True)
-            self.ui.step2_kmeans_initializer_radio.setEnabled(True)
-            self.ui.step2_stopcondition_label.setEnabled(True)
-            self.ui.step2_stopcondition_input.setEnabled(True)
-            self.ui.step2_kernel_size_label.setEnabled(True)
-            self.ui.step2_kernel_size_input.setEnabled(True)
-            self.ui.step2_kernel_size_label_2.setEnabled(True)
-            self.ui.step2_clustering_button.setEnabled(True)
 
         else:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
-            self.ui.step2_clustering_title_label.setDisabled(True)
-            self.ui.step2_clustermethod_combo_label.setDisabled(True)
-            self.ui.step2_clustermethod_combobox.setDisabled(True)
-            self.ui.step2_numberofmaps_label.setDisabled(True)
-            self.ui.step2_auto_numberofmaps_radio.setDisabled(True)
-            self.ui.step2_user_numberofmaps_radio.setDisabled(True)
+            # set ui parts Disabled
+            # for button in buttons_done_preprocessing:
+            #     button.setDisabled(True)
+            set_widgets_status(buttons_done_preprocessing, enable=False)
             self.ui.step2_user_numberofmaps_input.setDisabled(True)
-            self.ui.step2_numberofmaps_elbow_button.setDisabled(True)
-            self.ui.step2_numberofrepeats_label.setDisabled(True)
-            self.ui.step2_user_numberofrepeats_input.setDisabled(True)
-            self.ui.step2_other_label.setDisabled(True)
-            self.ui.step2_other_options_combobox.setDisabled(True)
-            self.ui.step2_initializer_label.setDisabled(True)
-            self.ui.step2_random_initializer_radio.setDisabled(True)
-            self.ui.step2_kmeans_initializer_radio.setDisabled(True)
-            self.ui.step2_stopcondition_label.setDisabled(True)
-            self.ui.step2_stopcondition_input.setDisabled(True)
-            self.ui.step2_kernel_size_label.setDisabled(True)
-            self.ui.step2_kernel_size_input.setDisabled(True)
-            self.ui.step2_kernel_size_label_2.setDisabled(True)
-            self.ui.step2_clustering_button.setDisabled(True)
+
+
 
         self.clustering_method = self.step2_clustermethod_combobox.currentText()
         if self.clustering_method == "K-means":
             self.ui.step2_other_label.setText("K-means distance metric:")
-            self.ui.step2_other_options_combobox.clear()
-            self.ui.step2_other_options_combobox.addItem("Euclidean")
-            self.ui.step2_other_options_combobox.addItem("Euclidean Square")
-            self.ui.step2_other_options_combobox.addItem("Cosine Similarity")
-            self.ui.step2_other_options_combobox.addItem("Spatial Correlation")
-            self.ui.step2_other_options_combobox.setCurrentText("Cosine Similarity")
+            options = ['Euclidean', 'Euclidean Square', 'Cosine Similarity', 'Spatial Correlation']
+            self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Cosine Similarity')
+
         elif self.clustering_method == "Agglomerative hierarchical clustering":
             self.ui.step2_other_label.setText("Type of link between clusters:")
-            self.ui.step2_other_options_combobox.clear()
-            self.ui.step2_other_options_combobox.addItem("Single Link")
-            self.ui.step2_other_options_combobox.addItem("Complete Link")
-            self.ui.step2_other_options_combobox.addItem("Average Link")
-            self.ui.step2_other_options_combobox.addItem("Centroid Link")
-            self.ui.step2_other_options_combobox.setCurrentText("Single Link")
+            options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
+            self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
+
         elif self.clustering_method == "X-means":
             self.ui.step2_other_label.setText("X-means splitting criterion:")
-            self.ui.step2_other_options_combobox.clear()
-            self.ui.step2_other_options_combobox.addItem("Bayesian Information Criterion")
-            self.ui.step2_other_options_combobox.addItem("Minimum Noiseless Description Length")
-            self.ui.step2_other_options_combobox.setCurrentText("Bayesian Information Criterion")
+            options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
+            self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Bayesian Information Criterion')
+
         else:
             self.ui.step2_other_label.setText("Other options:")
-            self.ui.step2_other_options_combobox.clear()
+            self.reset_option_box(self.ui.step2_other_options_combobox)
 
+        step3_group1 = [
+        self.ui.step3_label_maps_button,
+        self.ui.step3_backfit_title_label,
+        self.ui.step3_backfit_all_radio,
+        self.ui.step3_backfit_peaks_radio,
+        self.ui.step3_backfit_button
+        ]
+
+        # filter segments with occurrence less than xxx ms
+        # Replace short segments with previous dominant microstate 
+        # Remove short segments
+        step3_filter_segments = [
+        self.ui.step3_filter_segments_input,
+        self.ui.step3_filter_segments_label,
+        self.ui.step3_replace_segments_radio,
+        self.ui.step3_remove_segments_radio
+        ] 
         if self.done_clustering:
             self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
 
@@ -429,28 +455,18 @@ class MainMicrostateWindow(QMainWindow):
             elif outputformat == "Java Script Object Notation (.json)":
                 self.output_format = '.json'
 
-            self.ui.step3_label_maps_button.setEnabled(True)
-            self.ui.step3_backfit_title_label.setEnabled(True)
-            self.ui.step3_backfit_all_radio.setEnabled(True)
-            self.ui.step3_backfit_peaks_radio.setEnabled(True)
-            self.ui.step3_backfit_button.setEnabled(True)
+            
+            set_widgets_status(step3_group1, enable=True)
 
             if self.ui.step3_backfit_all_radio.isChecked():
-                self.ui.step3_filter_segments_checkbox.setEnabled(True)
+                set_widgets_status(self.ui.step3_filter_segments_checkbox, enable=True)
                 if self.ui.step3_filter_segments_checkbox.isChecked():
-                    self.ui.step3_filter_segments_input.setEnabled(True)
-                    self.ui.step3_filter_segments_label.setEnabled(True)
-                    self.ui.step3_replace_segments_radio.setEnabled(True)
-                    self.ui.step3_remove_segments_radio.setEnabled(True)
-                elif not self.ui.step3_filter_segments_checkbox.isChecked():
-                    self.ui.step3_filter_segments_input.setDisabled(True)
-                    self.ui.step3_filter_segments_label.setDisabled(True)
-                    self.ui.step3_replace_segments_radio.setDisabled(True)
-                    self.ui.step3_remove_segments_radio.setDisabled(True)
-            if self.ui.step3_backfit_peaks_radio.isChecked():
-                self.ui.step3_filter_segments_input.setDisabled(True)
-                self.ui.step3_filter_segments_label.setDisabled(True)
-                self.ui.step3_filter_segments_checkbox.setDisabled(True)
+                    set_widgets_status(step3_filter_segments, enable=True)
+                else:
+                    set_widgets_status(step3_filter_segments, enable=False)
+            else: # which means self.ui.step3_backfit_peaks_radio.isChecked():
+                set_widgets_status(step3_filter_segments, enable=False)
+                set_widgets_status(self.ui.step3_filter_segments_checkbox, enable=False)
 
 
         else:
@@ -461,17 +477,10 @@ class MainMicrostateWindow(QMainWindow):
             self.done_extracting_microsegments = False
 
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
-            self.ui.step3_label_maps_button.setDisabled(True)
-            self.ui.step3_backfit_title_label.setDisabled(True)
-            self.ui.step3_backfit_all_radio.setDisabled(True)
-            self.ui.step3_backfit_peaks_radio.setDisabled(True)
-            self.ui.step3_backfit_button.setDisabled(True)
-            self.ui.step3_label_maps_button.setDisabled(True)
-            self.ui.step3_filter_segments_checkbox.setDisabled(True)
-            self.ui.step3_filter_segments_input.setDisabled(True)
-            self.ui.step3_filter_segments_label.setDisabled(True)
-            self.ui.step3_replace_segments_radio.setDisabled(True)
-            self.ui.step3_remove_segments_radio.setDisabled(True)
+            # set ALL disabled
+            set_widgets_status(self.ui.step3_filter_segments_checkbox, enable=False)
+            set_widgets_status(step3_group1, enable=False)
+            set_widgets_status(step3_filter_segments, enable=False)
 
         if self.done_labeling_microstates:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
@@ -482,56 +491,37 @@ class MainMicrostateWindow(QMainWindow):
             self.done_source_localization = False
             self.done_extracting_microsegments = False
 
+        all_step_4_5_widgets = [
+            self.ui.step4_features_title_label,
+            self.ui.step4_featurestoextract_label,
+            self.ui.step4_coverage_featurestoextract_checkbox,
+            self.ui.step4_foc_featurestoextract_checkbox,
+            self.ui.step4_mmd_featurestoextract_checkbox,
+            self.ui.step4_gev_featurestoextract_checkbox,
+            self.ui.step4_tp_featurestoextract_checkbox,
+            self.ui.step4_complexity_featurestoextract_checkbox,
+            self.ui.step4_extractfeatures_button,
+            self.ui.step4_outputformats_label,
+            self.ui.step4_outputformats_combobox,
+            self.ui.step6_extract_microseg_button,
+            self.ui.step6_extract_microsegments_title_label,
+            self.ui.step5_source_localization_title_label,
+            self.ui.step5_inverse_method_label,
+            self.ui.step5_inverse_method_combobox,
+            self.ui.step5_permutations_label,
+            self.ui.step5_permutations_input,
+            self.ui.step5_spacing_label,
+            self.ui.step5_spacing_combobox,
+            self.ui.step5_estimate_sources_button
+        ]
         if self.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
-            self.ui.step4_features_title_label.setEnabled(True)
-            self.ui.step4_featurestoextract_label.setEnabled(True)
-            self.ui.step4_coverage_featurestoextract_checkbox.setEnabled(True)
-            self.ui.step4_foc_featurestoextract_checkbox.setEnabled(True)
-            self.ui.step4_mmd_featurestoextract_checkbox.setEnabled(True)
-            self.ui.step4_gev_featurestoextract_checkbox.setEnabled(True)
-            self.ui.step4_tp_featurestoextract_checkbox.setEnabled(True)
-            self.ui.step4_complexity_featurestoextract_checkbox.setEnabled(True)
-            self.ui.step4_extractfeatures_button.setEnabled(True)
-            self.ui.step4_outputformats_label.setEnabled(True)
-            self.ui.step4_outputformats_combobox.setEnabled(True)
-            self.ui.step6_extract_microseg_button.setEnabled(True)
-            self.ui.step6_extract_microsegments_title_label.setEnabled(True)
-            self.ui.step5_source_localization_title_label.setEnabled(True)
-            self.ui.step5_inverse_method_label.setEnabled(True)
-            self.ui.step5_inverse_method_combobox.setEnabled(True)
-            self.ui.step5_permutations_label.setEnabled(True)
-            self.ui.step5_permutations_input.setEnabled(True)
-            self.ui.step5_spacing_label.setEnabled(True)
-            self.ui.step5_spacing_combobox.setEnabled(True)
-            self.ui.step5_estimate_sources_button.setEnabled(True)
-
+            set_widgets_status(all_step_4_5_widgets, enable=True)
         else:
             self.done_extracting_features = False
             self.done_extracting_microsegments = False
-
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
-            self.ui.step4_features_title_label.setDisabled(True)
-            self.ui.step4_featurestoextract_label.setDisabled(True)
-            self.ui.step4_coverage_featurestoextract_checkbox.setDisabled(True)
-            self.ui.step4_foc_featurestoextract_checkbox.setDisabled(True)
-            self.ui.step4_mmd_featurestoextract_checkbox.setDisabled(True)
-            self.ui.step4_gev_featurestoextract_checkbox.setDisabled(True)
-            self.ui.step4_tp_featurestoextract_checkbox.setDisabled(True)
-            self.ui.step4_complexity_featurestoextract_checkbox.setDisabled(True)
-            self.ui.step4_extractfeatures_button.setDisabled(True)
-            self.ui.step4_outputformats_label.setDisabled(True)
-            self.ui.step4_outputformats_combobox.setDisabled(True)
-            self.ui.step6_extract_microseg_button.setDisabled(True)
-            self.ui.step6_extract_microsegments_title_label.setDisabled(True)
-            self.ui.step5_source_localization_title_label.setDisabled(True)
-            self.ui.step5_inverse_method_label.setDisabled(True)
-            self.ui.step5_inverse_method_combobox.setDisabled(True)
-            self.ui.step5_permutations_label.setDisabled(True)
-            self.ui.step5_permutations_input.setDisabled(True)
-            self.ui.step5_spacing_label.setDisabled(True)
-            self.ui.step5_spacing_combobox.setDisabled(True)
-            self.ui.step5_estimate_sources_button.setDisabled(True)
+            set_widgets_status(all_step_4_5_widgets, enable=False)
 
         if self.done_extracting_features:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")

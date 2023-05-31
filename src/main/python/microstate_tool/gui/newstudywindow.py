@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
 
 from functions.utils.load_save_eeg_info import save_eeg_info
 from functions.utils.load_save_config import initialize_config, load_config, save_config
+from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils import find_data, load_data, export_h5
 from functions import preprocess
 
@@ -44,6 +45,7 @@ class NewStudyWindow(QDialog):
 
 
     def newstudy_controller(self):
+        # widget: Load files with pattern
         if self.ui.step0_load_pattern_radio.isChecked():
             self.ui.step0_import_pattern_lineedit.setEnabled(True)
         else:
@@ -52,7 +54,7 @@ class NewStudyWindow(QDialog):
         if self.ui.step0_input_path_lineedit:
             self.input_folder_found = True
         else:
-            self.input_folder_found = True
+            self.input_folder_found = False
 
         if self.input_folder_found:
             self.ui.step0_import_raw_button.setEnabled(True)
@@ -69,29 +71,47 @@ class NewStudyWindow(QDialog):
         else:
             self.ui.step0_import_raw_button.setDisabled(True)
 
+        plot_options = [
+        self.ui.rawdata_plot_button,
+        self.ui.rawdata_show_channel_names_checkbox,
+        self.ui.rawdata_range_psd_label,
+        self.ui.rawdata_range_psd_min_label,
+        self.ui.rawdata_range_psd_max_label,
+        self.ui.rawdata_range_psd_min,
+        self.ui.rawdata_range_psd_max,
+        self.ui.rawdata_range_hz1,
+        self.ui.rawdata_range_hz2
+        ]
+
+        preprocessing_options = [
+        self.ui.step0_no_option_checkbox,
+        self.ui.step0_filter_option_checkbox,
+        self.ui.step0_downsamp_option_checkbox,
+        self.ui.step0_preprocess_data_button,
+        self.ui.step0_ch2rm_label,
+        self.ui.step0_ch2rm_radio,
+        self.ui.step0_ch2rm_missing_radio,
+        self.ui.step0_ch2rm_input
+        ]
+
+        preprocessing_sub_options = [
+        self.ui.step0_fir_filtermethod_radio,
+        self.ui.step0_iir_filtermethod_radio,
+        self.ui.step0_lowcut_freq_label,
+        self.ui.step0_lowcut_freq_input,
+        self.ui.step0_filt_hz1,
+        self.ui.step0_highcut_freq_label,
+        self.ui.step0_highcut_freq_input,
+        self.ui.step0_filt_hz2
+        ]
         if self.data_found and self.ui.step0_study_name_lineedit.text() and self.ui.step0_save_path_lineedit.text():
             self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
             self.ui.step0_remove_file_button.setEnabled(True)
             self.ui.step0_clear_files_button.setEnabled(True)
             # Enable Plot Options
-            self.ui.rawdata_plot_button.setEnabled(True)
-            self.ui.rawdata_show_channel_names_checkbox.setEnabled(True)
-            self.ui.rawdata_range_psd_label.setEnabled(True)
-            self.ui.rawdata_range_psd_min_label.setEnabled(True)
-            self.ui.rawdata_range_psd_max_label.setEnabled(True)
-            self.ui.rawdata_range_psd_min.setEnabled(True)
-            self.ui.rawdata_range_psd_max.setEnabled(True)
-            self.ui.rawdata_range_hz1.setEnabled(True)
-            self.ui.rawdata_range_hz2.setEnabled(True)
+            set_widgets_status(plot_options, enable=True)
             # Enable Preprocessing Options
-            self.ui.step0_no_option_checkbox.setEnabled(True)
-            self.ui.step0_filter_option_checkbox.setEnabled(True)
-            self.ui.step0_downsamp_option_checkbox.setEnabled(True)
-            self.ui.step0_preprocess_data_button.setEnabled(True)
-            self.ui.step0_ch2rm_label.setEnabled(True)
-            self.ui.step0_ch2rm_radio.setEnabled(True)
-            self.ui.step0_ch2rm_missing_radio.setEnabled(True)
-            self.ui.step0_ch2rm_input.setEnabled(True)
+            set_widgets_status(preprocessing_options, enable=True)
 
             if self.ui.step0_no_option_checkbox.isChecked():
                 self.ui.step0_preprocessing_progress.setEnabled(True)
@@ -112,25 +132,11 @@ class NewStudyWindow(QDialog):
                     self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.filter_data = True
                     self.ui.step0_filter_method_label.setEnabled(True)
-                    self.ui.step0_fir_filtermethod_radio.setEnabled(True)
-                    self.ui.step0_iir_filtermethod_radio.setEnabled(True)
-                    self.ui.step0_lowcut_freq_label.setEnabled(True)
-                    self.ui.step0_lowcut_freq_input.setEnabled(True)
-                    self.ui.step0_filt_hz1.setEnabled(True)
-                    self.ui.step0_highcut_freq_label.setEnabled(True)
-                    self.ui.step0_highcut_freq_input.setEnabled(True)
-                    self.ui.step0_filt_hz2.setEnabled(True)
+                    set_widgets_status(preprocessing_sub_options, enable=True)
                 else:
                     self.filter_data = False
                     self.ui.step0_filter_method_label.setDisabled(True)
-                    self.ui.step0_fir_filtermethod_radio.setDisabled(True)
-                    self.ui.step0_iir_filtermethod_radio.setDisabled(True)
-                    self.ui.step0_lowcut_freq_label.setDisabled(True)
-                    self.ui.step0_lowcut_freq_input.setDisabled(True)
-                    self.ui.step0_filt_hz1.setDisabled(True)
-                    self.ui.step0_highcut_freq_label.setDisabled(True)
-                    self.ui.step0_highcut_freq_input.setDisabled(True)
-                    self.ui.step0_filt_hz2.setDisabled(True)
+                    set_widgets_status(preprocessing_sub_options, enable=False)
                 if self.ui.step0_downsamp_option_checkbox.isChecked():
                     self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.ui.downsample_data = True
@@ -147,23 +153,11 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_button.setStyleSheet("background-color: light gray")
             self.ui.step0_remove_file_button.setDisabled(True)
             self.ui.step0_clear_files_button.setDisabled(True)
-            self.ui.rawdata_plot_button.setDisabled(True)
-            self.ui.rawdata_show_channel_names_checkbox.setDisabled(True)
-            self.ui.rawdata_range_psd_label.setDisabled(True)
-            self.ui.rawdata_range_psd_min_label.setDisabled(True)
-            self.ui.rawdata_range_psd_max_label.setDisabled(True)
-            self.ui.rawdata_range_psd_min.setDisabled(True)
-            self.ui.rawdata_range_psd_max.setDisabled(True)
-            self.ui.rawdata_range_hz1.setDisabled(True)
-            self.ui.rawdata_range_hz2.setDisabled(True)
-            self.ui.step0_no_option_checkbox.setDisabled(True)
-            self.ui.step0_filter_option_checkbox.setDisabled(True)
-            self.ui.step0_downsamp_option_checkbox.setDisabled(True)
-            self.ui.step0_preprocess_data_button.setDisabled(True)
-            self.ui.step0_ch2rm_label.setDisabled(True)
-            self.ui.step0_ch2rm_radio.setDisabled(True)
-            self.ui.step0_ch2rm_missing_radio.setDisabled(True)
-            self.ui.step0_ch2rm_input.setDisabled(True)
+            # Enable Plot Options
+            set_widgets_status(plot_options, enable=False)
+            # Enable Preprocessing Options
+            set_widgets_status(preprocessing_options, enable=False)
+
 
     def choose_input(self):
         fname = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
