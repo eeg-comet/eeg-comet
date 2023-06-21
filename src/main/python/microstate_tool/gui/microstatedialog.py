@@ -21,7 +21,7 @@ import mne
 from matplotlib import pyplot as plt
 
 #from functions.test_classifier import label_micromap
-from functions.utils.load_save_config import load_config, save_config
+from functions.utils.data_io import load_config, save_config
 
 class MicrostateDialog(QDialog):
     def __init__(self, parent=None):

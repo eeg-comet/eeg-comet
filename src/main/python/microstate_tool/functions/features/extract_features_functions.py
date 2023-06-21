@@ -13,7 +13,7 @@ import h5py
 import pickle
 from itertools import groupby
 
-from functions.utils.find_data import find_data
+from functions.utils.data_io import find_data
 from functions.utils.compute_gev import compute_gev
 from functions.utils.save_features import save_features
 from functions.utils.remove_consecutive_duplicates import remove_consecutive_duplicates

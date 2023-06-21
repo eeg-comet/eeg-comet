@@ -8,7 +8,17 @@ from sklearn.metrics import silhouette_score
 from functions.modified_kmeans import run_modified_kmeans
 
 def get_elbow(data, min_dist, tolerance, n_inits, kmin, kmax, ax1, ax2):
+    '''
+    data: input data matrix
+    min_dist: minimum distance for modified K-means clustering
+    tolerance: convergence threshold for modified K-means clustering
+    n_inits: number of initializations for modified K-means clustering
+    kmin: minimum number of microstate maps to consider
+    kmax: maximum number of microstate maps to consider
+    ax1: matplotlib axis for residual plot
+    ax2: matplotlib axis for GEV plot
 
+    '''
     gfp = np.std(data, axis=0)
     peaks, _ = find_peaks(gfp)
     maps = data[:, peaks].T

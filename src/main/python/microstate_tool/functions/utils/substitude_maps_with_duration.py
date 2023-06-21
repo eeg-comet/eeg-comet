@@ -4,6 +4,12 @@ from itertools import groupby
 
 
 def substitude_maps_with_duration(segmentation, fs, remove_segments_less_than, option):
+    '''
+    segmentation: array of segment labels
+    fs: sampling frequency
+    remove_segments_less_than: minimum duration of segments to remove or replace
+    option: 'replace' or 'remove' (option for handling segments with duration less than remove_segments_less_than)
+    '''
     segmentation = np.asarray(segmentation)
     segmentation = segmentation + 1
     count_dups = [sum(1 for _ in group) for _, group in groupby(segmentation)]

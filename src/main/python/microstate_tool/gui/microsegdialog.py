@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QSizePolicy
 from PyQt5.QtGui import QFont
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
-from functions.utils.find_data import find_data
+from functions.utils.data_io import find_data
 import matplotlib.pyplot as plt
 import os.path
 import h5py

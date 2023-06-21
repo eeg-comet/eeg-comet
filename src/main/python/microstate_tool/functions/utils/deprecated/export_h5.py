@@ -5,6 +5,20 @@ import h5py
 
 def export_h5(data, filename, ch_names, eeg_format, data_type, filter_method,
               lowcut_freq, highcut_freq, sample_rate, ch2rm, path):
+    '''
+    data: Input data matrix
+    filename: Name of the file to be exported
+    ch_names: List of channel names
+    eeg_format: EEG data format
+    data_type: Data type of the exported data
+    filter_method: Method used for data filtering
+    lowcut_freq: Low cutoff frequency for filtering
+    highcut_freq: High cutoff frequency for filtering
+    sample_rate: Sampling rate of the data
+    ch2rm: Channels to be removed from the data
+    path: Path to save the exported file
+    '''
+    
     name = os.path.basename(filename)
     name = os.path.splitext(name)[0]
     if not os.path.exists(path):

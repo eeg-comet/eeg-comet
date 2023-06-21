@@ -7,7 +7,7 @@ Preprocessing EEG data
 
 import numpy as np
 import collections
-from functions.utils.load_data import load_eegs
+from functions.utils.data_io import load_eegs
 
 
 def preprocess_eegs(eegfile,

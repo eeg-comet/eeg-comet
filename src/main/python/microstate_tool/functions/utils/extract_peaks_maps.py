@@ -5,6 +5,14 @@ from functions.utils.gfp_func import gfp_func
 
 
 def extract_peaks_maps(data, min_dist):
+    '''
+    data: Input data matrix
+    min_dist: Minimum distance between peaks
+
+    Extracts GFP peaks and corresponding maps at the peaks from the input data.
+
+    '''
+
     # Extract GFP Peaks and Maps at Peaks
     gfp = gfp_func(data)
     if min_dist:

@@ -8,7 +8,7 @@ from PyQt5 import uic
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout
 
-from functions.utils.load_save_config import load_config
+from functions.utils.data_io import load_config
 import plotly.express as px
 
 class VisualizationDialog(QDialog):

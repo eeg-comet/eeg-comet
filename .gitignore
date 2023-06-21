@@ -13,3 +13,4 @@ __pycache__/
 
 # for macOS generated files
 .DS_Store
+*.zip

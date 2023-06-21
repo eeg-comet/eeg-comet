@@ -15,10 +15,8 @@ from gui.visualizationdialog import VisualizationDialog
 from gui.microsegdialog import MicroSegDialog
 
 
-from functions.utils.load_save_config import load_config, save_config
-from functions.utils.load_save_eeg_info import load_eeg_info
-from functions.utils.import_hdf_data import import_hdf_data
-from functions.utils.find_data import find_data
+
+from functions.utils.data_io import load_eeg_info, import_hdf_data, find_data, load_config, save_config
 from functions.utils.backfit_func import backfit_func
 from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data
@@ -99,29 +97,29 @@ class MainMicrostateWindow(QMainWindow):
 
         # Set actions
 
-        self.ui.import_settings_action.triggered.connect(self.import_settings)
-        self.ui.export_settings_action.triggered.connect(self.export_settings)
+        # self.ui.import_settings_action.triggered.connect(self.import_settings)
+        # self.ui.export_settings_action.triggered.connect(self.export_settings)
 
         # Initialize settings
-        default_settings = [("Load", "Raw"), ("Format", ".set"), ("Type", "Continuous"), ("Files", "All"),
-                            ("Method", "MODIFIED K-MEANS"), ("Choose_Maps", "User"), ("Maps", "5"),("Repeats", "5"),
-                            ("Option", ""), ("Initializer", "Random"), ("Tolerance", "1E-5"), ("Smooth", "True"),
-                            ("Kernel", "10"), ("Save_Raw", "True"), ("Features", ["MMD", "FOC"]), ("Output_Format", ".csv")]
-        self.app_settings = SettingsModel(default_settings)
+    #     default_settings = [("Load", "Raw"), ("Format", ".set"), ("Type", "Continuous"), ("Files", "All"),
+    #                         ("Method", "MODIFIED K-MEANS"), ("Choose_Maps", "User"), ("Maps", "5"),("Repeats", "5"),
+    #                         ("Option", ""), ("Initializer", "Random"), ("Tolerance", "1E-5"), ("Smooth", "True"),
+    #                         ("Kernel", "10"), ("Save_Raw", "True"), ("Features", ["MMD", "FOC"]), ("Output_Format", ".csv")]
+    #     self.app_settings = SettingsModel(default_settings)
 
-    # Raaj Testing adding a persistent settings store
-    def import_settings(self, fname=None):
-        if not fname:
-            fname = QFileDialog.getOpenFileName(self, "Open file", "", "JSON files (*.json)")
-        with open(fname[0], 'r') as f:
-            self.app_settings.settings = json.load(f)
-        return print("Settings Loaded")
+    # # Raaj Testing adding a persistent settings store
+    # def import_settings(self, fname=None):
+    #     if not fname:
+    #         fname = QFileDialog.getOpenFileName(self, "Open file", "", "JSON files (*.json)")
+    #     with open(fname[0], 'r') as f:
+    #         self.app_settings.settings = json.load(f)
+    #     return print("Settings Loaded")
 
-    def export_settings(self):
-        fname = QFileDialog.getSaveFileName(self, "Save file", "", "JSON files (*.json)")
-        with open(fname[0], 'w') as f:
-            data = json.dump(self.app_settings.settings, f)
-        return print("Exported Settings")
+    # def export_settings(self):
+    #     fname = QFileDialog.getSaveFileName(self, "Save file", "", "JSON files (*.json)")
+    #     with open(fname[0], 'w') as f:
+    #         data = json.dump(self.app_settings.settings, f)
+    #     return print("Exported Settings")
 
         # # #
 

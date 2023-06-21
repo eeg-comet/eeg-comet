@@ -3,7 +3,7 @@ import os.path
 import numpy as np
 import pandas as pd
 
-from functions.utils.find_data import find_data
+from functions.utils.data_io import find_data
 from functions.utils.save_features import save_features
 
 

@@ -5,11 +5,23 @@ import os.path
 from scipy.signal import find_peaks
 from scipy.stats import zscore
 
-from functions.utils.find_data import find_data
+from functions.utils.data_io import find_data
 from functions.utils.substitude_maps_with_duration import substitude_maps_with_duration
 
 
 def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_segments_option, remove_segments_less_than, micro_labels, save_path):
+    '''
+    study_name: the name of the study which has been loaded
+    preprocessed_data_path: the path of the preprocessed data
+    maps: Gamma
+    method: 'all' or 'peaks' (segmentation method)
+    fs: sampling frequency
+    filter_segments_option: 'replace' or 'remove' (option for handling segments with duration less than remove_segments_less_than)
+    remove_segments_less_than: minimum duration of segments to remove or replace
+    micro_labels: list of labels for each microstate
+    save_path: path to save the segmentation data
+
+    '''
     file_names = find_data(preprocessed_data_path, ".hdf", "*")
     # Save group segmentation data
     hf_segmentation = h5py.File(os.path.join(save_path, study_name + '_segmentation.hdf'), 'w')

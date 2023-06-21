@@ -5,10 +5,8 @@ from PyQt5 import uic
 import shutil
 from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
 
-from functions.utils.load_save_eeg_info import save_eeg_info
-from functions.utils.load_save_config import initialize_config, load_config, save_config
 from functions.utils.set_widgets_status import set_widgets_status
-from functions.utils import find_data, load_data, export_h5
+from functions.utils.data_io import find_data, load_eegs, save_eeg_info, initialize_config, load_config, save_config#, export_h5
 from functions import preprocess
 
 class NewStudyWindow(QDialog):
@@ -95,6 +93,7 @@ class NewStudyWindow(QDialog):
         ]
 
         preprocessing_sub_options = [
+        self.ui.step0_filter_method_label,
         self.ui.step0_fir_filtermethod_radio,
         self.ui.step0_iir_filtermethod_radio,
         self.ui.step0_lowcut_freq_label,
@@ -103,6 +102,12 @@ class NewStudyWindow(QDialog):
         self.ui.step0_highcut_freq_label,
         self.ui.step0_highcut_freq_input,
         self.ui.step0_filt_hz2
+        ]
+
+        downsample_sub_options = [
+        self.ui.step0_downsamp_freq_label,
+        self.ui.step0_downsamp_freq_input,
+        self.ui.step0_downsamp_hz
         ]
         if self.data_found and self.ui.step0_study_name_lineedit.text() and self.ui.step0_save_path_lineedit.text():
             self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
@@ -131,23 +136,17 @@ class NewStudyWindow(QDialog):
                 if self.ui.step0_filter_option_checkbox.isChecked():
                     self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.filter_data = True
-                    self.ui.step0_filter_method_label.setEnabled(True)
                     set_widgets_status(preprocessing_sub_options, enable=True)
                 else:
                     self.filter_data = False
-                    self.ui.step0_filter_method_label.setDisabled(True)
                     set_widgets_status(preprocessing_sub_options, enable=False)
                 if self.ui.step0_downsamp_option_checkbox.isChecked():
                     self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.ui.downsample_data = True
-                    self.ui.step0_downsamp_freq_label.setEnabled(True)
-                    self.ui.step0_downsamp_freq_input.setEnabled(True)
-                    self.ui.step0_downsamp_hz.setEnabled(True)
+                    set_widgets_status(downsample_sub_options, enable=True)
                 else:
                     self.downsample_data = False
-                    self.ui.step0_downsamp_freq_label.setDisabled(True)
-                    self.ui.step0_downsamp_freq_input.setDisabled(True)
-                    self.ui.step0_downsamp_hz.setDisabled(True)
+                    set_widgets_status(downsample_sub_options, enable=False)
         else:
             # Disable Next Steps
             self.ui.step0_import_raw_button.setStyleSheet("background-color: light gray")
@@ -208,7 +207,7 @@ class NewStudyWindow(QDialog):
             self.pattern = '*'+self.ui.step0_import_pattern_lineedit.text()+'*'
         self.extension = self.get_extension()
         self.data_type = self.get_data_type()
-        self.list_eegs = find_data.find_data(self.input_folder, self.extension, self.pattern)
+        self.list_eegs = find_data(self.input_folder, self.extension, self.pattern)
         for i in range(len(self.list_eegs)):
             self.ui.step0_selected_files_list.addItem(str(self.list_eegs[i]))
         # self.ui.foldername_preprocessed_data = os.path.join(self.ui.input_folder, 'output')
@@ -427,7 +426,7 @@ class NewStudyWindow(QDialog):
 
     def plot_CHANNELS(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
+        EEG = load_eegs(filename, self.extension, self.data_type, [])
         if self.ui.rawdata_show_channel_names_checkbox.isChecked():
             show_names = True
         else:
@@ -442,12 +441,12 @@ class NewStudyWindow(QDialog):
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
+        EEG = load_eegs(filename, self.extension, self.data_type, [])
         EEG.plot()
 
     def plot_PSD(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
+        EEG = load_eegs(filename, self.extension, self.data_type, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())

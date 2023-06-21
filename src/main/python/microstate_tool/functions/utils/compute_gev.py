@@ -5,6 +5,14 @@ from functions.utils.gfp_func import gfp_func
 
 
 def compute_gev(data, maps):
+    '''
+    data: input data matrix
+    maps: microstate maps
+
+    Returns:
+    gev: global explained variance
+    '''
+    
     gfp = gfp_func(data)
     if maps.ndim == 1:
         maps /= np.linalg.norm(maps, keepdims=True)
@@ -17,7 +25,3 @@ def compute_gev(data, maps):
     gev = sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
     return gev
 
-
-#def compute_gev_minibatch(data, maps):
-#
-#    return gev
