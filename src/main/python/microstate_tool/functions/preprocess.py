@@ -14,6 +14,7 @@ def preprocess_eegs(eegfile,
                     list_eegs,
                     eeg_format,
                     datatype,
+                    channel_location_dir,
                     filter_true,
                     filtermethod,
                     lowcut,
@@ -29,7 +30,7 @@ def preprocess_eegs(eegfile,
         for file in range(len(list_eegs)):
             filename = list_eegs[file]
             # Load the eeg data
-            eeg = load_eegs(filename, eeg_format, datatype, channels2remove)
+            eeg = load_eegs(filename, eeg_format, datatype, channel_location_dir, channels2remove)
             if file == 0:
                 channels = eeg.info['ch_names']
             else:
@@ -43,7 +44,7 @@ def preprocess_eegs(eegfile,
 
     print(eegfile)
     # Load the eeg data
-    eeg = load_eegs(eegfile, eeg_format, datatype, channels2remove[0])
+    eeg = load_eegs(eegfile, eeg_format, datatype, channel_location_dir, channels2remove[0])
 
     # Filter
     if filter_true:

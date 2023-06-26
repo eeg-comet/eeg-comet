@@ -14,10 +14,12 @@
 # Package imports
 import os.path
 import numpy as np
+import h5py
 from scipy import stats
+from functions.utils.find_data import find_data
 import pandas as pd
 import pickle
-import h5py
+
 from joblib import Parallel, delayed 
 import tempfile
 
@@ -76,50 +78,6 @@ def extract_forward_transform(eeg_info, spacing):
     return fwd_fixed, leadfield_fixed, fwd
 
 
-def load_eeg_data(eeg_info_path="eeg_info.pkl", eeg_data_path='test_study.h5'):
-    with open(eeg_info_path, 'rb') as f:
-        eeg_info = pickle.load(f)
-
-    hf_group = h5py.File(eeg_data_path, 'r')
-    study_name = list(hf_group.keys())[0]
-    file_names = list(hf_group[study_name].keys())
-
-    for filename in file_names:
-        print(study_name, filename)
-        data = np.asarray(hf_group[study_name][filename][:])*pow(10,6)
-
-    return data, eeg_info
-
-
-def load_microstate_topos(microstate_maps_path):
-    microstate_maps = pd.read_csv(microstate_maps_path)
-
-    map_a = microstate_maps['A'].values
-    map_b = microstate_maps['B'].values
-    map_c = microstate_maps['C'].values
-    map_d = microstate_maps['D'].values
-    map_e = microstate_maps['E'].values
-    all_maps = np.vstack((map_a, map_b, map_c, map_d, map_e))
-    return np.transpose(all_maps)
-
-
-def load_eegbci_eeg():
-    # Load sample data
-    raw_fname, = eegbci.load_data(subject=1, runs=[6])
-    raw = mne.io.read_raw_edf(raw_fname, preload=True)
-    # Clean channel names to be able to use a standard 1005 montage
-    new_names = dict(
-        (ch_name,
-         ch_name.rstrip('.').upper().replace('Z', 'z').replace('FP', 'Fp'))
-        for ch_name in raw.ch_names)
-    raw.rename_channels(new_names)
-    # Read and set the EEG electrode locations, which are already in fsaverage's
-    # space (MNI space) for standard_1020:
-    montage = mne.channels.make_standard_montage('standard_1005')
-    raw.set_montage(montage)
-    raw.set_eeg_reference(projection=True)  # needed for inverse modeling
-    return raw
-
 def inverse_source(sensor_raw, fwd, inv_method):
     # (events, event_id) = mne.events_from_annotations(sensor_raw)
     # epochs = mne.Epochs(sensor_raw, events, event_id['T1'], -2, 5)
@@ -136,12 +94,6 @@ def inverse_source(sensor_raw, fwd, inv_method):
                         method=inv_method, pick_ori=None, verbose=True)
     #brain = stc.plot(surface='inflated', hemi='rh')
     return stc
-
-
-def dummy_scalp_maps(size):
-    # define random scalp map - replace with real maps
-    maps = np.vander((1, 1.1, 1.2), size).transpose()
-    return maps
 
 
 def find_t_coeff(sample, maps):
@@ -167,91 +119,37 @@ def second_regression(t_coeff, source_time_series):
     return beta_coeff
 
 
-def run_tess(eeg_info_path, eeg_data_path, microstate_maps_path, inv_method, nperm, spacing):
-    # Load sensor time series - replace with real data
-    # sensor_raw = load_eegbci_eeg()
-    # Ensure data is channels x time points (could be improved)
-    # if sensor_raw._data.shape[0] < sensor_raw._data.shape[1]:
-    #     sensor_time_series = sensor_raw._data
-    # else:
-    # sensor_time_series = np.transpose(sensor_raw._data)
-    eeg_data, eeg_info = load_eeg_data(eeg_info_path, eeg_data_path)
-    eeg_raw = mne.io.RawArray(eeg_data, eeg_info)
-    eeg_raw.set_eeg_reference('average', projection=True)
-     # to extract proper inverse models
-    (fwd, leadfield, fwd_free) = extract_forward_transform(eeg_info, spacing)
-    source_time_series = np.matmul(np.transpose(eeg_data), leadfield)
+def run_source_localization(preprocessed_data_path, localized_sources_path,
+                            eeg_info, microstate_maps, inv_method, nperm, spacing):
 
-    # Source inverse space run
-    stc = inverse_source(eeg_raw, fwd_free, inv_method)
-    source_time_series = stc.data
-    source_time_series = np.transpose(source_time_series)
+    z_scores_path = os.path.join(localized_sources_path, "_z_scores")
+    p_values_path = os.path.join(localized_sources_path, "_p_values")
+    # Create a new directory because it does not exist
+    if not os.path.exists(localized_sources_path):
+        os.makedirs(localized_sources_path)
+    if not os.path.exists(z_scores_path):
+        os.makedirs(z_scores_path)
+    if not os.path.exists(p_values_path):
+        os.makedirs(p_values_path)
 
-    # Run first (spatial) regression
-    maps = load_microstate_topos(microstate_maps_path)
-    t_coeff = first_regression(eeg_data, maps)
+    significance = 0.005 # assuming the nperm=2000
 
-    # Run second (temporal) regression
-    beta_coeff = second_regression(t_coeff, source_time_series)
-
-    # Permutation of beta over t to determine significance
-    #nperm = 20 # Change to 2000
-    z_scores = np.zeros(beta_coeff.shape)
-    beta_dist = np.zeros((beta_coeff.shape[0], beta_coeff.shape[1], nperm))
-    bonferroni = beta_coeff.shape[1]
-    t_shuffle = t_coeff
-    path = tempfile.mkdtemp()
-    beta_path = os.path.join(path,'beta_dist.mmap')
-    beta_dist = np.memmap(beta_path, dtype=float, shape=(np.size(maps)[1], np.size(source_time_series)[1], nperm), mode='w+')
-    
-    def process(t_shuffle, source_time_series, ii):
-        np.random.shuffle(t_shuffle)
-        beta_dist[:,:,ii] = second_regression(t_shuffle, source_time_series)
-        print(ii + " Parallel")
-    '''
-    #for ii in range(0, nperm):
-    #    np.random.shuffle(t_shuffle)
-    #    beta_dist[:, :, ii] = second_regression(t_shuffle, source_time_series)
-    #    print(ii)
-    '''
-    Parallel(n_jobs =-1)(delayed(process)(t_shuffle, source_time_series, ii) for ii in range(0, nperm) )
-
-    for idx, x in np.ndenumerate(beta_coeff):
-        z_scores[idx] = stats.zscore(np.insert(beta_dist[idx[0]][idx[1]][:], 0, x))[0]
-
-    p_values = bonferroni * stats.norm.sf(abs(z_scores))
-    print(p_values)
-
-    # Source visualization:
-    mystc = mne.SourceEstimate(np.transpose(z_scores), [np.arange(2562), np.arange(2562)], 0, 1)
-
-    mystc.subject = 'fsaverage'
-    mystc.plot(subjects_dir=None, initial_time=1,
-               clim=dict(kind='value', pos_lims=[3, 6, 9]),
-               time_viewer=True)
-
-def run_source_localization(study_name, eeg_info, eeg_data_path, microstate_maps,
-                            inv_method, nperm, spacing):
-
-    hf_group = h5py.File(eeg_data_path, 'r')
-    file_names = list(hf_group[study_name].keys())
+    file_names = find_data(preprocessed_data_path, '.hdf', '*')
 
     counter = 0
     for filename in file_names:
         counter += 1
-        print(study_name, filename)
-        eeg_data = np.asarray(hf_group[study_name][filename][:]) * pow(10, 6)
+        rawfilename = os.path.split(filename)[1].split('.')[0]
+        print("Source Localizing Microstates", rawfilename)
+        print("\n", 100 * counter / len(file_names))
+
+        # Load the EEG data
+        hf = h5py.File(filename, "r")
+        eeg_data = hf[list(hf.keys())[0]]
+        eeg_data = np.asarray(eeg_data) * pow(10, 6)
+
+        # Create new eeg structure
         eeg_raw = mne.io.RawArray(eeg_data, eeg_info)
-        ch_name = eeg_info.ch_names
-        new_names = dict(
-            (ch_name,
-             ch_name.rstrip('.').upper().replace('Z', 'z').replace('FP', 'Fp'))
-            for ch_name in eeg_raw.ch_names)
-        eeg_raw.rename_channels(new_names)
-        # Read and set the EEG electrode locations, which are already in fsaverage's
-        # space (MNI space) for standard_1020:
-        montage = mne.channels.make_standard_montage('standard_1020')
-        eeg_raw.set_montage(montage)
         eeg_raw.set_eeg_reference('average', projection=True)
 
         # to extract proper inverse models
@@ -262,7 +160,6 @@ def run_source_localization(study_name, eeg_info, eeg_data_path, microstate_maps
         stc = inverse_source(eeg_raw, fwd_free, inv_method)
         source_time_series = stc.data
         source_time_series = np.transpose(source_time_series)
-        # source_time_series = np.load('source_time_series.npy')
 
         # Run first (spatial) regression
         t_coeff = first_regression(eeg_data, microstate_maps)
@@ -275,37 +172,37 @@ def run_source_localization(study_name, eeg_info, eeg_data_path, microstate_maps
         beta_dist = np.zeros((beta_coeff.shape[0], beta_coeff.shape[1], nperm))
         bonferroni = beta_coeff.shape[1]
         t_shuffle = t_coeff
-
         for ii in range(0, nperm):
-            print("Running ", str(nperm), "permutations ...")
             np.random.shuffle(t_shuffle)
             beta_dist[:, :, ii] = second_regression(t_shuffle, source_time_series)
-            print(ii)
-
+            if (ii % 50) == 0:
+                print(ii)
         for idx, x in np.ndenumerate(beta_coeff):
             z_scores[idx] = stats.zscore(np.insert(beta_dist[idx[0]][idx[1]][:], 0, x))[0]
-
         p_values = bonferroni * stats.norm.sf(abs(z_scores))
-        #sig_ind = p_values < 0.05
-        #sig_scores = np.multiply(z_scores, sig_ind)
 
-        # Source visualization:
-        for i in range(np.size(z_scores, 0)):
-            z_scores[i, :] = 2. * (z_scores[i, :] - np.min(z_scores[i, :])) / np.ptp(z_scores[i, :]) - 1
+        # Save results for each file
+        np.save(os.path.join(z_scores_path, rawfilename + "_z_scores"), z_scores)
+        np.save(os.path.join(p_values_path, rawfilename + "_p_values"), p_values)
 
+        # Filter z-scores
+        filtered_z_scores = (p_values < significance) * z_scores
         if counter == 1:
-            avg_stc_data = z_scores
+            sum_z_scores = filtered_z_scores
         else:
-            avg_stc_data = avg_stc_data + z_scores
-    avg_stc_data = avg_stc_data / counter
-    print("Source localization is done!")
-    return avg_stc_data
+            sum_z_scores = sum_z_scores + filtered_z_scores
+
+    # Save the averaged z-scores
+    avg_z_scores = np.divide(sum_z_scores, len(file_names))
+    np.save(os.path.join(localized_sources_path, "avg_z_scores"), avg_z_scores)
 
 
-def visualize_sources(avg_stc_data, spacing):
-    mystc = mne.SourceEstimate(np.transpose(avg_stc_data),
-                       [np.arange(np.size(avg_stc_data, 1)/2), np.arange(np.size(avg_stc_data, 1)/2)], 0, 1)
-
+def visualize_sources(localized_sources_path, spacing):
+    avg_z_scores = np.load(os.path.join(localized_sources_path, "avg_z_scores.npy"))
+    for i in range(np.size(avg_z_scores, 0)):
+        avg_z_scores[i, :] = 2. * (avg_z_scores[i, :] - np.min(avg_z_scores[i, :])) / np.ptp(avg_z_scores[i, :]) - 1
+    mystc = mne.SourceEstimate(np.transpose(avg_z_scores),
+                       [np.arange(np.size(avg_z_scores, 1)/2), np.arange(np.size(avg_z_scores, 1)/2)], 0, 1)
     mystc.subject = 'fsaverage'
     brain = mystc.plot(subjects_dir=None,
                        initial_time=0,

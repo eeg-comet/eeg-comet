@@ -1,8 +1,10 @@
 import os.path
+import re
 import numpy as np
 import h5py
 from PyQt5 import uic
 import shutil
+import mne
 from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
 
 from functions.utils.set_widgets_status import set_widgets_status
@@ -11,22 +13,25 @@ from functions import preprocess
 
 class NewStudyWindow(QDialog):
 
-    def __init__(self, context, parent=None):
+    def __init__(self, context, parent=None, main_window=None):
         super(NewStudyWindow, self).__init__(parent)
         
+        # if main_window:
+        self.main_window = main_window
         # load the ui
         basepath = os.path.dirname(__file__)
         self.ui = uic.loadUi(context.get_resource("NewStudyWindow.ui"), self)
         
         self.ui.setWindowTitle("New Study - Import Raw Data and Preprocess")
         self.done_preprocessing = False
+        self.channel_location_dir = ''
 
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_pattern_radio.clicked.connect(self.newstudy_controller)
 
         self.ui.step0_input_path_button.clicked.connect(self.choose_input)
         self.ui.step0_import_raw_button.clicked.connect(self.load_raw)
-
+        self.ui.step0_load_chan_loc_button.clicked.connect(self.load_channel_location)
         self.ui.step0_save_path_button.clicked.connect(self.new_study_save_path)
 
         self.ui.step0_no_option_checkbox.clicked.connect(self.newstudy_controller)
@@ -113,6 +118,7 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
             self.ui.step0_remove_file_button.setEnabled(True)
             self.ui.step0_clear_files_button.setEnabled(True)
+            self.ui.step0_load_chan_loc_button.setEnabled(True)
             # Enable Plot Options
             set_widgets_status(plot_options, enable=True)
             # Enable Preprocessing Options
@@ -152,6 +158,7 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_button.setStyleSheet("background-color: light gray")
             self.ui.step0_remove_file_button.setDisabled(True)
             self.ui.step0_clear_files_button.setDisabled(True)
+            self.ui.step0_load_chan_loc_button.setDisabled(True)
             # Enable Plot Options
             set_widgets_status(plot_options, enable=False)
             # Enable Preprocessing Options
@@ -164,32 +171,53 @@ class NewStudyWindow(QDialog):
         self.ui.step0_input_path_lineedit.setText(fname)
         self.newstudy_controller()
 
+    def load_channel_location(self):
+        fname, _ = QFileDialog.getOpenFileName(self, "Select the file containing the channel locations")
+        chan_loc_extension = os.path.split(fname)[1].split('.')[1]
+        valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
+                                     'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
+        if not chan_loc_extension in valid_chan_loc_extensions:
+            self.channel_location_dir = ''
+            QMessageBox.information(self, "Load error",
+                                    "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
+                                    "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
+                                    "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)",
+                                    QMessageBox.Ok)
+        else:
+            self.channel_location_dir = fname
+            self.ui.step0_load_chan_loc_button.setStyleSheet("background-color: lightgreen")
+        self.newstudy_controller()
+
     def get_extension(self):
         selected_extension = self.ui.step0_import_format_combobox.currentText()
-        if selected_extension == "BrainVision (.vhdr, .vmrk, .eeg)":
-            extension = ".vhdr"
-        elif selected_extension == "European data format (.edf)":
-            extension = ".edf"
-        elif selected_extension == "BioSemi data format (.bdf)":
-            extension = ".bdf"
-        elif selected_extension == "General data format (.gdf)":
-            extension = ".gdf"
-        elif selected_extension == "Neuroscan CNT (.cnt)":
-            extension = ".cnt"
-        elif selected_extension == "EGI simple binary (.egi)":
-            extension = ".egi"
-        elif selected_extension == "EGI MFF (.mff)":
-            extension = ".mff"
-        elif selected_extension == "EEGLAB files (.set, .fdt)":
-            extension = ".set"
-        elif selected_extension == "Nicolet (.data)":
-            extension = ".data"
-        elif selected_extension == "eXimia EEG data (.nxe)":
-            extension = ".nxe"
-        elif selected_extension == "Persyst EEG data (.lay, .dat)":
-            extension = ".lay"
-        elif selected_extension == "Nihon Kohden EEG data (.eeg, .21e, .pnt, .log)":
-            extension = ".eeg"
+        # if selected_extension == "BrainVision (.vhdr, .vmrk, .eeg)":
+        #     extension = ".vhdr"
+        # elif selected_extension == "European data format (.edf)":
+        #     extension = ".edf"
+        # elif selected_extension == "BioSemi data format (.bdf)":
+        #     extension = ".bdf"
+        # elif selected_extension == "General data format (.gdf)":
+        #     extension = ".gdf"
+        # elif selected_extension == "Neuroscan CNT (.cnt)":
+        #     extension = ".cnt"
+        # elif selected_extension == "EGI simple binary (.egi)":
+        #     extension = ".egi"
+        # elif selected_extension == "EGI MFF (.mff)":
+        #     extension = ".mff"
+        # elif selected_extension == "EEGLAB files (.set, .fdt)":
+        #     extension = ".set"
+        # elif selected_extension == "Nicolet (.data)":
+        #     extension = ".data"
+        # elif selected_extension == "eXimia EEG data (.nxe)":
+        #     extension = ".nxe"
+        # elif selected_extension == "Persyst EEG data (.lay, .dat)":
+        #     extension = ".lay"
+        # elif selected_extension == "Nihon Kohden EEG data (.eeg, .21e, .pnt, .log)":
+        #     extension = ".eeg"
+        # else:
+        #     raise ValueError("Failed to match selected_extension")
+        extension = selected_extension.split('(')[1]
+        extension = re.split(', | .', extension)[0]
         return extension
 
     def get_data_type(self):
@@ -197,6 +225,8 @@ class NewStudyWindow(QDialog):
             data_type = "continuous"
         elif self.ui.step0_import_epoched_radio.isChecked():
             data_type = "epoched"
+        else:
+            raise ValueError("Failed to match data_type")
         return data_type
 
     def load_raw(self):
@@ -244,6 +274,7 @@ class NewStudyWindow(QDialog):
         listItems = self.step0_selected_files_list.selectedItems()
         if not listItems: return
         for item in listItems:
+            # To remove items from the list, use takeItem() .
             self.step0_selected_files_list.takeItem(self.step0_selected_files_list.row(item))
         self.newstudy_controller()
 
@@ -323,17 +354,20 @@ class NewStudyWindow(QDialog):
 
         counter = 1
         for filename in self.list_eegs:
-            self.progress, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(filename,
-                                                                            self.list_eegs,
-                                                                            self.extension,
-                                                                            self.data_type,
-                                                                            self.filter_data,
-                                                                            self.filter_method,
-                                                                            self.lowcut_freq,
-                                                                            self.highcut_freq,
-                                                                            self.downsample_data,
-                                                                            self.sample_rate,
-                                                                            self.ch2rm)
+            self.progress, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(
+                filename,
+                self.list_eegs,
+                self.extension,
+                self.data_type,
+                self.channel_location_dir,
+                self.filter_data,
+                self.filter_method,
+                self.lowcut_freq,
+                self.highcut_freq,
+                self.downsample_data,
+                self.sample_rate,
+                self.ch2rm
+                )
 
             # Save EEG info
             eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
@@ -344,20 +378,20 @@ class NewStudyWindow(QDialog):
             name = os.path.basename(filename)
             name = os.path.splitext(name)[0]
             save_path = os.path.join(self.save_preprocessed_path, name + ".hdf")
-            hf = h5py.File(save_path, "w")
-            dataset = hf.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
-            # add metadata
-            dataset.attrs['data_length'] = preprocessed_data.shape[1]
-            dataset.attrs['eeg_format'] = self.extension
-            dataset.attrs['data_type'] = self.data_type
-            dataset.attrs['nchan'] = self.n_chan
-            dataset.attrs['ch_names'] = self.ch_names
-            dataset.attrs['ch_removed'] = self.ch2rm
-            dataset.attrs['sample_rate'] = self.sample_rate
-            dataset.attrs['filter_method'] = self.filter_method
-            dataset.attrs['lowcut_freq'] = self.lowcut_freq
-            dataset.attrs['highcut_freq'] = self.highcut_freq
-            hf.close()
+            with h5py.File(save_path, "w") as hf:
+                dataset = hf.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
+                # add metadata
+                dataset.attrs['data_length'] = preprocessed_data.shape[1]
+                dataset.attrs['eeg_format'] = self.extension
+                dataset.attrs['data_type'] = self.data_type
+                dataset.attrs['nchan'] = self.n_chan
+                dataset.attrs['ch_names'] = self.ch_names
+                dataset.attrs['ch_removed'] = self.ch2rm
+                dataset.attrs['sample_rate'] = self.sample_rate
+                dataset.attrs['filter_method'] = self.filter_method
+                dataset.attrs['lowcut_freq'] = self.lowcut_freq
+                dataset.attrs['highcut_freq'] = self.highcut_freq
+            
             # export_h5.export_h5(preprocessed_data, filename, self.ch_names, self.extension, self.data_type,
             #                    self.filter_method, self.lowcut_freq, self.highcut_freq,
             #                    self.sample_rate, self.ch2rm, self.save_preprocessed_path)
@@ -399,9 +433,8 @@ class NewStudyWindow(QDialog):
                 print("\nSaving the concatenated data ...")
                 # Save catdata
                 catdata_filename = os.path.join(self.save_dir, self.study_name + "_concatenated_data.hdf")
-                catf = h5py.File(catdata_filename, "w")
-                catf.create_dataset(self.study_name, data=catdata, compression="gzip", compression_opts=9)
-                catf.close()
+                with h5py.File(catdata_filename, "w") as catf:
+                    catf.create_dataset(self.study_name, data=catdata, compression="gzip", compression_opts=9)
 
                 # Write logs to config
                 config.set('progress', 'done_preprocessing', str(self.done_preprocessing))
@@ -422,31 +455,41 @@ class NewStudyWindow(QDialog):
                 config['preprocessing results']['ch_names'] = ch_names
                 save_config(config_file, config)
 
+                # TODO: return something back to main window
+                # call mainwindow.load_study()
+                if self.main_window:
+                    self.main_window.load_study(self.save_dir)
                 self.ui.close()
 
     def plot_CHANNELS(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.extension, self.data_type, [])
-        if self.ui.rawdata_show_channel_names_checkbox.isChecked():
-            show_names = True
-        else:
-            show_names = False
+        EEG = load_eegs(filename, self.extension, self.data_type, self.channel_location_dir, [])
         ax = self.ui.MplWidget_chan.canvas.axes
         ax.clear()
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
                      ax.get_xticklabels() + ax.get_yticklabels()):
             item.set_fontsize(18)
-        EEG.plot_sensors(ch_type='eeg', show_names=show_names, axes=ax)
+        if self.channel_location_dir:
+            montage = mne.channels.read_custom_montage(self.channel_location_dir)
+            EEG.set_montage(montage)
+        if np.isnan(EEG.info['chs'][0]['loc'][0]):
+            print('No valid channel positions found!')
+        else:
+            if self.ui.rawdata_show_channel_names_checkbox.isChecked():
+                show_names = True
+            else:
+                show_names = False
+            EEG.plot_sensors(ch_type='eeg', show_names=show_names, axes=ax)
         self.ui.MplWidget_chan.canvas.draw()
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.extension, self.data_type, [])
+        EEG = load_eegs(filename, self.extension, self.data_type, self.channel_location_dir, [])
         EEG.plot()
 
     def plot_PSD(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.extension, self.data_type, [])
+        EEG = load_eegs(filename, self.extension, self.data_type, self.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())

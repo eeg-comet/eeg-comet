@@ -17,6 +17,9 @@ from functions.utils.data_io import find_data
 from functions.utils.compute_gev import compute_gev
 from functions.utils.save_features import save_features
 from functions.utils.remove_consecutive_duplicates import remove_consecutive_duplicates
+
+from functions.features.frequency_occurrence import frequency_occurrence
+from functions.features.mean_durations import mean_durations
 from functions.features.transition_probability import transition_matrix
 from functions.features.lempel_ziv_complexity import lempel_ziv_complexity
 
@@ -154,10 +157,16 @@ def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_l
                 extracted_features = np.append(extracted_features, FOC)
             # Mean Microstate Duration
             if "MMD" in features:
-                D = [sum(1 for i in g) for k, g in groupby(segment) if k == c]
-                MMD = (1000 / fs) * (c if not D else sum(D) / len(D))
+                MMD_ALL = mean_durations(segment, fs)
+                MMD_MAP = MMD_ALL[c]
                 headers = np.append(headers, "MMD_" + c)
-                extracted_features = np.append(extracted_features, MMD)
+                extracted_features = np.append(extracted_features, MMD_MAP)
+            # Frequency of Occurrence for each map per second
+            if "OCC" in features:
+                OCC_ALL = frequency_occurrence(segment, fs)
+                OCC_MAP = OCC_ALL[c]
+                headers = np.append(headers, "OCC_" + c)
+                extracted_features = np.append(extracted_features, OCC_MAP)
         # Transition Probabilities
         if "TP" in features:
             TP_MATRIX = transition_matrix(segment)
@@ -169,9 +178,9 @@ def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_l
                         extracted_features = np.append(extracted_features, TP)
         # Lempel-Ziv Complexity
         if "LZC" in features:
-            segment_trimmed = segment[:min_length]
-            transitioning_sequence = remove_consecutive_duplicates(segment_trimmed)
-            LZC = lempel_ziv_complexity(transitioning_sequence) / min_length
+            #segment_trimmed = segment[:min_length]
+            #transitioning_sequence = remove_consecutive_duplicates(segment_trimmed)
+            LZC = lempel_ziv_complexity(segment) # / min_length
             headers = np.append(headers, "LZC")
             extracted_features = np.append(extracted_features, LZC)
 
@@ -179,3 +188,54 @@ def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_l
         extracted_features_df = extracted_features_df.append(lst_dict)
 
     return extracted_features_df
+
+
+def extract_dynamic_features(preprocessed_data_path, hf_segmentation_path, fs, window_second, overlap, micro_labels):
+    """
+    Slide a window of size window_size over the data with overlap between windows
+    and compute the mean of each window
+    Parameters:
+    data (numpy.ndarray): Input data vector
+    window_size (int): Size of the sliding window
+    overlap (float): Overlap between windows as a fraction of window_size
+    Returns:
+    numpy.ndarray: Array containing the means of each window
+    """
+
+    # Convert window_second to window_size
+    window_size = int(window_second * fs)
+
+    # Find data
+    file_names = find_data(preprocessed_data_path, ".hdf", "*")
+    hf_segmentation = h5py.File(hf_segmentation_path, 'r')
+    study_name = list(hf_segmentation.keys())[0]
+    for filename in file_names:
+        filename = os.path.split(filename)[1].split('.')[0]
+        print("\nExtracting Features", filename)
+
+        # Load segmented data
+        segment = np.asarray(hf_segmentation[study_name][filename][:])
+        segment = [" ".join(item) for item in segment.astype('U10')]
+        segment = np.asarray(segment)
+
+        # Calculate the number of windows
+        num_windows = int(np.ceil((len(segment) - window_size) / (window_size * (1 - overlap))) + 1)
+
+        # Initialize the output array
+        window_occ = np.zeros((num_windows, len(micro_labels)))
+        window_dur = np.zeros((num_windows, len(micro_labels)))
+
+        # Slide the window over the data and compute the mean of each window
+        for c in range(len(micro_labels)):
+            for i in range(num_windows):
+                start_index = int(i * window_size * (1 - overlap))
+                end_index = start_index + window_size
+                window_segment = segment[start_index:end_index]
+                window_segment_no_duplicates = remove_consecutive_duplicates(np.asarray(window_segment))
+                window_segment_no_duplicates = np.asarray(list(window_segment_no_duplicates))
+
+                D = [sum(1 for i in g) for k, g in groupby(window_segment) if k == micro_labels[c]]
+                window_dur[i, c] = (1000 / fs) * (micro_labels[c] if not D else sum(D) / len(D))
+                window_occ[i, c] = np.count_nonzero(window_segment_no_duplicates == micro_labels[c])
+
+    return window_occ, window_dur

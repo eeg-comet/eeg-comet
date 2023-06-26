@@ -8,6 +8,140 @@ from configparser import ConfigParser
 import numpy as np
 
 
+def import_hdf_data(hdf_data_path):
+    hf = h5py.File(hdf_data_path, "r")
+    study_name = list(hf.keys())[0]
+    dset = hf[study_name]
+    dset = np.asarray(dset)
+    dset = zscore(dset, axis=1)
+    return dset
+
+
+def save_eeg_info(eeg_info_path, eeg_info):
+    with open(eeg_info_path, 'wb') as f:
+        pickle.dump(eeg_info, f)
+
+
+def load_eeg_info(eeg_info_path):
+    with open(eeg_info_path, 'rb') as f:
+        eeg_info = pickle.load(f)
+    return eeg_info
+
+
+def find_data(input_folder, extension, pattern):
+    '''
+    input_folder: Path to the folder where data files are located
+    extension: File extension to search for (e.g., ".hdf")
+    pattern: Pattern to match in file names (e.g., "*")
+
+    Recursively searches the input folder for files with the specified extension
+    and matching the given pattern.
+
+    Returns a list of file paths matching the search criteria.
+    '''
+    list_data = []
+    for path, subdirs, files in os.walk(input_folder):
+        for name in files:
+            if fnmatch(name, pattern+extension):
+                list_data.append(os.path.join(path, name))
+    return list_data
+
+
+def load_eegs(filename, eeg_format, datatype, channel_location_dir, chan2rm):
+    if datatype == 'continuous':
+
+        # Load the eeg file
+        if eeg_format == ".vhdr":
+            eeg = mne.io.read_raw_brainvision(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".edf":
+            eeg = mne.io.read_raw_edf(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".bdf":
+            eeg = mne.io.read_raw_bdf(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".gdf":
+            eeg = mne.io.read_raw_gdf(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".cnt":
+            eeg = mne.io.read_raw_cnt(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".egi" or eeg_format == ".mff":
+            eeg = mne.io.read_raw_egi(filename, preload=True, verbose='CRITICAL')            
+        elif eeg_format == ".set":
+            eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".data":
+            eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".nxe":
+            eeg = mne.io.read_raw_eximia(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".lay":
+            eeg = mne.io.read_raw_persyst(filename, preload=True, verbose='CRITICAL')
+        elif eeg_format == ".eeg":
+            eeg = mne.io.read_raw_nihon(filename, preload=True, verbose='CRITICAL')
+    elif datatype == 'epoched':
+        if eeg_format == ".set":
+            eeg = mne.io.read_epochs_eeglab(filename, verbose='CRITICAL')
+
+    # Load the eeg channel location
+    if channel_location_dir:
+        montage = mne.channels.read_custom_montage(channel_location_dir)
+        eeg.set_montage(montage)
+
+    # Pick channels
+    eeg = eeg.pick_types(meg=False, eeg=True, eog=False,
+                         exclude=chan2rm, verbose='CRITICAL')
+
+    # Apply an average reference
+    eeg = eeg.set_eeg_reference('average')
+    return eeg
+
+
+def initialize_config(config_path, config):
+    # Create sections
+    config['progress'] = {}
+    config['study info'] = {}
+    config['preprocessing settings'] = {}
+    config['preprocessing results'] = {}
+    config['clustering settings'] = {}
+    config['clustering results'] = {}
+    config['backfitting settings'] = {}
+    config['feature extraction settings'] = {}
+    config['feature visualization groups'] = {}
+    config['source localization settings'] = {}
+    # Initialize progress
+    str_false = "False"
+    config['progress']['done_preprocessing'] = str_false
+    config['progress']['done_clustering'] = str_false
+    config['progress']['done_labeling_microstates'] = str_false
+    config['progress']['done_backfitting'] = str_false
+    config['progress']['done_extracting_features'] = str_false
+    config['progress']['done_extracting_microsegments'] = str_false
+    config['progress']['done_source_localization'] = str_false
+    # Write to config
+    save_config(config_path, config)
+
+
+def load_config(config_path):
+    config = ConfigParser()
+    config.read(config_path)
+    return config
+
+
+def save_config(config_path, config):
+    with open(config_path, 'w+') as configfile:
+        config.write(configfile)
+    return config
+    
+
+def save_features(df, filename, file_format, path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    save_path = os.path.join(path, filename + file_format)
+    if file_format == '.csv':
+        df.to_csv(save_path, header=True, index=False)
+    elif file_format == '.pkl':
+        df.to_pickle(save_path)
+    elif file_format == '.hdf':
+        df.to_hdf(save_path, key='df', mode='w')
+    elif file_format == '.json':
+        df.to_json(save_path)
+        
+
 # export_h5 seems deprecated!!!
 
 # def export_h5(data, filename, ch_names, eeg_format, data_type, filter_method,
@@ -48,113 +182,3 @@ import numpy as np
 
 #     f.close()
 
-
-def import_hdf_data(hdf_data_path):
-    hf = h5py.File(hdf_data_path, "r")
-    study_name = list(hf.keys())[0]
-    dset = hf[study_name]
-    dset = np.asarray(dset)
-    dset = zscore(dset, axis=1)
-    return dset
-
-
-def save_eeg_info(eeg_info_path, eeg_info):
-    with open(eeg_info_path, 'wb') as f:
-        pickle.dump(eeg_info, f)
-
-
-def load_eeg_info(eeg_info_path):
-    with open(eeg_info_path, 'rb') as f:
-        eeg_info = pickle.load(f)
-    return eeg_info
-
-
-def find_data(input_folder, extension, pattern):
-    '''
-    input_folder: Path to the folder where data files are located
-    extension: File extension to search for (e.g., ".hdf")
-    pattern: Pattern to match in file names (e.g., "*")
-
-    Recursively searches the input folder for files with the specified extension
-    and matching the given pattern.
-
-    Returns a list of file paths matching the search criteria.
-    '''
-    list_data = []
-    for path, subdirs, files in os.walk(input_folder):
-        for name in files:
-            if fnmatch(name, pattern+extension):
-                list_data.append(os.path.join(path, name))
-    return list_data
-
-
-def load_eegs(filename, eeg_format, datatype, chan2rm):
-    
-    if datatype == 'continuous':
-        # Load the eeg file
-        if eeg_format == ".vhdr":
-            eeg = mne.io.read_raw_brainvision(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".edf":
-            eeg = mne.io.read_raw_edf(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".bdf":
-            eeg = mne.io.read_raw_bdf(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".gdf":
-            eeg = mne.io.read_raw_gdf(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".cnt":
-            eeg = mne.io.read_raw_cnt(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".egi" or eeg_format == ".mff":
-            eeg = mne.io.read_raw_egi(filename, preload=True, verbose='CRITICAL')            
-        elif eeg_format == ".set":
-            eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".data":
-            eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".nxe":
-            eeg = mne.io.read_raw_eximia(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".lay":
-            eeg = mne.io.read_raw_persyst(filename, preload=True, verbose='CRITICAL')
-        elif eeg_format == ".eeg":
-            eeg = mne.io.read_raw_nihon(filename, preload=True, verbose='CRITICAL')
-    elif datatype == 'epoched':
-        if eeg_format == ".set":
-            eeg = mne.io.read_epochs_eeglab(filename, verbose='CRITICAL')
-
-    eeg = eeg.pick_types(meg=False, eeg=True, eog=False,
-                         exclude=chan2rm, verbose='CRITICAL')
-    eeg = eeg.set_eeg_reference('average')
-    return eeg
-
-
-def initialize_config(config_path, config):
-    # Create sections
-    config['progress'] = {}
-    config['study info'] = {}
-    config['preprocessing settings'] = {}
-    config['preprocessing results'] = {}
-    config['clustering settings'] = {}
-    config['clustering results'] = {}
-    config['backfitting settings'] = {}
-    config['feature extraction settings'] = {}
-    config['feature visualization groups'] = {}
-    config['source localization settings'] = {}
-    # Initialize progress
-    config['progress']['done_preprocessing'] = str(False)
-    config['progress']['done_clustering'] = str(False)
-    config['progress']['done_labeling_microstates'] = str(False)
-    config['progress']['done_backfitting'] = str(False)
-    config['progress']['done_extracting_features'] = str(False)
-    config['progress']['done_extracting_microsegments'] = str(False)
-    config['progress']['done_source_localization'] = str(False)
-    # Write to config
-    save_config(config_path, config)
-
-
-def load_config(config_path):
-    config = ConfigParser()
-    config.read(config_path)
-    return config
-
-
-def save_config(config_path, config):
-    with open(config_path, 'w+') as configfile:
-        config.write(configfile)
-    return config

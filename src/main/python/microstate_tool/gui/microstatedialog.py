@@ -24,9 +24,10 @@ from matplotlib import pyplot as plt
 from functions.utils.data_io import load_config, save_config
 
 class MicrostateDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, main_window=None):
         super(MicrostateDialog, self).__init__(parent)
 
+        self.main_window = main_window
         self.setWindowTitle("Microstate Maps")
 
         self.done_labeling = False
@@ -157,6 +158,10 @@ class MicrostateDialog(QDialog):
             config['clustering results']['micro_labels'] = str_micro_labels
             config['progress']['done_labeling_microstates'] = str(True)
             save_config(config_file, config)
+            if self.main_window:
+                print("YES main_window")
+                self.main_window.done_labeling_microstates = True
+                self.main_window.mainwindow_controller()
             self.close()
         else:
             QMessageBox.information(self, "Labeling Error",

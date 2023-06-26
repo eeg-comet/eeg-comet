@@ -91,6 +91,8 @@ class MicroSegDialog(QDialog):
             fc_method = "IPLV"
         elif get_method == "Phase Lag Index":
             fc_method = "PLI"
+        else:
+            raise ValueError("Failed to match get_method")
 
         micro_segments_list = find_data(self.micro_segments_path, '.hdf', '*')
 

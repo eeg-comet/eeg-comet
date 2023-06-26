@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1484</width>
-    <height>881</height>
+    <width>1440</width>
+    <height>774</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -259,8 +259,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>923</width>
-          <height>1235</height>
+          <width>960</width>
+          <height>1095</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -615,23 +615,6 @@
              </item>
             </layout>
            </item>
-           <item row="60" column="1" colspan="2">
-            <widget class="QLabel" name="step6_extract_microsegments_title_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>⚫ Extract Microsegments</string>
-             </property>
-            </widget>
-           </item>
            <item row="33" column="1">
             <layout class="QVBoxLayout" name="verticalLayout">
              <item>
@@ -757,28 +740,10 @@
              </property>
             </widget>
            </item>
-           <item row="61" column="1">
+           <item row="60" column="1">
             <widget class="Line" name="line_10">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="64" column="1" colspan="2">
-            <widget class="QPushButton" name="step6_visualize_source_microseg_button">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
-             <property name="text">
-              <string>Visualize Source Space Features of Microsegments</string>
              </property>
             </widget>
            </item>
@@ -1306,32 +1271,6 @@
              </property>
             </widget>
            </item>
-           <item row="62" column="1" colspan="2">
-            <widget class="QPushButton" name="step6_extract_microseg_button">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
-             <property name="text">
-              <string>Extract Micro Segments</string>
-             </property>
-            </widget>
-           </item>
            <item row="41" column="2">
             <widget class="QLineEdit" name="step5_permutations_input">
              <property name="enabled">
@@ -1554,32 +1493,6 @@
              <attribute name="buttonGroup">
               <string notr="true">buttonGroup_4</string>
              </attribute>
-            </widget>
-           </item>
-           <item row="63" column="1" colspan="2">
-            <widget class="QPushButton" name="step4_visualize_sensor_microseg_button">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
-             <property name="text">
-              <string>Visualize Sensor Space Features of Microsegments</string>
-             </property>
             </widget>
            </item>
            <item row="44" column="1" colspan="2">
@@ -1807,8 +1720,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1484</width>
-     <height>22</height>
+     <width>1440</width>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -1932,10 +1845,9 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_4"/>
  </buttongroups>
 </ui>

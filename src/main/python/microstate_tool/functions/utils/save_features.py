@@ -14,4 +14,6 @@ def save_features(df, filename, file_format, path):
         df.to_hdf(save_path, key='df', mode='w')
     elif file_format == '.json':
         df.to_json(save_path)
+    else:
+        raise ValueError("Failed to match file_format")
 

@@ -20,11 +20,13 @@ import pickle
 # End
 from fnmatch import fnmatch
 from sklearn.metrics.pairwise import cosine_similarity
+from scipy.stats import pearsonr
+from fastdtw import fastdtw
 from scipy.signal import find_peaks
 from matplotlib import pyplot as plt
 from scipy.spatial import distance
 
-from pyclustering.cluster import kmeans, xmeans, bsas, clarans, mbsas, optics, rock, agglomerative, elbow, silhouette
+from pyclustering.cluster import kmeans, xmeans, bsas, clarans, mbsas, optics, rock, agglomerative, ttsas, dbscan, elbow, silhouette
 from pyclustering.utils.metric import distance_metric, type_metric
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from sklearn.cluster import MiniBatchKMeans
@@ -37,6 +39,13 @@ from functions.utils.map_initializer import map_initializer
 
 
 def number_of_clusters(maps, cmin=2, cmax=10):
+    '''
+    maps: Microstate maps 
+    cmin: Minimum number of clusters to consider 
+    cmax: Maximum number of clusters to consider 
+
+    '''
+
     # create instance of Elbow method using C value from 2 to 10.
     elbow_instance = elbow.elbow(maps, cmin, cmax)
     # process input data and obtain results of analysis
@@ -47,6 +56,11 @@ def number_of_clusters(maps, cmin=2, cmax=10):
 
 
 def remove_similar_maps(data, centers, clusters):
+    '''
+    data: Input data matrix.
+    centers: Cluster centers.
+    clusters: Cluster assignments for each data point.
+    '''
     sim = abs(cosine_similarity(centers))
     sim = np.triu(sim)
     np.fill_diagonal(sim, 0)
@@ -77,6 +91,19 @@ def remove_similar_maps(data, centers, clusters):
 
 def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
                     n_channels, method, n_states, initializer, min_dist, n_inits, tolerance, metric):
+    '''
+    preprocessed_data_path: Path to the preprocessed data.
+    hdf_concatenated_data_path: Path to the HDF concatenated data.
+    n_channels: Number of channels in the data.
+    method: Clustering method to use.
+    n_states: Number of microstate maps
+    initializer: Initialization method
+    min_dist: Minimum distance
+    n_inits: Number of initializations
+    tolerance: Convergence threshold
+    metric: Distance metric to use for clustering.
+
+    '''
     if n_states == 'auto':
         print("Loading the concatenated data ...")
         concatenated_data = import_hdf_data(hdf_concatenated_data_path)
@@ -134,8 +161,18 @@ def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
                 METRIC = distance_metric(type_metric.USER_DEFINED, func=cosine_sim)
             elif metric == 'Spatial Correlation':
                 def spatial_corr(point1, point2):
-                    return 1 - abs(distance.correlation(point1, point2))
+                    return 1 - abs(pearsonr(point1, point2)[0])
+                    # return 1 - abs(distance.correlation(point1, point2))
                 METRIC = distance_metric(type_metric.USER_DEFINED, func=spatial_corr)
+            elif metric == 'Dynamic Time Warping':
+                from scipy.spatial.distance import euclidean
+                def dtw(point1, point2):
+                    dtw_distance, _ = fastdtw(point1, point2, dist=euclidean)
+                    return dtw_distance
+                    #return 1 - abs(dtw_distance)
+                METRIC = distance_metric(type_metric.USER_DEFINED, func=dtw)
+            else:
+                raise ValueError("Failed to match metric")
 
             clustering_instance = kmeans.kmeans(maps, initial_centers,
                                          tolerance=tolerance, itermax=1000,
@@ -146,6 +183,8 @@ def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
                 CRITERION = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
             elif metric == 'Minimum Noiseless Description Length':
                 CRITERION = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH 
+            else:
+                raise ValueError("Failed to match metric")
             clustering_instance = xmeans.xmeans(maps, initial_centers, n_states,
                                  tolerance=tolerance, criterion=CRITERION)
         elif method == 'Agglomerative hierarchical clustering':
@@ -157,6 +196,8 @@ def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
                 aahc_link = agglomerative.type_link.AVERAGE_LINK
             elif metric == 'Centroid Link':
                 aahc_link = agglomerative.type_link.CENTROID_LINK
+            else:
+                raise ValueError("Failed to match metric")
             clustering_instance = agglomerative.agglomerative(maps, n_states, aahc_link, True);
 
         elif method == 'BSAS':
@@ -169,7 +210,13 @@ def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
             clustering_instance = optics.optics(maps, 2.0, 3,
                                          amount_of_clusters=n_states);
         elif method == 'ROCK':
-            clustering_instance = rock.rock(maps, 1.0, n_states);
+            clustering_instance = rock.rock(maps, 1.0, n_states, tolerance);
+        elif method == 'DBSCAN':
+            clustering_instance = dbscan.dbscan(maps, tolerance, min_dist, True);
+        elif method == 'TTSAS':
+            clustering_instance = ttsas.ttsas(maps, n_states, tolerance);
+        else:
+            raise ValueError("Failed to match method")
 
         best_gev = 0
         for init in range(n_inits):

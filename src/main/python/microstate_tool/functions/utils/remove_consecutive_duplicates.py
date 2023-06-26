@@ -15,11 +15,14 @@ def listToString(s):
 # Remove consecutive duplicates from string
 def remove_consecutive_duplicates(segmentation):
     segmentation = segmentation.tolist()
-    str_seg = ""
+    # str_seg = ""
     # traverse in the string
-    for ele in segmentation:
-        str_seg += ele
+    # for ele in segmentation:
+    #     str_seg += ele
+    # edited version using join
+    str_seg = "".join(segmentation)
 
+    # didn't understand .
     new_seg = ""
     prev = ""
     for c in str_seg:

@@ -49,9 +49,9 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.setWindowTitle("Microstate Toolbox")
         self.ui.showMaximized()
 
-        self.ui.NewStudyWindow = NewStudyWindow(context)
+        self.ui.NewStudyWindow = NewStudyWindow(context, main_window=self)
         self.ui.NumberMapsDialog = NumberMapsDialog(context)
-        self.ui.MicrostateDialog = MicrostateDialog()
+        self.ui.MicrostateDialog = MicrostateDialog(main_window=self)
         self.ui.MicroSegDialog = MicroSegDialog()
         self.ui.VisualizationDialog = VisualizationDialog(context)
 
@@ -90,8 +90,8 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step4_visualizefeatures_button.clicked.connect(self.open_visualize_features_dialog)
         self.ui.step5_estimate_sources_button.clicked.connect(self.source_localize_microstates)
         self.ui.step5_visualize_sources_button.clicked.connect(self.visualize_source_localized_microstates)
-        self.ui.step6_extract_microseg_button.clicked.connect(self.extract_microsegments)
-        self.ui.step4_visualize_sensor_microseg_button.clicked.connect(self.visualize_microsegments)
+        # self.ui.step6_extract_microseg_button.clicked.connect(self.extract_microsegments)
+        # self.ui.step4_visualize_sensor_microseg_button.clicked.connect(self.visualize_microsegments)
 
         self.ui.step0_exit_button.clicked.connect(self.exit_msg)
 
@@ -158,15 +158,19 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.VisualizationDialog.load_filenames()
         self.mainwindow_controller()
 
-    def load_study(self):
+    def load_study(self, save_folder=None):
 
-        self.save_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
-        config_file = os.path.join(self.save_folder, 'log.ini')
-        if not os.path.exists(config_file):
-            QMessageBox.information(self, "Load error",
-                                    "The selected folder does not contain a valid study!",
-                                    QMessageBox.Ok)
-            return
+        if save_folder:
+            self.save_folder = save_folder
+            config_file = os.path.join(self.save_folder, 'log.ini')
+        else:
+            self.save_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
+            config_file = os.path.join(self.save_folder, 'log.ini')
+            if not os.path.exists(config_file):
+                QMessageBox.information(self, "Load error",
+                                        "The selected folder does not contain a valid study!",
+                                        QMessageBox.Ok)
+                return
 
         # Define global directories
         self.preprocessed_data_path = os.path.join(self.save_folder, 'preprocessed_data')
@@ -359,26 +363,26 @@ class MainMicrostateWindow(QMainWindow):
 
     def mainwindow_controller(self):
         buttons_done_preprocessing = [
-        self.ui.step2_clustering_title_label,
-        self.ui.step2_clustermethod_combo_label,
-        self.ui.step2_clustermethod_combobox,
-        self.ui.step2_numberofmaps_label,
-        self.ui.step2_auto_numberofmaps_radio,
-        self.ui.step2_user_numberofmaps_radio,
-        self.ui.step2_numberofmaps_elbow_button,
-        self.ui.step2_numberofrepeats_label,
-        self.ui.step2_user_numberofrepeats_input,
-        self.ui.step2_other_label,
-        self.ui.step2_other_options_combobox,
-        self.ui.step2_initializer_label,
-        self.ui.step2_random_initializer_radio,
-        self.ui.step2_kmeans_initializer_radio,
-        self.ui.step2_stopcondition_label,
-        self.ui.step2_stopcondition_input,
-        self.ui.step2_kernel_size_label,
-        self.ui.step2_kernel_size_input,
-        self.ui.step2_kernel_size_label_2,
-        self.ui.step2_clustering_button
+            self.ui.step2_clustering_title_label,
+            self.ui.step2_clustermethod_combo_label,
+            self.ui.step2_clustermethod_combobox,
+            self.ui.step2_numberofmaps_label,
+            self.ui.step2_auto_numberofmaps_radio,
+            self.ui.step2_user_numberofmaps_radio,
+            self.ui.step2_numberofmaps_elbow_button,
+            self.ui.step2_numberofrepeats_label,
+            self.ui.step2_user_numberofrepeats_input,
+            self.ui.step2_other_label,
+            self.ui.step2_other_options_combobox,
+            self.ui.step2_initializer_label,
+            self.ui.step2_random_initializer_radio,
+            self.ui.step2_kmeans_initializer_radio,
+            self.ui.step2_stopcondition_label,
+            self.ui.step2_stopcondition_input,
+            self.ui.step2_kernel_size_label,
+            self.ui.step2_kernel_size_input,
+            self.ui.step2_kernel_size_label_2,
+            self.ui.step2_clustering_button
         ]
         if self.done_preprocessing:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
@@ -407,7 +411,7 @@ class MainMicrostateWindow(QMainWindow):
         if self.clustering_method == "K-means":
             self.ui.step2_other_label.setText("K-means distance metric:")
             options = ['Euclidean', 'Euclidean Square', 'Cosine Similarity', 'Spatial Correlation']
-            self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Cosine Similarity')
+            self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
 
         elif self.clustering_method == "Agglomerative hierarchical clustering":
             self.ui.step2_other_label.setText("Type of link between clusters:")
@@ -424,21 +428,21 @@ class MainMicrostateWindow(QMainWindow):
             self.reset_option_box(self.ui.step2_other_options_combobox)
 
         step3_group1 = [
-        self.ui.step3_label_maps_button,
-        self.ui.step3_backfit_title_label,
-        self.ui.step3_backfit_all_radio,
-        self.ui.step3_backfit_peaks_radio,
-        self.ui.step3_backfit_button
+            self.ui.step3_label_maps_button,
+            self.ui.step3_backfit_title_label,
+            self.ui.step3_backfit_all_radio,
+            self.ui.step3_backfit_peaks_radio,
+            self.ui.step3_backfit_button
         ]
 
         # filter segments with occurrence less than xxx ms
         # Replace short segments with previous dominant microstate 
         # Remove short segments
         step3_filter_segments = [
-        self.ui.step3_filter_segments_input,
-        self.ui.step3_filter_segments_label,
-        self.ui.step3_replace_segments_radio,
-        self.ui.step3_remove_segments_radio
+            self.ui.step3_filter_segments_input,
+            self.ui.step3_filter_segments_label,
+            self.ui.step3_replace_segments_radio,
+            self.ui.step3_remove_segments_radio
         ] 
         if self.done_clustering:
             self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
@@ -468,6 +472,7 @@ class MainMicrostateWindow(QMainWindow):
 
 
         else:
+            print("here 1")
             self.done_labeling_microstates = False
             self.done_backfitting = False
             self.done_extracting_features = False
@@ -483,6 +488,7 @@ class MainMicrostateWindow(QMainWindow):
         if self.done_labeling_microstates:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
         else:
+            print("here 2")
             self.ui.step3_label_maps_button.setStyleSheet("background-color: none")
             self.done_backfitting = False
             self.done_extracting_features = False
@@ -501,8 +507,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_extractfeatures_button,
             self.ui.step4_outputformats_label,
             self.ui.step4_outputformats_combobox,
-            self.ui.step6_extract_microseg_button,
-            self.ui.step6_extract_microsegments_title_label,
+            # self.ui.step6_extract_microseg_button,
+            # self.ui.step6_extract_microsegments_title_label,
             self.ui.step5_source_localization_title_label,
             self.ui.step5_inverse_method_label,
             self.ui.step5_inverse_method_combobox,
@@ -512,10 +518,13 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_spacing_combobox,
             self.ui.step5_estimate_sources_button
         ]
+        print(self.done_backfitting)
         if self.done_backfitting:
+            print("into Done part")
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
             set_widgets_status(all_step_4_5_widgets, enable=True)
         else:
+            print("into not Done part")
             self.done_extracting_features = False
             self.done_extracting_microsegments = False
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
@@ -528,21 +537,21 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
             self.ui.step4_visualizefeatures_button.setDisabled(True)
 
-        if self.done_extracting_microsegments:
-            self.ui.step6_extract_microseg_button.setStyleSheet("background-color: lightgreen")
-            self.ui.step4_visualize_sensor_microseg_button.setEnabled(True)
-        else:
-            self.ui.step6_extract_microseg_button.setStyleSheet("background-color: none")
-            self.ui.step4_visualize_sensor_microseg_button.setDisabled(True)
+        # if self.done_extracting_microsegments:
+        #     self.ui.step6_extract_microseg_button.setStyleSheet("background-color: lightgreen")
+        #     self.ui.step4_visualize_sensor_microseg_button.setEnabled(True)
+        # else:
+        #     self.ui.step6_extract_microseg_button.setStyleSheet("background-color: none")
+        #     self.ui.step4_visualize_sensor_microseg_button.setDisabled(True)
 
         if self.done_source_localization:
             self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
             self.ui.step5_visualize_sources_button.setEnabled(True)
-            self.ui.step6_visualize_source_microseg_button.setEnabled(True)
+            # self.ui.step6_visualize_source_microseg_button.setEnabled(True)
         else:
             self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
             self.ui.step5_visualize_sources_button.setDisabled(True)
-            self.ui.step6_visualize_source_microseg_button.setDisabled(True)
+            # self.ui.step6_visualize_source_microseg_button.setDisabled(True)
 
     def update_mainwindow_gui(self):
         if self.done_clustering:
@@ -666,6 +675,8 @@ class MainMicrostateWindow(QMainWindow):
             #print(self.min_distance_size)
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 self.choose_number_of_maps = "auto"
+                # TODO: should automatically set a self.number_of_maps
+                self.number_of_maps = 5
             elif self.ui.step2_user_numberofmaps_radio.isChecked():
                 self.choose_number_of_maps = "user"
                 self.number_of_maps = int(self.ui.step2_user_numberofmaps_input.text())
@@ -845,6 +856,7 @@ class MainMicrostateWindow(QMainWindow):
             config = load_config(config_file)
             config['progress']['done_backfitting'] = str(self.done_backfitting)
             save_config(config_file, config)
+            print(self.done_backfitting)
             print('done')
 
             self.mainwindow_controller()
@@ -923,7 +935,7 @@ class MainMicrostateWindow(QMainWindow):
             if not os.path.exists(self.micro_segments_path):
                 os.makedirs(self.micro_segments_path)
             # Extract data segments
-            micro_segments_data(self.hf_data_path,
+            micro_segments_data(self.hdf_concatenated_data_path,
                                 self.hf_segmentation_path,
                                 self.n_chan,
                                 self.micro_labels,
@@ -1070,7 +1082,7 @@ class MainMicrostateWindow(QMainWindow):
 
             self.stc_data = run_source_localization(self.study_name,
                                                     self.eeg_info,
-                                                    self.hf_data_path,
+                                                    self.hdf_concatenated_data_path,
                                                     self.microstate_maps,
                                                     self.inv_method,
                                                     self.nperm,

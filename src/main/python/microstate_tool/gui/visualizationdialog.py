@@ -106,10 +106,11 @@ class VisualizationDialog(QDialog):
             self.feature = 'LZC'
         elif feature == "Transition Probability":
             self.feature = 'TP'
+        else:
+            raise ValueError("Failed to match feature")
 
         filter_col = [col for col in self.extracted_features_df if col.startswith(self.feature)]
         filter_col.sort()
-
         df_features = pd.melt(self.extracted_features_df.reset_index(),
                               id_vars=['Filename'],
                               value_vars=filter_col)
@@ -137,6 +138,8 @@ class VisualizationDialog(QDialog):
             self.feature = 'LZC'
         elif feature == "Transition Probability":
             self.feature = 'TP'
+        else:
+            raise ValueError("Failed to match feature")
 
         group_a_name = self.ui.group_a_lineedit.text()
         group_b_name = self.ui.group_b_lineedit.text()
@@ -161,7 +164,7 @@ class VisualizationDialog(QDialog):
         df_features_b = df_features[df_features['Filename'].isin(self.listItems_group_b)]
         df_features_b['Group'] = [group_b_name] * len(df_features_b)
         df_features = pd.concat([df_features_a, df_features_b], axis=0).reset_index()
-
+        print(df_features)
         ax = self.ui.MplWidget_boxplots.canvas.axes
         ax.clear()
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +

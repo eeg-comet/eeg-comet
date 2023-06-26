@@ -33,6 +33,8 @@ def estimate_fc_mat(eeg_data, method, channel_names):
     elif method == 'PLI':
         ### Phase Lag Index
         CONN_MAT = pli(eeg_data, fb, fs)[1]
+    else:
+        raise ValueError("Failed to match method")
 
     CONN_MAT = CONN_MAT + CONN_MAT.T
     return CONN_MAT
