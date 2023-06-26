@@ -863,6 +863,7 @@ class MainMicrostateWindow(QMainWindow):
         config_file = os.path.join(self.save_folder, 'log.ini')
         config = load_config(config_file)
         self.done_labeling_microstates = config.getboolean('progress', 'done_labeling_microstates')
+        just_show_labels = False
 
         if self.done_labeling_microstates:
             ret = QMessageBox.question(self, 'MessageBox', "Microstates have been labeled once,"
@@ -871,39 +872,61 @@ class MainMicrostateWindow(QMainWindow):
             self.do_labeling_microstates_from_scratch = False
             if ret == QMessageBox.Yes:
                 self.do_labeling_microstates_from_scratch = True
+                just_show_labels = False
+            elif ret == QMessageBox.No:
+                self.do_labeling_microstates_from_scratch = True
+                just_show_labels = True
         else:
             self.do_labeling_microstates_from_scratch = True
 
         if self.do_labeling_microstates_from_scratch:
-            self.ui.MicrostateDialog = MicrostateDialog(main_window=self)
-            self.done_labeling_microstates = False
-            self.done_backfitting = False
-            self.done_extracting_features = False
-            self.done_extracting_microsegments = False
-            self.done_source_localization = False
-            # Remove the previous log
-            config_file = os.path.join(self.save_folder, 'log.ini')
-            config = load_config(config_file)
-            config['progress']['done_labeling_microstates'] = str(self.done_labeling_microstates)
-            config['progress']['done_backfitting'] = str(self.done_backfitting)
-            config['progress']['done_extracting_features'] = str(self.done_extracting_features)
-            config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
-            config['progress']['done_source_localization'] = str(self.done_source_localization)
-            config['backfitting settings'] = {}
-            config['feature extraction settings'] = {}
-            config['feature visualization groups'] = {}
-            config['source localization settings'] = {}
-            save_config(config_file, config)
-            # Load EEG info
-            self.eeg_info = load_eeg_info(self.eeg_info_path)
-            # Load Microstate Dialog
-            self.MicrostateDialog.save_dir = self.save_folder
-            self.MicrostateDialog.plot_maps(self.final_maps, self.gev, self.eeg_info)
-            self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-            self.MicrostateDialog.showMaximized()
-            self.done_labeling_microstates = self.MicrostateDialog.done_labeling
-            self.mainwindow_controller()
-            # del self.ui.MicrostateDialog
+            if just_show_labels == True:
+                self.ui.MicrostateDialog = MicrostateDialog(main_window=self, relabel=False)
+                # Load existing labels
+                config_file = os.path.join(self.save_folder, 'log.ini')
+                config = load_config(config_file)
+                labels = config['clustering results']['micro_labels'].split(',')
+                print(labels)
+
+
+                # Load EEG info
+                self.eeg_info = load_eeg_info(self.eeg_info_path)
+                # Load Microstate Dialog
+                self.MicrostateDialog.save_dir = self.save_folder
+                self.MicrostateDialog.plot_maps(self.final_maps, self.gev, self.eeg_info, labels=labels)
+                self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+                self.MicrostateDialog.showMaximized()
+                # self.done_labeling_microstates = self.MicrostateDialog.done_labeling
+                # self.mainwindow_controller()
+            else:
+                self.ui.MicrostateDialog = MicrostateDialog(main_window=self, relabel=True)
+                self.done_labeling_microstates = False
+                self.done_backfitting = False
+                self.done_extracting_features = False
+                self.done_extracting_microsegments = False
+                self.done_source_localization = False
+                # Remove the previous log
+                config_file = os.path.join(self.save_folder, 'log.ini')
+                config = load_config(config_file)
+                config['progress']['done_labeling_microstates'] = str(self.done_labeling_microstates)
+                config['progress']['done_backfitting'] = str(self.done_backfitting)
+                config['progress']['done_extracting_features'] = str(self.done_extracting_features)
+                config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
+                config['progress']['done_source_localization'] = str(self.done_source_localization)
+                config['backfitting settings'] = {}
+                config['feature extraction settings'] = {}
+                config['feature visualization groups'] = {}
+                config['source localization settings'] = {}
+                save_config(config_file, config)
+                # Load EEG info
+                self.eeg_info = load_eeg_info(self.eeg_info_path)
+                # Load Microstate Dialog
+                self.MicrostateDialog.save_dir = self.save_folder
+                self.MicrostateDialog.plot_maps(self.final_maps, self.gev, self.eeg_info)
+                self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+                self.MicrostateDialog.showMaximized()
+                self.done_labeling_microstates = self.MicrostateDialog.done_labeling
+                self.mainwindow_controller()
 
     def extract_microsegments(self):
         # Load config

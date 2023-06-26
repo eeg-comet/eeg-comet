@@ -24,7 +24,7 @@ from matplotlib import pyplot as plt
 from functions.utils.data_io import load_config, save_config
 
 class MicrostateDialog(QDialog):
-    def __init__(self, parent=None, main_window=None):
+    def __init__(self, parent=None, main_window=None, relabel=True):
         super(MicrostateDialog, self).__init__(parent)
 
         self.main_window = main_window
@@ -34,6 +34,7 @@ class MicrostateDialog(QDialog):
         self.save_dir = ""
         self.n_maps = None
         self.micro_labels = []
+        self.relabel = relabel
 
         self.set_layout()
         
@@ -76,7 +77,7 @@ class MicrostateDialog(QDialog):
 
 
 
-    def plot_maps(self, maps, gev, info):
+    def plot_maps(self, maps, gev, info, labels=None):
         # Set the Layout
         Layout0 = QVBoxLayout()
         Layout1 = QHBoxLayout()
@@ -97,8 +98,12 @@ class MicrostateDialog(QDialog):
             font = QtGui.QFont("Times", 15, QtGui.QFont.Bold)
             microlabel_attr.setFont(font)
             microlabel_attr.setMaxLength(1)
+            if labels:
+                exec(f'self.microlabel{i}.setText(labels[{i}])')
+                exec(f'self.microlabel{i}.setDisabled(True)')
             #microlabel_attr.setFixedWidth(40)
-            
+        
+
         #Layout2.addWidget(self.labelgev)
         #Layout2.addWidget(self.lcd_gev)
 
@@ -131,15 +136,16 @@ class MicrostateDialog(QDialog):
         #self.lcd_gev.display(100*gev)
 
         # save config
-        config = ConfigParser()
-        config_file = os.path.join(self.save_dir, 'log.ini')
-        config.read(config_file)
-        if config.has_section('clustering results'):
-            config.remove_section('clustering results')
-        config.add_section('clustering results')
-        config['clustering results']['gev'] = str(gev)
-        save_config(config_file, config)
-        self.canvas.draw()
+        if not labels:
+            config = ConfigParser()
+            config_file = os.path.join(self.save_dir, 'log.ini')
+            config.read(config_file)
+            if config.has_section('clustering results'):
+                config.remove_section('clustering results')
+            config.add_section('clustering results')
+            config['clustering results']['gev'] = str(gev)
+            save_config(config_file, config)
+            self.canvas.draw()
     
     def manual_micro_label(self):
         self.micro_labels = []
