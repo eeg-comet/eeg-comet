@@ -2,6 +2,10 @@
 import numpy as np
 import h5py
 import os.path
+import pandas as pd
+from scipy.stats import mode
+import math
+from scipy.stats import pearsonr
 from scipy.signal import find_peaks
 from scipy.stats import zscore
 from itertools import groupby
@@ -34,21 +38,58 @@ def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_se
         data = np.asarray(data)
         #data = zscore(data, axis=1)
         filename = os.path.split(filename)[1].split('.')[0]
-        print("\nSegmenting", filename)
+        print("\nBackfitting microstates to all time points", filename)
 
         if method == 'all':
-            activation = np.array(maps).dot(data)
-            segmentation = np.argmax(np.abs(activation), axis=0)
+            '''
+            threshold = 0.7
+            segmentation = np.zeros(data.shape[1], dtype=np.int32)
+            for t in range(data.shape[1]):
+                corr_append = np.zeros(maps.shape[0])
+                for m in range(maps.shape[0]):
+                    data_t = data[:, t]
+                    data_t /= np.linalg.norm(data[:, t])
+                    corr = abs(np.corrcoef(data_t, maps[m, :])[0, 1])
+                    #corr = abs(cosine_sim(data[:, t], maps[m, :]))
+                    corr_append[m] = corr
+                high_corr = np.argmax(corr_append)
+                if corr_append[high_corr] > threshold:
+                    segmentation[t] = high_corr
+                else:
+                    segmentation[t] = -1
+            '''
+            # Calculate the correlation coefficient between each topography and each time point
+            correlation_matrix = np.dot(maps, data) / np.sqrt(
+                np.sum(maps ** 2, axis=1)[:, np.newaxis] * np.sum(data ** 2, axis=0))
+
+            # Find the time point with the highest correlation coefficient for each topography
+            segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+
+            # fill the mislabeled timepoints with nearby elements
+            #segmentation = fill_missing_with_nearby(segmentation)
+
+            '''
+            segmentation = np.zeros(data.shape[1])
+            for t in range(data.shape[1]):
+                high_corr = 0
+                corr_append = []
+                for m in range(maps.shape[0]):
+                    corr, _ = pearsonr(data[:, t], maps[m, :])
+                    corr_append = np.append(corr_append, abs(corr))
+                    high_corr = np.argmax(corr_append)
+                segmentation[t] = high_corr
+            '''
+            #activation = np.array(maps).dot(data)
+            #segmentation = np.argmax(np.abs(activation), axis=0)
 
             # Remove isolated segments
             if remove_segments_less_than:
                 if filter_segments_option == 'replace':
                     print("Replacing segments with less than", str(remove_segments_less_than),
-                          "ms in duration with the previous dominant microstate")
+                          "ms in duration with the nearby dominant microstate")
                 elif filter_segments_option == 'remove':
                     print("Removing segments with less than", str(remove_segments_less_than), "ms in duration")
                 segmentation = substitude_maps_with_duration(segmentation,
-                                                             fs,
                                                              remove_segments_less_than,
                                                              filter_segments_option)
         elif method == 'peaks':
@@ -63,8 +104,9 @@ def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_se
             activation = maps.dot(data[:, peaks])
             segmentation_peaks = np.argmax(np.abs(activation), axis=0)
             segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
-            segmentation = segmentation + 1
 
+        segmentation = segmentation + 1
+        segmentation = list(map(int, segmentation))
         # Add Labels
         str_segmentation = list(map(str, segmentation))
         str_segmentation = np.char.replace(str_segmentation, str(0), "NaN")

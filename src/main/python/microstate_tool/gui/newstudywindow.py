@@ -190,32 +190,6 @@ class NewStudyWindow(QDialog):
 
     def get_extension(self):
         selected_extension = self.ui.step0_import_format_combobox.currentText()
-        # if selected_extension == "BrainVision (.vhdr, .vmrk, .eeg)":
-        #     extension = ".vhdr"
-        # elif selected_extension == "European data format (.edf)":
-        #     extension = ".edf"
-        # elif selected_extension == "BioSemi data format (.bdf)":
-        #     extension = ".bdf"
-        # elif selected_extension == "General data format (.gdf)":
-        #     extension = ".gdf"
-        # elif selected_extension == "Neuroscan CNT (.cnt)":
-        #     extension = ".cnt"
-        # elif selected_extension == "EGI simple binary (.egi)":
-        #     extension = ".egi"
-        # elif selected_extension == "EGI MFF (.mff)":
-        #     extension = ".mff"
-        # elif selected_extension == "EEGLAB files (.set, .fdt)":
-        #     extension = ".set"
-        # elif selected_extension == "Nicolet (.data)":
-        #     extension = ".data"
-        # elif selected_extension == "eXimia EEG data (.nxe)":
-        #     extension = ".nxe"
-        # elif selected_extension == "Persyst EEG data (.lay, .dat)":
-        #     extension = ".lay"
-        # elif selected_extension == "Nihon Kohden EEG data (.eeg, .21e, .pnt, .log)":
-        #     extension = ".eeg"
-        # else:
-        #     raise ValueError("Failed to match selected_extension")
         extension = selected_extension.split('(')[1]
         extension = re.split(', | .', extension)[0]
         return extension
@@ -268,7 +242,6 @@ class NewStudyWindow(QDialog):
         self.ui.step0_save_path_lineedit.setText(save_directory)
         self.use_raw_data = True
         self.newstudy_controller()
-
 
     def remove_file(self):
         listItems = self.step0_selected_files_list.selectedItems()

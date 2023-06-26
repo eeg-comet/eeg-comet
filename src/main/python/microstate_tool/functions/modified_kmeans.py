@@ -11,34 +11,48 @@ from functions.utils.extract_peaks_maps import extract_peaks_maps
 
 
 def modified_kmeans(data, initial_maps, n_states, thresh):
-    # n_channels: N_s in paper
-    # n_samples: N_T
-    # n_states: N_mu in paper
-    n_channels, n_samples = data.shape 
-    maps = initial_maps
+
+
+    # Get the dimensions of the data
+    n_channels, n_samples = data.shape
+
+    # Make a copy of initial_maps to avoid modifying the original array
+    maps = initial_maps.copy()
+
+    # Compute the sum of squares of the data
     data_sum_sq = np.sum(data ** 2)
+
+    # Initialize iteration count and residuals
     iteration = 1
     prev_residual = np.inf
     residual = prev_residual
+
     while residual > thresh:
         # Assign each sample to the best matching microstate
-        activation = maps.dot(data)
-        segmentation = np.argmax(np.abs(activation), axis=0) # step 3 in TABLE 1
-        for state in range(n_states): # step 4 in TABLE 1
+        activation = np.dot(maps, data) ** 2
+        segmentation = np.argmax(activation, axis=0)
+
+        for state in range(n_states):
             idx = (segmentation == state)
-            maps[state] = data[:, idx].dot(activation[state, idx])
+
+            # Update the microstate map for the current state
+            maps[state] = np.dot(data[:, idx], activation[state, idx])
             maps[state] /= np.linalg.norm(maps[state])
+
         # Estimate residual noise
         # V-maps, T-like symbol-segmentation
         act_sum_sq = np.sum(np.sum(maps[segmentation].T * data, axis=0) ** 2)
-        residual = abs(data_sum_sq - act_sum_sq)
-        residual /= float(n_samples * (n_channels - 1)) # step 5
-        # residual -> (sigma_mu)^2
+        residual = abs(data_sum_sq - act_sum_sq) / float(n_samples * (n_channels - 1))
+
+        # Check for convergence
         if (prev_residual - residual) < (thresh * residual):
-            print('Converged at', str(iteration), 'Iterations.')
+            print('Converged at', iteration, 'iterations.')
             break
+
+        # Update previous residual and iteration count
         prev_residual = residual
         iteration += 1
+
     return maps, prev_residual
 
 
@@ -117,20 +131,35 @@ def modified_kmeans_table_2(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
     # return segmentation
 
 def run_modified_kmeans(data, min_dist, n_states, thresh, n_inits, initializer):
+    # Extract peaks and maps from the data
     all_maps, peaks = extract_peaks_maps(data, min_dist)
+
+    # Initialize variables to store the best results
     best_residual = None
     best_gev = 0
     best_maps = None
+
+    # Perform clustering for multiple initializations
     for init in range(n_inits):
-        print('\nClustering #', str(init+1), 'of', str(n_inits))
+        print('\nClustering #', init + 1, 'of', n_inits)
+
+        # Initialize microstate maps using the specified initializer
         initial_maps = map_initializer(data, all_maps, peaks, n_states, initializer)
+
+        # Run modified k-means algorithm
         maps, residual = modified_kmeans(data, initial_maps, n_states, thresh)
+
+        # Compute GEV (Global Explained Variance)
         gev = compute_gev(data, maps)
-        print('Found', str(n_states), 'Microstate Maps')
-        print('GEV:', str(gev))
+
+        print('Found', n_states, 'Microstate Maps')
+        print('GEV:', gev)
+
+        # Update the best results if the current GEV is higher
         if gev > best_gev:
             best_residual, best_gev, best_maps = residual, gev, maps
-    print('\nBest GEV:', str(best_gev))
+
+    print('\nBest GEV:', best_gev)
     return best_maps, best_gev, best_residual
 
 

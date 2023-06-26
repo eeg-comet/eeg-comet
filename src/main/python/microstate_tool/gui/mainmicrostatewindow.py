@@ -23,7 +23,7 @@ from functions.utils.micro_segments_data import micro_segments_data
 from functions.clustering_functions import number_of_clusters, clustering_func
 from functions.modified_kmeans import run_minibatch_modified_kmeans
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
-    save_transitions, save_raw_results, extract_features, transition_matrix, save_features
+    save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
 from functions.features.source_localization_tess import run_source_localization, visualize_sources
 
 # Settings Class
@@ -51,7 +51,7 @@ class MainMicrostateWindow(QMainWindow):
 
         self.ui.NewStudyWindow = NewStudyWindow(context, main_window=self)
         self.ui.NumberMapsDialog = NumberMapsDialog(context)
-        self.ui.MicrostateDialog = MicrostateDialog(main_window=self)
+        
         self.ui.MicroSegDialog = MicroSegDialog()
         self.ui.VisualizationDialog = VisualizationDialog(context)
 
@@ -441,7 +441,7 @@ class MainMicrostateWindow(QMainWindow):
         step3_filter_segments = [
             self.ui.step3_filter_segments_input,
             self.ui.step3_filter_segments_label,
-            self.ui.step3_replace_segments_radio,
+            # self.ui.step3_replace_segments_radio,
             self.ui.step3_remove_segments_radio
         ] 
         if self.done_clustering:
@@ -472,7 +472,6 @@ class MainMicrostateWindow(QMainWindow):
 
 
         else:
-            print("here 1")
             self.done_labeling_microstates = False
             self.done_backfitting = False
             self.done_extracting_features = False
@@ -488,7 +487,6 @@ class MainMicrostateWindow(QMainWindow):
         if self.done_labeling_microstates:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
         else:
-            print("here 2")
             self.ui.step3_label_maps_button.setStyleSheet("background-color: none")
             self.done_backfitting = False
             self.done_extracting_features = False
@@ -518,13 +516,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_spacing_combobox,
             self.ui.step5_estimate_sources_button
         ]
-        print(self.done_backfitting)
         if self.done_backfitting:
-            print("into Done part")
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
             set_widgets_status(all_step_4_5_widgets, enable=True)
         else:
-            print("into not Done part")
             self.done_extracting_features = False
             self.done_extracting_microsegments = False
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
@@ -590,7 +585,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step4_mmd_featurestoextract_checkbox.setChecked(True)
             else:
                 self.ui.step4_mmd_featurestoextract_checkbox.setChecked(False)
-            if 'FOC' in self.features2extract:
+            if 'OCC' in self.features2extract:
                 self.ui.step4_foc_featurestoextract_checkbox.setChecked(True)
             else:
                 self.ui.step4_foc_featurestoextract_checkbox.setChecked(False)
@@ -804,8 +799,10 @@ class MainMicrostateWindow(QMainWindow):
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 self.filter_segments = True
                 self.remove_segments_less_than = self.ui.step3_filter_segments_input.text()
-                if self.ui.step3_replace_segments_radio.isChecked():
-                    self.filter_segments_option = 'replace'
+                if self.ui.step3_replace_nearby_radio.isChecked():
+                    self.filter_segments_option = 'replace_high'
+                elif self.ui.step3_replace_half_radio.isChecked():
+                    self.filter_segments_option = 'replace_half'
                 elif self.ui.step3_remove_segments_radio.isChecked():
                     self.filter_segments_option = 'remove'
             else:
@@ -878,6 +875,7 @@ class MainMicrostateWindow(QMainWindow):
             self.do_labeling_microstates_from_scratch = True
 
         if self.do_labeling_microstates_from_scratch:
+            self.ui.MicrostateDialog = MicrostateDialog(main_window=self)
             self.done_labeling_microstates = False
             self.done_backfitting = False
             self.done_extracting_features = False
@@ -905,6 +903,7 @@ class MainMicrostateWindow(QMainWindow):
             self.MicrostateDialog.showMaximized()
             self.done_labeling_microstates = self.MicrostateDialog.done_labeling
             self.mainwindow_controller()
+            # del self.ui.MicrostateDialog
 
     def extract_microsegments(self):
         # Load config
@@ -995,7 +994,7 @@ class MainMicrostateWindow(QMainWindow):
             if self.ui.step4_coverage_featurestoextract_checkbox.isChecked():
                 self.Features.append("COV")
             if self.ui.step4_foc_featurestoextract_checkbox.isChecked():
-                self.Features.append("FOC")
+                self.Features.append("OCC")
             if self.ui.step4_mmd_featurestoextract_checkbox.isChecked():
                 self.Features.append("MMD")
             if self.ui.step4_tp_featurestoextract_checkbox.isChecked():
@@ -1014,6 +1013,12 @@ class MainMicrostateWindow(QMainWindow):
                                                      self.sample_rate,
                                                      self.Features,
                                                      np.min(self.length_data))
+
+            # Extract Dynamic Features (incomplete)
+            #extract_dynamic_features(self.preprocessed_data_path,
+            #                         self.hf_segmentation_path,
+            #                         self.sample_rate, 1, 0, self.micro_labels)
+
             # Save Features
             save_features(extracted_features_df, 'extracted_features',
                           self.output_format,
@@ -1080,19 +1085,15 @@ class MainMicrostateWindow(QMainWindow):
             spacing = self.ui.step5_spacing_combobox.currentText()
             self.spacing = spacing[spacing.find("(") + 1:spacing.find(")")].lower()
 
-            self.stc_data = run_source_localization(self.study_name,
-                                                    self.eeg_info,
-                                                    self.hdf_concatenated_data_path,
-                                                    self.microstate_maps,
-                                                    self.inv_method,
-                                                    self.nperm,
-                                                    self.spacing)
-            if not os.path.exists(self.localized_sources_path):
-                os.makedirs(self.localized_sources_path)
-            self.stc_path = os.path.join(self.localized_sources_path, 'stc_data.npy')
-            with open(self.stc_path, 'wb') as f:
-                np.save(f, self.stc_data)
+            run_source_localization(self.preprocessed_data_path,
+                                    self.localized_sources_path,
+                                    self.eeg_info,
+                                    self.microstate_maps,
+                                    self.inv_method,
+                                    self.nperm,
+                                    self.spacing)
             self.done_source_localization = True
+
             # Write "source localization settings" to config
             config_file = os.path.join(self.save_folder, 'log.ini')
             config = load_config(config_file)
@@ -1103,7 +1104,7 @@ class MainMicrostateWindow(QMainWindow):
             save_config(config_file, config)
 
     def visualize_source_localized_microstates(self):
-        visualize_sources(self.stc_data, self.spacing)
+        visualize_sources(self.localized_sources_path, self.spacing)
 
     def exit_msg(self, event):
         reply = QMessageBox.question(self, "Quit",

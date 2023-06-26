@@ -1,3 +1,14 @@
+"""
+Last Modified: April 18th, 2023
+Description: This file defines functions for EEG feature extraction and clustering using microstate analysis.
+
+Authors:
+    Amin Kabir
+    Raaj Chatterjee
+    Faranak Farzan
+
+Organization: SFU eBrain Lab, www.ebrainlab.ca
+"""
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -5,8 +16,6 @@ import seaborn as sns
 import pandas as pd
 from scipy.signal import find_peaks
 from sklearn.decomposition import PCA
-#from functions import modified_kmeans
-
 ###
 # !/usr/bin/env python3
 # -*- coding: utf-8 -*-

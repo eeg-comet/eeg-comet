@@ -125,7 +125,7 @@ class MicrostateDialog(QDialog):
         for i in range(maps.shape[0]):
             ax = self.figure.add_subplot(1, maps.shape[0], i + 1)
             ax.clear()
-            mne.viz.plot_topomap(maps[i, :], info, sensors=False, axes=ax)
+            mne.viz.plot_topomap(maps[i, :], info, sensors=False, axes=ax, show=False)
             #self.figure.savefig(str(i)+'.png', bbox_inches='tight', dpi=200)
 
         #self.lcd_gev.display(100*gev)
@@ -159,7 +159,6 @@ class MicrostateDialog(QDialog):
             config['progress']['done_labeling_microstates'] = str(True)
             save_config(config_file, config)
             if self.main_window:
-                print("YES main_window")
                 self.main_window.done_labeling_microstates = True
                 self.main_window.mainwindow_controller()
             self.close()

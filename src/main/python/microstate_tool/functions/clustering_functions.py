@@ -174,6 +174,7 @@ def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
             else:
                 raise ValueError("Failed to match metric")
 
+
             clustering_instance = kmeans.kmeans(maps, initial_centers,
                                          tolerance=tolerance, itermax=1000,
                                          metric=METRIC)
@@ -217,6 +218,7 @@ def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
             clustering_instance = ttsas.ttsas(maps, n_states, tolerance);
         else:
             raise ValueError("Failed to match method")
+
 
         best_gev = 0
         for init in range(n_inits):

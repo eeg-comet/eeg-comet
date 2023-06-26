@@ -259,8 +259,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>960</width>
-          <height>1095</height>
+          <width>923</width>
+          <height>1265</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -401,7 +401,7 @@
                 </font>
                </property>
                <property name="text">
-                <string>Frequency of Occurrence (FOC)</string>
+                <string>Frequency of Occurrence (OCC)</string>
                </property>
                <property name="checked">
                 <bool>true</bool>
@@ -1285,7 +1285,7 @@
               <string/>
              </property>
              <property name="text">
-              <string>20</string>
+              <string>2000</string>
              </property>
              <property name="maxLength">
               <number>4</number>
@@ -1588,6 +1588,11 @@
                <string>ROCK</string>
               </property>
              </item>
+             <item>
+              <property name="text">
+               <string>DBSCAN</string>
+              </property>
+             </item>
             </widget>
            </item>
            <item row="17" column="2" rowspan="5">
@@ -1666,27 +1671,6 @@
               </layout>
              </item>
              <item>
-              <widget class="QRadioButton" name="step3_replace_segments_radio">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Replace short segments with previous dominant microstate</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup_5</string>
-               </attribute>
-              </widget>
-             </item>
-             <item>
               <widget class="QRadioButton" name="step3_remove_segments_radio">
                <property name="enabled">
                 <bool>false</bool>
@@ -1700,7 +1684,46 @@
                 <string>Remove short segments</string>
                </property>
                <attribute name="buttonGroup">
-                <string notr="true">buttonGroup_5</string>
+                <string notr="true">buttonGroup_3</string>
+               </attribute>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="step3_replace_nearby_radio">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Replace short segments: nearby dominant microstate</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup_3</string>
+               </attribute>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="step3_replace_half_radio">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Replace short segments: half and half</string>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup_3</string>
                </attribute>
               </widget>
              </item>
@@ -1845,9 +1868,9 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_5"/>
   <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>

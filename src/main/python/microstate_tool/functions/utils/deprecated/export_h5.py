@@ -1,3 +1,8 @@
+"""
+Authors: Amin Kabir, Raaj Chatterjee, Faranak Farzan
+Organization: SFU eBrain Lab, www.ebrainlab.ca
+Last Modified: April 18th, 2023
+"""
 
 import os.path
 import h5py
@@ -5,20 +10,25 @@ import h5py
 
 def export_h5(data, filename, ch_names, eeg_format, data_type, filter_method,
               lowcut_freq, highcut_freq, sample_rate, ch2rm, path):
-    '''
-    data: Input data matrix
-    filename: Name of the file to be exported
-    ch_names: List of channel names
-    eeg_format: EEG data format
-    data_type: Data type of the exported data
-    filter_method: Method used for data filtering
-    lowcut_freq: Low cutoff frequency for filtering
-    highcut_freq: High cutoff frequency for filtering
-    sample_rate: Sampling rate of the data
-    ch2rm: Channels to be removed from the data
-    path: Path to save the exported file
-    '''
-    
+    """
+    Exports EEG data to an HDF5 file.
+
+    Inputs:
+        data (ndarray): The EEG data.
+        filename (string): The name of the file to be exported.
+        ch_names (list): The list of channel names.
+        eeg_format (string): The format of the EEG data (e.g. 'EDF', 'BDF', 'FIF').
+        data_type (string): The type of data (e.g. 'eeg', 'meg', 'ieeg').
+        filter_method (string): The method used for filtering the data.
+        lowcut_freq (float): The low cutoff frequency for filtering.
+        highcut_freq (float): The high cutoff frequency for filtering.
+        sample_rate (float): The sample rate of the EEG data.
+        ch2rm (list): The list of channel indices to be removed.
+        path (string): The path to the directory where the HDF5 file should be saved.
+
+    Outputs:
+        None
+    """
     name = os.path.basename(filename)
     name = os.path.splitext(name)[0]
     if not os.path.exists(path):

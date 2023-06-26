@@ -133,7 +133,7 @@ def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_l
         data = np.asarray(data)
 
         filename = os.path.split(filename)[1].split('.')[0]
-        print("\nSegmenting", filename)
+        print("\nExtracting Features", filename)
         extracted_features = np.append(extracted_features, filename)
         segment = np.asarray(hf_segmentation[study_name][filename][:])
         segment = [" ".join(item) for item in segment.astype('U10')]
@@ -150,11 +150,6 @@ def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_l
                 COV = 100 * np.count_nonzero(segment == c) / len(segment)
                 headers = np.append(headers, "COV_" + c)
                 extracted_features = np.append(extracted_features, COV)
-            # Frequency of Occurrence for each map per second
-            if "FOC" in features:
-                FOC = np.count_nonzero(segment == c) / fs
-                headers = np.append(headers, "FOC_" + c)
-                extracted_features = np.append(extracted_features, FOC)
             # Mean Microstate Duration
             if "MMD" in features:
                 MMD_ALL = mean_durations(segment, fs)
@@ -237,5 +232,6 @@ def extract_dynamic_features(preprocessed_data_path, hf_segmentation_path, fs, w
                 D = [sum(1 for i in g) for k, g in groupby(window_segment) if k == micro_labels[c]]
                 window_dur[i, c] = (1000 / fs) * (micro_labels[c] if not D else sum(D) / len(D))
                 window_occ[i, c] = np.count_nonzero(window_segment_no_duplicates == micro_labels[c])
-
+                
     return window_occ, window_dur
+
