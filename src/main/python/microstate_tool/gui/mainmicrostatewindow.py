@@ -442,7 +442,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_filter_segments_input,
             self.ui.step3_filter_segments_label,
             # self.ui.step3_replace_segments_radio,
-            self.ui.step3_remove_segments_radio
+            self.ui.step3_remove_segments_radio,
+            self.ui.step3_replace_half_radio,
+            self.ui.step3_replace_nearby_radio
         ] 
         if self.done_clustering:
             self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
@@ -853,9 +855,6 @@ class MainMicrostateWindow(QMainWindow):
             config = load_config(config_file)
             config['progress']['done_backfitting'] = str(self.done_backfitting)
             save_config(config_file, config)
-            print(self.done_backfitting)
-            print('done')
-
             self.mainwindow_controller()
 
     def label_maps(self):
@@ -869,19 +868,19 @@ class MainMicrostateWindow(QMainWindow):
             ret = QMessageBox.question(self, 'MessageBox', "Microstates have been labeled once,"
                                                            " do you want to relabel microstates?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
-            self.do_labeling_microstates_from_scratch = False
+            self.show_labelling_window = False
             if ret == QMessageBox.Yes:
-                self.do_labeling_microstates_from_scratch = True
+                self.show_labelling_window = True
                 just_show_labels = False
             elif ret == QMessageBox.No:
-                self.do_labeling_microstates_from_scratch = True
+                self.show_labelling_window = True
                 just_show_labels = True
         else:
-            self.do_labeling_microstates_from_scratch = True
+            self.show_labelling_window = True
 
-        if self.do_labeling_microstates_from_scratch:
+        if self.show_labelling_window:
             if just_show_labels == True:
-                self.ui.MicrostateDialog = MicrostateDialog(main_window=self, relabel=False)
+                self.ui.MicrostateDialog = MicrostateDialog(main_window=self)
                 # Load existing labels
                 config_file = os.path.join(self.save_folder, 'log.ini')
                 config = load_config(config_file)
@@ -897,9 +896,9 @@ class MainMicrostateWindow(QMainWindow):
                 self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
                 self.MicrostateDialog.showMaximized()
                 # self.done_labeling_microstates = self.MicrostateDialog.done_labeling
-                # self.mainwindow_controller()
+                self.mainwindow_controller()
             else:
-                self.ui.MicrostateDialog = MicrostateDialog(main_window=self, relabel=True)
+                self.ui.MicrostateDialog = MicrostateDialog(main_window=self)
                 self.done_labeling_microstates = False
                 self.done_backfitting = False
                 self.done_extracting_features = False

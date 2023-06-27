@@ -24,7 +24,7 @@ from matplotlib import pyplot as plt
 from functions.utils.data_io import load_config, save_config
 
 class MicrostateDialog(QDialog):
-    def __init__(self, parent=None, main_window=None, relabel=True):
+    def __init__(self, parent=None, main_window=None):
         super(MicrostateDialog, self).__init__(parent)
 
         self.main_window = main_window
@@ -34,7 +34,6 @@ class MicrostateDialog(QDialog):
         self.save_dir = ""
         self.n_maps = None
         self.micro_labels = []
-        self.relabel = relabel
 
         self.set_layout()
         
@@ -166,6 +165,8 @@ class MicrostateDialog(QDialog):
             save_config(config_file, config)
             if self.main_window:
                 self.main_window.done_labeling_microstates = True
+                self.main_window.ui.step0_log_textbrowser.insertPlainText(
+                    f"\nMicrostate labels: {str_micro_labels}\n")
                 self.main_window.mainwindow_controller()
             self.close()
         else:

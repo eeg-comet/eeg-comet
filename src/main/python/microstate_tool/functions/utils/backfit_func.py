@@ -11,7 +11,7 @@ from scipy.stats import zscore
 from itertools import groupby
 
 from functions.utils.data_io import find_data
-# from functions.utils.substitude_maps_with_duration import substitude_maps_with_duration
+from functions.utils.substitude_maps_with_duration import substitude_maps_with_duration
 
 
 def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_segments_option, remove_segments_less_than, micro_labels, save_path):
@@ -123,27 +123,3 @@ def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_se
         #group.create_dataset(filename, data=str_segmentation, compression="gzip", compression_opts=9)
 
 
-def substitude_maps_with_duration(segmentation, fs, remove_segments_less_than, option):
-    '''
-    segmentation: array of segment labels
-    fs: sampling frequency
-    remove_segments_less_than: minimum duration of segments to remove or replace
-    option: 'replace' or 'remove' (option for handling segments with duration less than remove_segments_less_than)
-    '''
-    segmentation = np.asarray(segmentation)
-    segmentation = segmentation + 1
-    count_dups = [sum(1 for _ in group) for _, group in groupby(segmentation)]
-    #if remove_segments_less_than:
-    remove_segments_less_than = int(int(remove_segments_less_than) / (1000 / fs))
-    for C in range(len(count_dups)):
-        if count_dups[C] <= remove_segments_less_than:
-            start = int(np.sum(count_dups[0:C]))
-            stop = int(start + count_dups[C])
-            if option == 'replace':
-                if C == 0:
-                    segmentation[start:stop] = segmentation[stop + 1]
-                else:
-                    segmentation[start:stop] = segmentation[start - 1]
-            elif option == 'remove':
-                segmentation[start:stop] = 0
-    return segmentation
