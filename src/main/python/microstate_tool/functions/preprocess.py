@@ -26,7 +26,7 @@ def preprocess_eegs(eegfile,
     channels2remove = ['']
     if chan2rm == 'missing':
         # Missing channels to remove
-        print("\nchecking channel names ...\n")
+        # print("\nchecking channel names ...\n")
         for file in range(len(list_eegs)):
             filename = list_eegs[file]
             # Load the eeg data
@@ -40,9 +40,9 @@ def preprocess_eegs(eegfile,
         channels2remove = counter[np.where(counter[:, 1].astype(float) < len(list_eegs)), 0].tolist()
     else:
         channels2remove[0] = chan2rm.split(",")
-    print("Channels to remove: ", channels2remove[0])
+    # print("Channels to remove: ", channels2remove[0])
 
-    print(eegfile)
+    # print(eegfile)
     # Load the eeg data
     eeg = load_eegs(eegfile, eeg_format, datatype, channel_location_dir, channels2remove[0])
 

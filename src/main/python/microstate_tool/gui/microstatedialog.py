@@ -125,7 +125,6 @@ class MicrostateDialog(QDialog):
             fig.savefig(os.path.join(self.save_dir, str(i)+'.png'), bbox_inches='tight')
             plt.close(fig)
         '''
-
         for i in range(maps.shape[0]):
             ax = self.figure.add_subplot(1, maps.shape[0], i + 1)
             ax.clear()

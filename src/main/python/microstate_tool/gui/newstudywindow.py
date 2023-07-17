@@ -428,7 +428,6 @@ class NewStudyWindow(QDialog):
                 config['preprocessing results']['ch_names'] = ch_names
                 save_config(config_file, config)
 
-                # TODO: return something back to main window
                 # call mainwindow.load_study()
                 if self.main_window:
                     self.main_window.load_study(self.save_dir)

@@ -25,13 +25,13 @@ import tempfile
 
 # MNE imports
 import mne
-mne.viz.set_3d_backend("pyvista")
+# mne.viz.set_3d_backend("pyvista")
 from mne.datasets import eegbci
 from mne.datasets import fetch_fsaverage
 from mne.minimum_norm import (make_inverse_operator, apply_inverse_raw)
 
 
-from mayavi import mlab
+# from mayavi import mlab
 #mlab.init_notebook()
 
 def load_average_mri(spacing):
@@ -198,6 +198,7 @@ def run_source_localization(preprocessed_data_path, localized_sources_path,
 
 
 def visualize_sources(localized_sources_path, spacing):
+    mne.viz.set_3d_backend("pyvista")
     avg_z_scores = np.load(os.path.join(localized_sources_path, "avg_z_scores.npy"))
     for i in range(np.size(avg_z_scores, 0)):
         avg_z_scores[i, :] = 2. * (avg_z_scores[i, :] - np.min(avg_z_scores[i, :])) / np.ptp(avg_z_scores[i, :]) - 1
