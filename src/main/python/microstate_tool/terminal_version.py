@@ -13,6 +13,8 @@ from functions.features.extract_features_functions import extract_segments, save
 import matplotlib.pyplot as plt
 import mne
 from functions.features.source_localization_tess import run_source_localization #, visualize_sources
+import pickle
+
 
 class ToolBox:
 	def __init__(self, config):
@@ -82,14 +84,6 @@ class ToolBox:
 
 
 	def load_new_study(self):
-		# save_dir = os.path.join(self.output_folder, self.study_name)
-		# assert self.study_name != "", "study name cannot be empty"
-
-		# TODO: config
-		# load_all_files = True
-		# pattern_content = "example_pattern"
-		# extension = ".set" # or .fdt, ...
-		# data_type = "continuous" # or "epoched"
 		if self.load_all_files:
 			pattern = '*'
 		else:
@@ -108,34 +102,10 @@ class ToolBox:
 			‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),
 			‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)
 			'''
-		
-		# preprocess data
-		# self.preprocessed_data_path = os.path.join(self.save_dir, 'preprocessed_data')
+
 		if not os.path.exists(self.preprocessed_data_path):
 			os.makedirs(self.preprocessed_data_path)
 
-		# TODO: config
-		# filter_data = True
-		# downsample_data = True
-		# remove_channels = True
-		# if self.filter_data:
-		# 	filter_method = 'fir' # or 'iir'
-		# 	lowcut_freq = 2
-		# 	highcut_freq = 20
-		# else:
-		# 	filter_method = ''
-		# 	lowcut_freq = ''
-		# 	highcut_freq = ''
-
-		# if downsample_data:
-		# 	sample_rate = 250
-		# else:
-		# 	sample_rate = ''
-
-		# if remove_channels:
-		# 	ch2rm = ''
-		# else:
-		# 	ch2rm = 'missing'
 
 		print("preprocessing data ...")
 
@@ -161,9 +131,7 @@ class ToolBox:
 			self.sample_rate = eeg_info['sfreq']
 			self.preprocessed_data = preprocessed_data.T # TODO: test
 			self.eeg_info = eeg_info
-			# self.eeg_info = eeg_info
-			# eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
-			# print(eeg_info)
+
 			save_eeg_info(self.eeg_info_path, eeg_info)
 
 			ch_names, ch_location = list(eeg_info['ch_names']), eeg_info['chs']
@@ -207,35 +175,17 @@ class ToolBox:
 		# TODO: Write logs to config
 		# Write "preprocessing settings" to config
 		# Write "preprocessing results" to config
-		# return n_chan, ch_names, length_all_data, eeg_info
 			
 
 	def do_clustering(self):
-		# TODO: config
-		# list_eegs = "sub-032305_EC, sub-032301_EC, sub-032303_EC, sub-032304_EC, sub-032302_EC"
-
-		# save_dir = os.path.join(output_folder, study_name)
-		# raw_features_path = os.path.join(save_dir, 'raw_features')
-		# preprocessed_data_path = os.path.join(save_dir, 'preprocessed_data')
-		# hdf_concatenated_data_path = os.path.join(save_dir, study_name+'_concatenated_data.hdf')
-
 		if not os.path.exists(self.raw_features_path):
 			os.makedirs(self.raw_features_path)
 
-		# TODO: config
-		# sample_rate = 250 # from load new study
-		# smoothing_distance = 10
-		# smoothing_gfp = True # or False
 		if self.smoothing_gfp:
 			min_distance_size = int(self.smoothing_distance/(1000/self.sample_rate))
 		else:
 			min_distance_size = []
 
-		# choose_number_of_maps = "auto" # or "user"
-		# number_of_maps = 5 # 5 is default, replace it
-
-		# initializer = "Random" # or "K-Means++"
-		# clustering_method = 'Modified K-means' 
 		avaliable_methods = ['Modified K-means',
 							'Mini Batch Modified K-means',
 							'K-means',
@@ -251,16 +201,6 @@ class ToolBox:
 							'DBSCAN'
 							]
 		assert self.clustering_method in avaliable_methods, "clustering_method not supported"
-		# clustering_tolerance = 1e-3 # 1e-3 is default, replace it
-		# clustering_option = ''
-
-		# if clustering_method == 'X-means':
-		# 	clustering_option = 'Bayesian Information Criterion' # or 'Minimum Noiseless Description Length'
-		# elif clustering_method == 'Agglomerative hierarchical clustering':
-		# 	clustering_option = 'Single Link' # or 'Complete Link', 'Average Link', 'Centroid Link'
-		# elif clustering_method == 'K-means':
-		# 	clustering_option = 'Euclidean' # or 'Euclidean Square', 'Cosine Similarity', 'Spatial Correlation', 'Dynamic Time Warping'
-		# number_of_repeats = 5 # 5 is default, replace it
 
 		best_maps, gev, _ = clustering_func(
 					self.preprocessed_data_path,
@@ -274,37 +214,20 @@ class ToolBox:
 					self.clustering_tolerance,
 					self.clustering_option
 					)
-		microstate_maps = best_maps
+		# microstate_maps = best_maps
 		self.best_maps = best_maps
 
 		# Save Maps
-		# microstate_maps_path = os.path.join(raw_features_path, 'microstate_maps')
 		maps_df = pd.DataFrame(best_maps.T, index=self.ch_names)
 		maps_df.to_csv(self.microstate_maps_path + '.csv')
 
 		# TODO: label maps
 
 		print(f'Global Explained Variance: {gev}')
-		return best_maps
+		# return best_maps
 
 
 	def do_backfitting(self):
-		# save_dir = os.path.join(output_folder, study_name)
-		# preprocessed_data_path = os.path.join(save_dir, 'preprocessed_data')
-		# raw_features_path = os.path.join(save_dir, 'raw_features')
-		# TODO: config
-		# sample_rate = 250 # from load new study
-		# backfit_to = 'all' # or 'peaks'
-		# filter_segments = True
-		# if filter_segments:
-		# 	remove_segments_less_than = '20'
-		# 	filter_segments_option = 'replace_high' # or 'replace_half' or 'remove'
-		# else:
-		# 	remove_segments_less_than = ''
-		# 	filter_segments_option = []
-		# TODO: config
-		# micro_labels = ['A', 'B', 'C', 'D', 'E']
-
 		print('\nBackfitting Maps to Data ...')
 		backfit_func(self.study_name,
 					 self.preprocessed_data_path,
@@ -320,23 +243,10 @@ class ToolBox:
 
 	def extract_features_from_map(self):
 		print("\nExtracting Features ...\n")
-		# TODO: config
-		# save_dir = os.path.join(output_folder, study_name)
-		# preprocessed_data_path = os.path.join(save_dir, 'preprocessed_data')
-		# extracted_features_path = os.path.join(save_dir, 'extracted_features')
-		# raw_features_path = os.path.join(save_dir, 'raw_features')
-		# hf_segmentation_path = os.path.join(raw_features_path, study_name+'_segmentation.hdf')
-		# raw_transitions_path = os.path.join(raw_features_path, 'raw_transitions')
-		# micro_labels = ['A', 'B', 'C', 'D', 'E']
-		# sample_rate = 250
-		# output_format = '.csv' # or '.pkl' or '.hdf' or '.json'
 
 		if not os.path.exists(self.extracted_features_path):
 			os.makedirs(self.extracted_features_path)
 
-		# Features = ['COV', 'OCC', 'MMD', 'TP', 'LZC', 'GEV'] # just some of them
-		# Features = ['COV', 'OCC'] # just some of them
-		# save_transitions_bool = True if 'TP' in Features else False
 		length_data = [int(x) for x in self.length_all_data]
 		extracted_features_df = extract_features(self.preprocessed_data_path,
 														 self.hf_segmentation_path,
@@ -361,17 +271,10 @@ class ToolBox:
 
 	def source_localize_microstates(self):
 		print("Source Localizing Microstates ...")
-		# save_dir = os.path.join(output_folder, study_name)
-		# preprocessed_data_path = os.path.join(save_dir, 'preprocessed_data')
-		# raw_features_path = os.path.join(save_dir, 'raw_features')
-		# localized_sources_path = os.path.join(raw_features_path, 'localized_sources')
-		# microstate_maps_path = os.path.join(raw_features_path, 'microstate_maps.csv')
+
 		microstate_maps_df = pd.read_csv(self.microstate_maps_path)
 		microstate_maps = np.asarray(microstate_maps_df.iloc[:, 1:])
-		## TODO: config
-		# inverse_method = 'dSPM' # or 'MNE', 'sLORETA' 'eLORETA'
-		# nperm = 2000 # by default, replace it
-		# spacing = 'ico3' # or 'oct5', 'ico4', 'oct6', 'ico5'
+
 		eeg_info = load_eeg_info(self.eeg_info_path)
 		run_source_localization(self.preprocessed_data_path,
 										self.localized_sources_path,
@@ -402,7 +305,13 @@ def main():
 	# load a new study
 	# just like press "New Study Button"
 	
-	tbx.load_new_study()
+	# tbx.load_new_study()
+
+	
+	with open('/Users/bottlecap/Downloads/tbx.pkl', 'wb') as output:
+		pickle.dump(tbx, output, pickle.HIGHEST_PROTOCOL)
+	with open('/Users/bottlecap/Downloads/tbx.pkl', 'rb') as input_tbx:
+		tbx = pickle.load(input_tbx)
 
 	# for i in range(0, tbx.preprocessed_data.shape[0], 200):
 	# 	fig, axes = plt.subplots(1)  # assuming 3 channel types
@@ -410,7 +319,6 @@ def main():
 	# 	fig.savefig(f'/Users/bottlecap/Downloads/eeg_images/res{i}.png')
 	# 	if i > 2000:
 	# 		break
-
 	# do clustering
 	# just like press "start clustering"
 	tbx.do_clustering()
@@ -426,72 +334,6 @@ def main():
 if __name__ == '__main__':
 	main()
 
-
-
-
-
-
-'''
-what we need in config file:
-
-study_name = "xxx"
-input_folder = "/Users/bottlecap/Downloads/OneDrive_1_2023-05-25"
-channel_location_dir = "/Users/bottlecap/Downloads/OneDrive_1_2023-05-25/mbb_channel_location.csv"
-output_folder = "/Users/bottlecap/Downloads/output"
-
-
-[load new study]
-load_all_files = True
-	pattern_content = "example_pattern" # only when load_all_files  is False
-extension = ".set" # or .fdt, ...
-data_type = "continuous" # or "epoched"
-filter_data = True
-	filter_method = 'fir' # or 'iir'
-	lowcut_freq = 2
-	highcut_freq = 20
-	# only when filter_data  is True
-downsample_data = True
-	sample_rate = 250 # only when downsample_data is True
-remove_channels = True
-	ch2rm = '' # add content in it, only when remove_channels is True
-
-[do clustering]
-smoothing_gfp = True
-	smoothing_distance = 10 # only when smoothing_gfp is True
-choose_number_of_maps = "auto" # or "user"
-	number_of_maps = 5 # 5 is default, replace it
-initializer = "Random" # or "K-Means++"
-clustering_method = 'Modified K-means' 
-clustering_tolerance = 1e-3 # 1e-3 is default, replace it
-clustering_option = ''
-number_of_repeats = 5 # 5 is default, replace it
-
-
-[do backfitting]
-backfit_to = 'all' # or 'peaks'
-filter_segments = True
-	remove_segments_less_than = '20'
-	filter_segments_option = 'replace_high' # or 'replace_half' or 'remove'
-	# only when filter_segments is True
-
-
-[extract features]
-output_format = '.csv' # or '.pkl' or '.hdf' or '.json'
-Features = ['COV', 'OCC', 'MMD', 'TP', 'LZC', 'GEV'] # just some of them
-
-
-[auto genereated config]
-sample_rate
-n_chan
-ch_names
-length_all_data
-list_eegs
-micro_labels = ['A', 'B', 'C', 'D', 'E']
-
-[data] # or path
-best_maps
-
-'''
 
 
 
