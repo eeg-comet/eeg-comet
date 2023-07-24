@@ -5,17 +5,22 @@ import h5py
 from PyQt5 import uic
 import shutil
 import mne
+import warnings
+import pickle
 from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
 
 from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils.data_io import find_data, load_eegs, save_eeg_info, initialize_config, load_config, save_config#, export_h5
 from functions import preprocess
 
+from ToolBox import ToolBox
+
 class NewStudyWindow(QDialog):
 
-    def __init__(self, context, parent=None, main_window=None):
+    def __init__(self, context, parent=None, main_window=None, tbx=None):
         super(NewStudyWindow, self).__init__(parent)
-        
+        # set warning level
+        warnings.simplefilter("ignore")
         # if main_window:
         self.main_window = main_window
         # load the ui
@@ -45,6 +50,8 @@ class NewStudyWindow(QDialog):
         self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
         self.ui.step0_remove_file_button.clicked.connect(self.remove_file)
         self.ui.step0_clear_files_button.clicked.connect(self.clear_files)
+
+        self.tbx = tbx
 
 
     def newstudy_controller(self):
@@ -173,19 +180,19 @@ class NewStudyWindow(QDialog):
 
     def load_channel_location(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Select the file containing the channel locations")
-        chan_loc_extension = os.path.split(fname)[1].split('.')[1]
-        valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
-                                     'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
-        if not chan_loc_extension in valid_chan_loc_extensions:
-            self.channel_location_dir = ''
+        self.tbx.channel_location_dir = fname
+        try:
+            self.tbx.load_channel_location()
+        except AssertionError:
             QMessageBox.information(self, "Load error",
                                     "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
                                     "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
                                     "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)",
                                     QMessageBox.Ok)
+            self.tbx.channel_location_dir = ''
         else:
-            self.channel_location_dir = fname
             self.ui.step0_load_chan_loc_button.setStyleSheet("background-color: lightgreen")
+
         self.newstudy_controller()
 
     def get_extension(self):
@@ -205,15 +212,15 @@ class NewStudyWindow(QDialog):
 
     def load_raw(self):
         self.ui.step0_selected_files_list.clear()
-        if self.ui.step0_load_all_radio.isChecked():
-            self.pattern = '*'
-        if self.ui.step0_load_pattern_radio.isChecked():
-            self.pattern = '*'+self.ui.step0_import_pattern_lineedit.text()+'*'
-        self.extension = self.get_extension()
-        self.data_type = self.get_data_type()
-        self.list_eegs = find_data(self.input_folder, self.extension, self.pattern)
-        for i in range(len(self.list_eegs)):
-            self.ui.step0_selected_files_list.addItem(str(self.list_eegs[i]))
+
+        self.tbx.load_all_files = self.ui.step0_load_all_radio.isChecked()
+        self.tbx.pattern_content = self.ui.step0_import_pattern_lineedit.text()
+        self.tbx.input_folder = self.input_folder
+        self.tbx.extension = self.get_extension()
+        self.tbx.data_type = self.get_data_type()
+        self.tbx.load_raw()
+        for i in range(len(self.tbx.list_eegs_path)):
+            self.ui.step0_selected_files_list.addItem(str(self.tbx.list_eegs_path[i]))
         # self.ui.foldername_preprocessed_data = os.path.join(self.ui.input_folder, 'output')
         self.newstudy_controller()
 
@@ -263,8 +270,8 @@ class NewStudyWindow(QDialog):
         initialize_config(config_file, config)
 
         self.save_preprocessed_path = os.path.join(self.save_dir, 'preprocessed_data')
-        if not os.path.exists(self.save_preprocessed_path):
-            os.makedirs(self.save_preprocessed_path)
+        # if not os.path.exists(self.save_preprocessed_path):
+        #     os.makedirs(self.save_preprocessed_path)
 
         if self.ui.step0_no_option_checkbox.isChecked():
             self.filter_data = False
@@ -305,16 +312,27 @@ class NewStudyWindow(QDialog):
         elif self.ui.step0_ch2rm_missing_radio.isChecked():
             self.ch2rm = 'missing'
 
-        print("preprocessing data ...")
+        # print("preprocessing data ...")
+        self.tbx.preprocessed_data_path = self.save_preprocessed_path
+        self.tbx.filter_data = self.filter_data
+        self.tbx.filter_method = self.filter_method
+        self.tbx.lowcut_freq = self.lowcut_freq
+        self.tbx.highcut_freq = self.highcut_freq
+        self.tbx.downsample_data = self.downsample_data
+        self.tbx.sample_rate = self.sample_rate
+        self.tbx.ch2rm = self.ch2rm
+        self.tbx.save_dir = self.save_dir
+        self.tbx.study_name = self.ui.step0_study_name_lineedit.text()
+        self.tbx.eeg_info_path = os.path.join(self.tbx.save_dir, "eeg_info.pkl")
 
         # Write "study info" to config
         config['study info']['study_name'] = self.ui.step0_study_name_lineedit.text()
         config['study info']['input_folder'] = self.ui.step0_input_path_lineedit.text()
-        config['study info']['input_data_extension'] = self.extension
-        config['study info']['input_data_type'] = self.data_type
-        config['study info']['input_name_pattern'] = self.pattern
+        config['study info']['input_data_extension'] = self.tbx.extension
+        config['study info']['input_data_type'] = self.tbx.data_type
+        config['study info']['input_name_pattern'] = self.tbx.pattern
         list_eegs = []
-        for eegpath in self.list_eegs:
+        for eegpath in self.tbx.list_eegs:
             eegfilename = os.path.basename(eegpath)
             eegfilename = os.path.splitext(eegfilename)[0]
             list_eegs = np.append(list_eegs, eegfilename)
@@ -322,127 +340,48 @@ class NewStudyWindow(QDialog):
         config['study info']['input_filenames'] = list_eegs
         config['study info']['save_folder'] = self.save_dir
         save_config(config_file, config)
+        self.tbx.load_new_study() 
+        self.done_preprocessing = True
 
-        length_all_data = []
+        # Write logs to config
+        config.set('progress', 'done_preprocessing', str(self.done_preprocessing))
+        # Write "preprocessing settings" to config
+        config['preprocessing settings']['filter_data'] = str(self.tbx.filter_data)
+        config['preprocessing settings']['filter_method'] = str(self.tbx.filter_method)
+        config['preprocessing settings']['lowcut_freq'] = str(self.tbx.lowcut_freq)
+        config['preprocessing settings']['highcut_freq'] = str(self.tbx.highcut_freq)
+        config['preprocessing settings']['downsample_data'] = str(self.tbx.downsample_data)
+        config['preprocessing settings']['sample_rate'] = str(self.tbx.sample_rate)
+        channels2remove = ','.join(map(str, self.tbx.channels2remove))
+        config['preprocessing settings']['channels2remove'] = channels2remove
+        # Write "preprocessing results" to config
+        length_data_str = ','.join(map(str, self.tbx.length_all_data))
+        config['preprocessing results']['length_data'] = length_data_str
+        ch_names = ','.join(map(str, self.tbx.ch_names))
+        config['preprocessing results']['n_chan'] = str(self.tbx.n_chan)
+        config['preprocessing results']['ch_names'] = ch_names
+        save_config(config_file, config)
 
-        counter = 1
-        for filename in self.list_eegs:
-            self.progress, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(
-                filename,
-                self.list_eegs,
-                self.extension,
-                self.data_type,
-                self.channel_location_dir,
-                self.filter_data,
-                self.filter_method,
-                self.lowcut_freq,
-                self.highcut_freq,
-                self.downsample_data,
-                self.sample_rate,
-                self.ch2rm
-                )
-
-            # Save EEG info
-            eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
-            save_eeg_info(eeg_info_path, eeg_info)
-
-            self.ch_names, ch_location = list(eeg_info['ch_names']), eeg_info['chs']
-            self.n_chan = len(self.ch_names)
-            name = os.path.basename(filename)
-            name = os.path.splitext(name)[0]
-            save_path = os.path.join(self.save_preprocessed_path, name + ".hdf")
-            with h5py.File(save_path, "w") as hf:
-                dataset = hf.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
-                # add metadata
-                dataset.attrs['data_length'] = preprocessed_data.shape[1]
-                dataset.attrs['eeg_format'] = self.extension
-                dataset.attrs['data_type'] = self.data_type
-                dataset.attrs['nchan'] = self.n_chan
-                dataset.attrs['ch_names'] = self.ch_names
-                dataset.attrs['ch_removed'] = self.ch2rm
-                dataset.attrs['sample_rate'] = self.sample_rate
-                dataset.attrs['filter_method'] = self.filter_method
-                dataset.attrs['lowcut_freq'] = self.lowcut_freq
-                dataset.attrs['highcut_freq'] = self.highcut_freq
-            
-            # export_h5.export_h5(preprocessed_data, filename, self.ch_names, self.extension, self.data_type,
-            #                    self.filter_method, self.lowcut_freq, self.highcut_freq,
-            #                    self.sample_rate, self.ch2rm, self.save_preprocessed_path)
-
-            if counter == 1:
-                filenames = filename
-                catdata = preprocessed_data
-            else:
-                filenames = np.append(filenames, filename)
-                catdata = np.append(catdata, preprocessed_data, axis=1)
-            counter += 1
-
-            # Save concat data
-            '''
-            hf = h5py.File(os.path.join(self.save_preprocessed_path, self.study_name + '_data.hdf'), 'w')
-            group = hf.create_group(self.study_name)
-            print('\nConcatenating EEG Data ... ', filename)
-            group.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
-            # add metadata
-            hf.attrs['data_length'] = preprocessed_data.shape[1]
-            hf.attrs['eeg_format'] = self.extension
-            hf.attrs['data_type'] = self.data_type
-            hf.attrs['nchan'] = self.n_chan
-            hf.attrs['ch_names'] = self.ch_names
-            hf.attrs['ch_removed'] = self.ch2rm
-            hf.attrs['sample_rate'] = self.sample_rate
-            hf.attrs['filter_method'] = self.filter_method
-            hf.attrs['lowcut_freq'] = self.lowcut_freq
-            hf.attrs['highcut_freq'] = self.highcut_freq
-            hf.close()
-            '''
-
-            length_all_data = np.append(length_all_data, int(length_data))
-            print("Progress:", self.progress, "%")
-
-            self.ui.step0_preprocessing_progress.setValue(int(self.progress))
-            if self.progress == 100:
-                self.done_preprocessing = True
-                print("\nSaving the concatenated data ...")
-                # Save catdata
-                catdata_filename = os.path.join(self.save_dir, self.study_name + "_concatenated_data.hdf")
-                with h5py.File(catdata_filename, "w") as catf:
-                    catf.create_dataset(self.study_name, data=catdata, compression="gzip", compression_opts=9)
-
-                # Write logs to config
-                config.set('progress', 'done_preprocessing', str(self.done_preprocessing))
-                # Write "preprocessing settings" to config
-                config['preprocessing settings']['filter_data'] = str(self.filter_data)
-                config['preprocessing settings']['filter_method'] = str(self.filter_method)
-                config['preprocessing settings']['lowcut_freq'] = str(self.lowcut_freq)
-                config['preprocessing settings']['highcut_freq'] = str(self.highcut_freq)
-                config['preprocessing settings']['downsample_data'] = str(self.downsample_data)
-                config['preprocessing settings']['sample_rate'] = str(self.sample_rate)
-                channels2remove = ','.join(map(str, channels2remove))
-                config['preprocessing settings']['channels2remove'] = channels2remove
-                # Write "preprocessing results" to config
-                length_data_str = ','.join(map(str, length_all_data))
-                config['preprocessing results']['length_data'] = length_data_str
-                ch_names = ','.join(map(str, self.ch_names))
-                config['preprocessing results']['n_chan'] = str(self.n_chan)
-                config['preprocessing results']['ch_names'] = ch_names
-                save_config(config_file, config)
-
-                # call mainwindow.load_study()
-                if self.main_window:
-                    self.main_window.load_study(self.save_dir)
-                self.ui.close()
+        self.tbx.tbx_object_path = os.path.join(self.save_dir, 'tbx_object.pkl')
+        self.tbx.save_tbx()
+        # with open(self.tbx.tbx_object_path, 'wb') as output:
+        #     pickle.dump(self.tbx, output, pickle.HIGHEST_PROTOCOL)
+        # call mainwindow.load_study()
+        if self.main_window:
+            self.main_window.tbx = self.tbx
+            self.main_window.load_study(self.save_dir)
+        self.ui.close()
 
     def plot_CHANNELS(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.extension, self.data_type, self.channel_location_dir, [])
+        EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir, [])
         ax = self.ui.MplWidget_chan.canvas.axes
         ax.clear()
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
                      ax.get_xticklabels() + ax.get_yticklabels()):
             item.set_fontsize(18)
-        if self.channel_location_dir:
-            montage = mne.channels.read_custom_montage(self.channel_location_dir)
+        if self.tbx.channel_location_dir:
+            montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
             EEG.set_montage(montage)
         if np.isnan(EEG.info['chs'][0]['loc'][0]):
             print('No valid channel positions found!')
@@ -456,12 +395,12 @@ class NewStudyWindow(QDialog):
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.extension, self.data_type, self.channel_location_dir, [])
+        EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir, [])
         EEG.plot()
 
     def plot_PSD(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.extension, self.data_type, self.channel_location_dir, [])
+        EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())

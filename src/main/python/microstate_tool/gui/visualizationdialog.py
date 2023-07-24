@@ -12,9 +12,10 @@ from functions.utils.data_io import load_config
 import plotly.express as px
 
 class VisualizationDialog(QDialog):
-    def __init__(self, context, parent=None):
+    def __init__(self, context, parent=None, tbx=None):
         super(VisualizationDialog, self).__init__(parent)
 
+        self.tbx = tbx
         # load the ui
         basepath = os.path.dirname(__file__)
         self.ui = uic.loadUi(context.get_resource("VisualizationWindow.ui"), self)
@@ -78,14 +79,15 @@ class VisualizationDialog(QDialog):
 
     def load_filenames(self):
         # Load config
-        config_file = os.path.join(self.save_folder, 'log.ini')
-        config = load_config(config_file)
+        # config_file = os.path.join(self.save_folder, 'log.ini')
+        # config = load_config(config_file)
         # Load "feature extraction settings" from config
-        features2extract_str = config['feature extraction settings']['features2extract']
-        self.features2extract = features2extract_str.split(",")
+        # features2extract_str = config['feature extraction settings']['features2extract']
+        # self.features2extract = self.tbx.Features
+        # self.features2extract = features2extract_str.split(",")
 
         # Load extracted features
-        self.extracted_features_df = pd.read_csv(os.path.join(self.extracted_features_path,
+        self.extracted_features_df = pd.read_csv(os.path.join(self.tbx.extracted_features_path,
                                                          'extracted_features.csv'))
 
         filenames = self.extracted_features_df['Filename']

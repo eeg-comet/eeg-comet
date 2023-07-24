@@ -18,16 +18,18 @@ from matplotlib.figure import Figure
 import os.path
 import numpy as np
 import mne
+import pickle
 from matplotlib import pyplot as plt
 
 #from functions.test_classifier import label_micromap
 from functions.utils.data_io import load_config, save_config
 
 class MicrostateDialog(QDialog):
-    def __init__(self, parent=None, main_window=None):
+    def __init__(self, parent=None, main_window=None, tbx=None):
         super(MicrostateDialog, self).__init__(parent)
 
         self.main_window = main_window
+        self.tbx = tbx
         self.setWindowTitle("Microstate Maps")
 
         self.done_labeling = False
@@ -155,15 +157,19 @@ class MicrostateDialog(QDialog):
             if self.micro_labels[i] == '':
                 self.done_labeling = False
         if self.done_labeling:
+            self.tbx.micro_labels = self.micro_labels
             str_micro_labels = ','.join(map(str, self.micro_labels))
-            # Write microstates labels to config
-            config_file = os.path.join(self.save_dir, 'log.ini')
-            config = load_config(config_file)
-            config['clustering results']['micro_labels'] = str_micro_labels
-            config['progress']['done_labeling_microstates'] = str(True)
-            save_config(config_file, config)
+            # # Write microstates labels to config
+            # config_file = os.path.join(self.save_dir, 'log.ini')
+            # config = load_config(config_file)
+            # config['clustering results']['micro_labels'] = str_micro_labels
+            # config['progress']['done_labeling_microstates'] = str(True)
+            # save_config(config_file, config)
             if self.main_window:
-                self.main_window.done_labeling_microstates = True
+                self.tbx.done_labeling_microstates = True
+                self.tbx.save_tbx()
+                # with open(self.tbx.tbx_object_path, 'wb') as output:
+                #     pickle.dump(self.tbx, output, pickle.HIGHEST_PROTOCOL)
                 self.main_window.ui.step0_log_textbrowser.insertPlainText(
                     f"\nMicrostate labels: {str_micro_labels}\n")
                 self.main_window.mainwindow_controller()
