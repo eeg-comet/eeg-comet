@@ -263,15 +263,7 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def preprocess_data(self):
-
-        # Initialize config
-        config_file = os.path.join(self.save_dir, 'log.ini')
-        config = load_config(config_file)
-        initialize_config(config_file, config)
-
         self.save_preprocessed_path = os.path.join(self.save_dir, 'preprocessed_data')
-        # if not os.path.exists(self.save_preprocessed_path):
-        #     os.makedirs(self.save_preprocessed_path)
 
         if self.ui.step0_no_option_checkbox.isChecked():
             self.filter_data = False
@@ -325,48 +317,17 @@ class NewStudyWindow(QDialog):
         self.tbx.study_name = self.ui.step0_study_name_lineedit.text()
         self.tbx.eeg_info_path = os.path.join(self.tbx.save_dir, "eeg_info.pkl")
 
-        # Write "study info" to config
-        config['study info']['study_name'] = self.ui.step0_study_name_lineedit.text()
-        config['study info']['input_folder'] = self.ui.step0_input_path_lineedit.text()
-        config['study info']['input_data_extension'] = self.tbx.extension
-        config['study info']['input_data_type'] = self.tbx.data_type
-        config['study info']['input_name_pattern'] = self.tbx.pattern
         list_eegs = []
         for eegpath in self.tbx.list_eegs:
             eegfilename = os.path.basename(eegpath)
             eegfilename = os.path.splitext(eegfilename)[0]
             list_eegs = np.append(list_eegs, eegfilename)
         list_eegs = ','.join(map(str, list_eegs))
-        config['study info']['input_filenames'] = list_eegs
-        config['study info']['save_folder'] = self.save_dir
-        save_config(config_file, config)
+
         self.tbx.load_new_study() 
         self.done_preprocessing = True
-
-        # Write logs to config
-        config.set('progress', 'done_preprocessing', str(self.done_preprocessing))
-        # Write "preprocessing settings" to config
-        config['preprocessing settings']['filter_data'] = str(self.tbx.filter_data)
-        config['preprocessing settings']['filter_method'] = str(self.tbx.filter_method)
-        config['preprocessing settings']['lowcut_freq'] = str(self.tbx.lowcut_freq)
-        config['preprocessing settings']['highcut_freq'] = str(self.tbx.highcut_freq)
-        config['preprocessing settings']['downsample_data'] = str(self.tbx.downsample_data)
-        config['preprocessing settings']['sample_rate'] = str(self.tbx.sample_rate)
-        channels2remove = ','.join(map(str, self.tbx.channels2remove))
-        config['preprocessing settings']['channels2remove'] = channels2remove
-        # Write "preprocessing results" to config
-        length_data_str = ','.join(map(str, self.tbx.length_all_data))
-        config['preprocessing results']['length_data'] = length_data_str
-        ch_names = ','.join(map(str, self.tbx.ch_names))
-        config['preprocessing results']['n_chan'] = str(self.tbx.n_chan)
-        config['preprocessing results']['ch_names'] = ch_names
-        save_config(config_file, config)
-
-        self.tbx.tbx_object_path = os.path.join(self.save_dir, 'tbx_object.pkl')
         self.tbx.save_tbx()
-        # with open(self.tbx.tbx_object_path, 'wb') as output:
-        #     pickle.dump(self.tbx, output, pickle.HIGHEST_PROTOCOL)
-        # call mainwindow.load_study()
+
         if self.main_window:
             self.main_window.tbx = self.tbx
             self.main_window.load_study(self.save_dir)

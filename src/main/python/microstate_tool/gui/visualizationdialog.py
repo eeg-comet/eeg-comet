@@ -78,14 +78,6 @@ class VisualizationDialog(QDialog):
         self.load_filenames()
 
     def load_filenames(self):
-        # Load config
-        # config_file = os.path.join(self.save_folder, 'log.ini')
-        # config = load_config(config_file)
-        # Load "feature extraction settings" from config
-        # features2extract_str = config['feature extraction settings']['features2extract']
-        # self.features2extract = self.tbx.Features
-        # self.features2extract = features2extract_str.split(",")
-
         # Load extracted features
         self.extracted_features_df = pd.read_csv(os.path.join(self.tbx.extracted_features_path,
                                                          'extracted_features.csv'))

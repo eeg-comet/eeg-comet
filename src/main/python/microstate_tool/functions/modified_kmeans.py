@@ -180,7 +180,7 @@ def run_minibatch_modified_kmeans(preprocessed_data_path, min_dist, n_states, th
             initial_maps = best_maps
         for init in range(n_inits):
             print('Mini Batch Clustering #', str(init + 1), 'of', str(n_inits))
-            maps, residual = modified_kmeans_table_2(dataset_k, initial_maps, n_states, thresh)
+            maps, residual = modified_kmeans(dataset_k, initial_maps, n_states, thresh)
             gev = compute_gev(dataset_k, maps)
             print('Found', str(n_states), 'Microstate Maps')
             print('GEV:', str(gev))
