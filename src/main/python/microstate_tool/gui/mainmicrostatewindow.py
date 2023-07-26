@@ -471,7 +471,7 @@ class MainMicrostateWindow(QMainWindow):
 
     def plot_elbow(self):
         self.NumberMapsDialog.data = import_hdf_data(self.tbx.hdf_concatenated_data_path)
-        self.NumberMapsDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.sample_rate))
+        self.NumberMapsDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
         self.NumberMapsDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
         self.NumberMapsDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
         self.NumberMapsDialog.setWindowModality(QtCore.Qt.ApplicationModal)
@@ -511,7 +511,7 @@ class MainMicrostateWindow(QMainWindow):
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 self.tbx.choose_number_of_maps = "auto"
                 # TODO: should automatically set a self.number_of_maps
-                self.tbx.number_of_maps = 5
+                self.tbx.number_of_maps = 'auto'
             elif self.ui.step2_user_numberofmaps_radio.isChecked():
                 self.tbx.choose_number_of_maps = "user"
                 self.tbx.number_of_maps = int(self.ui.step2_user_numberofmaps_input.text())

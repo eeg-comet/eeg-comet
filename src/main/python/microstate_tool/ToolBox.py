@@ -62,7 +62,7 @@ class ToolBox:
 		self.raw_features_path = os.path.join(self.save_dir, 'raw_features')
 		self.hdf_concatenated_data_path = os.path.join(self.save_dir, self.study_name+'_concatenated_data.hdf')
 		self.choose_number_of_maps = config['do_clustering']['choose_number_of_maps']
-		self.number_of_maps = config.getint('do_clustering', 'number_of_maps')
+		self.number_of_maps = config.getint('do_clustering', 'number_of_maps') if self.choose_number_of_maps == 'user' else 'auto'
 		self.initializer = config['do_clustering']['initializer']
 		self.clustering_method = config['do_clustering']['clustering_method']
 		self.clustering_tolerance = config.getfloat('do_clustering', 'clustering_tolerance')
