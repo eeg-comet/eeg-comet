@@ -118,7 +118,7 @@ def save_transitions(segmentation_folder, micro_labels, file_format, save_path):
         save_features(tm_df, 'transition_matrix_' + filename, file_format, save_path)
 
 
-def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_labels, fs, features, min_length):
+def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_labels, fs, features, min_length, duration_of_window):
     file_names = find_data(preprocessed_data_path, ".hdf", "*")
     hf_segmentation = h5py.File(hf_segmentation_path, 'r')
     study_name = list(hf_segmentation.keys())[0]
@@ -158,7 +158,7 @@ def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_l
                 extracted_features = np.append(extracted_features, MMD_MAP)
             # Frequency of Occurrence for each map per second
             if "OCC" in features:
-                OCC_ALL = frequency_occurrence(segment, fs)
+                OCC_ALL = frequency_occurrence(segment, fs, duration_of_window=duration_of_window)
                 OCC_MAP = OCC_ALL[c]
                 headers = np.append(headers, "OCC_" + c)
                 extracted_features = np.append(extracted_features, OCC_MAP)

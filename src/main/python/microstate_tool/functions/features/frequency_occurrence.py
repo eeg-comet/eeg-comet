@@ -2,7 +2,7 @@ from collections import Counter
 import numpy as np
 
 
-def frequency_occurrence(segment, sampling_rate):
+def frequency_occurrence(segment, sampling_rate, duration_of_window=1):
     """
     Computes the frequency of occurrence of each element in the input segment every one second of data.
 
@@ -14,6 +14,7 @@ def frequency_occurrence(segment, sampling_rate):
     dict: dictionary with keys as symbols and values as their frequency of occurrence per second.
     """
 
+    sampling_rate = int(sampling_rate / duration_of_window)
     # Compute the duration of the segment in seconds
     duration = len(segment) / sampling_rate
 

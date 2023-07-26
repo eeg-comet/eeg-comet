@@ -30,7 +30,7 @@ def main():
 	
 	# with open('/Users/bottlecap/Downloads/tbx.pkl', 'wb') as output:
 	# 	pickle.dump(tbx, output, pickle.HIGHEST_PROTOCOL)
-	# with open('/Users/bottlecap/Downloads/tbx.pkl', 'rb') as input_tbx:
+	# with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
 	# 	tbx = pickle.load(input_tbx)
 
 	# for i in range(0, tbx.preprocessed_data.shape[0], 200):
@@ -51,8 +51,8 @@ def main():
 
 	tbx.extract_features_from_map()
 	tbx.save_tbx()
-	tbx.source_localize_microstates()
-	tbx.save_tbx()
+	# tbx.source_localize_microstates()
+	# tbx.save_tbx()
 
 
 if __name__ == '__main__':

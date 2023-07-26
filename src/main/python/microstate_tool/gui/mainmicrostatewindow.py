@@ -363,6 +363,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_featurestoextract_label,
             self.ui.step4_coverage_featurestoextract_checkbox,
             self.ui.step4_foc_featurestoextract_checkbox,
+            self.ui.step4_duration_of_window,
+            self.ui.step4_duration_of_window_label,
             self.ui.step4_mmd_featurestoextract_checkbox,
             self.ui.step4_gev_featurestoextract_checkbox,
             self.ui.step4_tp_featurestoextract_checkbox,
@@ -710,6 +712,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.Features.append("COV")
             if self.ui.step4_foc_featurestoextract_checkbox.isChecked():
                 self.tbx.Features.append("OCC")
+                self.tbx.duration_of_window = int(self.ui.step4_duration_of_window.text())
             if self.ui.step4_mmd_featurestoextract_checkbox.isChecked():
                 self.tbx.Features.append("MMD")
             if self.ui.step4_tp_featurestoextract_checkbox.isChecked():

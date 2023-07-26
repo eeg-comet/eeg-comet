@@ -85,6 +85,7 @@ class ToolBox:
 		self.output_format = config['extract_features']['output_format']
 		self.Features = [x for x in config['extract_features']['Features'].split(',')]
 		self.save_transitions_bool = True if 'TP' in self.Features else False
+		self.duration_of_window = config.getint('extract_features', 'duration_of_window') if 'OCC' in self.Features else ''
 
 		# source localize microstates
 		self.localized_sources_path = os.path.join(self.raw_features_path, 'localized_sources')
@@ -274,7 +275,8 @@ class ToolBox:
 														 self.micro_labels,
 														 self.sample_rate,
 														 self.Features,
-														 np.min(length_data)
+														 np.min(length_data), 
+														 self.duration_of_window
 														 )
 		save_features(extracted_features_df, 'extracted_features',
 							  self.output_format,
@@ -311,55 +313,7 @@ class ToolBox:
 		with open(self.tbx_object_path, 'wb') as output:
 			pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
-def main():
-	warnings.simplefilter("ignore")
-	config_file = '/Users/bottlecap/Downloads/config.ini'
-	config = load_config(config_file)
-	
-	study_name = config['base']['study_name']
-	input_folder = config['base']['input_folder']
-	channel_location_dir = config['base']['channel_location_dir']
-	output_folder = config['base']['output_folder']
 
-	print(study_name)
-	print(input_folder)
-	print(channel_location_dir)
-	print(output_folder)
-	
-
-	tbx = ToolBox(config)
-	# load a new study
-	# just like press "New Study Button"
-	tbx.load_raw()
-	tbx.load_channel_location()
-	tbx.load_new_study()
-
-	
-	# with open('/Users/bottlecap/Downloads/tbx.pkl', 'wb') as output:
-	# 	pickle.dump(tbx, output, pickle.HIGHEST_PROTOCOL)
-	with open('/Users/bottlecap/Downloads/tbx.pkl', 'rb') as input_tbx:
-		tbx = pickle.load(input_tbx)
-
-	# for i in range(0, tbx.preprocessed_data.shape[0], 200):
-	# 	fig, axes = plt.subplots(1)  # assuming 3 channel types
-	# 	mne.viz.plot_topomap(tbx.preprocessed_data[i, :], tbx.eeg_info, axes=axes, sensors=False, show=False)
-	# 	fig.savefig(f'/Users/bottlecap/Downloads/eeg_images/res{i}.png')
-	# 	if i > 2000:
-	# 		break
-	# do clustering
-	# just like press "start clustering"
-	tbx.do_clustering()
-	tbx.do_labeling()
-	# do backfitting
-	# just like press "Start Backfitting"
-	tbx.do_backfitting()
-
-	tbx.extract_features_from_map()
-	tbx.source_localize_microstates()
-
-
-if __name__ == '__main__':
-	main()
 
 
 
