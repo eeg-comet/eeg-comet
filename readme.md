@@ -1,4 +1,4 @@
-# Welcome to Microstate Tools
+# EEG-COMET – EEG Comprehensive Microstate Extraction Toolbox
 
 Authors: Amin Kabir, Raaj Chatterjee
 
