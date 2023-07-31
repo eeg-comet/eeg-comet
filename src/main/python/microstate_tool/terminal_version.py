@@ -18,10 +18,11 @@ def main():
 	print(channel_location_dir)
 	print(output_folder)
 	
-
-	tbx = ToolBox(config)
 	# load a new study
 	# just like press "New Study Button"
+	
+	tbx = ToolBox(config)
+
 	tbx.load_raw()
 	tbx.load_channel_location()
 	tbx.load_new_study()

@@ -61,8 +61,12 @@ class ToolBox:
 		self.smoothing_distance = config.getint('do_clustering', 'smoothing_distance') if self.smoothing_gfp else ''
 		self.raw_features_path = os.path.join(self.save_dir, 'raw_features')
 		self.hdf_concatenated_data_path = os.path.join(self.save_dir, self.study_name+'_concatenated_data.hdf')
-		self.choose_number_of_maps = config['do_clustering']['choose_number_of_maps']
-		self.number_of_maps = config.getint('do_clustering', 'number_of_maps') if self.choose_number_of_maps == 'user' else 'auto'
+		number_of_maps = config['do_clustering']['number_of_maps']
+		self.number_of_maps = number_of_maps if number_of_maps=='auto' else int(number_of_maps)
+		# self.number_of_maps = config.getint('do_clustering', 'number_of_maps') if self.choose_number_of_maps == 'user' else 'auto'
+		self.elbow_version = config['do_clustering']['elbow_version'] if self.number_of_maps == 'auto' else ''
+		self.stopping_mode = config['do_clustering']['stopping_mode'] if self.elbow_version == 'modified' else ''
+		self.stopping_parameter = config.getfloat('do_clustering', 'stopping_parameter') if self.elbow_version == 'modified' else ''
 		self.initializer = config['do_clustering']['initializer']
 		self.clustering_method = config['do_clustering']['clustering_method']
 		self.clustering_tolerance = config.getfloat('do_clustering', 'clustering_tolerance')
@@ -76,7 +80,7 @@ class ToolBox:
 		self.filter_segments = config.getboolean('do_backfitting', 'filter_segments')
 		self.remove_segments_less_than = config.getint('do_backfitting', 'remove_segments_less_than') if self.filter_segments else ''
 		self.filter_segments_option = config['do_backfitting']['filter_segments_option'] if self.filter_segments else ''
-		self.micro_labels = ['A', 'B', 'C', 'D', 'E']
+		self.micro_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
 		# extract feature
 		self.extracted_features_path = os.path.join(self.save_dir, 'extracted_features')
@@ -217,7 +221,7 @@ class ToolBox:
 							]
 		assert self.clustering_method in avaliable_methods, "clustering_method not supported"
 
-		best_maps, gev, _ = clustering_func(
+		best_maps, gev, _, n_states = clustering_func(
 					self.preprocessed_data_path,
 					self.hdf_concatenated_data_path,
 					self.n_chan,
@@ -227,10 +231,14 @@ class ToolBox:
 					self.min_distance_size,
 					self.number_of_repeats,
 					self.clustering_tolerance,
-					self.clustering_option
+					self.clustering_option,
+					self.elbow_version,
+					self.stopping_mode,
+					self.stopping_parameter
 					)
 		# microstate_maps = best_maps
 		self.best_maps = best_maps
+		self.n_states = n_states
 
 		# Save Maps
 		maps_df = pd.DataFrame(best_maps.T, index=self.ch_names)
@@ -244,6 +252,7 @@ class ToolBox:
 
 	def do_labeling(self):
 		# TODO: label maps
+		self.micro_labels = self.micro_labels[:self.n_states]
 		self.done_labeling_microstates = True
 
 
