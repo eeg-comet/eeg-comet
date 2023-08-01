@@ -2,10 +2,14 @@ from functions.utils.data_io import load_config
 import warnings
 from ToolBox import ToolBox
 import pickle
+import matplotlib.pyplot as plt
+import mne
+from functions.utils.data_io import import_hdf_data
+from functions.utils.extract_peaks_maps import extract_peaks_maps
 
 def main():
 	warnings.simplefilter("ignore")
-	config_file = '/Users/bottlecap/Downloads/config.ini'
+	config_file = '/Users/bottlecap/EEG-Microstate-Feature-Extraction/src/main/python/microstate_tool/config.ini'
 	config = load_config(config_file)
 	
 	study_name = config['base']['study_name']
@@ -33,14 +37,23 @@ def main():
 	# 	pickle.dump(tbx, output, pickle.HIGHEST_PROTOCOL)
 	# with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
 	# 	tbx = pickle.load(input_tbx)
-
-	# for i in range(0, tbx.preprocessed_data.shape[0], 200):
+	# print(tbx.preprocessed_data.shape)
+	# hdf_concatenated_data_path = '/Users/bottlecap/Downloads/output/test_tbx_4/test_tbx_4_concatenated_data.hdf'
+	# concatenated_data = import_hdf_data(hdf_concatenated_data_path)
+	# min_distance_size = int(tbx.smoothing_distance/(1000/tbx.sample_rate))
+	# all_maps, peaks = extract_peaks_maps(concatenated_data, min_distance_size)
+	# print(all_maps.shape)
+	# kmeans = pickle.load(open('/Users/bottlecap/Downloads/kmeans.pkl', 'rb'))
+	# for i in range(0, all_maps.shape[0], 10):
 	# 	fig, axes = plt.subplots(1)  # assuming 3 channel types
-	# 	mne.viz.plot_topomap(tbx.preprocessed_data[i, :], tbx.eeg_info, axes=axes, sensors=False, show=False)
-	# 	fig.savefig(f'/Users/bottlecap/Downloads/eeg_images/res{i}.png')
-	# 	if i > 2000:
+	# 	mne.viz.plot_topomap(all_maps[i, :], tbx.eeg_info, axes=axes, sensors=False, show=False)
+	# 	result = kmeans.predict(all_maps[i, :].reshape((1, -1)))
+	# 	# print(all_maps[i, :].shape)
+	# 	fig.savefig(f'/Users/bottlecap/Downloads/eeg_images/res_{result[0]}_{i}.png')
+	# 	if i > 3000:
 	# 		break
-	# do clustering
+	# # do clustering
+	# return
 	# just like press "start clustering"
 	tbx.do_clustering()
 	tbx.do_labeling()

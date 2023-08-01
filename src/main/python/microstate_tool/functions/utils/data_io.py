@@ -65,6 +65,7 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir, chan2rm):
             eeg = mne.io.read_raw_egi(filename, preload=True, verbose='CRITICAL')            
         elif eeg_format == ".set":
             eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose='CRITICAL')
+            # mne.export.export_raw('/Users/bottlecap/Downloads/eeg.set', eeg, fmt='eeglab', verbose='CRITICAL')
         elif eeg_format == ".data":
             eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose='CRITICAL')
         elif eeg_format == ".nxe":
@@ -89,6 +90,9 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir, chan2rm):
     # Apply an average reference
     eeg = eeg.set_eeg_reference('average')
     return eeg
+
+# def dump_eegs(filename, eeg_format, datatype, eeg):
+
 
 
 def initialize_config(config_path, config):
