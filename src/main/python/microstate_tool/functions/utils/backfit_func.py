@@ -91,7 +91,10 @@ def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_se
                     print("Removing segments with less than", str(remove_segments_less_than), "ms in duration")
                 segmentation = substitude_maps_with_duration(segmentation,
                                                              remove_segments_less_than,
-                                                             filter_segments_option)
+                                                             filter_segments_option,
+                                                             data,
+                                                             maps,
+                                                             len(micro_labels))
         elif method == 'peaks':
             gfp = np.std(data, axis=0)
             peaks, _ = find_peaks(gfp)

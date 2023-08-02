@@ -262,6 +262,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_stopping_residual_radio,
             self.ui.step2_stopping_sil_radio,
             self.ui.step2_stopping_threshold_label,
+            self.ui.step2_stopping_threshold_percentage_label,
             self.ui.step2_stopping_threshold_input,
             self.ui.step2_auto_range_label,
             self.ui.step2_auto_range_kmin_input,
@@ -334,6 +335,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_filter_segments_input,
             self.ui.step3_filter_segments_label,
             # self.ui.step3_replace_segments_radio,
+            self.ui.step3_smooth_segments_radio,
             self.ui.step3_remove_segments_radio,
             self.ui.step3_replace_half_radio,
             self.ui.step3_replace_nearby_radio
@@ -559,6 +561,10 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.number_of_maps = 'auto'
             elif self.ui.step2_user_numberofmaps_radio.isChecked():
                 self.tbx.choose_number_of_maps = "user"
+                self.tbx.stopping_mode = ''
+                self.tbx.stopping_parameter = ''
+                self.tbx.kmin = ''
+                self.tbx.kmax = ''
                 self.tbx.number_of_maps = int(self.ui.step2_user_numberofmaps_input.text())
             #print(self.number_of_maps)
             if self.ui.step2_random_initializer_radio.isChecked():
@@ -623,6 +629,8 @@ class MainMicrostateWindow(QMainWindow):
                     self.tbx.filter_segments_option = 'replace_half'
                 elif self.ui.step3_remove_segments_radio.isChecked():
                     self.tbx.filter_segments_option = 'remove'
+                elif self.ui.step3_smooth_segments_radio.isChecked():
+                    self.tbx.filter_segments_option = 'smooth'
             else:
                 self.tbx.filter_segments = False
                 self.tbx.filter_segments_option = ''
