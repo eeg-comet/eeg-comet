@@ -92,7 +92,7 @@ def remove_similar_maps(data, centers, clusters):
 
 
 def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
-                    n_channels, method, n_states, initializer, min_dist, n_inits, tolerance, metric, elbow_version='traditional', stopping_mode='gev', stopping_parameter=0.04):
+                    n_channels, method, n_states, initializer, min_dist, n_inits, tolerance, metric, stopping_mode='gev', stopping_parameter=10.0, kmin=2, kmax=10):
     '''
     preprocessed_data_path: Path to the preprocessed data.
     hdf_concatenated_data_path: Path to the HDF concatenated data.
@@ -109,12 +109,12 @@ def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
     if n_states == 'auto':
         print("Loading the concatenated data ...")
         concatenated_data = import_hdf_data(hdf_concatenated_data_path)
-        if elbow_version == 'traditional':            
-            maps, _ = extract_peaks_maps(concatenated_data, min_dist)
-            print('Using Elbow method to find the optimal number of microstate maps')
-            n_states = number_of_clusters(maps)
-        elif elbow_version == 'modified':
-            n_states = get_elbow_without_plt(concatenated_data, min_dist, tolerance, n_inits, kmin=2, kmax=10, stopping_mode=stopping_mode, gev_threshold=stopping_parameter, res_threshold=stopping_parameter, sil_threshold=stopping_parameter)
+        # if elbow_version == 'traditional':            
+        #     maps, _ = extract_peaks_maps(concatenated_data, min_dist)
+        #     print('Using Elbow method to find the optimal number of microstate maps')
+        #     n_states = number_of_clusters(maps)
+        # elif elbow_version == 'modified':
+        n_states = get_elbow_without_plt(concatenated_data, min_dist, tolerance, n_inits, kmin=kmin, kmax=kmax, stopping_mode=stopping_mode, threshold=stopping_parameter)
         print(f'result: n_states = {n_states}')
 
     if method == 'Modified K-means':

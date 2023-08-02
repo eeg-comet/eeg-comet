@@ -158,14 +158,17 @@ def get_elbow(data, min_dist, tolerance, n_inits, kmin, kmax, ax1, ax2, ax3):
 
 
 
-def get_elbow_without_plt(data, min_dist, tolerance, n_inits, kmin, kmax, stopping_mode='gev', gev_threshold=0.04, res_threshold=0.0004, sil_threshold=0.004):
+def get_elbow_without_plt(data, min_dist, tolerance, n_inits, kmin, kmax, stopping_mode='gev', threshold=0.1):
+    # change thresholf to percentage
+    if threshold > 1:
+        threshold /= 100
     gfp = np.std(data, axis=0)
     peaks, _ = find_peaks(gfp)
     all_maps = data.T
     all_maps /= np.linalg.norm(all_maps, axis=1, keepdims=True)
 
-    SIL = [0]
-    N, RES, GEV = [0], [100], [0]
+    SIL = []
+    N, RES, GEV = [], [], []
     for k in range(kmin, kmax+1):
         print('\nClustering data with', k, 'microstates')
         gev_i, residual_i = 0, 0
@@ -190,14 +193,16 @@ def get_elbow_without_plt(data, min_dist, tolerance, n_inits, kmin, kmax, stoppi
         GEV = np.append(GEV, gev_mean)
         sil_mean = sil_score_i / n_inits
         SIL = np.append(SIL, sil_mean)
+        if len(N) == 1:
+            continue
         if stopping_mode=='gev':
-            if gev_mean - GEV[-2] < gev_threshold:
+            if abs(gev_mean - GEV[-2]) / GEV[-2] < threshold:
                 return k
         elif stopping_mode=='residual':
-            if RES[-2] - residual_mean < res_threshold:
+            if abs(RES[-2] - residual_mean) / RES[-2]  < threshold:
                 return k
         elif stopping_mode=='sil':
-            if sil_mean - SIL[-2] < sil_threshold:
+            if abs(sil_mean - SIL[-2]) / SIL[-2] < threshold:
                 return k
 
 

@@ -64,9 +64,10 @@ class ToolBox:
 		number_of_maps = config['do_clustering']['number_of_maps']
 		self.number_of_maps = number_of_maps if number_of_maps=='auto' else int(number_of_maps)
 		# self.number_of_maps = config.getint('do_clustering', 'number_of_maps') if self.choose_number_of_maps == 'user' else 'auto'
-		self.elbow_version = config['do_clustering']['elbow_version'] if self.number_of_maps == 'auto' else ''
-		self.stopping_mode = config['do_clustering']['stopping_mode'] if self.elbow_version == 'modified' else ''
-		self.stopping_parameter = config.getfloat('do_clustering', 'stopping_parameter') if self.elbow_version == 'modified' else ''
+		self.stopping_mode = config['do_clustering']['stopping_mode'] if self.number_of_maps == 'auto' else ''
+		self.stopping_parameter = config.getfloat('do_clustering', 'stopping_parameter') if self.number_of_maps == 'auto' else ''
+		self.kmin = config.getint('do_clustering', 'kmin') if self.number_of_maps == 'auto' else ''
+		self.kmax = config.getint('do_clustering', 'kmax') if self.number_of_maps == 'auto' else ''
 		self.initializer = config['do_clustering']['initializer']
 		self.clustering_method = config['do_clustering']['clustering_method']
 		self.clustering_tolerance = config.getfloat('do_clustering', 'clustering_tolerance')
@@ -232,9 +233,10 @@ class ToolBox:
 					self.number_of_repeats,
 					self.clustering_tolerance,
 					self.clustering_option,
-					self.elbow_version,
 					self.stopping_mode,
-					self.stopping_parameter
+					self.stopping_parameter,
+					self.kmin,
+					self.kmax
 					)
 		# microstate_maps = best_maps
 		self.best_maps = best_maps

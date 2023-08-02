@@ -82,8 +82,8 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_auto_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step2_user_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_stopping_traditional_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_stopping_modified_radio.clicked.connect(self.mainwindow_controller)
+        # self.ui.step2_stopping_traditional_radio.clicked.connect(self.mainwindow_controller)
+        # self.ui.step2_stopping_modified_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_backfit_all_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_backfit_peaks_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
@@ -238,8 +238,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_numberofrepeats_label,
             self.ui.step2_user_numberofrepeats_input,
             self.ui.step2_stopping_strategy_label,
-            self.ui.step2_stopping_traditional_radio,
-            self.ui.step2_stopping_modified_radio,
+            # self.ui.step2_stopping_traditional_radio,
+            # self.ui.step2_stopping_modified_radio,
             self.ui.step2_other_label,
             self.ui.step2_other_options_combobox,
             self.ui.step2_initializer_label,
@@ -252,17 +252,21 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_kernel_size_label_2,
             self.ui.step2_clustering_button
         ]
-        elbow_version_widgets = [
-            self.ui.step2_stopping_traditional_radio,
-            self.ui.step2_stopping_modified_radio
-        ]
+        # elbow_version_widgets = [
+        #     self.ui.step2_stopping_traditional_radio,
+        #     self.ui.step2_stopping_modified_radio
+        # ]
         elbow_widgets = [
+            self.ui.step2_stopping_head,
             self.ui.step2_stopping_gev_radio,
-            self.ui.step2_stopping_gev_input,
             self.ui.step2_stopping_residual_radio,
-            self.ui.step2_stopping_residual_input,
             self.ui.step2_stopping_sil_radio,
-            self.ui.step2_stopping_sil_input
+            self.ui.step2_stopping_threshold_label,
+            self.ui.step2_stopping_threshold_input,
+            self.ui.step2_auto_range_label,
+            self.ui.step2_auto_range_kmin_input,
+            self.ui.step2_auto_range_kmax_input,
+            self.ui.step2_auto_range_to_label
         ]
         if self.tbx.done_preprocessing:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
@@ -272,16 +276,16 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status(buttons_done_preprocessing, enable=True)
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 self.ui.step2_user_numberofmaps_input.setDisabled(True)
-                set_widgets_status(elbow_version_widgets, enable=True)
+                set_widgets_status(elbow_widgets, enable=True)
             if self.ui.step2_user_numberofmaps_radio.isChecked():
                 self.ui.step2_user_numberofmaps_input.setEnabled(True)
-                set_widgets_status(elbow_version_widgets, enable=False)
-            if self.ui.step2_stopping_modified_radio.isChecked():
-                print('yes')
-                set_widgets_status(elbow_widgets, enable=True)
-            if self.ui.step2_stopping_traditional_radio.isChecked():
-                print('no')
                 set_widgets_status(elbow_widgets, enable=False)
+            # if self.ui.step2_stopping_modified_radio.isChecked():
+            #     print('yes')
+            #     set_widgets_status(elbow_widgets, enable=True)
+            # if self.ui.step2_stopping_traditional_radio.isChecked():
+            #     print('no')
+            #     set_widgets_status(elbow_widgets, enable=False)
             
 
 
@@ -536,19 +540,22 @@ class MainMicrostateWindow(QMainWindow):
             if self.ui.step2_auto_numberofmaps_radio.isChecked():
                 self.tbx.choose_number_of_maps = "auto"
                 # TODO: should automatically set a self.number_of_maps
-                if self.ui.step2_stopping_traditional_radio.isChecked():
-                    self.tbx.elbow_version = 'traditional'
-                else:
-                    self.tbx.elbow_version = 'modified'
-                    if self.ui.step2_stopping_gev_radio.isChecked():
-                        self.tbx.stopping_mode = 'gev'
-                        self.tbx.stopping_parameter = float(self.ui.step2_stopping_gev_input.text())
-                    elif self.ui.step2_stopping_residual_radio.isChecked():
-                        self.tbx.stopping_mode = 'residual'
-                        self.tbx.stopping_parameter = float(self.ui.step2_stopping_residual_input.text())
-                    elif self.ui.step2_stopping_sil_radio.isChecked():
-                        self.tbx.stopping_mode = 'sil'
-                        self.tbx.stopping_parameter = float(self.ui.step2_stopping_sil_input.text())
+                # if self.ui.step2_stopping_traditional_radio.isChecked():
+                #     self.tbx.elbow_version = 'traditional'
+                # else:
+                #     self.tbx.elbow_version = 'modified'
+                self.tbx.kmin = int(self.ui.step2_auto_range_kmin_input.text())
+                self.tbx.kmax = int(self.ui.step2_auto_range_kmax_input.text())
+                if self.ui.step2_stopping_gev_radio.isChecked():
+                    self.tbx.stopping_mode = 'gev'
+                    self.tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
+                elif self.ui.step2_stopping_residual_radio.isChecked():
+                    self.tbx.stopping_mode = 'residual'
+                    self.tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
+                elif self.ui.step2_stopping_sil_radio.isChecked():
+                    self.tbx.stopping_mode = 'sil'
+                    self.tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
+                print(self.tbx.stopping_parameter)
                 self.tbx.number_of_maps = 'auto'
             elif self.ui.step2_user_numberofmaps_radio.isChecked():
                 self.tbx.choose_number_of_maps = "user"
