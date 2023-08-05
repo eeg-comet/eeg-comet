@@ -16,7 +16,8 @@ import os.path
 import numpy as np
 import h5py
 from scipy import stats
-from functions.utils.find_data import find_data
+# from functions.utils.find_data import find_data
+from functions.utils.data_io import find_data, load_eegs, get_eeg_data
 import pandas as pd
 import pickle
 
@@ -120,7 +121,7 @@ def second_regression(t_coeff, source_time_series):
 
 
 def run_source_localization(preprocessed_data_path, localized_sources_path,
-                            eeg_info, microstate_maps, inv_method, nperm, spacing):
+                            eeg_info, microstate_maps, inv_method, nperm, spacing, extension, datatype):
 
     z_scores_path = os.path.join(localized_sources_path, "_z_scores")
     p_values_path = os.path.join(localized_sources_path, "_p_values")
@@ -134,7 +135,7 @@ def run_source_localization(preprocessed_data_path, localized_sources_path,
 
     significance = 0.005 # assuming the nperm=2000
 
-    file_names = find_data(preprocessed_data_path, '.hdf', '*')
+    file_names = find_data(preprocessed_data_path, extension, '*')
 
     counter = 0
     for filename in file_names:
@@ -144,9 +145,12 @@ def run_source_localization(preprocessed_data_path, localized_sources_path,
         print("\n", 100 * counter / len(file_names))
 
         # Load the EEG data
-        hf = h5py.File(filename, "r")
-        eeg_data = hf[list(hf.keys())[0]]
-        eeg_data = np.asarray(eeg_data) * pow(10, 6)
+        # hf = h5py.File(filename, "r")
+        # eeg_data = hf[list(hf.keys())[0]]
+        eeg = load_eegs(filename, extension, datatype)
+        data = get_eeg_data(eeg, datatype)
+
+        eeg_data = data * pow(10, 6)
 
         # Create new eeg structure
         eeg_raw = mne.io.RawArray(eeg_data, eeg_info)

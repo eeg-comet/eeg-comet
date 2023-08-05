@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1103</width>
-    <height>904</height>
+    <height>775</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -90,14 +90,14 @@
            <item row="2" column="0">
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
-              <widget class="QRadioButton" name="step0_import_continuous_radio">
+              <widget class="QRadioButton" name="step0_import_raw_radio">
                <property name="font">
                 <font>
                  <pointsize>12</pointsize>
                 </font>
                </property>
                <property name="text">
-                <string>Continuous Data</string>
+                <string>Raw Data</string>
                </property>
                <property name="checked">
                 <bool>true</bool>
@@ -1202,9 +1202,9 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>

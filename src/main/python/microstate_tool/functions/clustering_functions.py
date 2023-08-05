@@ -128,6 +128,9 @@ def clustering_func(preprocessed_data_path, hdf_concatenated_data_path,
             n_inits=n_inits,
             initializer=initializer)
     elif method == 'Mini Batch Modified K-means':
+        # TODO: 
+        print('Deprecated!!!')
+        return
         best_maps, best_gev, best_residual = run_minibatch_modified_kmeans(
             preprocessed_data_path=preprocessed_data_path,
             min_dist=min_dist,

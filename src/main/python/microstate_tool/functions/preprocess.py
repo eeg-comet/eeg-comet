@@ -71,4 +71,4 @@ def preprocess_eegs(eegfile,
 
     eeg_info = eeg.info
     progress = 100 * (list_eegs.index(eegfile) + 1) / len(list_eegs)
-    return progress, eeg_data, length_data, eeg_info, channels2remove
+    return progress, eeg, eeg_data, length_data, eeg_info, channels2remove

@@ -56,7 +56,7 @@ def modified_kmeans(data, initial_maps, n_states, thresh):
     return maps, prev_residual
 
 
-def modified_kmeans_table_2(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
+def segmentation_smooth(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
     '''
     data: V
     maps: Gamma (T-like symbol)
@@ -133,7 +133,9 @@ def modified_kmeans_table_2(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
 def run_modified_kmeans(data, min_dist, n_states, thresh, n_inits, initializer):
     # Extract peaks and maps from the data
     all_maps, peaks = extract_peaks_maps(data, min_dist)
-
+    # print(all_maps.shape)
+    # print(peaks.shape)
+    # print(data.shape)
     # Initialize variables to store the best results
     best_residual = None
     best_gev = 0

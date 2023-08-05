@@ -55,18 +55,22 @@ def main():
 	# # do clustering
 	# return
 	# just like press "start clustering"
+
 	tbx.do_clustering()
 	tbx.do_labeling()
-	tbx.save_tbx()
+
 	# do backfitting
 	# just like press "Start Backfitting"
 	tbx.do_backfitting()
-	tbx.save_tbx()
-
-	tbx.extract_features_from_map()
-	tbx.save_tbx()
-	# tbx.source_localize_microstates()
 	# tbx.save_tbx()
+	print(tbx.micro_labels)
+	tbx.extract_features_from_map()
+	# tbx.save_tbx()
+	# tbx.load_config(config)
+	tbx.source_localize_microstates()
+	# tbx.save_tbx()
+	# TODO: check current process of a tbx object file
+
 
 
 if __name__ == '__main__':

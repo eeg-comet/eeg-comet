@@ -202,8 +202,8 @@ class NewStudyWindow(QDialog):
         return extension
 
     def get_data_type(self):
-        if self.ui.step0_import_continuous_radio.isChecked():
-            data_type = "continuous"
+        if self.ui.step0_import_raw_radio.isChecked():
+            data_type = "raw"
         elif self.ui.step0_import_epoched_radio.isChecked():
             data_type = "epoched"
         else:

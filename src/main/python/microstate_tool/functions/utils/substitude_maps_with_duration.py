@@ -118,7 +118,7 @@ def segmentation_smooth(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
     activation = maps.dot(data)
     # L
     segmentation = np.argmax(np.abs(activation), axis=0) 
-    # print(f'SEG BEFORE: {segmentation[400:500]}')
+    print(f'SEG BEFORE: {segmentation[400:500]}')
 
     # STEP 3 in TABLE 2
     raw_segmentation = segmentation
@@ -129,7 +129,7 @@ def segmentation_smooth(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
     e2 = e1 / float(n_samples * (n_channels - 1)) 
 
     while residual > thresh:
-        # print(f'iteration: {iteration+1} residual: {residual}, thresh: {thresh}')
+        print(f'iteration: {iteration+1} residual: {residual}, thresh: {thresh}')
         
         # STEP 5 in TABLE 2
         windows = np.lib.stride_tricks.sliding_window_view(raw_segmentation, 2*b+1)
@@ -153,7 +153,7 @@ def segmentation_smooth(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
         thresh = epsilon * sigma_mu
         iteration += 1
 
-    # print(f'SEG AFTER : {segmentation[400:500]}')
+    print(f'SEG AFTER : {segmentation[400:500]}')
     print('Finishes after', str(iteration), 'Iterations.')
     
     # STEP 9 in TABLE 2

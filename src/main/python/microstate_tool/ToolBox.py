@@ -1,4 +1,4 @@
-from functions.utils.data_io import find_data, load_eegs, save_eeg_info, initialize_config, load_config, load_eeg_info
+from functions.utils.data_io import find_data, load_eegs, save_eeg_info, initialize_config, load_config, load_eeg_info, export_eegs
 import os
 from functions import preprocess
 import h5py
@@ -12,12 +12,16 @@ from functions.features.extract_features_functions import extract_segments, save
 	save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
 import matplotlib.pyplot as plt
 import mne
-from functions.features.source_localization_tess import run_source_localization #, visualize_sources
+from functions.features.source_localization_functions import run_source_localization #, visualize_sources
 import pickle
 
 
 class ToolBox:
-	def __init__(self, config=None):
+	def __init__(self, config=None, auto_save=True):
+		'''
+		config: should be a ConfigParser, use it to load configs
+		auto_save: if True, the ToolBox will automatically save itself after each process
+		'''
 		if config:
 			self.load_config(config)
 		self.done_preprocessing = False
@@ -27,6 +31,7 @@ class ToolBox:
 		self.done_extracting_features = False
 		# self.done_extracting_microsegments = False
 		self.done_source_localization = False
+		self.auto_save = auto_save
 
 	def load_config(self, config):
 		# base
@@ -64,7 +69,6 @@ class ToolBox:
 		number_of_maps = config['do_clustering']['number_of_maps']
 		self.number_of_maps = number_of_maps if number_of_maps=='auto' else int(number_of_maps)
 		self.choose_number_of_maps = 'Auto' if number_of_maps == 'auto' else 'User'
-		# self.number_of_maps = config.getint('do_clustering', 'number_of_maps') if self.choose_number_of_maps == 'user' else 'auto'
 		self.stopping_mode = config['do_clustering']['stopping_mode'] if self.number_of_maps == 'auto' else ''
 		self.stopping_parameter = config.getfloat('do_clustering', 'stopping_parameter') if self.number_of_maps == 'auto' else ''
 		self.kmin = config.getint('do_clustering', 'kmin') if self.number_of_maps == 'auto' else ''
@@ -82,6 +86,7 @@ class ToolBox:
 		self.filter_segments = config.getboolean('do_backfitting', 'filter_segments')
 		self.remove_segments_less_than = config.getint('do_backfitting', 'remove_segments_less_than') if self.filter_segments else ''
 		self.filter_segments_option = config['do_backfitting']['filter_segments_option'] if self.filter_segments else ''
+		# TODO: use models to automatically label them
 		self.micro_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
 		# extract feature
@@ -99,8 +104,12 @@ class ToolBox:
 		self.inverse_method = config['source_localize_microstates']['inverse_method']
 		self.nperm = config.getint('source_localize_microstates', 'nperm')
 		self.spacing = config['source_localize_microstates']['spacing']
+		self.source_localization_method = config['source_localize_microstates']['source_localization_method']
 
 	def load_raw(self):
+		'''
+		get all avaliable eeg file path
+		'''
 		if self.load_all_files:
 			self.pattern = '*'
 		else:
@@ -132,7 +141,7 @@ class ToolBox:
 		length_all_data = []
 		counter = 1
 		for filename in tqdm(self.list_eegs_path):
-			progress, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(
+			progress, eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(
 					filename,
 					self.list_eegs_path,
 					self.extension,
@@ -146,35 +155,22 @@ class ToolBox:
 					self.sample_rate,
 					self.ch2rm
 					)
+
+			self.eeg_info = eeg.info
 			# Save EEG info
 			if not self.sample_rate:
-				self.sample_rate = int(eeg_info['sfreq'])
-			self.preprocessed_data = preprocessed_data.T # TODO: test
-			self.eeg_info = eeg_info
+				self.sample_rate = int(self.eeg_info['sfreq'])
 			self.channels2remove = channels2remove
 
 			save_eeg_info(self.eeg_info_path, eeg_info)
 
-			ch_names, ch_location = list(eeg_info['ch_names']), eeg_info['chs']
+			ch_names, ch_location = list(self.eeg_info['ch_names']), self.eeg_info['chs']
 			n_chan = len(ch_names)
 			self.n_chan = n_chan
 			self.ch_names = ch_names
 			name = os.path.basename(filename)
 			name = os.path.splitext(name)[0]
-			save_path = os.path.join(self.preprocessed_data_path, name + ".hdf")
-			with h5py.File(save_path, "w") as hf:
-				dataset = hf.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
-				# add metadata
-				dataset.attrs['data_length'] = preprocessed_data.shape[1]
-				dataset.attrs['eeg_format'] = self.extension
-				dataset.attrs['data_type'] = self.data_type
-				dataset.attrs['nchan'] = n_chan
-				dataset.attrs['ch_names'] = ch_names
-				dataset.attrs['ch_removed'] = self.ch2rm
-				dataset.attrs['sample_rate'] = self.sample_rate
-				dataset.attrs['filter_method'] = self.filter_method
-				dataset.attrs['lowcut_freq'] = self.lowcut_freq
-				dataset.attrs['highcut_freq'] = self.highcut_freq
+			save_path = os.path.join(self.preprocessed_data_path, name)
 			if counter == 1:
 				filenames = filename
 				catdata = preprocessed_data
@@ -186,6 +182,11 @@ class ToolBox:
 			self.length_all_data = np.append(length_all_data, int(length_data))
 			# print("Progress:", progress, "%")
 
+			# save EEG object
+			print('START TO EXPORT EEGS')
+			export_eegs(eeg, save_path, self.extension, self.data_type)
+			print('DONE')
+
 			# if progress == 100:
 		print("\nSaving the concatenated data ...")
 		# Save catdata
@@ -193,9 +194,8 @@ class ToolBox:
 		with h5py.File(catdata_filename, "w") as catf:
 			catf.create_dataset(self.study_name, data=catdata, compression="gzip", compression_opts=9)
 		self.done_preprocessing = True
-		# TODO: Write logs to config
-		# Write "preprocessing settings" to config
-		# Write "preprocessing results" to config
+		if self.auto_save:
+			self.save_tbx()
 			
 
 	def do_clustering(self):
@@ -252,6 +252,8 @@ class ToolBox:
 		print(f'Global Explained Variance: {self.gev}')
 		self.done_clustering = True
 		# return best_maps
+		if self.auto_save:
+			self.save_tbx()
 
 	def do_labeling(self):
 		# TODO: label maps
@@ -269,9 +271,13 @@ class ToolBox:
 					 self.filter_segments_option,
 					 self.remove_segments_less_than,
 					 self.micro_labels,
-					 self.raw_features_path
+					 self.raw_features_path,
+					 self.extension,
+					 self.data_type
 					 )
 		self.done_backfitting = True
+		if self.auto_save:
+			self.save_tbx()
 
 
 	def extract_features_from_map(self):
@@ -288,7 +294,9 @@ class ToolBox:
 														 self.sample_rate,
 														 self.Features,
 														 np.min(length_data), 
-														 self.duration_of_window
+														 self.duration_of_window,
+														 self.extension,
+														 self.data_type
 														 )
 		save_features(extracted_features_df, 'extracted_features',
 							  self.output_format,
@@ -303,6 +311,8 @@ class ToolBox:
 							 self.raw_transitions_path)
 		print('\n*** Finished ***')
 		self.done_extracting_features = True
+		if self.auto_save:
+			self.save_tbx()
 
 	def source_localize_microstates(self):
 		print("Source Localizing Microstates ...")
@@ -312,13 +322,19 @@ class ToolBox:
 
 		# eeg_info = load_eeg_info(self.eeg_info_path)
 		run_source_localization(self.preprocessed_data_path,
+										self.hf_segmentation_path,
 										self.localized_sources_path,
-										self.eeg_info,
+										'fsaverage', # TODO: 
 										microstate_maps,
 										self.inverse_method,
 										self.nperm,
-										self.spacing)
+										self.spacing,
+										self.source_localization_method,
+										self.extension,
+										self.data_type)
 		self.done_source_localization = True
+		if self.auto_save:
+			self.save_tbx()
 
 	def save_tbx(self):
 		self.tbx_object_path = os.path.join(self.save_dir, 'tbx_object.pkl')

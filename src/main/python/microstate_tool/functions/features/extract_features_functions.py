@@ -13,7 +13,7 @@ import h5py
 import pickle
 from itertools import groupby
 
-from functions.utils.data_io import find_data
+from functions.utils.data_io import find_data, load_eegs, get_eeg_data
 from functions.utils.compute_gev import compute_gev
 from functions.utils.save_features import save_features
 from functions.utils.remove_consecutive_duplicates import remove_consecutive_duplicates
@@ -118,8 +118,8 @@ def save_transitions(segmentation_folder, micro_labels, file_format, save_path):
         save_features(tm_df, 'transition_matrix_' + filename, file_format, save_path)
 
 
-def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_labels, fs, features, min_length, duration_of_window):
-    file_names = find_data(preprocessed_data_path, ".hdf", "*")
+def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_labels, fs, features, min_length, duration_of_window, extension, datatype):
+    file_names = find_data(preprocessed_data_path, extension, "*")
     hf_segmentation = h5py.File(hf_segmentation_path, 'r')
     study_name = list(hf_segmentation.keys())[0]
     extracted_features_df = pd.DataFrame()
@@ -128,9 +128,11 @@ def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_l
         extracted_features, headers = [], []
         lst_dict = []
         headers = np.append(headers, "Filename")
-        hf = h5py.File(filename, "r")
-        data = hf[list(hf.keys())[0]]
-        data = np.asarray(data)
+        # hf = h5py.File(filename, "r")
+        # data = hf[list(hf.keys())[0]]
+        # data = np.asarray(data)
+        eeg = load_eegs(filename, extension, datatype)
+        data = get_eeg_data(eeg, datatype)
 
         filename = os.path.split(filename)[1].split('.')[0]
         print("\nExtracting Features", filename)

@@ -47,8 +47,8 @@ def find_data(input_folder, extension, pattern):
     return list_data
 
 
-def load_eegs(filename, eeg_format, datatype, channel_location_dir, chan2rm):
-    if datatype == 'continuous':
+def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[]):
+    if datatype == 'raw':
 
         # Load the eeg file
         if eeg_format == ".vhdr":
@@ -93,7 +93,28 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir, chan2rm):
 
 # def dump_eegs(filename, eeg_format, datatype, eeg):
 
+def export_eegs(eeg, save_path, extension, datatype):
+    print('*'*20, 'save')
+    avaliable_extensions = ['.vhdr', '.set', '.edf']
+    if not extension in avaliable_extensions:
+        extension = '.set'
+    if datatype == 'raw':
+        mne.export.export_raw(save_path+extension, eeg, fmt='auto', overwrite=True)
+    elif datatype == 'epoched':
+        mne.export.export_epochs(save_path+extension, eeg, fmt='auto', overwrite=True)
 
+def get_eeg_data(eeg, datatype):
+    if datatype == "epoched":
+        # TODO: try to use reshape instead of append
+        for index in range(eeg.__len__()):
+            if index == 0:
+                data = np.squeeze(eeg[0].get_data())
+            else:
+                epoch = np.squeeze(eeg[index].get_data())
+                data = np.append(data, epoch, axis=1)
+    else:
+        data = eeg.get_data()
+    return data
 
 def initialize_config(config_path, config):
     # Create sections
