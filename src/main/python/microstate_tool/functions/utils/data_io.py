@@ -1,9 +1,17 @@
-import pickle
+"""
+Description: EEG Data Loading and Preprocessing Script
+
+This script provides functions for loading and preprocessing EEG data from different formats using the MNE-Python library.
+It supports loading raw or epoched data, applying channel location information, removing channels, and applying average
+reference projection. The script is designed to enhance flexibility and efficiency when working with EEG data.
+"""
+
 import os.path
-import mne
-from fnmatch import fnmatch
+import pickle
 from configparser import ConfigParser
+from fnmatch import fnmatch
 import numpy as np
+import mne
 
 
 def save_eeg_info(eeg_info_path, eeg_info):
@@ -97,9 +105,32 @@ def find_data(input_folder, extension, pattern):
 
 
 def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[]):
+    """
+    Load EEG data from different formats and preprocess if needed.
+
+    Parameters:
+    filename (str): The path to the EEG data file.
+    eeg_format (str): The format of the EEG data file (e.g., 'edf', 'fif', 'set').
+    datatype (str): The type of EEG data ('raw' for continuous data or 'epoched' for segmented data).
+    channel_location_dir (str): The directory path for channel location information (optional).
+    chan2rm (list): List of channel names to be removed (optional).
+
+    Returns:
+    eeg_data (mne.Raw or mne.Epochs): The loaded and optionally preprocessed EEG data.
+
+    Explanation:
+    This function loads EEG data from different file formats using the MNE-Python library. It provides flexibility
+    in choosing the EEG data format and handling different data types (raw or epoched). Additionally, it supports
+    optional preprocessing steps such as removing specific channels.
+
+    Example usage:
+    >>> eeg_data = load_eegs('eeg_data.edf', 'edf', 'raw')
+    >>> eeg_data = load_eegs('eeg_data.fif', 'fif', 'epoched', channel_location_dir='channel_locs/')
+    """
+
     if datatype == 'raw':
 
-        # Load the eeg file
+        # Load EEG data based on the specified format
         if eeg_format == ".vhdr":
             eeg = mne.io.read_raw_brainvision(filename, preload=True, verbose='CRITICAL')
         elif eeg_format == ".edf":
@@ -126,7 +157,7 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[
         if eeg_format == ".set":
             eeg = mne.io.read_epochs_eeglab(filename, verbose='CRITICAL')
 
-    # Load the eeg channel location
+    # Optional: Load channel locations if provided
     if channel_location_dir:
         montage = mne.channels.read_custom_montage(channel_location_dir)
         eeg.set_montage(montage)
