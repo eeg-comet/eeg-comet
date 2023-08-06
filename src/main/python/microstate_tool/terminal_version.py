@@ -4,7 +4,6 @@ from ToolBox import ToolBox
 import pickle
 import matplotlib.pyplot as plt
 import mne
-from functions.utils.data_io import import_hdf_data
 from functions.utils.extract_peaks_maps import extract_peaks_maps
 
 def main():
