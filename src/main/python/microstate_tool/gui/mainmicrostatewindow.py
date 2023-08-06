@@ -16,7 +16,7 @@ from gui.microsegdialog import MicroSegDialog
 
 import pickle
 
-from functions.utils.data_io import load_eeg_info, import_hdf_data, find_data, load_config, save_config
+from functions.utils.data_io import load_eeg_info, find_data, load_config, save_config
 from functions.utils.backfit_func import backfit_func
 from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data

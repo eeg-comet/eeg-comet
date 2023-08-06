@@ -31,7 +31,7 @@ from pyclustering.utils.metric import distance_metric, type_metric
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from sklearn.cluster import MiniBatchKMeans
 
-from functions.utils.data_io import import_hdf_data
+#from functions.utils.data_io import import_hdf_data
 from functions.modified_kmeans import run_modified_kmeans, run_minibatch_modified_kmeans
 from functions.utils.compute_gev import compute_gev
 from functions.utils.extract_peaks_maps import extract_peaks_maps
