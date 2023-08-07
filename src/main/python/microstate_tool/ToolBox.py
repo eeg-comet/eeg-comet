@@ -133,8 +133,6 @@ class ToolBox:
 		if not os.path.exists(self.preprocessed_data_path):
 			os.makedirs(self.preprocessed_data_path)
 
-		print("preprocessing data ...")
-
 		length_all_data = []
 		counter = 1
 		for filename in tqdm(self.list_eegs_path):
@@ -168,21 +166,13 @@ class ToolBox:
 			name = os.path.basename(filename)
 			name = os.path.splitext(name)[0]
 			save_path = os.path.join(self.preprocessed_data_path, name)
-			if counter == 1:
-				filenames = filename
-				catdata = preprocessed_data
-			else:
-				filenames = np.append(filenames, filename)
-				catdata = np.append(catdata, preprocessed_data, axis=1)
-			counter += 1
 			
 			self.length_all_data = np.append(length_all_data, int(length_data))
 			# print("Progress:", progress, "%")
 
 			# save EEG object
-			print('START TO EXPORT EEGS')
+			print(f"\nPreprocessing file: {filename}")
 			export_eegs(eeg, save_path, self.extension, self.data_type)
-			print('DONE')
 
 		self.done_preprocessing = True
 		if self.auto_save:
