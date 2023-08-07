@@ -356,7 +356,7 @@ class NewStudyWindow(QDialog):
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir, [])
+        EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir)
         EEG.plot()
 
     def plot_PSD(self):
@@ -377,5 +377,5 @@ class NewStudyWindow(QDialog):
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
                      ax.get_xticklabels() + ax.get_yticklabels()):
             item.set_fontsize(18)
-        EEG.plot_psd(fmin=fmin_plot, fmax=fmax_plot, ax=ax)
+        mne.viz.plot_raw_psd(EEG, fmin=fmin_plot, fmax=fmax_plot, ax=ax)
         self.ui.MplWidget_psd.canvas.draw()

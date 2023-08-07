@@ -49,12 +49,12 @@ def preprocess_eegs(eegfile,
     # Filter
     if filter_true:
         eeg = eeg.filter(l_freq=lowcut, h_freq=highcut,
-                         method=filtermethod, n_jobs=-1)
+                         method=filtermethod, n_jobs=-1, verbose='WARNING')
     # Downsample
     sfreq = eeg.info['sfreq']
     if downsample_true:
         if sfreq != fs:
-            eeg = eeg.resample(fs)
+            eeg = eeg.resample(fs, verbose='WARNING')
     else:
         fs = sfreq
 

@@ -161,17 +161,17 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[
     # Optional: Load channel locations if provided
     if channel_location_dir:
         montage = mne.channels.read_custom_montage(channel_location_dir)
-        eeg.set_montage(montage)
+        eeg.set_montage(montage, verbose=verbose)
 
     # Pick channels
     eeg = eeg.pick_types(meg=False, eeg=True, eog=False,
                          exclude=chan2rm, verbose=verbose)
 
     # Add average reference projection
-    eeg.set_eeg_reference('average', projection=True)
+    eeg.set_eeg_reference('average', projection=True, verbose=verbose)
 
     # Apply the added projection
-    eeg.apply_proj()
+    eeg.apply_proj(verbose=verbose)
 
     return eeg
 

@@ -1,17 +1,14 @@
 from functions.utils.data_io import find_data, load_eegs, save_eeg_info, initialize_config, load_config, load_eeg_info, export_eegs
 import os
 from functions import preprocess
-import h5py
 import numpy as np
 import pandas as pd
-import warnings
 from tqdm import tqdm
 from functions.clustering_functions import number_of_clusters, clustering_func
 from functions.utils.backfit_func import backfit_func
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
 	save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
 import matplotlib.pyplot as plt
-import mne
 from functions.features.source_localization_functions import run_source_localization #, visualize_sources
 import pickle
 
