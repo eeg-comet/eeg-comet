@@ -65,7 +65,6 @@ class ToolBox:
 		self.smoothing_gfp = config.getboolean('do_clustering', 'smoothing_gfp')
 		self.smoothing_distance = config.getint('do_clustering', 'smoothing_distance') if self.smoothing_gfp else ''
 		self.raw_features_path = os.path.join(self.save_dir, 'raw_features')
-		self.hdf_concatenated_data_path = os.path.join(self.save_dir, self.study_name+'_concatenated_data.hdf')
 		number_of_maps = config['do_clustering']['number_of_maps']
 		self.number_of_maps = number_of_maps if number_of_maps=='auto' else int(number_of_maps)
 		self.choose_number_of_maps = 'Auto' if number_of_maps == 'auto' else 'User'
@@ -75,6 +74,7 @@ class ToolBox:
 		self.kmax = config.getint('do_clustering', 'kmax') if self.number_of_maps == 'auto' else ''
 		self.initializer = config['do_clustering']['initializer']
 		self.clustering_method = config['do_clustering']['clustering_method']
+		self.max_iterations = config.getint('do_clustering', 'max_iterations')
 		self.clustering_tolerance = config.getfloat('do_clustering', 'clustering_tolerance')
 		need_options = ['X-means', 'Agglomerative hierarchical clustering', 'K-means']
 		self.clustering_option = config['do_clustering']['clustering_option'] if self.clustering_method in need_options else ''
@@ -187,12 +187,6 @@ class ToolBox:
 			export_eegs(eeg, save_path, self.extension, self.data_type)
 			print('DONE')
 
-			# if progress == 100:
-		print("\nSaving the concatenated data ...")
-		# Save catdata
-		catdata_filename = os.path.join(self.save_dir, self.study_name + "_concatenated_data.hdf")
-		with h5py.File(catdata_filename, "w") as catf:
-			catf.create_dataset(self.study_name, data=catdata, compression="gzip", compression_opts=9)
 		self.done_preprocessing = True
 		if self.auto_save:
 			self.save_tbx()
@@ -208,31 +202,25 @@ class ToolBox:
 			self.min_distance_size = []
 
 		avaliable_methods = ['Modified K-means',
-							'Mini Batch Modified K-means',
 							'K-means',
-							'Mini Batch K-means',
 							'X-means',
 							'Agglomerative hierarchical clustering',
-							'TTSAS',
-							'BSAS',
-							'CLARANS',
-							'MBSAS',
-							'OPTICS',
-							'ROCK',
-							'DBSCAN'
 							]
 		assert self.clustering_method in avaliable_methods, "clustering_method not supported"
 
 		best_maps, gev, _, n_states = clustering_func(
 					self.preprocessed_data_path,
-					self.hdf_concatenated_data_path,
+					self.extension,
+					self.data_type,
 					self.n_chan,
 					self.clustering_method,
 					self.number_of_maps,
 					self.initializer,
+					self.use_percentages,
 					self.min_distance_size,
-					self.number_of_repeats,
+					self.max_iterations,
 					self.clustering_tolerance,
+					self.number_of_repeats,
 					self.clustering_option,
 					self.stopping_mode,
 					self.stopping_parameter,

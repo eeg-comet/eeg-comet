@@ -1,17 +1,12 @@
 
 
 import numpy as np
-import h5py
-import os.path
 from collections import Counter
-from functions.utils.data_io import find_data
 from functions.utils.compute_gev import compute_gev
-from functions.utils.map_initializer import map_initializer
-from functions.utils.extract_peaks_maps import extract_peaks_maps
+from functions.utils.extract_peaks_maps import initialize_cluster_centers
 
 
-def modified_kmeans(data, initial_maps, n_states, thresh):
-
+def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6):
 
     # Get the dimensions of the data
     n_channels, n_samples = data.shape
@@ -27,10 +22,10 @@ def modified_kmeans(data, initial_maps, n_states, thresh):
     prev_residual = np.inf
     residual = prev_residual
 
-    while residual > thresh:
+    for iteration in range(max_iter):
         # Assign each sample to the best matching microstate
-        activation = np.dot(maps, data) ** 2
-        segmentation = np.argmax(activation, axis=0)
+        activation = maps.dot(data)
+        segmentation = np.argmax(np.abs(activation), axis=0)
 
         for state in range(n_states):
             idx = (segmentation == state)
@@ -130,12 +125,8 @@ def segmentation_smooth(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
     
     # return segmentation
 
-def run_modified_kmeans(data, min_dist, n_states, thresh, n_inits, initializer):
-    # Extract peaks and maps from the data
-    all_maps, peaks = extract_peaks_maps(data, min_dist)
-    # print(all_maps.shape)
-    # print(peaks.shape)
-    # print(data.shape)
+def run_modified_kmeans(maps2use, n_states, max_iter, thresh, n_inits, initializer):
+
     # Initialize variables to store the best results
     best_residual = None
     best_gev = 0
@@ -146,13 +137,13 @@ def run_modified_kmeans(data, min_dist, n_states, thresh, n_inits, initializer):
         print('\nClustering #', init + 1, 'of', n_inits)
 
         # Initialize microstate maps using the specified initializer
-        initial_maps = map_initializer(data, all_maps, peaks, n_states, initializer)
+        initial_maps = initialize_cluster_centers(maps2use, n_states, initializer)
 
         # Run modified k-means algorithm
-        maps, residual = modified_kmeans(data, initial_maps, n_states, thresh)
+        maps, residual = modified_kmeans(maps2use, initial_maps, n_states, max_iter, thresh)
 
         # Compute GEV (Global Explained Variance)
-        gev = compute_gev(data, maps)
+        gev = compute_gev(maps2use, maps)
 
         print('Found', n_states, 'Microstate Maps')
         print('GEV:', gev)
@@ -164,29 +155,3 @@ def run_modified_kmeans(data, min_dist, n_states, thresh, n_inits, initializer):
     print('\nBest GEV:', best_gev)
     return best_maps, best_gev, best_residual
 
-
-def run_minibatch_modified_kmeans(preprocessed_data_path, min_dist, n_states, thresh, n_inits, initializer):
-    file_names = find_data(preprocessed_data_path, ".hdf", "*")
-    counter = 1
-    best_residual, best_gev, best_maps = None, 0, None
-    for filename in file_names:
-        hf = h5py.File(filename, "r")
-        dataset_k = hf[list(hf.keys())[0]]
-        dataset_k = np.asarray(dataset_k)
-        filename = os.path.split(filename)[1].split('.')[0]
-        print('\n', filename)
-        if counter == 1:
-            all_maps, peaks = extract_peaks_maps(dataset_k, min_dist)
-            initial_maps = map_initializer(dataset_k, all_maps, peaks, n_states, initializer)
-        else:
-            initial_maps = best_maps
-        for init in range(n_inits):
-            print('Mini Batch Clustering #', str(init + 1), 'of', str(n_inits))
-            maps, residual = modified_kmeans(dataset_k, initial_maps, n_states, thresh)
-            gev = compute_gev(dataset_k, maps)
-            print('Found', str(n_states), 'Microstate Maps')
-            print('GEV:', str(gev))
-            if gev > best_gev:
-                best_residual, best_gev, best_maps = residual, gev, maps
-            counter += 1
-    return best_maps, best_gev, best_residual

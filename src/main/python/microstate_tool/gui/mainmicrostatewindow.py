@@ -12,7 +12,6 @@ from gui.newstudywindow import NewStudyWindow
 from gui.numbermapsdialog import NumberMapsDialog
 from gui.microstatedialog import MicrostateDialog
 from gui.visualizationdialog import VisualizationDialog
-from gui.microsegdialog import MicroSegDialog
 
 import pickle
 
@@ -21,7 +20,6 @@ from functions.utils.backfit_func import backfit_func
 from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data
 from functions.clustering_functions import number_of_clusters, clustering_func
-from functions.modified_kmeans import run_minibatch_modified_kmeans
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
     save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
 from functions.features.source_localization_tess import run_source_localization, visualize_sources
@@ -56,7 +54,6 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.NewStudyWindow = NewStudyWindow(context, main_window=self, tbx=self.tbx)
         self.ui.NumberMapsDialog = NumberMapsDialog(context)
         
-        self.ui.MicroSegDialog = MicroSegDialog()
         # self.ui.VisualizationDialog = VisualizationDialog(context, tbx=self.tbx)
 
         self.done_preprocessing = False
@@ -245,8 +242,13 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_initializer_label,
             self.ui.step2_random_initializer_radio,
             self.ui.step2_kmeans_initializer_radio,
+            self.ui.step2_maxiter_label,
+            self.ui.step2_maxiter_input,
             self.ui.step2_stopcondition_label,
             self.ui.step2_stopcondition_input,
+            self.ui.step2_use_percent_radio,
+            self.ui.step2_percent_combobox,
+            self.ui.step2_percent_label,
             self.ui.step2_kernel_size_label,
             self.ui.step2_kernel_size_input,
             self.ui.step2_kernel_size_label_2,
@@ -302,8 +304,8 @@ class MainMicrostateWindow(QMainWindow):
 
         self.tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
         if self.tbx.clustering_method == "K-means":
-            self.ui.step2_other_label.setText("K-means distance metric:")
-            options = ['Euclidean', 'Euclidean Square', 'Cosine Similarity', 'Spatial Correlation']
+            self.ui.step2_other_label.setText("Similarity metric:")
+            options = ['Cosine Similarity', 'Spatial Correlation']
             self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
 
         elif self.tbx.clustering_method == "Agglomerative hierarchical clustering":
@@ -573,6 +575,12 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.initializer = "K-Means++"
             self.tbx.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
             print(self.tbx.clustering_method)
+
+            if self.ui.step2_use_percent_radio.isChecked():
+                self.tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
+            else:
+                self.tbx.use_percentages = None
+            self.tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
             self.tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
             #print(self.clustering_tolerance)
             self.tbx.clustering_option = self.ui.step2_other_options_combobox.currentText()
@@ -727,18 +735,6 @@ class MainMicrostateWindow(QMainWindow):
             save_config(config_file, config)
             self.mainwindow_controller()
 
-    def visualize_microsegments(self):
-        # UNDER DEVELOPMENT
-        print("under development ...")
-        '''
-        self.MicroSegDialog.number_of_maps = int(self.number_of_maps)
-        self.MicroSegDialog.micro_segments_path = self.micro_segments_path
-        self.MicroSegDialog.ch_names = self.ch_names
-        self.MicroSegDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.MicroSegDialog.showMaximized()
-        if self.MicroSegDialog.done_extracting_microsegments:
-            self.done_extracting_microsegments = True
-        '''
 
     def extract_features(self):
         # Load config

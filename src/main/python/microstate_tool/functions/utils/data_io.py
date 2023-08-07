@@ -65,7 +65,7 @@ def load_eeg_info(eeg_info_path):
     return eeg_info
 
 
-def find_data(input_folder, extension, pattern):
+def find_data(input_folder, extension, pattern='*'):
     """
     Recursively search for data files within a folder based on extension and pattern.
 
@@ -128,34 +128,35 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[
     >>> eeg_data = load_eegs('eeg_data.fif', 'fif', 'epoched', channel_location_dir='channel_locs/')
     """
 
+    verbose = 'WARNING'
     if datatype == 'raw':
 
         # Load EEG data based on the specified format
         if eeg_format == ".vhdr":
-            eeg = mne.io.read_raw_brainvision(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_brainvision(filename, preload=True, verbose=verbose)
         elif eeg_format == ".edf":
-            eeg = mne.io.read_raw_edf(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_edf(filename, preload=True, verbose=verbose)
         elif eeg_format == ".bdf":
-            eeg = mne.io.read_raw_bdf(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_bdf(filename, preload=True, verbose=verbose)
         elif eeg_format == ".gdf":
-            eeg = mne.io.read_raw_gdf(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_gdf(filename, preload=True, verbose=verbose)
         elif eeg_format == ".cnt":
-            eeg = mne.io.read_raw_cnt(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_cnt(filename, preload=True, verbose=verbose)
         elif eeg_format == ".egi" or eeg_format == ".mff":
-            eeg = mne.io.read_raw_egi(filename, preload=True, verbose='CRITICAL')            
+            eeg = mne.io.read_raw_egi(filename, preload=True, verbose=verbose)
         elif eeg_format == ".set":
-            eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose=verbose)
         elif eeg_format == ".data":
-            eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose=verbose)
         elif eeg_format == ".nxe":
-            eeg = mne.io.read_raw_eximia(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_eximia(filename, preload=True, verbose=verbose)
         elif eeg_format == ".lay":
-            eeg = mne.io.read_raw_persyst(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_persyst(filename, preload=True, verbose=verbose)
         elif eeg_format == ".eeg":
-            eeg = mne.io.read_raw_nihon(filename, preload=True, verbose='CRITICAL')
+            eeg = mne.io.read_raw_nihon(filename, preload=True, verbose=verbose)
     elif datatype == 'epoched':
         if eeg_format == ".set":
-            eeg = mne.io.read_epochs_eeglab(filename, verbose='CRITICAL')
+            eeg = mne.io.read_epochs_eeglab(filename, verbose=verbose)
 
     # Optional: Load channel locations if provided
     if channel_location_dir:
@@ -164,7 +165,7 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[
 
     # Pick channels
     eeg = eeg.pick_types(meg=False, eeg=True, eog=False,
-                         exclude=chan2rm, verbose='CRITICAL')
+                         exclude=chan2rm, verbose=verbose)
 
     # Add average reference projection
     eeg.set_eeg_reference('average', projection=True)
