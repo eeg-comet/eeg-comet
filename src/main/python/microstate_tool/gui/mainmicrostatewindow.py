@@ -12,6 +12,7 @@ from gui.newstudywindow import NewStudyWindow
 from gui.numbermapsdialog import NumberMapsDialog
 from gui.microstatedialog import MicrostateDialog
 from gui.visualizationdialog import VisualizationDialog
+from gui.sourcevisualizationdialog import SourceVisualizationDialog
 
 import pickle
 
@@ -21,7 +22,7 @@ from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
     save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
-from functions.features.source_localization_tess import run_source_localization, visualize_sources
+#from functions.features.source_localization_functions import run_source_localization
 
 from ToolBox import ToolBox
 
@@ -52,6 +53,7 @@ class MainMicrostateWindow(QMainWindow):
 
         self.ui.NewStudyWindow = NewStudyWindow(context, main_window=self, tbx=self.tbx)
         self.ui.NumberMapsDialog = NumberMapsDialog(context)
+        self.ui.SourceVisualizationDialog = SourceVisualizationDialog(context)
         
         # self.ui.VisualizationDialog = VisualizationDialog(context, tbx=self.tbx)
 
@@ -810,7 +812,10 @@ class MainMicrostateWindow(QMainWindow):
             self.mainwindow_controller()
             
     def visualize_source_localized_microstates(self):
-        visualize_sources(self.tbx.localized_sources_path, self.tbx.spacing)
+        # TODO
+        self.SourceVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.SourceVisualizationDialog.showMaximized()
+        #visualize_sources(self.tbx.localized_sources_path, self.tbx.spacing)
 
     def exit_msg(self, event):
         reply = QMessageBox.question(self, "Quit",
