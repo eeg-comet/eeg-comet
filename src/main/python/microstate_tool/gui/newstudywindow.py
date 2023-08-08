@@ -29,7 +29,6 @@ class NewStudyWindow(QDialog):
         
         self.ui.setWindowTitle("New Study - Import Raw Data and Preprocess")
         self.done_preprocessing = False
-        self.channel_location_dir = ''
 
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_pattern_radio.clicked.connect(self.newstudy_controller)
@@ -52,6 +51,7 @@ class NewStudyWindow(QDialog):
         self.ui.step0_clear_files_button.clicked.connect(self.clear_files)
 
         self.tbx = tbx
+        self.tbx.channel_location_dir = ""
 
 
     def newstudy_controller(self):

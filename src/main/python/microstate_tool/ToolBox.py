@@ -215,11 +215,11 @@ class ToolBox:
 					self.kmax
 					)
 		# microstate_maps = best_maps
-		self.best_maps = best_maps
+		self.best_maps = np.array(best_maps)
 		self.n_states = n_states
 
 		# Save Maps
-		maps_df = pd.DataFrame(best_maps.T, index=self.ch_names)
+		maps_df = pd.DataFrame(self.best_maps.T, index=self.ch_names)
 		maps_df.to_csv(self.microstate_maps_path)
 
 		

@@ -56,10 +56,12 @@ def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None):
     gfp = np.std(data, axis=0)
 
     if use_percentages is not None:
-        num_samples = int(data.shape[1] * (use_percentages / 100))
+        num_samples = int(data.shape[1] * (int(use_percentages) / 100))
         peaks = np.random.choice(data.shape[1], size=num_samples, replace=False)
         maps = data[:, peaks]
     else:
+        if min_dist == 0:
+            min_dist = None
         peaks, _ = find_peaks(gfp, distance=min_dist)
         maps = data[:, peaks]
 

@@ -111,7 +111,7 @@ def clustering_func(preprocessed_data_path, extension, datatype,
     '''
 
     maps2use, peaks2use = generate_maps_and_peaks(preprocessed_data_path, extension, datatype,
-                                                  int(use_percentages), min_dist)
+                                                  use_percentages, min_dist)
 
     if n_states == 'auto':
 
