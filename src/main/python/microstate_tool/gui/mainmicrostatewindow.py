@@ -19,7 +19,6 @@ from functions.utils.data_io import load_eeg_info, find_data, load_config, save_
 from functions.utils.backfit_func import backfit_func
 from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data
-from functions.clustering_functions import number_of_clusters, clustering_func
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
     save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
 from functions.features.source_localization_tess import run_source_localization, visualize_sources
@@ -162,7 +161,6 @@ class MainMicrostateWindow(QMainWindow):
 
         # Load preprocessing information
         if self.tbx.done_preprocessing:
-            self.tbx.hdf_concatenated_data_path = os.path.join(self.tbx.save_dir, self.tbx.study_name+'_concatenated_data.hdf')
             self.tbx.hf_segmentation_path = os.path.join(self.tbx.raw_features_path, self.tbx.study_name+'_segmentation.hdf')
 
             # Show study name on the main window
@@ -246,6 +244,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_maxiter_input,
             self.ui.step2_stopcondition_label,
             self.ui.step2_stopcondition_input,
+            self.ui.step2_use_peaks_radio,
             self.ui.step2_use_percent_radio,
             self.ui.step2_percent_combobox,
             self.ui.step2_percent_label,
@@ -503,7 +502,10 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step4_complexity_featurestoextract_checkbox.setChecked(False)
 
     def plot_elbow(self):
-        self.NumberMapsDialog.data = import_hdf_data(self.tbx.hdf_concatenated_data_path)
+        #self.NumberMapsDialog.preprocessed_data_path =
+        #self.extension
+        #self.datatype
+        #self.use_percentages
         self.NumberMapsDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
         self.NumberMapsDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
         self.NumberMapsDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
@@ -587,7 +589,6 @@ class MainMicrostateWindow(QMainWindow):
             #print(self.clustering_option)
             self.tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
-            #self.concatenated_data = import_hdf_data(self.hdf_concatenated_data_path)
             self.tbx.do_clustering()
 
             self.label_maps()

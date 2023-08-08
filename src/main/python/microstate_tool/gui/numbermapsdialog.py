@@ -27,8 +27,10 @@ class NumberMapsDialog(QDialog):
         ax_sil = self.ui.MplWidget_silhouette.canvas.axes
         ax_sil.clear()
 
-        get_elbow(self.data, self.min_distance_size, self.clustering_tolerance, self.number_of_repeats,
+        get_elbow(self.preprocessed_data_path, self.extension, self.datatype,
+                  self.use_percentages, self.min_distance_size, self.number_of_repeats,
                   self.k_min, self.k_max, ax1=ax_res, ax2=ax_gev, ax3=ax_sil)
+
         self.ui.MplWidget_residual.canvas.draw()
         self.ui.MplWidget_gev.canvas.draw()
         self.ui.MplWidget_silhouette.canvas.draw()

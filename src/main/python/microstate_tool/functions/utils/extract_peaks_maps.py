@@ -14,7 +14,6 @@ Organization: SFU eBrain Lab, www.ebrainlab.ca
 import numpy as np
 from scipy.signal import find_peaks
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
-from functions.utils.gfp_func import gfp_func
 from functions.utils.data_io import find_data, load_eegs, get_eeg_data
 
 
@@ -53,7 +52,8 @@ def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None):
         maps (numpy array): 2D array of GFP maps at peaks (peaks x channels).
         peaks (numpy array or None): 1D array of GFP peak indices in the EEG data, or None if `use_percentages` is provided.
     """
-    gfp = gfp_func(data)
+    # Global Field Potential (GFP)
+    gfp = np.std(data, axis=0)
 
     if use_percentages is not None:
         num_samples = int(data.shape[1] * (use_percentages / 100))

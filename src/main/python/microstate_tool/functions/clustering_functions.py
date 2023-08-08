@@ -7,41 +7,13 @@ Clustering Functions
 
 import numpy as np
 
-# Don't remove these imports
-# import sklearn.utils._cython_blas
-# import sklearn.neighbors._typedefs
-# import sklearn.neighbors._quad_tree
-# import sklearn.tree
-# import sklearn.utils._weight_vector
-# import sklearn.tree._utils
-# End
-from matplotlib import pyplot as plt
-
-from pyclustering.cluster import kmeans, kmedians, xmeans, agglomerative, elbow, silhouette
+from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouette
 from pyclustering.utils.metric import distance_metric, type_metric
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 
 from functions.utils.compute_gev import compute_gev
 from functions.utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
-from functions.utils.elbow_function import get_elbow_without_plt
-
-
-def number_of_clusters(maps, cmin=2, cmax=10):
-    '''
-    maps: Microstate maps 
-    cmin: Minimum number of clusters to consider 
-    cmax: Maximum number of clusters to consider 
-
-    '''
-
-    # create instance of Elbow method using C value from 2 to 10.
-    # TODO: DEBUG: set ccore to False just for test on arm64 macOS
-    elbow_instance = elbow.elbow(maps, cmin, cmax, ccore=True)
-    # process input data and obtain results of analysis
-    elbow_instance.process()
-    amount_clusters = elbow_instance.get_amount()   # most probable amount of clusters
-    #wce = elbow_instance.get_wce()                  # total within-cluster errors for each K
-    return amount_clusters
+#from functions.utils.elbow_function import get_elbow_without_plt
 
 
 def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6):
@@ -89,7 +61,7 @@ def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6):
     return maps, prev_residual
 
 
-def run_modified_kmeans(maps2use, n_states, max_iter, thresh, n_inits, initializer):
+def run_modified_kmeans(maps2use, n_states, n_inits, initializer='Random', max_iter=500, thresh=1e-6):
 
     # Initialize variables to store the best results
     best_residual = None
@@ -142,18 +114,19 @@ def clustering_func(preprocessed_data_path, extension, datatype,
                                                   int(use_percentages), min_dist)
 
     if n_states == 'auto':
-        n_states = get_elbow_without_plt(maps2use, min_dist, tolerance, n_inits,
-                                         kmin=kmin, kmax=kmax, stopping_mode=stopping_mode, threshold=stopping_parameter)
+
+        #n_states = get_elbow_without_plt(maps2use, min_dist, tolerance, n_inits,
+        #                                 kmin=kmin, kmax=kmax, stopping_mode=stopping_mode, threshold=stopping_parameter)
         print(f'result: n_states = {n_states}')
 
     if method == 'Modified K-means':
         best_maps, best_gev, best_residual = run_modified_kmeans(
             maps2use=maps2use,
             n_states=n_states,
-            max_iter=max_iter,
-            thresh=tolerance,
             n_inits=n_inits,
-            initializer=initializer)
+            initializer=initializer,
+            max_iter=max_iter,
+            thresh=tolerance)
     else:
 
         initial_centers = initialize_cluster_centers(maps2use, n_states, initializer)
@@ -175,7 +148,7 @@ def clustering_func(preprocessed_data_path, extension, datatype,
                 raise ValueError("Failed to match metric")
 
             clustering_instance = kmeans.kmeans(maps2use, initial_centers,
-                                         tolerance=tolerance, itermax=1000,
+                                         tolerance=tolerance, itermax=max_iter,
                                          metric=METRIC)
 
         elif method == 'X-means':

@@ -12,7 +12,6 @@ Organization: SFU eBrain Lab, www.ebrainlab.ca
 
 import numpy as np
 from functions.utils.corr_vectors import corr_vectors
-from functions.utils.gfp_func import gfp_func
 
 
 def compute_gev(data, maps):
@@ -26,7 +25,8 @@ def compute_gev(data, maps):
     Outputs:
         gev (float): The GEV.
     """
-    gfp = gfp_func(data)
+    # Global Field Potential (GFP)
+    gfp = np.std(data, axis=0)
 
     # Normalize the maps
     if maps.ndim == 1:
@@ -46,9 +46,3 @@ def compute_gev(data, maps):
     gev = sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
 
     return gev
-
-
-
-#def compute_gev_minibatch(data, maps):
-#
-#    return gev

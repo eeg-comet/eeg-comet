@@ -4,7 +4,7 @@ from functions import preprocess
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from functions.clustering_functions import number_of_clusters, clustering_func
+from functions.clustering_functions import clustering_func
 from functions.utils.backfit_func import backfit_func
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
 	save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
