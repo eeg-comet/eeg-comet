@@ -4,7 +4,7 @@ from ToolBox import ToolBox
 import pickle
 import matplotlib.pyplot as plt
 import mne
-from functions.utils.extract_peaks_maps import extract_peaks_maps
+# from functions.utils.extract_peaks_maps import extract_peaks_maps
 
 def main():
 	warnings.simplefilter("ignore")
@@ -24,18 +24,18 @@ def main():
 	# load a new study
 	# just like press "New Study Button"
 	
-	tbx = ToolBox(config)
+	# tbx = ToolBox(config)
 
-	tbx.load_raw()
-	tbx.load_channel_location()
-	tbx.load_new_study()
-	tbx.save_tbx()
+	# tbx.load_raw()
+	# tbx.load_channel_location()
+	# tbx.load_new_study()
+	# tbx.save_tbx()
 
 	
 	# with open('/Users/bottlecap/Downloads/tbx.pkl', 'wb') as output:
 	# 	pickle.dump(tbx, output, pickle.HIGHEST_PROTOCOL)
-	# with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
-	# 	tbx = pickle.load(input_tbx)
+	with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
+		tbx = pickle.load(input_tbx)
 	# print(tbx.preprocessed_data.shape)
 	# hdf_concatenated_data_path = '/Users/bottlecap/Downloads/output/test_tbx_4/test_tbx_4_concatenated_data.hdf'
 	# concatenated_data = import_hdf_data(hdf_concatenated_data_path)
@@ -55,11 +55,12 @@ def main():
 	# return
 	# just like press "start clustering"
 
-	tbx.do_clustering()
-	tbx.do_labeling()
+	# tbx.do_clustering()
+	# tbx.do_labeling()
 
 	# do backfitting
 	# just like press "Start Backfitting"
+	tbx.load_config(config)
 	tbx.do_backfitting()
 	# tbx.save_tbx()
 	print(tbx.micro_labels)

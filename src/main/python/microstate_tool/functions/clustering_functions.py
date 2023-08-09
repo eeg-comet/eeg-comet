@@ -10,10 +10,15 @@ import numpy as np
 from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouette
 from pyclustering.utils.metric import distance_metric, type_metric
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
+from scipy.signal import find_peaks
+from sklearn.metrics import silhouette_score
+from sklearn.mixture import GaussianMixture
 
+from functions.utils.corr_vectors import corr_vectors
 from functions.utils.compute_gev import compute_gev
 from functions.utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
-#from functions.utils.elbow_function import get_elbow_without_plt
+
+# from functions.utils.elbow_function import get_elbow_without_plt
 
 
 def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6):
@@ -115,8 +120,8 @@ def clustering_func(preprocessed_data_path, extension, datatype,
 
     if n_states == 'auto':
 
-        #n_states = get_elbow_without_plt(maps2use, min_dist, tolerance, n_inits,
-        #                                 kmin=kmin, kmax=kmax, stopping_mode=stopping_mode, threshold=stopping_parameter)
+        n_states = get_elbow_without_plt(maps2use, tolerance, n_inits,
+                                        kmin=kmin, kmax=kmax, max_iter=max_iter, stopping_mode=stopping_mode, threshold=stopping_parameter)
         print(f'result: n_states = {n_states}')
 
     if method == 'Modified K-means':
@@ -200,3 +205,59 @@ def clustering_func(preprocessed_data_path, extension, datatype,
         print('\nBest GEV:', str(best_gev))
 
     return best_maps, best_gev, best_residual, n_states
+
+def get_elbow_without_plt(maps2use, tolerance, n_inits, kmin, kmax, max_iter, stopping_mode='gev', threshold=0.1):
+    # change thresholf to percentage
+    if threshold > 1:
+        threshold /= 100
+    # gfp = np.std(data, axis=0)
+    # peaks, _ = find_peaks(gfp)
+    # all_maps = data.T
+    # all_maps /= np.linalg.norm(all_maps, axis=1, keepdims=True)
+
+    SIL = []
+    N, RES, GEV = [], [], []
+    for k in range(kmin, kmax+1):
+        print('\nClustering data with', k, 'microstates')
+        gev_i, residual_i = 0, 0
+        for init in range(n_inits):
+            # maps, gev, residual = run_modified_kmeans(maps2use=data,
+            #                                          min_dist=min_dist,
+            #                                          n_states=k,
+            #                                          thresh=tolerance,
+            #                                          n_inits=1,
+            #                                          initializer="Random")
+            maps, gev, residual = run_modified_kmeans(maps2use=maps2use,
+                                                    n_states=k,
+                                                    n_inits=1,
+                                                    initializer="Random",
+                                                    max_iter=max_iter,
+                                                    thresh=tolerance)
+            gev_i = gev_i + gev
+            residual_i = residual_i + residual
+            # Compute the Silhouette score
+            # activation = np.array(maps).dot(data)
+            # classes = np.argmax(np.abs(activation), axis=0)
+            # sil_score_i = np.mean(abs(corr_vectors(data, maps[classes].T)))
+
+        N = np.append(N, k)
+        residual_mean = residual_i / n_inits
+        RES = np.append(RES, residual_mean)
+        gev_mean = gev_i / n_inits
+        GEV = np.append(GEV, gev_mean)
+        # sil_mean = sil_score_i / n_inits
+        # SIL = np.append(SIL, sil_mean)
+        if len(N) == 1:
+            continue
+        if stopping_mode=='gev':
+            if abs(gev_mean - GEV[-2]) / GEV[-2] < threshold:
+                return k
+        elif stopping_mode=='residual':
+            if abs(RES[-2] - residual_mean) / RES[-2]  < threshold:
+                return k
+        # elif stopping_mode=='sil':
+        #     if abs(sil_mean - SIL[-2]) / SIL[-2] < threshold:
+        #         return k
+
+
+    return int((kmin + kmax)/2)

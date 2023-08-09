@@ -339,8 +339,23 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_smooth_segments_radio,
             self.ui.step3_remove_segments_radio,
             self.ui.step3_replace_half_radio,
-            self.ui.step3_replace_nearby_radio
+            self.ui.step3_replace_nearby_radio,
+            self.ui.step3_smooth_segments_epsilon_label,
+            self.ui.step3_smooth_segments_epsilon_input,
+            self.ui.step3_smooth_segments_b_label,
+            self.ui.step3_smooth_segments_b_input,
+            self.ui.step3_smooth_segments_lambda_label,
+            self.ui.step3_smooth_segments_lambda_input
         ] 
+
+        step3_smooth_segments_parameters = [
+            self.ui.step3_smooth_segments_epsilon_label,
+            self.ui.step3_smooth_segments_epsilon_input,
+            self.ui.step3_smooth_segments_b_label,
+            self.ui.step3_smooth_segments_b_input,
+            self.ui.step3_smooth_segments_lambda_label,
+            self.ui.step3_smooth_segments_lambda_input
+        ]
         if self.tbx.done_clustering:
             self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
 
@@ -361,11 +376,16 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(self.ui.step3_filter_segments_checkbox, enable=True)
                 if self.ui.step3_filter_segments_checkbox.isChecked():
                     set_widgets_status(step3_filter_segments, enable=True)
+                    # if self.ui.step3_smooth_segments_radio.isChecked():
+                    #     set_widgets_status(step3_smooth_segments_parameters, enable=True)
+                    # else:
+                    #     set_widgets_status(step3_smooth_segments_parameters, enable=False)
                 else:
                     set_widgets_status(step3_filter_segments, enable=False)
             else: # which means self.ui.step3_backfit_peaks_radio.isChecked():
                 set_widgets_status(step3_filter_segments, enable=False)
                 set_widgets_status(self.ui.step3_filter_segments_checkbox, enable=False)
+                # set_widgets_status(step3_smooth_segments_parameters, enable=False)
 
 
         else:
@@ -629,6 +649,9 @@ class MainMicrostateWindow(QMainWindow):
             elif self.ui.step3_backfit_peaks_radio.isChecked():
                 self.tbx.backfit_to = 'peaks'
 
+            self.tbx.epsilon = ''
+            self.tbx.b = ''
+            self.tbx.lamb = ''
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 self.tbx.filter_segments = True
                 self.tbx.remove_segments_less_than = int(self.ui.step3_filter_segments_input.text())
@@ -640,10 +663,16 @@ class MainMicrostateWindow(QMainWindow):
                     self.tbx.filter_segments_option = 'remove'
                 elif self.ui.step3_smooth_segments_radio.isChecked():
                     self.tbx.filter_segments_option = 'smooth'
+                    # TODO: add parameters
+                    self.tbx.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
+                    self.tbx.b = int(self.ui.step3_smooth_segments_b_input.text())
+                    self.tbx.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
+
             else:
                 self.tbx.filter_segments = False
                 self.tbx.filter_segments_option = ''
                 self.tbx.remove_segments_less_than = []
+
             
             self.tbx.do_backfitting()
             self.tbx.save_tbx()

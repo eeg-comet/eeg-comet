@@ -16,7 +16,7 @@ import seaborn as sns
 import pandas as pd
 from scipy.signal import find_peaks
 from sklearn.metrics import silhouette_score
-from functions.modified_kmeans import run_modified_kmeans
+from functions.clustering_functions import run_modified_kmeans
 from functions.utils.corr_vectors import corr_vectors
 from sklearn.mixture import GaussianMixture
 

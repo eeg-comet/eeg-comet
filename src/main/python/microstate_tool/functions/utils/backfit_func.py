@@ -14,7 +14,7 @@ from functions.utils.data_io import find_data, load_eegs, get_eeg_data
 from functions.utils.substitude_maps_with_duration import substitude_maps_with_duration
 
 
-def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_segments_option, remove_segments_less_than, micro_labels, save_path, extension, datatype):
+def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_segments_option, remove_segments_less_than, micro_labels, save_path, extension, datatype, smooth_param):
     '''
     study_name: the name of the study which has been loaded
     preprocessed_data_path: the path of the preprocessed data
@@ -104,7 +104,8 @@ def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_se
                                                              filter_segments_option,
                                                              data,
                                                              maps,
-                                                             len(micro_labels))
+                                                             len(micro_labels),
+                                                             smooth_param)
         elif method == 'peaks':
             gfp = np.std(data, axis=0)
             peaks, _ = find_peaks(gfp)

@@ -77,12 +77,16 @@ class ToolBox:
 		self.clustering_option = config['do_clustering']['clustering_option'] if self.clustering_method in need_options else ''
 		self.number_of_repeats = config.getint('do_clustering', 'number_of_repeats')
 		self.microstate_maps_path = os.path.join(self.raw_features_path, 'microstate_maps.csv')
+		self.use_percentages = config.getint('do_clustering', 'use_percentages')
 
 		# backfitting
 		self.backfit_to = config['do_backfitting']['backfit_to']
 		self.filter_segments = config.getboolean('do_backfitting', 'filter_segments')
 		self.remove_segments_less_than = config.getint('do_backfitting', 'remove_segments_less_than') if self.filter_segments else ''
 		self.filter_segments_option = config['do_backfitting']['filter_segments_option'] if self.filter_segments else ''
+		self.epsilon = config.getfloat('do_backfitting', 'epsilon')
+		self.b = config.getint('do_backfitting', 'b')
+		self.lamb = config.getint('do_backfitting', 'lamb')
 		# TODO: use models to automatically label them
 		self.micro_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
@@ -248,7 +252,8 @@ class ToolBox:
 					 self.micro_labels,
 					 self.raw_features_path,
 					 self.extension,
-					 self.data_type
+					 self.data_type,
+					 [self.epsilon, self.b, self.lamb]
 					 )
 		self.done_backfitting = True
 		if self.auto_save:
