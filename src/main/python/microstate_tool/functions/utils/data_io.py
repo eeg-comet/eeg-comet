@@ -161,7 +161,7 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[
     # Optional: Load channel locations if provided
     if channel_location_dir:
         montage = mne.channels.read_custom_montage(channel_location_dir)
-        eeg.set_montage(montage, verbose=verbose)
+        eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
 
     # Pick channels
     eeg = eeg.pick_types(meg=False, eeg=True, eog=False,
