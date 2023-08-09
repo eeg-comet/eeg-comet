@@ -15,15 +15,11 @@
 import os.path
 import numpy as np
 import pandas as pd
-import h5py
 from scipy import stats
-# from functions.utils.find_data import find_data
 from functions.utils.data_io import find_data, load_eegs, get_eeg_data
 
-# MNE imports
 import mne
 # mne.viz.set_3d_backend("pyvista")
-
 
 # from mayavi import mlab
 #mlab.init_notebook()
@@ -72,7 +68,7 @@ def load_average_mri(spacing='ico5'):
     return src, bem, trans
 
 
-def individual_mri(subjects_dir, subject, eeg_info):
+def individual_mri(subjects_dir, subject, eeg_info, spacing):
     """
     Perform individual MRI coregistration for a specific subject.
 
@@ -89,7 +85,24 @@ def individual_mri(subjects_dir, subject, eeg_info):
     
     print(f"\nUsing the individual MRI subject: {subject}")
     print('\nThis may take some time to compute ...')
-    
+
+    # Setting up the source space
+    src = mne.setup_source_space(subject=subject,
+                                 spacing=spacing,
+                                 subjects_dir=subjects_dir,
+                                 n_jobs=-1)
+    mne.write_source_spaces(subject + '-' + spacing + '-src.fif', src, overwrite=True)
+
+    # Setting up the boundary-element model
+    model = mne.make_bem_model(subject=subject, subjects_dir=subjects_dir, ico=spacing[-1])
+    mne.write_bem_surfaces(subject + '-5120-5120-5120-bem.fif', model, overwrite=True)
+
+    # Computing the BEM solution
+    bem = mne.make_bem_solution(model, solver='mne')
+    mne.write_bem_solution(subject + '-5120-5120-5120-bem-sol.fif', bem, overwrite=True)
+
+    # Aligning coordinate frames
+
     # Get MNI fiducials for the subject
     fiducials = mne.coreg.get_mni_fiducials(subject=subject,
                                             subjects_dir=subjects_dir)
@@ -113,23 +126,6 @@ def individual_mri(subjects_dir, subject, eeg_info):
     trans = coreg.trans
     mne.write_trans(trans_file, trans, overwrite=True)
 
-    # Set up the source space
-    src = mne.setup_volume_source_space(subject,
-                                        subjects_dir=subjects_dir,
-                                        pos=10.0,  # Distance of sources from the inner skull surface
-                                        mri='T1.mgz',  # T1-weighted MRI file
-                                        mindist=5.0)  # Minimum distance (in mm) between sources and inner skull surface
-
-    # Make BEM surfaces and save to a file
-    bem_surfaces = mne.make_bem_model(subject=subject, ico=4,
-                                      conductivity=(0.3, 0.006, 0.3),  # Conductivities for different layers
-                                      subjects_dir=subjects_dir)
-    bem_path = os.path.join(subjects_dir, subject, 'bem', f'{subject}-bem-sol.fif')
-    mne.write_bem_surfaces(bem_path, bem_surfaces, overwrite=True)
-
-    # Make BEM solution
-    bem = mne.make_bem_solution(bem_surfaces)
-    
     return src, bem, trans
 
 
@@ -148,7 +144,7 @@ def extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_met
 
     Returns:
         stc (mne.SourceEstimate): The source estimate containing the inverse solution.
-        source_time_series (numpy.ndarray): The source time series data.
+        stc_data (numpy.ndarray): The source time series data.
     """
     
     print('\nPerforming source localization ...')
@@ -175,7 +171,9 @@ def extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_met
         # Process raw data
         stc = mne.minimum_norm.apply_inverse_raw(eeg, inverse_operator, lambda2,
                                                 method=inv_method, pick_ori=None, verbose=True)
-        source_time_series = stc.data
+        stc_data = stc.data
+        stc_vertices = stc.vertices
+
     elif data_type == 'epoched':
         # Process epoched data
         stc = mne.minimum_norm.apply_inverse_epochs(eeg, inverse_operator, lambda2,
@@ -184,21 +182,22 @@ def extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_met
         n_trials = len(stc)
         n_sources = stc[0].data.shape[0]
         n_timepoints = stc[0].data.shape[1]  # Assuming all stc objects have the same number of time points
-        source_time_series = np.empty((n_trials, n_sources, n_timepoints))
+        stc_data = np.empty((n_trials, n_sources, n_timepoints))
         for tr in range(n_trials):
-            source_time_series[tr, :, :] = stc[tr].data
-            
-    return stc, source_time_series
+            stc_data[tr, :, :] = stc[tr].data
+        stc_vertices = stc[0].vertices
+
+    return stc, stc_data, stc_vertices
 
 
 # Average sources over times matched with each microstate
-def average_sources_over_microstates(rawfilename, source_time_series,
+def average_sources_over_microstates(rawfilename, stc_data,
                                      labelled_data_path, avg_sources_path):
     """
     Average sources over times matched with each microstate and save the results.
 
     Parameters:
-        source_time_series (numpy.ndarray): The source time series data.
+        stc_data (numpy.ndarray): The source time series data.
         labelled_data_path (str): The path to the directory containing labelled data.
         avg_sources_path (str): The path to save the averaged sources.
 
@@ -210,7 +209,7 @@ def average_sources_over_microstates(rawfilename, source_time_series,
                                             rawfilename + '.csv'), header=0)
     for m in segment_data['segmentation'].unique():
         sources_m_times = segment_data.index[segment_data['segmentation'] == m].tolist()
-        sources_m = source_time_series[sources_m_times, :]
+        sources_m = stc_data[sources_m_times, :]
         sources_m = np.mean(sources_m, axis=0)
         np.save(os.path.join(avg_sources_path, rawfilename + "_sources_" + m), sources_m)
 
@@ -231,16 +230,16 @@ def first_regression(sensor_time_series, maps):
     return all_t_coeff
 
 
-def second_regression(t_coeff, source_time_series):
+def second_regression(t_coeff, stc_data):
     # source time series should have dimensions Time x Sources
-    # beta_coeff = np.linalg.lstsq(t_coeff, source_time_series, rcond=None)[0]
-    beta_coeff = np.linalg.solve(t_coeff.T @ t_coeff, t_coeff.T @ source_time_series)
-    #beta_coeff = sp_lstsq(t_coeff, source_time_series, lapack_driver='gelsy', check_finite=False)[0]
+    # beta_coeff = np.linalg.lstsq(t_coeff, stc_data, rcond=None)[0]
+    beta_coeff = np.linalg.solve(t_coeff.T @ t_coeff, t_coeff.T @ stc_data)
+    #beta_coeff = sp_lstsq(t_coeff, stc_data, lapack_driver='gelsy', check_finite=False)[0]
     return beta_coeff
 
 
 # TESS Algorithm for source localization
-def tess_algorithm(rawfilename, eeg_data, microstate_maps, source_time_series,
+def tess_algorithm(rawfilename, eeg_data, microstate_maps, stc_data,
                    nperm, tess_path):
     """
     Apply the TESS algorithm for source localization and save the results.
@@ -249,7 +248,7 @@ def tess_algorithm(rawfilename, eeg_data, microstate_maps, source_time_series,
     Parameters:
         eeg_data (numpy.ndarray): The EEG data.
         microstate_maps (numpy.ndarray): The microstate maps.
-        source_time_series (numpy.ndarray): The source time series data.
+        stc_data (numpy.ndarray): The source time series data.
         nperm (int): Number of permutations for significance testing.
         z_scores_path (str): The path to save the z-scores.
         p_values_path (str): The path to save the p-values.
@@ -266,7 +265,7 @@ def tess_algorithm(rawfilename, eeg_data, microstate_maps, source_time_series,
         os.makedirs(p_values_path)
     
     t_coeff = first_regression(eeg_data, microstate_maps)
-    beta_coeff = second_regression(t_coeff, source_time_series)
+    beta_coeff = second_regression(t_coeff, stc_data)
 
     # Permutation of beta over t to determine significance
     z_scores = np.zeros(beta_coeff.shape)
@@ -275,7 +274,7 @@ def tess_algorithm(rawfilename, eeg_data, microstate_maps, source_time_series,
     t_shuffle = t_coeff
     for ii in range(0, nperm):
         np.random.shuffle(t_shuffle)
-        beta_dist[:, :, ii] = second_regression(t_shuffle, source_time_series)
+        beta_dist[:, :, ii] = second_regression(t_shuffle, stc_data)
         if (ii % 50) == 0:
             print(ii)
     for idx, x in np.ndenumerate(beta_coeff):
@@ -291,13 +290,7 @@ def tess_algorithm(rawfilename, eeg_data, microstate_maps, source_time_series,
     filtered_z_scores = (p_values < significance) * z_scores
     
     return p_values, z_scores, filtered_z_scores
-    
-    
-# ico3: 642 sources/hemisphere
-# oct5: 1026 sources/hemisphere
-# ico4 - 2562 sources/hemisphere
-# oct6: 4098 sources/hemisphere
-# ico5: 10242 sources/hemisphere
+
 
 def run_source_localization(preprocessed_data_path,
                             labelled_data_path,
@@ -318,11 +311,9 @@ def run_source_localization(preprocessed_data_path,
     microstate_maps (numpy.ndarray): The microstate maps.
     inv_method (str): The inverse method to be used. Valid options are 'MNE', 'dSPM', 'sLORETA', or 'eLORETA'.
     nperm (int): Number of permutations for significance testing. Default is 2000.
-    spacing (str): The spacing parameter for the source space. Valid options are 'ico3', 'oct5', 'ico4', 'oct6', or 'ico5'.
+    spacing (str): The spacing parameter for the source space. Valid options are 'ico3', 'ico4', or 'ico5'.
     - 'ico3': 642 sources/hemisphere
-    - 'oct5': 1026 sources/hemisphere
     - 'ico4': 2562 sources/hemisphere
-    - 'oct6': 4098 sources/hemisphere
     - 'ico5': 10242 sources/hemisphere
     source_localization_method (str): The source localization method. Valid options are 'avg' or 'tess'.
     
@@ -330,7 +321,7 @@ def run_source_localization(preprocessed_data_path,
     None
     """
     
-    source_time_series_path = os.path.join(localized_sources_path, "source_time_series")
+    stc_data_path = os.path.join(localized_sources_path, "stc_data")
     avg_sources_path = os.path.join(localized_sources_path, "avg_sources")
     tess_path = os.path.join(localized_sources_path, "tess_sources")
     # Create a new directory because it does not exist
@@ -380,22 +371,24 @@ def run_source_localization(preprocessed_data_path,
             subjects_list = [name for name in os.listdir(subjects_dir) if os.path.isdir(os.path.join(subjects_dir, name))]
 
             for subject in subjects_list:
-                src, bem, trans = individual_mri(subjects_dir, subject, eeg_info)
+                src, bem, trans = individual_mri(subjects_dir, subject, eeg_info, spacing)
         
         # Source inverse space run
-        stc, source_time_series = extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_method)
-        source_time_series = np.transpose(source_time_series)
+        stc, stc_data, stc_vertices = extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_method)
+        stc_data = np.transpose(stc_data)
         
-        if not os.path.exists(source_time_series_path):
-            os.makedirs(source_time_series_path)
-        np.save(os.path.join(source_time_series_path, rawfilename + "source_time_series_" + rawfilename), source_time_series)
-        
+        if not os.path.exists(stc_data_path):
+            os.makedirs(stc_data_path)
+        # Save stc data and vertices using NumPy arrays
+        np.save(os.path.join(stc_data_path, rawfilename + "stc_data_" + rawfilename), stc_data)
+        np.save(os.path.join(stc_data_path, rawfilename + "stc_vertices_" + rawfilename), stc_vertices)
+
         if source_localization_method == 'avg':
             # Average sources over times matched with each microstate
             print('\nAveraging sources over times matched with each microstate ...')
             if not os.path.exists(avg_sources_path):
                 os.makedirs(avg_sources_path)
-            average_sources_over_microstates(rawfilename, source_time_series,
+            average_sources_over_microstates(rawfilename, stc_data,
                                                  labelled_data_path, avg_sources_path)
 
         elif source_localization_method == 'tess':
@@ -409,7 +402,7 @@ def run_source_localization(preprocessed_data_path,
             p_values, z_scores, filtered_z_scores = tess_algorithm(rawfilename,
                                                                  eeg_data,
                                                                  microstate_maps,
-                                                                 source_time_series,
+                                                                 stc_data,
                                                                  nperm,
                                                                  tess_path)
             

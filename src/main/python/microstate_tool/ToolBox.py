@@ -299,12 +299,12 @@ class ToolBox:
 
 		microstate_maps_df = pd.read_csv(self.microstate_maps_path)
 		microstate_maps = np.asarray(microstate_maps_df.iloc[:, 1:])
+		self.subjects_dir = 'fsaverage'
 
-		# eeg_info = load_eeg_info(self.eeg_info_path)
 		run_source_localization(self.preprocessed_data_path,
 										self.hf_segmentation_path,
 										self.localized_sources_path,
-										'fsaverage', # TODO: 
+										self.subjects_dir, #'fsaverage', # TODO:
 										microstate_maps,
 										self.inverse_method,
 										self.nperm,
