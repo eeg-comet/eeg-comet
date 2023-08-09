@@ -34,8 +34,8 @@ def main():
 	
 	# with open('/Users/bottlecap/Downloads/tbx.pkl', 'wb') as output:
 	# 	pickle.dump(tbx, output, pickle.HIGHEST_PROTOCOL)
-	with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
-		tbx = pickle.load(input_tbx)
+	# with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
+	# 	tbx = pickle.load(input_tbx)
 	# print(tbx.preprocessed_data.shape)
 	# hdf_concatenated_data_path = '/Users/bottlecap/Downloads/output/test_tbx_4/test_tbx_4_concatenated_data.hdf'
 	# concatenated_data = import_hdf_data(hdf_concatenated_data_path)
@@ -60,16 +60,35 @@ def main():
 
 	# do backfitting
 	# just like press "Start Backfitting"
-	tbx.load_config(config)
-	tbx.do_backfitting()
+	# tbx.load_config(config)
+	# tbx.do_backfitting()
 	# tbx.save_tbx()
-	print(tbx.micro_labels)
-	tbx.extract_features_from_map()
+	# print(tbx.micro_labels)
+	# tbx.extract_features_from_map()
 	# tbx.save_tbx()
 	# tbx.load_config(config)
-	tbx.source_localize_microstates()
+	# tbx.source_localize_microstates()
 	# tbx.save_tbx()
 	# TODO: check current process of a tbx object file
+	new_tbx = True
+	if new_tbx:
+		tbx = ToolBox(config)
+	else:
+		with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
+			tbx = pickle.load(input_tbx)
+	process = [
+		tbx.load_raw,
+		tbx.load_channel_location,
+		tbx.load_new_study,
+		tbx.do_clustering,
+		tbx.do_labeling,
+		tbx.do_backfitting,
+		tbx.extract_features_from_map,
+		tbx.source_localize_microstates
+	]
+
+	for i in process:
+		i()
 
 
 
