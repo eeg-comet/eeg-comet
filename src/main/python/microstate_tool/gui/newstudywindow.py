@@ -377,5 +377,6 @@ class NewStudyWindow(QDialog):
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
                      ax.get_xticklabels() + ax.get_yticklabels()):
             item.set_fontsize(18)
+        EEG.compute_psd().plot()
         mne.viz.plot_raw_psd(EEG, fmin=fmin_plot, fmax=fmax_plot, ax=ax)
         self.ui.MplWidget_psd.canvas.draw()

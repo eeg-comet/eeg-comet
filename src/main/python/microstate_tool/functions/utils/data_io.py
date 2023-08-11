@@ -386,3 +386,27 @@ def save_features(df, filename, file_format, path):
     elif file_format == '.json':
         df.to_json(save_path)  # Save DataFrame to JSON format
         
+
+def stc_read(stc_data_subject_path):
+    # Read source time series from disk
+    list_stcs = find_data(stc_data_subject_path, '.stc', pattern='*')
+    stc_file = []
+    for idx in range(int(len(list_stcs) / 2)):  # Replace num_stcs with the actual number of STCs you saved
+        filepath_lh = os.path.join(stc_data_subject_path, f'stc_{idx}-lh.stc')
+        filepath_rh = os.path.join(stc_data_subject_path, f'stc_{idx}-rh.stc')
+        stc_lh = mne.read_source_estimate(filepath_lh)
+        stc_rh = mne.read_source_estimate(filepath_rh)
+        # Combine the left and right hemisphere STCs into a single STC object if needed
+        stc_combined = stc_lh + stc_rh
+        stc_file.append(stc_combined)
+
+    return stc_file
+
+
+def stc_write(stc_data_subject_path, stc_file):
+    # Write source time series to disk
+    for idx, stc in enumerate(stc_file):
+        filename = f'stc_{idx}'
+        filepath = os.path.join(stc_data_subject_path, filename)
+        stc.save(filepath)
+
