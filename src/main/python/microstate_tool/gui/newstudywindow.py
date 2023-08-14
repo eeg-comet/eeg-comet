@@ -1,19 +1,121 @@
 import os.path
 import re
 import numpy as np
-import h5py
 from PyQt5 import uic
 import shutil
 import mne
 import warnings
-import pickle
-from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox, QComboBox, QMenu, QCheckBox, QStyledItemDelegate, QListView, qApp
+from PyQt5.QtGui import QPalette, QFontMetrics, QStandardItem
+from PyQt5.QtCore import Qt, QEvent
 
 from functions.utils.set_widgets_status import set_widgets_status
-from functions.utils.data_io import find_data, load_eegs, save_eeg_info, initialize_config, load_config, save_config#, export_h5
-from functions import preprocess
+from functions.utils.data_io import find_data, load_eegs, save_eeg_info, initialize_config, load_config, save_config
 
-from ToolBox import ToolBox
+
+class CheckableComboBox(QComboBox):
+    # https://gis.stackexchange.com/a/351152
+    # Subclass Delegate to increase item height
+    class Delegate(QStyledItemDelegate):
+        def sizeHint(self, option, index):
+            size = super().sizeHint(option, index)
+            size.setHeight(40)
+            return size
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make the combo editable to set a custom text, but readonly
+        self.setEditable(True)
+        self.lineEdit().setReadOnly(True)
+        # Make the lineedit the same color as QPushButton
+        palette = qApp.palette()
+        palette.setBrush(QPalette.Base, palette.button())
+        self.lineEdit().setPalette(palette)
+        # Use custom delegate
+        self.setItemDelegate(CheckableComboBox.Delegate())
+        # Update the text when an item is toggled
+        self.model().dataChanged.connect(self.updateText)
+        # Hide and show popup when clicking the line edit
+        self.lineEdit().installEventFilter(self)
+        self.closeOnLineEditClick = False
+        # Prevent popup from closing when clicking on an item
+        self.view().viewport().installEventFilter(self)
+        # Set font size
+        font = self.font()
+        font.setPointSize(12)
+        self.setFont(font)
+    def resizeEvent(self, event):
+        # Recompute text to elide as needed
+        self.updateText()
+        super().resizeEvent(event)
+    def eventFilter(self, object, event):
+        if object == self.lineEdit():
+            if event.type() == QEvent.MouseButtonRelease:
+                if self.closeOnLineEditClick:
+                    self.hidePopup()
+                else:
+                    self.showPopup()
+                return True
+            return False
+        if object == self.view().viewport():
+            if event.type() == QEvent.MouseButtonRelease:
+                index = self.view().indexAt(event.pos())
+                item = self.model().item(index.row())
+
+                if item.checkState() == Qt.Checked:
+                    item.setCheckState(Qt.Unchecked)
+                else:
+                    item.setCheckState(Qt.Checked)
+                return True
+        return False
+    def showPopup(self):
+        super().showPopup()
+        # When the popup is displayed, a click on the lineedit should close it
+        self.closeOnLineEditClick = True
+    def hidePopup(self):
+        super().hidePopup()
+        # Used to prevent immediate reopening when clicking on the lineEdit
+        self.startTimer(100)
+        # Refresh the display text when closing
+        self.updateText()
+    def timerEvent(self, event):
+        # After timeout, kill timer, and reenable click on line edit
+        self.killTimer(event.timerId())
+        self.closeOnLineEditClick = False
+    def updateText(self):
+        texts = []
+        for i in range(self.model().rowCount()):
+            if self.model().item(i).checkState() == Qt.Checked:
+                texts.append(self.model().item(i).text())
+        text = ", ".join(texts)
+        # Compute elided text (with "...")
+        metrics = QFontMetrics(self.lineEdit().font())
+        elidedText = metrics.elidedText(text, Qt.ElideRight, self.lineEdit().width())
+        self.lineEdit().setText(elidedText)
+    def addItem(self, text, data=None):
+        item = QStandardItem()
+        item.setText(text)
+        if data is None:
+            item.setData(text)
+        else:
+            item.setData(data)
+        item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+        item.setData(Qt.Unchecked, Qt.CheckStateRole)
+        self.model().appendRow(item)
+    def addItems(self, texts, datalist=None):
+        for i, text in enumerate(texts):
+            try:
+                data = datalist[i]
+            except (TypeError, IndexError):
+                data = None
+            self.addItem(text, data)
+    def currentData(self):
+        # Return the list of selected items data
+        res = []
+        for i in range(self.model().rowCount()):
+            if self.model().item(i).checkState() == Qt.Checked:
+                res.append(self.model().item(i).data())
+        return res
+
 
 class NewStudyWindow(QDialog):
 
@@ -32,26 +134,29 @@ class NewStudyWindow(QDialog):
         self.use_custom_chan_loc = True
         self.use_template_chan_loc = False
 
+        self.ui.step0_ch2rm_combobox = CheckableComboBox()
+        self.CheckableComboBox_Layout.addWidget(self.step0_ch2rm_combobox)
 
         self.ui.step0_import_epoched_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_import_raw_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_pattern_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_no_option_checkbox.clicked.connect(self.newstudy_controller)
+        self.ui.step0_filter_option_checkbox.clicked.connect(self.newstudy_controller)
+        self.ui.step0_downsamp_option_checkbox.clicked.connect(self.newstudy_controller)
+        self.ui.step0_ch2rm_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_ch2rm_missing_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_selected_files_list.itemClicked.connect(self.newstudy_controller)
 
         self.ui.step0_input_path_button.clicked.connect(self.choose_input)
         self.ui.step0_import_raw_button.clicked.connect(self.load_raw)
         self.ui.step0_load_montage_radio.clicked.connect(self.load_channel_location)
         self.ui.step0_use_template_montage_radio.clicked.connect(self.load_template_montage)
         self.ui.step0_save_path_button.clicked.connect(self.new_study_save_path)
-
-        self.ui.step0_no_option_checkbox.clicked.connect(self.newstudy_controller)
-        self.ui.step0_filter_option_checkbox.clicked.connect(self.newstudy_controller)
-        self.ui.step0_downsamp_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_preprocess_data_button.clicked.connect(self.preprocess_data)
         self.ui.step0_remove_file_button.clicked.connect(self.remove_file)
         self.ui.step0_clear_files_button.clicked.connect(self.clear_files)
-
-        self.ui.step0_selected_files_list.itemClicked.connect(self.newstudy_controller)
+        self.ui.step0_selected_files_list.itemClicked.connect(self.update_channel_names)
         self.ui.show_montage_button.clicked.connect(self.plot_montage)
         self.ui.show_psd_button.clicked.connect(self.plot_psd)
         self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
@@ -98,7 +203,6 @@ class NewStudyWindow(QDialog):
             else:
                 self.data_found = True
 
-
         else:
             self.ui.step0_import_raw_button.setDisabled(True)
 
@@ -123,8 +227,8 @@ class NewStudyWindow(QDialog):
         self.ui.step0_preprocess_data_button,
         self.ui.step0_ch2rm_label,
         self.ui.step0_ch2rm_radio,
-        self.ui.step0_ch2rm_missing_radio,
-        self.ui.step0_ch2rm_input
+        self.ui.step0_ch2rm_combobox,
+        self.ui.step0_ch2rm_missing_radio
         ]
 
         preprocessing_sub_options = [
@@ -148,11 +252,17 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
             self.ui.step0_remove_file_button.setEnabled(True)
             self.ui.step0_clear_files_button.setEnabled(True)
+
             # Enable Plot Options
             if self.ui.step0_selected_files_list.currentItem():
                 set_widgets_status(plot_options, enable=True)
             # Enable Preprocessing Options
             set_widgets_status(preprocessing_options, enable=True)
+
+            if self.ui.step0_ch2rm_radio.isChecked():
+                self.ui.step0_ch2rm_combobox.setEnabled(True)
+            else:
+                self.ui.step0_ch2rm_combobox.setDisabled(True)
 
             if self.ui.step0_no_option_checkbox.isChecked():
                 self.ui.step0_preprocessing_progress.setEnabled(True)
@@ -247,6 +357,22 @@ class NewStudyWindow(QDialog):
             raise ValueError("Failed to match data_type")
         return data_type
 
+    def update_channel_names(self):
+        filename = self.ui.step0_selected_files_list.currentItem().text()
+        print(self.tbx.channel_location_dir)
+        EEG = load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
+        if not np.isnan(EEG.info['chs'][0]['loc'][0]):
+            montage = EEG.get_montage()
+            channel_names = montage.ch_names
+        elif self.ui.step0_load_montage_radio.isChecked() and os.path.isfile(self.ui.step0_chanloc_path_lineedit):
+            montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
+            channel_names = montage.ch_names
+        elif self.ui.step0_use_template_montage_radio.isChecked():
+            montage = mne.channels.make_standard_montage(self.tbx.channel_location_dir)
+            channel_names = montage.ch_names
+        self.ui.step0_ch2rm_combobox.addItems(channel_names)
+
+
     def load_raw(self):
         self.ui.step0_selected_files_list.clear()
 
@@ -338,10 +464,7 @@ class NewStudyWindow(QDialog):
             self.sample_rate = ''
 
         if self.ui.step0_ch2rm_radio.isChecked():
-            # TODO: change it to combo containing all available electrodes
-            # TODO: we should be able to select multiple electrodes
-            # https://gis.stackexchange.com/questions/350148/qcombobox-multiple-selection-pyqt5
-            self.ch2rm = self.ui.step0_ch2rm_input.text()
+            self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
             print(self.ch2rm)
         elif self.ui.step0_ch2rm_missing_radio.isChecked():
             self.ch2rm = 'missing'
@@ -383,25 +506,18 @@ class NewStudyWindow(QDialog):
         if not np.isnan(EEG.info['chs'][0]['loc'][0]):
             montage = EEG.get_montage()
         else:
-            #if self.tbx.channel_location_dir:
             montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
             EEG.set_montage(montage)
-        #if np.isnan(EEG.info['chs'][0]['loc'][0]):
-        #    print('No valid channel positions found!')
-        #else:
         if self.ui.rawdata_show_channel_names_checkbox.isChecked():
             show_names = True
         else:
             show_names = False
 
-        if self.ui.step0_ch2rm_input.text():
-            self.ch2rm = self.ui.step0_ch2rm_input.text()
-            parts = self.ch2rm.split(',')
-            self.ch2rm = [part.strip() for part in parts]
+        if self.ui.step0_ch2rm_combobox.currentData():
+            self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
             EEG.info["bads"].extend(self.ch2rm)
         fig, _ = EEG.plot_sensors(kind='select', show_names=show_names)
         #fig = montage.plot(show_names=show_names)
-        #print(chan2rm)
 
         self.ui.MplWidget.canvas.figure = fig
         self.ui.figure_title_lineedit.setText("EEG Montage")

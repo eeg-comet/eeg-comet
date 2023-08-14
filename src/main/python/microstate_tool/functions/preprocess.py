@@ -54,7 +54,7 @@ def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, channel_location_d
         counter = np.array(list(counter.items()))
         channels2remove = counter[np.where(counter[:, 1].astype(float) < len(list_eegs)), 0].tolist()
     else:
-        channels2remove[0] = chan2rm.split(",")
+        channels2remove[0] = chan2rm
 
     # Load the EEG data
     eeg = load_eegs(eegfile, eeg_format, datatype, channel_location_dir, channels2remove[0])

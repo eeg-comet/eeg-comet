@@ -565,8 +565,8 @@
         </item>
         <item row="3" column="1" colspan="2">
          <layout class="QGridLayout" name="gridLayout_4">
-          <item row="4" column="0">
-           <widget class="QLabel" name="step0_lowcut_freq_label">
+          <item row="2" column="0" colspan="3">
+           <widget class="QCheckBox" name="step0_filter_option_checkbox">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -576,24 +576,12 @@
              </font>
             </property>
             <property name="text">
-             <string>Lowcut:</string>
+             <string>Filter Data</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="4">
-           <widget class="QLineEdit" name="step0_ch2rm_input">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>12</pointsize>
-             </font>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="step0_filter_method_label">
+          <item row="7" column="0" colspan="3">
+           <widget class="QCheckBox" name="step0_downsamp_option_checkbox">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -603,55 +591,33 @@
              </font>
             </property>
             <property name="text">
-             <string>Method:</string>
+             <string>Downsample Data</string>
             </property>
            </widget>
           </item>
-          <item row="4" column="1" colspan="2">
-           <layout class="QHBoxLayout" name="horizontalLayout_4">
-            <item>
-             <widget class="QLineEdit" name="step0_lowcut_freq_input">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>12</pointsize>
-               </font>
-              </property>
-              <property name="inputMethodHints">
-               <set>Qt::ImhDigitsOnly</set>
-              </property>
-              <property name="text">
-               <string>2</string>
-              </property>
-              <property name="maxLength">
-               <number>2</number>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="step0_filt_hz1">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>12</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Hz</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
+          <item row="5" column="4">
+           <widget class="Line" name="line_5">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
           </item>
-          <item row="5" column="0">
-           <widget class="QLabel" name="step0_highcut_freq_label">
+          <item row="0" column="3" rowspan="9">
+           <widget class="Line" name="line_4">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="0" colspan="3">
+           <widget class="Line" name="line_6">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0" rowspan="2" colspan="3">
+           <widget class="QCheckBox" name="step0_no_option_checkbox">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -661,29 +627,8 @@
              </font>
             </property>
             <property name="text">
-             <string>Highcut:</string>
+             <string>Do not filter and downsample</string>
             </property>
-           </widget>
-          </item>
-          <item row="4" column="4">
-           <widget class="QRadioButton" name="step0_ch2rm_missing_radio">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>12</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Remove missing channels from all data</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">buttonGroup_4</string>
-            </attribute>
            </widget>
           </item>
           <item row="8" column="1" colspan="2">
@@ -731,21 +676,6 @@
              </widget>
             </item>
            </layout>
-          </item>
-          <item row="0" column="0" rowspan="2" colspan="3">
-           <widget class="QCheckBox" name="step0_no_option_checkbox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>12</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Do not filter and downsample</string>
-            </property>
-           </widget>
           </item>
           <item row="5" column="1" colspan="2">
            <layout class="QHBoxLayout" name="horizontalLayout_6">
@@ -869,8 +799,8 @@
             </item>
            </layout>
           </item>
-          <item row="2" column="4">
-           <widget class="QRadioButton" name="step0_ch2rm_radio">
+          <item row="4" column="0">
+           <widget class="QLabel" name="step0_lowcut_freq_label">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -880,66 +810,128 @@
              </font>
             </property>
             <property name="text">
-             <string>Remove channels: </string>
+             <string>Lowcut:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QLabel" name="step0_highcut_freq_label">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Highcut:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1" colspan="2">
+           <layout class="QHBoxLayout" name="horizontalLayout_4">
+            <item>
+             <widget class="QLineEdit" name="step0_lowcut_freq_input">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>12</pointsize>
+               </font>
+              </property>
+              <property name="inputMethodHints">
+               <set>Qt::ImhDigitsOnly</set>
+              </property>
+              <property name="text">
+               <string>2</string>
+              </property>
+              <property name="maxLength">
+               <number>2</number>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="step0_filt_hz1">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>12</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Hz</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="step0_filter_method_label">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Method:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="4">
+           <widget class="QRadioButton" name="step0_ch2rm_missing_radio">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Remove missing channels from all data</string>
             </property>
             <property name="checked">
-             <bool>false</bool>
+             <bool>true</bool>
             </property>
             <attribute name="buttonGroup">
              <string notr="true">buttonGroup_4</string>
             </attribute>
            </widget>
           </item>
-          <item row="0" column="3" rowspan="9">
-           <widget class="Line" name="line_4">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="4">
-           <widget class="Line" name="line_5">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="0" colspan="3">
-           <widget class="Line" name="line_6">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0" colspan="3">
-           <widget class="QCheckBox" name="step0_filter_option_checkbox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>12</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Filter Data</string>
-            </property>
-           </widget>
-          </item>
-          <item row="7" column="0" colspan="3">
-           <widget class="QCheckBox" name="step0_downsamp_option_checkbox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>12</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Downsample Data</string>
-            </property>
-           </widget>
+          <item row="2" column="4" rowspan="2">
+           <layout class="QVBoxLayout" name="CheckableComboBox_Layout">
+            <item>
+             <widget class="QRadioButton" name="step0_ch2rm_radio">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>12</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Remove channels: </string>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+              <attribute name="buttonGroup">
+               <string notr="true">buttonGroup_4</string>
+              </attribute>
+             </widget>
+            </item>
+           </layout>
           </item>
          </layout>
         </item>
