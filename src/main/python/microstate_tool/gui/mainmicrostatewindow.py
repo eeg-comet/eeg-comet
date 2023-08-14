@@ -524,10 +524,14 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step4_complexity_featurestoextract_checkbox.setChecked(False)
 
     def plot_elbow(self):
-        #self.NumberMapsDialog.preprocessed_data_path =
-        #self.extension
-        #self.datatype
-        #self.use_percentages
+        self.NumberMapsDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
+        self.NumberMapsDialog.extension = self.tbx.extension
+        self.NumberMapsDialog.datatype = self.tbx.datatype
+        if self.ui.step2_use_percent_radio.isChecked():
+            self.tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
+        else:
+            self.tbx.use_percentages = None
+        self.NumberMapsDialog.use_percentages = self.tbx.use_percentages
         self.NumberMapsDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
         self.NumberMapsDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
         self.NumberMapsDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())

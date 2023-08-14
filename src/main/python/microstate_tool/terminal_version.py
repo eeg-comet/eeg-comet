@@ -20,56 +20,7 @@ def main():
 	print(input_folder)
 	print(channel_location_dir)
 	print(output_folder)
-	
-	# load a new study
-	# just like press "New Study Button"
-	
-	# tbx = ToolBox(config)
 
-	# tbx.load_raw()
-	# tbx.load_channel_location()
-	# tbx.load_new_study()
-	# tbx.save_tbx()
-
-	
-	# with open('/Users/bottlecap/Downloads/tbx.pkl', 'wb') as output:
-	# 	pickle.dump(tbx, output, pickle.HIGHEST_PROTOCOL)
-	# with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
-	# 	tbx = pickle.load(input_tbx)
-	# print(tbx.preprocessed_data.shape)
-	# hdf_concatenated_data_path = '/Users/bottlecap/Downloads/output/test_tbx_4/test_tbx_4_concatenated_data.hdf'
-	# concatenated_data = import_hdf_data(hdf_concatenated_data_path)
-	# min_distance_size = int(tbx.smoothing_distance/(1000/tbx.sample_rate))
-	# all_maps, peaks = extract_peaks_maps(concatenated_data, min_distance_size)
-	# print(all_maps.shape)
-	# kmeans = pickle.load(open('/Users/bottlecap/Downloads/kmeans.pkl', 'rb'))
-	# for i in range(0, all_maps.shape[0], 10):
-	# 	fig, axes = plt.subplots(1)  # assuming 3 channel types
-	# 	mne.viz.plot_topomap(all_maps[i, :], tbx.eeg_info, axes=axes, sensors=False, show=False)
-	# 	result = kmeans.predict(all_maps[i, :].reshape((1, -1)))
-	# 	# print(all_maps[i, :].shape)
-	# 	fig.savefig(f'/Users/bottlecap/Downloads/eeg_images/res_{result[0]}_{i}.png')
-	# 	if i > 3000:
-	# 		break
-	# # do clustering
-	# return
-	# just like press "start clustering"
-
-	# tbx.do_clustering()
-	# tbx.do_labeling()
-
-	# do backfitting
-	# just like press "Start Backfitting"
-	# tbx.load_config(config)
-	# tbx.do_backfitting()
-	# tbx.save_tbx()
-	# print(tbx.micro_labels)
-	# tbx.extract_features_from_map()
-	# tbx.save_tbx()
-	# tbx.load_config(config)
-	# tbx.source_localize_microstates()
-	# tbx.save_tbx()
-	# TODO: check current process of a tbx object file
 	new_tbx = True
 	if new_tbx:
 		tbx = ToolBox(config)
@@ -84,7 +35,7 @@ def main():
 		tbx.do_labeling,
 		tbx.do_backfitting,
 		tbx.extract_features_from_map,
-		tbx.source_localize_microstates
+		# tbx.source_localize_microstates
 	]
 
 	for i in process:
@@ -94,3 +45,25 @@ def main():
 
 if __name__ == '__main__':
 	main()
+
+
+
+
+
+
+
+
+		# hdf_concatenated_data_path = '/Users/bottlecap/Downloads/output/test_tbx_4/test_tbx_4_concatenated_data.hdf'
+	# concatenated_data = import_hdf_data(hdf_concatenated_data_path)
+	# min_distance_size = int(tbx.smoothing_distance/(1000/tbx.sample_rate))
+	# all_maps, peaks = extract_peaks_maps(concatenated_data, min_distance_size)
+	# print(all_maps.shape)
+	# kmeans = pickle.load(open('/Users/bottlecap/Downloads/kmeans.pkl', 'rb'))
+	# for i in range(0, all_maps.shape[0], 10):
+	# 	fig, axes = plt.subplots(1)  # assuming 3 channel types
+	# 	mne.viz.plot_topomap(all_maps[i, :], tbx.eeg_info, axes=axes, sensors=False, show=False)
+	# 	result = kmeans.predict(all_maps[i, :].reshape((1, -1)))
+	# 	# print(all_maps[i, :].shape)
+	# 	fig.savefig(f'/Users/bottlecap/Downloads/eeg_images/res_{result[0]}_{i}.png')
+	# 	if i > 3000:
+	# 		break

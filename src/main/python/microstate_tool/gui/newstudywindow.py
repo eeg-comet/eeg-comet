@@ -217,7 +217,7 @@ class NewStudyWindow(QDialog):
         self.tbx.pattern_content = self.ui.step0_import_pattern_lineedit.text()
         self.tbx.input_folder = self.input_folder
         self.tbx.extension = self.get_extension()
-        self.tbx.data_type = self.get_data_type()
+        self.tbx.datatype = self.get_data_type()
         self.tbx.load_raw()
         for i in range(len(self.tbx.list_eegs_path)):
             self.ui.step0_selected_files_list.addItem(str(self.tbx.list_eegs_path[i]))
@@ -335,7 +335,7 @@ class NewStudyWindow(QDialog):
 
     def plot_CHANNELS(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir, [])
+        EEG = load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
         ax = self.ui.MplWidget_chan.canvas.axes
         ax.clear()
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
@@ -356,12 +356,12 @@ class NewStudyWindow(QDialog):
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir)
+        EEG = load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir)
         EEG.plot()
 
     def plot_PSD(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir, [])
+        EEG = load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())

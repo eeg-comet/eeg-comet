@@ -48,7 +48,7 @@ class ToolBox:
 		if self.load_all_files:
 			self.pattern_content = config.get('load_new_study', 'pattern_content', fallback='')
 		self.extension = config['load_new_study']['extension']
-		self.data_type = config['load_new_study']['data_type']
+		self.datatype = config['load_new_study']['datatype']
 		self.filter_data = config.getboolean('load_new_study', 'filter_data')
 		self.filter_method = config['load_new_study']['filter_method'] if self.filter_data else ''
 		self.lowcut_freq = config.getint('load_new_study', 'lowcut_freq') if self.filter_data else ''
@@ -144,7 +144,7 @@ class ToolBox:
 					filename,
 					self.list_eegs_path,
 					self.extension,
-					self.data_type,
+					self.datatype,
 					self.channel_location_dir,
 					self.filter_data,
 					self.filter_method,
@@ -176,7 +176,7 @@ class ToolBox:
 
 			# save EEG object
 			print(f"\nPreprocessing file: {filename}")
-			export_eegs(eeg, save_path, self.extension, self.data_type)
+			export_eegs(eeg, save_path, self.extension, self.datatype)
 
 		self.done_preprocessing = True
 		if self.auto_save:
@@ -202,7 +202,7 @@ class ToolBox:
 		best_maps, gev, _, n_states = clustering_func(
 					self.preprocessed_data_path,
 					self.extension,
-					self.data_type,
+					self.datatype,
 					self.n_chan,
 					self.clustering_method,
 					self.number_of_maps,
@@ -252,7 +252,7 @@ class ToolBox:
 					 self.micro_labels,
 					 self.raw_features_path,
 					 self.extension,
-					 self.data_type,
+					 self.datatype,
 					 [self.epsilon, self.b, self.lamb]
 					 )
 		self.done_backfitting = True
@@ -276,7 +276,7 @@ class ToolBox:
 														 np.min(length_data), 
 														 self.duration_of_window,
 														 self.extension,
-														 self.data_type
+														 self.datatype
 														 )
 		save_features(extracted_features_df, 'extracted_features',
 							  self.output_format,
@@ -311,7 +311,7 @@ class ToolBox:
 										self.spacing,
 										self.source_localization_method,
 										self.extension,
-										self.data_type)
+										self.datatype)
 		self.done_source_localization = True
 		if self.auto_save:
 			self.save_tbx()

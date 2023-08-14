@@ -110,7 +110,7 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[
 
     Parameters:
     filename (str): The path to the EEG data file.
-    eeg_format (str): The format of the EEG data file (e.g., 'edf', 'fif', 'set').
+    eeg_format (str): The format of the EEG data file (e.g., '.edf', '.fif', '.set').
     datatype (str): The type of EEG data ('raw' for continuous data or 'epoched' for segmented data).
     channel_location_dir (str): The directory path for channel location information (optional).
     chan2rm (list): List of channel names to be removed (optional).

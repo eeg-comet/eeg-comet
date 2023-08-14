@@ -207,6 +207,21 @@ def clustering_func(preprocessed_data_path, extension, datatype,
     return best_maps, best_gev, best_residual, n_states
 
 def get_elbow_without_plt(maps2use, tolerance, n_inits, kmin, kmax, max_iter, stopping_mode='gev', threshold=0.1):
+    """
+    use elbow algorithm to get the best number of states
+
+    Args:
+        maps2use (numpy array): Concatenated GFP maps at peaks (peaks x channels).
+        tolerance: threshold for kmeans
+        n_inits: number of inits for the algorithm
+        kmin~kmax: range of k for elbow algorithm
+        max_iter: maximum iteration of the loop
+        stopping_mode: the target for deciding the elbow point
+        threshold: max percentage of change of the target
+
+    Returns:
+        n_states: number of states
+    """
     # change thresholf to percentage
     if threshold > 1:
         threshold /= 100
