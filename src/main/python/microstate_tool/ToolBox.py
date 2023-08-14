@@ -121,16 +121,17 @@ class ToolBox:
 
 	def load_channel_location(self):
 		# Load channel location
-		chan_loc_extension = os.path.basename(self.channel_location_dir).split('.')[-1]
-		valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
-										 'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
-		assert chan_loc_extension in valid_chan_loc_extensions, ''' 
-			Load Error, 
-			File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),
-			‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),
-			‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)
-			'''
-		return chan_loc_extension in valid_chan_loc_extensions
+		if os.path.isfile(self.channel_location_dir):
+			chan_loc_extension = os.path.basename(self.channel_location_dir).split('.')[-1]
+			valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
+											 'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
+			assert chan_loc_extension in valid_chan_loc_extensions, ''' 
+				Load Error, 
+				File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),
+				‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),
+				‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)
+				'''
+		#return chan_loc_extension in valid_chan_loc_extensions
 
 	def load_new_study(self):
 		

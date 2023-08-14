@@ -146,7 +146,7 @@
       </layout>
      </widget>
      <widget class="QWidget" name="verticalLayoutWidget">
-      <layout class="QVBoxLayout" name="verticalLayout_4">
+      <layout class="QVBoxLayout" name="PV_Layout">
        <item>
         <widget class="QLabel" name="boxplots_label">
          <property name="sizePolicy">
@@ -171,7 +171,7 @@
         </widget>
        </item>
        <item>
-        <widget class="MplWidget" name="MplWidget_boxplots" native="true">
+        <widget class="MplWidget" name="PvWidget" native="true">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>

@@ -342,7 +342,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_remove_segments_radio,
             self.ui.step3_replace_half_radio,
             self.ui.step3_replace_nearby_radio,
-            self.ui.step3_smooth_segments_epsilon_label,
+            #self.ui.step3_smooth_segments_epsilon_label,
             self.ui.step3_smooth_segments_epsilon_input,
             self.ui.step3_smooth_segments_b_label,
             self.ui.step3_smooth_segments_b_input,

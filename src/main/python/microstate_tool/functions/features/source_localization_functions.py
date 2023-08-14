@@ -16,7 +16,7 @@ import os.path
 import numpy as np
 import pandas as pd
 from scipy import stats
-from functions.utils.data_io import find_data, load_eegs, get_eeg_data
+from functions.utils.data_io import find_data, load_eegs, get_eeg_data, stc_read, stc_write
 
 import mne
 # mne.viz.set_3d_backend("pyvista")
@@ -171,48 +171,13 @@ def extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_met
         # Process raw data
         stc = mne.minimum_norm.apply_inverse_raw(eeg, inverse_operator, lambda2,
                                                 method=inv_method, pick_ori=None, verbose=True)
-        stc_data = stc.data
-        stc_vertices = stc.vertices
 
     elif data_type == 'epoched':
         # Process epoched data
         stc = mne.minimum_norm.apply_inverse_epochs(eeg, inverse_operator, lambda2,
                                                    method=inv_method, pick_ori=None, verbose=True)
-        # Concatenate the source data for all time points across all trials
-        n_trials = len(stc)
-        n_sources = stc[0].data.shape[0]
-        n_timepoints = stc[0].data.shape[1]  # Assuming all stc objects have the same number of time points
-        stc_data = np.empty((n_trials, n_sources, n_timepoints))
-        for tr in range(n_trials):
-            stc_data[tr, :, :] = stc[tr].data
-        stc_vertices = stc[0].vertices
 
-    return stc, stc_data, stc_vertices
-
-
-# Average sources over times matched with each microstate
-def average_sources_over_microstates(rawfilename, stc_data,
-                                     labelled_data_path, avg_sources_path):
-    """
-    Average sources over times matched with each microstate and save the results.
-
-    Parameters:
-        stc_data (numpy.ndarray): The source time series data.
-        labelled_data_path (str): The path to the directory containing labelled data.
-        avg_sources_path (str): The path to save the averaged sources.
-
-    Returns:
-        None
-    """
-    
-    segment_data = pd.read_csv(os.path.join(labelled_data_path,
-                                            rawfilename + '.csv'), header=0)
-    for m in segment_data['segmentation'].unique():
-        sources_m_times = segment_data.index[segment_data['segmentation'] == m].tolist()
-        sources_m = stc_data[sources_m_times, :]
-        sources_m = np.mean(sources_m, axis=0)
-        np.save(os.path.join(avg_sources_path, rawfilename + "_sources_" + m), sources_m)
-
+    return stc
 
 
 def find_t_coeff(sample, maps):
@@ -322,11 +287,9 @@ def run_source_localization(preprocessed_data_path,
     """
     
     stc_data_path = os.path.join(localized_sources_path, "stc_data")
-    avg_sources_path = os.path.join(localized_sources_path, "avg_sources")
-    tess_path = os.path.join(localized_sources_path, "tess_sources")
     # Create a new directory because it does not exist
-    if not os.path.exists(localized_sources_path):
-        os.makedirs(localized_sources_path)
+    if not os.path.exists(stc_data_path):
+        os.makedirs(stc_data_path)
     
 
     file_names = find_data(preprocessed_data_path, extension, '*')
@@ -367,54 +330,81 @@ def run_source_localization(preprocessed_data_path,
             
             # Load Adult Template MRI
             src, bem, trans = load_average_mri(spacing)
+
+            # Source inverse space run
+            stc_file = extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_method)
+
+            # Export stc
+            stc_data_subject_path = os.path.join(stc_data_path, 'fsaverage')
+            if not os.path.exists(stc_data_subject_path):
+                os.makedirs(stc_data_subject_path)
+            stc_write(stc_data_subject_path, stc_file)
+
         else:
             subjects_list = [name for name in os.listdir(subjects_dir) if os.path.isdir(os.path.join(subjects_dir, name))]
 
             for subject in subjects_list:
                 src, bem, trans = individual_mri(subjects_dir, subject, eeg_info, spacing)
-        
-        # Source inverse space run
-        stc, stc_data, stc_vertices = extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_method)
-        stc_data = np.transpose(stc_data)
-        
-        if not os.path.exists(stc_data_path):
-            os.makedirs(stc_data_path)
-        # Save stc data and vertices using NumPy arrays
-        np.save(os.path.join(stc_data_path, rawfilename + "stc_data_" + rawfilename), stc_data)
-        np.save(os.path.join(stc_data_path, rawfilename + "stc_vertices_" + rawfilename), stc_vertices)
 
-        if source_localization_method == 'avg':
-            # Average sources over times matched with each microstate
-            print('\nAveraging sources over times matched with each microstate ...')
-            if not os.path.exists(avg_sources_path):
-                os.makedirs(avg_sources_path)
-            average_sources_over_microstates(rawfilename, stc_data,
-                                                 labelled_data_path, avg_sources_path)
+                # Source inverse space run
+                stc_file = extract_forward_transform(src, bem, trans, data_type, eeg, eeg_info, inv_method)
 
-        elif source_localization_method == 'tess':
-            # TESS Algorithm
-            # https://linkinghub.elsevier.com/retrieve/pii/S1053-8119(14)00243-2
-            print('\nExtracting sources associated with each microstate',
-                  '\nusing the topographic electrophysiological state source-imaging (TESS) algorithm ...')
-            if not os.path.exists(tess_path):
-                os.makedirs(tess_path)
-            
-            p_values, z_scores, filtered_z_scores = tess_algorithm(rawfilename,
-                                                                 eeg_data,
-                                                                 microstate_maps,
-                                                                 stc_data,
-                                                                 nperm,
-                                                                 tess_path)
-            
-            if counter == 1:
-                sum_z_scores = filtered_z_scores
-            else:
-                sum_z_scores = sum_z_scores + filtered_z_scores
-                
-            # Save the averaged z-scores
-            avg_z_scores = np.divide(sum_z_scores, len(file_names))
-            np.save(os.path.join(localized_sources_path, "avg_z_scores"), avg_z_scores)  
-        
+                # Export stc
+                stc_data_subject_path = os.path.join(stc_data_path, subject)
+                if not os.path.exists(stc_data_subject_path):
+                    os.makedirs(stc_data_subject_path)
+                stc_write(stc_data_subject_path, stc_file)
+
+
+def identify_microstates_sources(stc_file, labelled_data_path,
+                            localized_sources_path,
+                            microstate_maps, nperm,
+                            method):
+    if method == 'avg':
+        # Average sources over times matched with each microstate
+        print('\nAveraging sources over times matched with each microstate ...')
+        avg_sources_path = os.path.join(localized_sources_path, "avg_sources")
+        if not os.path.exists(avg_sources_path):
+            os.makedirs(avg_sources_path)
+
+        list_segmented_data = find_data(labelled_data_path, '.csv', pattern='*')
+        for segmented_path in list_segmented_data:
+            segment_data = pd.read_csv(segmented_path, header=0)
+            filename, _ = os.path.splitext(os.path.basename(segmented_path))
+            for m in segment_data['segmentation'].unique():
+                sources_m_times = segment_data.index[segment_data['segmentation'] == m].tolist()
+                sources_m = stc_file[sources_m_times, :]
+                sources_m = np.mean(sources_m, axis=0)
+                np.save(os.path.join(avg_sources_path, filename + "_sources_" + m), sources_m)
+
+
+    elif method == 'tess':
+        # TODO: modify
+        """
+        tess_path = os.path.join(localized_sources_path, "tess_sources")
+        # TESS Algorithm
+        # https://linkinghub.elsevier.com/retrieve/pii/S1053-8119(14)00243-2
+        print('\nExtracting sources associated with each microstate',
+              '\nusing the topographic electrophysiological state source-imaging (TESS) algorithm ...')
+        if not os.path.exists(tess_path):
+            os.makedirs(tess_path)
+
+        p_values, z_scores, filtered_z_scores = tess_algorithm(rawfilename,
+                                                             eeg_data,
+                                                             microstate_maps,
+                                                             stc_data,
+                                                             nperm,
+                                                             tess_path)
+
+        if counter == 1:
+            sum_z_scores = filtered_z_scores
         else:
-            print("\nError: Invalid source localization method. Please use 'avg' or 'tess'.")
+            sum_z_scores = sum_z_scores + filtered_z_scores
+
+        # Save the averaged z-scores
+        avg_z_scores = np.divide(sum_z_scores, len(file_names))
+        np.save(os.path.join(localized_sources_path, "avg_z_scores"), avg_z_scores)
+        """
+    else:
+        print("\nError: Invalid source localization method. Please use 'avg' or 'tess'.")
 
