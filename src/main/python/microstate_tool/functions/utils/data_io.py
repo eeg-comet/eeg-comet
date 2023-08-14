@@ -159,8 +159,11 @@ def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[
             eeg = mne.io.read_epochs_eeglab(filename, verbose=verbose)
 
     # Optional: Load channel locations if provided
-    if channel_location_dir:
+    if os.path.isfile(channel_location_dir):
         montage = mne.channels.read_custom_montage(channel_location_dir)
+        eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
+    elif channel_location_dir in mne.channels.get_builtin_montages():
+        montage = mne.channels.make_standard_montage(channel_location_dir)
         eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
 
     # Pick channels

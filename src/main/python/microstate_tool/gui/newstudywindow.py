@@ -29,37 +29,61 @@ class NewStudyWindow(QDialog):
         
         self.ui.setWindowTitle("New Study - Import Raw Data and Preprocess")
         self.done_preprocessing = False
+        self.use_custom_chan_loc = True
+        self.use_template_chan_loc = False
 
+
+        self.ui.step0_import_epoched_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_import_raw_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_pattern_radio.clicked.connect(self.newstudy_controller)
 
         self.ui.step0_input_path_button.clicked.connect(self.choose_input)
         self.ui.step0_import_raw_button.clicked.connect(self.load_raw)
-        self.ui.step0_load_chan_loc_button.clicked.connect(self.load_channel_location)
+        self.ui.step0_load_montage_radio.clicked.connect(self.load_channel_location)
+        self.ui.step0_use_template_montage_radio.clicked.connect(self.load_template_montage)
         self.ui.step0_save_path_button.clicked.connect(self.new_study_save_path)
 
         self.ui.step0_no_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_filter_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_downsamp_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_preprocess_data_button.clicked.connect(self.preprocess_data)
-
-
-        self.ui.step0_selected_files_list.itemClicked.connect(self.plot_CHANNELS)
-        self.ui.step0_selected_files_list.itemClicked.connect(self.plot_PSD)
-        self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
         self.ui.step0_remove_file_button.clicked.connect(self.remove_file)
         self.ui.step0_clear_files_button.clicked.connect(self.clear_files)
+
+        self.ui.show_montage_button.clicked.connect(self.plot_montage)
+        self.ui.show_psd_button.clicked.connect(self.plot_psd)
+        self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
 
         self.tbx = tbx
         self.tbx.channel_location_dir = ""
 
 
     def newstudy_controller(self):
-        # widget: Load files with pattern
+
+        if self.ui.step0_load_all_radio.isChecked():
+            self.ui.step0_import_pattern_lineedit.setText(f"Load all {self.get_data_type()} EEG data with {self.get_extension()} extension.")
+            self.ui.step0_import_pattern_lineedit.setDisabled(True)
+        else:
+            self.ui.step0_import_pattern_lineedit.clear()
+            self.ui.step0_import_pattern_lineedit.setEnabled(True)
+
         if self.ui.step0_load_pattern_radio.isChecked():
             self.ui.step0_import_pattern_lineedit.setEnabled(True)
         else:
             self.ui.step0_import_pattern_lineedit.setDisabled(True)
+
+        if self.ui.step0_use_template_montage_radio.isChecked():
+            self.use_custom_chan_loc = False
+            self.ui.step0_template_montage_combobox.setEnabled(True)
+        else:
+            self.ui.step0_template_montage_combobox.setDisabled(True)
+
+        if self.ui.step0_use_template_montage_radio.isChecked() and self.ui.step0_chanloc_path_lineedit.text():
+            self.use_custom_chan_loc = True
+            self.use_template_chan_loc = False
+        else:
+            self.use_custom_chan_loc = False
 
         if self.ui.step0_input_path_lineedit:
             self.input_folder_found = True
@@ -67,13 +91,14 @@ class NewStudyWindow(QDialog):
             self.input_folder_found = False
 
         if self.input_folder_found:
+
             self.ui.step0_import_raw_button.setEnabled(True)
             if self.ui.step0_selected_files_list.count() == 0:
                 self.data_found = False
-                self.ui.MplWidget_chan.canvas.axes.clear()
-                self.ui.MplWidget_chan.canvas.draw()
-                self.ui.MplWidget_psd.canvas.axes.clear()
-                self.ui.MplWidget_psd.canvas.draw()
+                self.ui.MplWidget.canvas.axes.clear()
+                self.ui.MplWidget.canvas.draw()
+                self.ui.MplWidget.canvas.axes.clear()
+                self.ui.MplWidget.canvas.draw()
             else:
                 self.data_found = True
 
@@ -83,6 +108,8 @@ class NewStudyWindow(QDialog):
 
         plot_options = [
         self.ui.rawdata_plot_button,
+        self.ui.show_montage_button,
+        self.ui.show_psd_button,
         self.ui.rawdata_show_channel_names_checkbox,
         self.ui.rawdata_range_psd_label,
         self.ui.rawdata_range_psd_min_label,
@@ -125,7 +152,6 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
             self.ui.step0_remove_file_button.setEnabled(True)
             self.ui.step0_clear_files_button.setEnabled(True)
-            self.ui.step0_load_chan_loc_button.setEnabled(True)
             # Enable Plot Options
             set_widgets_status(plot_options, enable=True)
             # Enable Preprocessing Options
@@ -165,7 +191,6 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_button.setStyleSheet("background-color: light gray")
             self.ui.step0_remove_file_button.setDisabled(True)
             self.ui.step0_clear_files_button.setDisabled(True)
-            self.ui.step0_load_chan_loc_button.setDisabled(True)
             # Enable Plot Options
             set_widgets_status(plot_options, enable=False)
             # Enable Preprocessing Options
@@ -178,20 +203,33 @@ class NewStudyWindow(QDialog):
         self.ui.step0_input_path_lineedit.setText(fname)
         self.newstudy_controller()
 
+    def load_template_montage(self):
+        # TODO: fix bug
+        builtin_montages = mne.channels.get_builtin_montages()
+        self.ui.step0_template_montage_combobox.addItems(builtin_montages)
+        self.use_template_chan_loc = True
+        self.tbx.channel_location_dir = self.ui.step0_template_montage_combobox.currentText()
+        self.tbx.load_channel_location()
+        self.newstudy_controller()
+
     def load_channel_location(self):
+        # TODO: fix bug
         fname, _ = QFileDialog.getOpenFileName(self, "Select the file containing the channel locations")
-        self.tbx.channel_location_dir = fname
-        try:
-            self.tbx.load_channel_location()
-        except AssertionError:
-            QMessageBox.information(self, "Load error",
-                                    "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
-                                    "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
-                                    "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)",
-                                    QMessageBox.Ok)
-            self.tbx.channel_location_dir = ''
-        else:
-            self.ui.step0_load_chan_loc_button.setStyleSheet("background-color: lightgreen")
+        if os.path.isfile(fname):
+            self.tbx.channel_location_dir = fname
+            try:
+                self.tbx.load_channel_location()
+            except AssertionError:
+                QMessageBox.information(self, "Load error",
+                                        "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
+                                        "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
+                                        "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)",
+                                        QMessageBox.Ok)
+                self.tbx.channel_location_dir = ''
+            else:
+                self.use_custom_chan_loc = True
+                self.tbx.load_channel_location()
+                self.ui.step0_chanloc_path_lineedit.setText(fname)
 
         self.newstudy_controller()
 
@@ -199,6 +237,8 @@ class NewStudyWindow(QDialog):
         selected_extension = self.ui.step0_import_format_combobox.currentText()
         extension = selected_extension.split('(')[1]
         extension = re.split(', | .', extension)[0]
+        if extension.endswith(')'):
+            extension = extension[:-1]
         return extension
 
     def get_data_type(self):
@@ -221,7 +261,7 @@ class NewStudyWindow(QDialog):
         self.tbx.load_raw()
         for i in range(len(self.tbx.list_eegs_path)):
             self.ui.step0_selected_files_list.addItem(str(self.tbx.list_eegs_path[i]))
-        # self.ui.foldername_preprocessed_data = os.path.join(self.ui.input_folder, 'output')
+        self.ui.step0_import_log_lineedit.setText(f"{str(len(self.tbx.list_eegs_path))} EEG data were detected.")
         self.newstudy_controller()
 
     def new_study_save_path(self):
@@ -333,33 +373,38 @@ class NewStudyWindow(QDialog):
             self.main_window.load_study(self.save_dir)
         self.ui.close()
 
-    def plot_CHANNELS(self):
+    def plot_montage(self):
+        self.ui.MplWidget.canvas.figure.clear()
+        self.ui.MplWidget.canvas.axes.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir, [])
-        ax = self.ui.MplWidget_chan.canvas.axes
-        ax.clear()
-        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                     ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(18)
-        if self.tbx.channel_location_dir:
-            montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
-            EEG.set_montage(montage)
-        if np.isnan(EEG.info['chs'][0]['loc'][0]):
-            print('No valid channel positions found!')
+        if not np.isnan(EEG.info['chs'][0]['loc'][0]):
+            montage = EEG.get_montage()
         else:
-            if self.ui.rawdata_show_channel_names_checkbox.isChecked():
-                show_names = True
-            else:
-                show_names = False
-            EEG.plot_sensors(ch_type='eeg', show_names=show_names, axes=ax)
-        self.ui.MplWidget_chan.canvas.draw()
+            #if self.tbx.channel_location_dir:
+            montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
+            #EEG.set_montage(montage)
+        #if np.isnan(EEG.info['chs'][0]['loc'][0]):
+        #    print('No valid channel positions found!')
+        #else:
+        if self.ui.rawdata_show_channel_names_checkbox.isChecked():
+            show_names = True
+        else:
+            show_names = False
+
+        fig = montage.plot(show_names=show_names)
+        self.ui.MplWidget.canvas.figure = fig
+        self.ui.figure_title_lineedit.setText("EEG Montage")
+        self.ui.MplWidget.canvas.draw()
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir)
         EEG.plot()
 
-    def plot_PSD(self):
+    def plot_psd(self):
+        self.ui.MplWidget.canvas.figure.clear()
+        self.ui.MplWidget.canvas.axes.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = load_eegs(filename, self.tbx.extension, self.tbx.data_type, self.tbx.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
@@ -372,11 +417,9 @@ class NewStudyWindow(QDialog):
             EEG = EEG.filter(l_freq=lowcut, h_freq=highcut, method=filter_method, n_jobs=-1)
         fmin_plot = int(self.ui.rawdata_range_psd_min.text())
         fmax_plot = int(self.ui.rawdata_range_psd_max.text())
-        ax = self.ui.MplWidget_psd.canvas.axes
-        ax.clear()
-        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                     ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(18)
-        EEG.compute_psd().plot()
-        mne.viz.plot_raw_psd(EEG, fmin=fmin_plot, fmax=fmax_plot, ax=ax)
-        self.ui.MplWidget_psd.canvas.draw()
+        fig = EEG.compute_psd(fmin=fmin_plot, fmax=fmax_plot).plot()
+        #mne.viz.plot_raw_psd(EEG, fmin=fmin_plot, fmax=fmax_plot, ax=ax)
+        self.ui.MplWidget.canvas.figure = fig
+        self.ui.figure_title_lineedit.setText("Power Spectral Density (PSD) using Multitapers")
+        self.ui.MplWidget.canvas.draw()
+
