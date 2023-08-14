@@ -338,6 +338,9 @@ class NewStudyWindow(QDialog):
             self.sample_rate = ''
 
         if self.ui.step0_ch2rm_radio.isChecked():
+            # TODO: change it to combo containing all available electrodes
+            # TODO: we should be able to select multiple electrodes
+            # https://gis.stackexchange.com/questions/350148/qcombobox-multiple-selection-pyqt5
             self.ch2rm = self.ui.step0_ch2rm_input.text()
             print(self.ch2rm)
         elif self.ui.step0_ch2rm_missing_radio.isChecked():
