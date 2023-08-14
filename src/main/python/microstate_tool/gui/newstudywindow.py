@@ -74,17 +74,12 @@ class NewStudyWindow(QDialog):
         else:
             self.ui.step0_import_pattern_lineedit.setDisabled(True)
 
-        if self.ui.step0_use_template_montage_radio.isChecked():
-            self.use_custom_chan_loc = False
-            self.ui.step0_template_montage_combobox.setEnabled(True)
-        else:
+        if self.ui.step0_load_montage_radio.isChecked():
             self.ui.step0_template_montage_combobox.setDisabled(True)
-
-        if self.ui.step0_use_template_montage_radio.isChecked() and self.ui.step0_chanloc_path_lineedit.text():
-            self.use_custom_chan_loc = True
-            self.use_template_chan_loc = False
-        else:
-            self.use_custom_chan_loc = False
+            self.ui.step0_chanloc_path_lineedit.setEnabled(True)
+        elif self.ui.step0_use_template_montage_radio.isChecked():
+            self.ui.step0_template_montage_combobox.setEnabled(True)
+            self.ui.step0_chanloc_path_lineedit.setDisabled(True)
 
         if self.ui.step0_input_path_lineedit:
             self.input_folder_found = True
@@ -387,7 +382,7 @@ class NewStudyWindow(QDialog):
         else:
             #if self.tbx.channel_location_dir:
             montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
-            #EEG.set_montage(montage)
+            EEG.set_montage(montage)
         #if np.isnan(EEG.info['chs'][0]['loc'][0]):
         #    print('No valid channel positions found!')
         #else:
@@ -396,7 +391,15 @@ class NewStudyWindow(QDialog):
         else:
             show_names = False
 
-        fig = montage.plot(show_names=show_names)
+        if self.ui.step0_ch2rm_input.text():
+            self.ch2rm = self.ui.step0_ch2rm_input.text()
+            parts = self.ch2rm.split(',')
+            self.ch2rm = [part.strip() for part in parts]
+            EEG.info["bads"].extend(self.ch2rm)
+        fig, _ = EEG.plot_sensors(kind='select', show_names=show_names)
+        #fig = montage.plot(show_names=show_names)
+        #print(chan2rm)
+
         self.ui.MplWidget.canvas.figure = fig
         self.ui.figure_title_lineedit.setText("EEG Montage")
         self.ui.MplWidget.canvas.draw()
