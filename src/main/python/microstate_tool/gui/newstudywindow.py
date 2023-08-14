@@ -51,6 +51,7 @@ class NewStudyWindow(QDialog):
         self.ui.step0_remove_file_button.clicked.connect(self.remove_file)
         self.ui.step0_clear_files_button.clicked.connect(self.clear_files)
 
+        self.ui.step0_selected_files_list.itemClicked.connect(self.newstudy_controller)
         self.ui.show_montage_button.clicked.connect(self.plot_montage)
         self.ui.show_psd_button.clicked.connect(self.plot_psd)
         self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
@@ -153,7 +154,8 @@ class NewStudyWindow(QDialog):
             self.ui.step0_remove_file_button.setEnabled(True)
             self.ui.step0_clear_files_button.setEnabled(True)
             # Enable Plot Options
-            set_widgets_status(plot_options, enable=True)
+            if self.ui.step0_selected_files_list.currentItem():
+                set_widgets_status(plot_options, enable=True)
             # Enable Preprocessing Options
             set_widgets_status(preprocessing_options, enable=True)
 
@@ -300,6 +302,8 @@ class NewStudyWindow(QDialog):
 
     def clear_files(self):
         self.ui.step0_selected_files_list.clear()
+        self.ui.MplWidget.canvas.figure.clear()
+        self.ui.MplWidget.canvas.axes.clear()
         self.newstudy_controller()
 
     def preprocess_data(self):
