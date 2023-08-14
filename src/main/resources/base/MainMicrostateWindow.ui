@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1441</width>
-    <height>896</height>
+    <width>1826</width>
+    <height>1032</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -258,9 +258,9 @@
         <property name="geometry">
          <rect>
           <x>0</x>
-          <y>-347</y>
-          <width>945</width>
-          <height>1436</height>
+          <y>-462</y>
+          <width>1143</width>
+          <height>1431</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -286,17 +286,7 @@
              </item>
              <item>
               <property name="text">
-               <string>Recursively Subdivided Octahedron - 1026 sources/hemisphere (OCT5)</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
                <string>Recursively Subdivided Icosahedron - 2562 sources/hemisphere (ICO4)</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Recursively Subdivided Octahedron - 4098 sources/hemisphere (OCT6)</string>
               </property>
              </item>
              <item>
@@ -879,7 +869,7 @@
            <item row="53" column="1" colspan="2">
             <widget class="QPushButton" name="step5_visualize_sources_button">
              <property name="enabled">
-              <bool>false</bool>
+              <bool>true</bool>
              </property>
              <property name="font">
               <font>
@@ -1633,7 +1623,7 @@
                 </font>
                </property>
                <property name="text">
-                <string>1E-6</string>
+                <string>1E-3</string>
                </property>
                <property name="alignment">
                 <set>Qt::AlignCenter</set>
@@ -2024,101 +2014,22 @@
               </widget>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_2">
-               <item>
-                <widget class="QRadioButton" name="step3_smooth_segments_radio">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Smooth segments</string>
-                 </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup_3</string>
-                 </attribute>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>convergence criterion</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>1E-6</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="step3_smooth_segments_b_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>window size</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="step3_smooth_segments_b_input">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>3</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="step3_smooth_segments_lambda_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>non-smoothness penalty</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>5</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-              </layout>
+              <widget class="QRadioButton" name="step3_smooth_segments_radio">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Smooth segments</string>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup_3</string>
+               </attribute>
+              </widget>
              </item>
             </layout>
            </item>
@@ -2211,8 +2122,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1441</width>
-     <height>24</height>
+     <width>1826</width>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -2336,11 +2247,11 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_5"/>
  </buttongroups>
 </ui>
