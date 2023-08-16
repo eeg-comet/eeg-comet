@@ -14,7 +14,7 @@ from functions.utils.data_io import find_data, load_eegs, get_eeg_data
 from functions.utils.substitude_maps_with_duration import substitude_maps_with_duration
 
 
-def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_segments_option, remove_segments_less_than, micro_labels, save_path, extension, datatype, smooth_param):
+def backfit_func(study_name, preprocessed_data_path, maps, method, filter_segments_option, remove_segments_less_than, micro_labels, save_path, extension, datatype, smooth_param):
     '''
     study_name: the name of the study which has been loaded
     preprocessed_data_path: the path of the preprocessed data
@@ -99,6 +99,7 @@ def backfit_func(study_name, preprocessed_data_path, maps, method, fs, filter_se
                           "ms in duration with the nearby dominant microstate")
                 elif filter_segments_option == 'remove':
                     print("Removing segments with less than", str(remove_segments_less_than), "ms in duration")
+
                 segmentation = substitude_maps_with_duration(segmentation,
                                                              remove_segments_less_than,
                                                              filter_segments_option,

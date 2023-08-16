@@ -83,6 +83,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step3_backfit_all_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_backfit_peaks_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
+        self.ui.step3_filter_segments_method_combobox.activated.connect(self.mainwindow_controller)
 
         self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.plot_elbow)
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
@@ -222,7 +223,7 @@ class MainMicrostateWindow(QMainWindow):
             box.setCurrentText(current)
 
     def mainwindow_controller(self):
-        buttons_done_preprocessing = [
+        after_preprocessing_widgets = [
             self.ui.step2_clustering_title_label,
             self.ui.step2_clustermethod_combo_label,
             self.ui.step2_clustermethod_combobox,
@@ -281,9 +282,34 @@ class MainMicrostateWindow(QMainWindow):
             self.step2_percent_label_2
         ]
 
+        after_clustering_widgets = [
+            self.ui.step3_label_maps_button,
+            self.ui.step3_backfit_title_label,
+            self.ui.step3_backfit_all_radio,
+            self.ui.step3_backfit_peaks_radio,
+            self.ui.step3_filter_segments_checkbox,
+            self.ui.step3_backfit_button
+        ]
+
+        filter_segments_widgets = [
+            self.ui.step3_filter_segments_input,
+            self.ui.step3_filter_segments_label,
+            self.ui.step3_filter_segments_method_combobox,
+            self.ui.step3_filter_segments_label,
+            self.ui.step3_filter_segments_label_2
+        ]
+
+        smooth_segments_widgets = [
+            self.ui.step3_smooth_segments_epsilon_label,
+            self.ui.step3_smooth_segments_epsilon_input,
+            self.ui.step3_smooth_segments_lambda_label,
+            self.ui.step3_smooth_segments_lambda_input
+        ]
+
+
         if self.tbx.done_preprocessing:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
-            set_widgets_status(buttons_done_preprocessing, mode='enable')
+            set_widgets_status(after_preprocessing_widgets, mode='enable')
             if self.ui.step2_auto_k_radio.isChecked():
                 k_log = 'will be automatically determined.'
                 self.ui.step2_user_k_input.setDisabled(True)
@@ -303,7 +329,7 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(advanced_widgets, mode='hide')
         else:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
-            set_widgets_status(buttons_done_preprocessing, mode='disable')
+            set_widgets_status(after_preprocessing_widgets, mode='disable')
             self.ui.step2_user_k_input.setDisabled(True)
 
 
@@ -343,41 +369,11 @@ class MainMicrostateWindow(QMainWindow):
         self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
         self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
 
-        step3_group1 = [
-            self.ui.step3_label_maps_button,
-            self.ui.step3_backfit_title_label,
-            self.ui.step3_backfit_all_radio,
-            self.ui.step3_backfit_peaks_radio,
-            self.ui.step3_backfit_button
-        ]
 
         # filter segments with occurrence less than xxx ms
         # Replace short segments with previous dominant microstate 
         # Remove short segments
-        step3_filter_segments = [
-            self.ui.step3_filter_segments_input,
-            self.ui.step3_filter_segments_label,
-            # self.ui.step3_replace_segments_radio,
-            self.ui.step3_smooth_segments_radio,
-            self.ui.step3_remove_segments_radio,
-            self.ui.step3_replace_half_radio,
-            self.ui.step3_replace_nearby_radio,
-            #self.ui.step3_smooth_segments_epsilon_label,
-            self.ui.step3_smooth_segments_epsilon_input,
-            self.ui.step3_smooth_segments_b_label,
-            self.ui.step3_smooth_segments_b_input,
-            self.ui.step3_smooth_segments_lambda_label,
-            self.ui.step3_smooth_segments_lambda_input
-        ] 
-
-        step3_smooth_segments_parameters = [
-            self.ui.step3_smooth_segments_epsilon_label,
-            self.ui.step3_smooth_segments_epsilon_input,
-            self.ui.step3_smooth_segments_b_label,
-            self.ui.step3_smooth_segments_b_input,
-            self.ui.step3_smooth_segments_lambda_label,
-            self.ui.step3_smooth_segments_lambda_input
-        ]
+        
         if self.tbx.done_clustering:
             self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
 
@@ -392,23 +388,20 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.output_format = '.json'
 
             
-            set_widgets_status(step3_group1, mode='enable')
+            set_widgets_status(after_clustering_widgets, mode='enable')
 
-            if self.ui.step3_backfit_all_radio.isChecked():
-                set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='enable')
-                if self.ui.step3_filter_segments_checkbox.isChecked():
-                    set_widgets_status(step3_filter_segments, mode='enable')
-                    # if self.ui.step3_smooth_segments_radio.isChecked():
-                    #     set_widgets_status(step3_smooth_segments_parameters, mode='enable')
-                    # else:
-                    #     set_widgets_status(step3_smooth_segments_parameters, mode='disable')
+            if self.ui.step3_filter_segments_checkbox.isChecked():
+                set_widgets_status(filter_segments_widgets, mode='enable')
+                filter_segments_method = self.ui.step3_filter_segments_method_combobox.currentText()
+                if filter_segments_method == "Smooth segments":
+                    set_widgets_status(smooth_segments_widgets, mode='enable')
+                    set_widgets_status(smooth_segments_widgets, mode='show')
                 else:
-                    set_widgets_status(step3_filter_segments, mode='disable')
-            else: # which means self.ui.step3_backfit_peaks_radio.isChecked():
-                set_widgets_status(step3_filter_segments, mode='disable')
-                set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
-                # set_widgets_status(step3_smooth_segments_parameters, mode='disable')
-
+                    set_widgets_status(smooth_segments_widgets, mode='disable')
+                    set_widgets_status(smooth_segments_widgets, mode='hide')
+            else:
+                set_widgets_status(filter_segments_widgets, mode='disable')
+                set_widgets_status(smooth_segments_widgets, mode='disable')
 
         else:
             self.tbx.done_labeling_microstates = False
@@ -420,8 +413,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
             # set ALL disabled
             set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
-            set_widgets_status(step3_group1, mode='disable')
-            set_widgets_status(step3_filter_segments, mode='disable')
+            set_widgets_status(after_clustering_widgets, mode='disable')
+            set_widgets_status(filter_segments_widgets, mode='disable')
 
         if self.tbx.done_labeling_microstates:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
@@ -680,18 +673,19 @@ class MainMicrostateWindow(QMainWindow):
             self.tbx.lamb = ''
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 self.tbx.filter_segments = True
-                self.tbx.remove_segments_less_than = int(self.ui.step3_filter_segments_input.text())
-                if self.ui.step3_replace_nearby_radio.isChecked():
+                self.tbx.remove_segments_less_than = int(int(self.ui.step3_filter_segments_input.text())/(1000/self.tbx.sample_rate))
+                filter_segments_method = self.ui.step3_filter_segments_method_combobox.currentText()
+                if filter_segments_method == 'Replace short segments: nearby dominant microstate':
                     self.tbx.filter_segments_option = 'replace_high'
-                elif self.ui.step3_replace_half_radio.isChecked():
+                elif filter_segments_method == 'Replace short segments: half and half':
                     self.tbx.filter_segments_option = 'replace_half'
-                elif self.ui.step3_remove_segments_radio.isChecked():
+                elif filter_segments_method == 'Remove short segments':
                     self.tbx.filter_segments_option = 'remove'
-                elif self.ui.step3_smooth_segments_radio.isChecked():
+                elif filter_segments_method == 'Smooth segments':
                     self.tbx.filter_segments_option = 'smooth'
                     # TODO: add parameters
                     self.tbx.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
-                    self.tbx.b = int(self.ui.step3_smooth_segments_b_input.text())
+                    self.tbx.b = self.tbx.remove_segments_less_than
                     self.tbx.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
 
             else:

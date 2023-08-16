@@ -166,7 +166,7 @@ def segmentation_smooth(data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
     
     return segmentation
 
-def substitude_maps_with_duration(segmentation, segments_less_than, option, data, maps, n_states, smooth_param=[]):
+def substitude_maps_with_duration(segmentation, segments_less_than, option, data, maps, n_states, smooth_param=[1e-6, 3, 5]):
     """
     Substitute short segments in the segmentation array with neighboring elements based on the chosen option.
     """
@@ -204,8 +204,6 @@ def substitude_maps_with_duration(segmentation, segments_less_than, option, data
         filled_segmentation = fill_with_neighbors_half(filled_segmentation)
     if option == 'smooth':
         # TODO: add user self define parameter option: epsilon=1e-6, b=3, lamb=5
-        if not smooth_param:
-            smooth_param = [1e-6, 3, 5]
         filled_segmentation = segmentation_smooth(data, maps, n_states, *smooth_param)
 
     return filled_segmentation

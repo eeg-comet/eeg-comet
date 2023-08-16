@@ -263,9 +263,9 @@
         <property name="geometry">
          <rect>
           <x>0</x>
-          <y>0</y>
+          <y>-304</y>
           <width>1391</width>
-          <height>1459</height>
+          <height>1426</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -274,7 +274,7 @@
            <property name="sizeConstraint">
             <enum>QLayout::SetDefaultConstraint</enum>
            </property>
-           <item row="57" column="2">
+           <item row="55" column="2">
             <widget class="QComboBox" name="step5_spacing_combobox">
              <property name="enabled">
               <bool>false</bool>
@@ -311,7 +311,7 @@
              </item>
             </widget>
            </item>
-           <item row="52" column="1" colspan="2">
+           <item row="50" column="1" colspan="2">
             <widget class="Line" name="line">
              <property name="lineWidth">
               <number>2</number>
@@ -902,6 +902,30 @@
              </property>
             </widget>
            </item>
+           <item row="12" column="1" colspan="2">
+            <widget class="QPlainTextEdit" name="step2_clustering_log_textedit">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="cursor" stdset="0">
+              <cursorShape>ArrowCursor</cursorShape>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="plainText">
+              <string notr="true"/>
+             </property>
+             <property name="backgroundVisible">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
            <item row="11" column="1">
             <widget class="QLabel" name="step2_numberofrepeats_label">
              <property name="enabled">
@@ -1228,7 +1252,112 @@
              </property>
             </widget>
            </item>
-           <item row="48" column="2">
+           <item row="5" column="1" colspan="2">
+            <widget class="QCheckBox" name="step2_advanced_checkbox">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Advanced options:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="31" column="1" colspan="2">
+            <widget class="QRadioButton" name="step3_backfit_peaks_radio">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Backfit microstate maps to GFP peaks</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_4</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="32" column="2">
+            <widget class="QComboBox" name="step3_filter_segments_method_combobox">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <item>
+              <property name="text">
+               <string>Smooth segments</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Remove short segments</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Replace short segments: nearby dominant microstate</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Replace short segments: half and half</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="30" column="1" colspan="2">
+            <widget class="QRadioButton" name="step3_backfit_all_radio">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Backfit microstate maps to all time points</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_4</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="46" column="2">
             <layout class="QGridLayout" name="gridLayout_4">
              <item row="2" column="0">
               <widget class="QCheckBox" name="step4_mmd_featurestoextract_checkbox">
@@ -1438,7 +1567,7 @@
              </item>
             </layout>
            </item>
-           <item row="56" column="1">
+           <item row="54" column="1">
             <widget class="QLabel" name="step5_permutations_label">
              <property name="enabled">
               <bool>false</bool>
@@ -1453,7 +1582,7 @@
              </property>
             </widget>
            </item>
-           <item row="42" column="1" colspan="2">
+           <item row="40" column="1" colspan="2">
             <widget class="QPushButton" name="step3_backfit_button">
              <property name="enabled">
               <bool>false</bool>
@@ -1479,7 +1608,7 @@
              </property>
             </widget>
            </item>
-           <item row="51" column="1" colspan="2">
+           <item row="49" column="1" colspan="2">
             <widget class="QPushButton" name="step4_visualizefeatures_button">
              <property name="enabled">
               <bool>false</bool>
@@ -1505,17 +1634,7 @@
              </property>
             </widget>
            </item>
-           <item row="27" column="1" colspan="2">
-            <widget class="Line" name="line_2">
-             <property name="lineWidth">
-              <number>2</number>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="43" column="1" colspan="2">
+           <item row="41" column="1" colspan="2">
             <widget class="Line" name="line_3">
              <property name="lineWidth">
               <number>2</number>
@@ -1525,7 +1644,7 @@
              </property>
             </widget>
            </item>
-           <item row="55" column="2">
+           <item row="53" column="2">
             <widget class="QComboBox" name="step5_inverse_method_combobox">
              <property name="enabled">
               <bool>false</bool>
@@ -1574,42 +1693,14 @@
              </property>
             </widget>
            </item>
-           <item row="75" column="1">
+           <item row="73" column="1">
             <widget class="Line" name="line_10">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
             </widget>
            </item>
-           <item row="30" column="1" colspan="2">
-            <widget class="QRadioButton" name="step3_backfit_all_radio">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Backfit microstate maps to all time points</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">buttonGroup_4</string>
-             </attribute>
-            </widget>
-           </item>
-           <item row="47" column="1">
-            <widget class="Line" name="line_8">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="50" column="1" colspan="2">
+           <item row="48" column="1" colspan="2">
             <widget class="QPushButton" name="step4_extractfeatures_button">
              <property name="enabled">
               <bool>false</bool>
@@ -1647,7 +1738,7 @@
              </property>
             </widget>
            </item>
-           <item row="55" column="1">
+           <item row="53" column="1">
             <widget class="QLabel" name="step5_inverse_method_label">
              <property name="enabled">
               <bool>false</bool>
@@ -1662,14 +1753,14 @@
              </property>
             </widget>
            </item>
-           <item row="73" column="1" colspan="2">
+           <item row="71" column="1" colspan="2">
             <widget class="Line" name="line_5">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
             </widget>
            </item>
-           <item row="57" column="1">
+           <item row="55" column="1">
             <widget class="QLabel" name="step5_spacing_label">
              <property name="enabled">
               <bool>false</bool>
@@ -1684,7 +1775,7 @@
              </property>
             </widget>
            </item>
-           <item row="48" column="1">
+           <item row="46" column="1">
             <layout class="QVBoxLayout" name="verticalLayout">
              <item>
               <widget class="QLabel" name="step4_outputformats_label">
@@ -1767,7 +1858,7 @@
              </item>
             </layout>
            </item>
-           <item row="45" column="1" colspan="2">
+           <item row="43" column="1" colspan="2">
             <widget class="QLabel" name="step4_features_title_label">
              <property name="enabled">
               <bool>false</bool>
@@ -1790,7 +1881,7 @@
              </property>
             </widget>
            </item>
-           <item row="59" column="1" colspan="2">
+           <item row="57" column="1" colspan="2">
             <widget class="QPushButton" name="step5_visualize_sources_button">
              <property name="enabled">
               <bool>false</bool>
@@ -1807,7 +1898,7 @@
              </property>
             </widget>
            </item>
-           <item row="58" column="1" colspan="2">
+           <item row="56" column="1" colspan="2">
             <widget class="QPushButton" name="step5_estimate_sources_button">
              <property name="enabled">
               <bool>false</bool>
@@ -1859,38 +1950,7 @@
              </property>
             </widget>
            </item>
-           <item row="36" column="1" rowspan="6" colspan="2">
-            <widget class="QRadioButton" name="step3_backfit_peaks_radio">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Backfit microstate maps to GFP peaks</string>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">buttonGroup_4</string>
-             </attribute>
-            </widget>
-           </item>
-           <item row="54" column="1">
-            <widget class="Line" name="line_9">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="56" column="2">
+           <item row="54" column="2">
             <widget class="QLineEdit" name="step5_permutations_input">
              <property name="enabled">
               <bool>false</bool>
@@ -1924,7 +1984,7 @@
              </property>
             </widget>
            </item>
-           <item row="53" column="1" colspan="2">
+           <item row="51" column="1" colspan="2">
             <widget class="QLabel" name="step5_source_localization_title_label">
              <property name="enabled">
               <bool>false</bool>
@@ -1940,237 +2000,6 @@
               <string>⚫ Source Localization of Microstates</string>
              </property>
             </widget>
-           </item>
-           <item row="31" column="1" rowspan="5" colspan="2">
-            <layout class="QVBoxLayout" name="verticalLayout_2">
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout">
-               <item>
-                <widget class="QCheckBox" name="step3_filter_segments_checkbox">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Filter segments with occurrence less than </string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="step3_filter_segments_input">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>20</string>
-                 </property>
-                 <property name="maxLength">
-                  <number>3</number>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="step3_filter_segments_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>ms</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <widget class="QRadioButton" name="step3_remove_segments_radio">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Remove short segments</string>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup_3</string>
-               </attribute>
-              </widget>
-             </item>
-             <item>
-              <widget class="QRadioButton" name="step3_replace_nearby_radio">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Replace short segments: nearby dominant microstate</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup_3</string>
-               </attribute>
-              </widget>
-             </item>
-             <item>
-              <widget class="QRadioButton" name="step3_replace_half_radio">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Replace short segments: half and half</string>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup_3</string>
-               </attribute>
-              </widget>
-             </item>
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_2">
-               <item>
-                <widget class="QRadioButton" name="step3_smooth_segments_radio">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>12</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Smooth segments</string>
-                 </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup_3</string>
-                 </attribute>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>convergence criterion</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>1E-6</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="step3_smooth_segments_b_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>window size</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="step3_smooth_segments_b_input">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>3</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="step3_smooth_segments_lambda_label">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="text">
-                  <string>non-smoothness penalty</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
-                 <property name="enabled">
-                  <bool>false</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>5</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-            </layout>
            </item>
            <item row="29" column="1" colspan="2">
             <widget class="Line" name="line_7">
@@ -2224,32 +2053,122 @@
              </item>
             </widget>
            </item>
-           <item row="12" column="1" colspan="2">
-            <widget class="QPlainTextEdit" name="step2_clustering_log_textedit">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="cursor" stdset="0">
-              <cursorShape>ArrowCursor</cursorShape>
-             </property>
-             <property name="readOnly">
-              <bool>true</bool>
-             </property>
-             <property name="plainText">
-              <string notr="true"/>
-             </property>
-             <property name="backgroundVisible">
-              <bool>false</bool>
-             </property>
-            </widget>
+           <item row="33" column="2">
+            <layout class="QGridLayout" name="gridLayout_8">
+             <item row="0" column="0">
+              <widget class="QLabel" name="step3_filter_segments_label">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Window size:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QLabel" name="step3_filter_segments_label_2">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>ms</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>1E-6</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Convergence criterion:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="step3_filter_segments_input">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>20</string>
+               </property>
+               <property name="maxLength">
+                <number>3</number>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="step3_smooth_segments_lambda_label">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Non-smoothness penalty:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>5</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
-           <item row="5" column="1" colspan="2">
-            <widget class="QCheckBox" name="step2_advanced_checkbox">
+           <item row="32" column="1" rowspan="2">
+            <widget class="QCheckBox" name="step3_filter_segments_checkbox">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -2265,7 +2184,31 @@
               </font>
              </property>
              <property name="text">
-              <string>Advanced options:</string>
+              <string>Filter short segments</string>
+             </property>
+            </widget>
+           </item>
+           <item row="27" column="1" colspan="2">
+            <widget class="Line" name="line_2">
+             <property name="lineWidth">
+              <number>2</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="45" column="1" colspan="2">
+            <widget class="Line" name="line_8">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="52" column="1" colspan="2">
+            <widget class="Line" name="line_9">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
              </property>
             </widget>
            </item>
