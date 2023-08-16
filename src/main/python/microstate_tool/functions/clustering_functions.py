@@ -251,28 +251,28 @@ def get_elbow_without_plt(maps2use, tolerance, n_inits, kmin, kmax, max_iter, st
             gev_i = gev_i + gev
             residual_i = residual_i + residual
             # Compute the Silhouette score
-            # activation = np.array(maps).dot(data)
-            # classes = np.argmax(np.abs(activation), axis=0)
-            # sil_score_i = np.mean(abs(corr_vectors(data, maps[classes].T)))
+            activation = np.array(maps).dot(maps2use)
+            classes = np.argmax(np.abs(activation), axis=0)
+            sil_score_i = np.mean(abs(corr_vectors(maps2use, maps[classes].T)))
 
         N = np.append(N, k)
         residual_mean = residual_i / n_inits
         RES = np.append(RES, residual_mean)
         gev_mean = gev_i / n_inits
         GEV = np.append(GEV, gev_mean)
-        # sil_mean = sil_score_i / n_inits
-        # SIL = np.append(SIL, sil_mean)
+        sil_mean = sil_score_i / n_inits
+        SIL = np.append(SIL, sil_mean)
         if len(N) == 1:
             continue
         if stopping_mode=='gev':
             if abs(gev_mean - GEV[-2]) / GEV[-2] < threshold:
                 return k
-        elif stopping_mode=='residual':
+        elif stopping_mode=='res':
             if abs(RES[-2] - residual_mean) / RES[-2]  < threshold:
                 return k
-        # elif stopping_mode=='sil':
-        #     if abs(sil_mean - SIL[-2]) / SIL[-2] < threshold:
-        #         return k
+        elif stopping_mode=='sil':
+            if abs(sil_mean - SIL[-2]) / SIL[-2] < threshold:
+               return k
 
 
     return int((kmin + kmax)/2)

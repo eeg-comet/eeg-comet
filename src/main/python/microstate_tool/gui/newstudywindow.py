@@ -255,9 +255,9 @@ class NewStudyWindow(QDialog):
 
             # Enable Plot Options
             if self.ui.step0_selected_files_list.currentItem():
-                set_widgets_status(plot_options, enable=True)
+                set_widgets_status(plot_options, mode='enable')
             # Enable Preprocessing Options
-            set_widgets_status(preprocessing_options, enable=True)
+            set_widgets_status(preprocessing_options, mode='enable')
 
             if self.ui.step0_ch2rm_radio.isChecked():
                 self.ui.step0_ch2rm_combobox.setEnabled(True)
@@ -282,26 +282,26 @@ class NewStudyWindow(QDialog):
                 if self.ui.step0_filter_option_checkbox.isChecked():
                     self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.filter_data = True
-                    set_widgets_status(preprocessing_sub_options, enable=True)
+                    set_widgets_status(preprocessing_sub_options, mode='enable')
                 else:
                     self.filter_data = False
-                    set_widgets_status(preprocessing_sub_options, enable=False)
+                    set_widgets_status(preprocessing_sub_options, mode='disable')
                 if self.ui.step0_downsamp_option_checkbox.isChecked():
                     self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.ui.downsample_data = True
-                    set_widgets_status(downsample_sub_options, enable=True)
+                    set_widgets_status(downsample_sub_options, mode='enable')
                 else:
                     self.downsample_data = False
-                    set_widgets_status(downsample_sub_options, enable=False)
+                    set_widgets_status(downsample_sub_options, mode='disable')
         else:
             # Disable Next Steps
             self.ui.step0_import_raw_button.setStyleSheet("background-color: light gray")
             self.ui.step0_remove_file_button.setDisabled(True)
             self.ui.step0_clear_files_button.setDisabled(True)
             # Enable Plot Options
-            set_widgets_status(plot_options, enable=False)
+            set_widgets_status(plot_options, mode='disable')
             # Enable Preprocessing Options
-            set_widgets_status(preprocessing_options, enable=False)
+            set_widgets_status(preprocessing_options, mode='disable')
 
 
     def choose_input(self):
@@ -507,7 +507,7 @@ class NewStudyWindow(QDialog):
             montage = EEG.get_montage()
         else:
             montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
-            EEG.set_montage(montage)
+            EEG.set_montage(montage, match_case=False, on_missing='warn')
         if self.ui.rawdata_show_channel_names_checkbox.isChecked():
             show_names = True
         else:

@@ -1,12 +1,9 @@
+
 import os.path
-import numpy as np
-import json
-import pandas as pd
 import webbrowser
-from matplotlib import pyplot as plt
-from PyQt5 import uic
-from PyQt5 import QtCore
+from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
+from PyQt5.QtGui import QColor
 
 from gui.newstudywindow import NewStudyWindow
 from gui.numbermapsdialog import NumberMapsDialog
@@ -78,10 +75,11 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step0_save_log_button.clicked.connect(self.save_log)
 
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
-        self.ui.step2_auto_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_user_numberofmaps_radio.clicked.connect(self.mainwindow_controller)
-        # self.ui.step2_stopping_traditional_radio.clicked.connect(self.mainwindow_controller)
-        # self.ui.step2_stopping_modified_radio.clicked.connect(self.mainwindow_controller)
+        self.ui.step2_auto_k_radio.clicked.connect(self.mainwindow_controller)
+        self.ui.step2_user_k_radio.clicked.connect(self.mainwindow_controller)
+        self.ui.step2_advanced_checkbox.clicked.connect(self.mainwindow_controller)
+        self.ui.step2_use_percent_radio.clicked.connect(self.mainwindow_controller)
+        self.ui.step2_use_peaks_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_backfit_all_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_backfit_peaks_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
@@ -229,78 +227,84 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustermethod_combo_label,
             self.ui.step2_clustermethod_combobox,
             self.ui.step2_numberofmaps_label,
-            self.ui.step2_auto_numberofmaps_radio,
-            self.ui.step2_user_numberofmaps_radio,
+            self.ui.step2_advanced_checkbox,
+            self.ui.step2_auto_k_radio,
+            self.ui.step2_user_k_radio,
             self.ui.step2_numberofmaps_elbow_button,
-            self.ui.step2_numberofrepeats_label,
-            self.ui.step2_user_numberofrepeats_input,
-            self.ui.step2_stopping_strategy_label,
-            # self.ui.step2_stopping_traditional_radio,
-            # self.ui.step2_stopping_modified_radio,
+            self.ui.step2_advanced_checkbox,
+            self.ui.step2_clustering_button
+        ]
+
+        elbow_widgets = [
+            self.ui.step2_auto_target_label,
+            self.ui.step2_stopping_threshold_label,
+            self.ui.step2_stopping_threshold_percentage_label,
+            self.ui.step2_stopping_threshold_input,
+            self.ui.step2_auto_range_kmin_combobox,
+            self.ui.step2_auto_range_kmax_combobox,
+            self.ui.step2_auto_k_method_combobox,
+            self.ui.step2_auto_range_label
+        ]
+
+        advanced_widgets = [
             self.ui.step2_other_label,
             self.ui.step2_other_options_combobox,
             self.ui.step2_initializer_label,
             self.ui.step2_random_initializer_radio,
             self.ui.step2_kmeans_initializer_radio,
+            self.ui.step2_select_times_label,
+            self.ui.step2_use_peaks_radio,
+            self.ui.step2_kernel_size_label,
+            self.ui.step2_kernel_size_input,
+            self.ui.step2_kernel_size_label_2,
+            self.ui.step2_use_percent_radio,
+            self.ui.step2_percent_label,
+            self.ui.step2_percent_combobox,
+            self.ui.step2_percent_label_2,
             self.ui.step2_maxiter_label,
             self.ui.step2_maxiter_input,
             self.ui.step2_stopcondition_label,
             self.ui.step2_stopcondition_input,
-            self.ui.step2_use_peaks_radio,
-            self.ui.step2_use_percent_radio,
-            self.ui.step2_percent_combobox,
-            self.ui.step2_percent_label,
+            self.ui.step2_numberofrepeats_label,
+            self.ui.step2_user_numberofrepeats_input
+        ]
+
+        peaks2use_widgets = [
             self.ui.step2_kernel_size_label,
-            self.ui.step2_kernel_size_input,
-            self.ui.step2_kernel_size_label_2,
-            self.ui.step2_clustering_button
+            self.step2_kernel_size_input,
+            self.step2_kernel_size_label_2
         ]
-        # elbow_version_widgets = [
-        #     self.ui.step2_stopping_traditional_radio,
-        #     self.ui.step2_stopping_modified_radio
-        # ]
-        elbow_widgets = [
-            self.ui.step2_stopping_head,
-            self.ui.step2_stopping_gev_radio,
-            self.ui.step2_stopping_residual_radio,
-            self.ui.step2_stopping_sil_radio,
-            self.ui.step2_stopping_threshold_label,
-            self.ui.step2_stopping_threshold_percentage_label,
-            self.ui.step2_stopping_threshold_input,
-            self.ui.step2_auto_range_label,
-            self.ui.step2_auto_range_kmin_input,
-            self.ui.step2_auto_range_kmax_input,
-            self.ui.step2_auto_range_to_label
+
+        rand2use_widgets = [
+            self.ui.step2_percent_label,
+            self.step2_percent_combobox,
+            self.step2_percent_label_2
         ]
+
         if self.tbx.done_preprocessing:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
-            # set ui parts Enabled
-            # for button in buttons_done_preprocessing:
-            #     button.setEnabled(True)
-            set_widgets_status(buttons_done_preprocessing, enable=True)
-            if self.ui.step2_auto_numberofmaps_radio.isChecked():
-                self.ui.step2_user_numberofmaps_input.setDisabled(True)
-                set_widgets_status(elbow_widgets, enable=True)
-            if self.ui.step2_user_numberofmaps_radio.isChecked():
-                self.ui.step2_user_numberofmaps_input.setEnabled(True)
-                set_widgets_status(elbow_widgets, enable=False)
-            # if self.ui.step2_stopping_modified_radio.isChecked():
-            #     print('yes')
-            #     set_widgets_status(elbow_widgets, enable=True)
-            # if self.ui.step2_stopping_traditional_radio.isChecked():
-            #     print('no')
-            #     set_widgets_status(elbow_widgets, enable=False)
-            
+            set_widgets_status(buttons_done_preprocessing, mode='enable')
+            if self.ui.step2_auto_k_radio.isChecked():
+                k_log = 'will be automatically determined.'
+                self.ui.step2_user_k_input.setDisabled(True)
+                self.ui.step2_numberofmaps_elbow_button.setDisabled(True)
+                set_widgets_status(elbow_widgets, mode='enable')
+            if self.ui.step2_user_k_radio.isChecked():
+                k_log = 'is user-predefined.'
+                self.ui.step2_user_k_input.setEnabled(True)
+                self.ui.step2_numberofmaps_elbow_button.setEnabled(True)
+                set_widgets_status(elbow_widgets, mode='disable')
 
-
+            if self.ui.step2_advanced_checkbox.isChecked():
+                set_widgets_status(advanced_widgets, mode='enable')
+                set_widgets_status(advanced_widgets, mode='show')
+            else:
+                set_widgets_status(advanced_widgets, mode='disable')
+                set_widgets_status(advanced_widgets, mode='hide')
         else:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
-            # set ui parts Disabled
-            # for button in buttons_done_preprocessing:
-            #     button.setDisabled(True)
-            set_widgets_status(buttons_done_preprocessing, enable=False)
-            self.ui.step2_user_numberofmaps_input.setDisabled(True)
-
+            set_widgets_status(buttons_done_preprocessing, mode='disable')
+            self.ui.step2_user_k_input.setDisabled(True)
 
 
         self.tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
@@ -322,6 +326,22 @@ class MainMicrostateWindow(QMainWindow):
         else:
             self.ui.step2_other_label.setText("Other options:")
             self.reset_option_box(self.ui.step2_other_options_combobox)
+
+        if self.ui.step2_use_peaks_radio.isChecked():
+            cluster_data_log = 'the local peaks of the global field power.'
+            set_widgets_status(peaks2use_widgets, mode='enable')
+            set_widgets_status(rand2use_widgets, mode='disable')
+        elif self.ui.step2_use_percent_radio.isChecked():
+            cluster_data_log = 'a randomly selected subset of the data.'
+            set_widgets_status(rand2use_widgets, mode='enable')
+            set_widgets_status(peaks2use_widgets, mode='disable')
+
+        # Update the clustering log
+        self.step2_clustering_log_textedit.clear()
+        self.step2_clustering_log_textedit.appendPlainText(
+            f"EEG microstates will be identified using {self.tbx.clustering_method} clustering algorithm")
+        self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
+        self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
 
         step3_group1 = [
             self.ui.step3_label_maps_button,
@@ -372,22 +392,22 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.output_format = '.json'
 
             
-            set_widgets_status(step3_group1, enable=True)
+            set_widgets_status(step3_group1, mode='enable')
 
             if self.ui.step3_backfit_all_radio.isChecked():
-                set_widgets_status(self.ui.step3_filter_segments_checkbox, enable=True)
+                set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='enable')
                 if self.ui.step3_filter_segments_checkbox.isChecked():
-                    set_widgets_status(step3_filter_segments, enable=True)
+                    set_widgets_status(step3_filter_segments, mode='enable')
                     # if self.ui.step3_smooth_segments_radio.isChecked():
-                    #     set_widgets_status(step3_smooth_segments_parameters, enable=True)
+                    #     set_widgets_status(step3_smooth_segments_parameters, mode='enable')
                     # else:
-                    #     set_widgets_status(step3_smooth_segments_parameters, enable=False)
+                    #     set_widgets_status(step3_smooth_segments_parameters, mode='disable')
                 else:
-                    set_widgets_status(step3_filter_segments, enable=False)
+                    set_widgets_status(step3_filter_segments, mode='disable')
             else: # which means self.ui.step3_backfit_peaks_radio.isChecked():
-                set_widgets_status(step3_filter_segments, enable=False)
-                set_widgets_status(self.ui.step3_filter_segments_checkbox, enable=False)
-                # set_widgets_status(step3_smooth_segments_parameters, enable=False)
+                set_widgets_status(step3_filter_segments, mode='disable')
+                set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
+                # set_widgets_status(step3_smooth_segments_parameters, mode='disable')
 
 
         else:
@@ -399,9 +419,9 @@ class MainMicrostateWindow(QMainWindow):
 
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
             # set ALL disabled
-            set_widgets_status(self.ui.step3_filter_segments_checkbox, enable=False)
-            set_widgets_status(step3_group1, enable=False)
-            set_widgets_status(step3_filter_segments, enable=False)
+            set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
+            set_widgets_status(step3_group1, mode='disable')
+            set_widgets_status(step3_filter_segments, mode='disable')
 
         if self.tbx.done_labeling_microstates:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
@@ -439,12 +459,12 @@ class MainMicrostateWindow(QMainWindow):
         ]
         if self.tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
-            set_widgets_status(all_step_4_5_widgets, enable=True)
+            set_widgets_status(all_step_4_5_widgets, mode='enable')
         else:
             self.tbx.done_extracting_features = False
             self.tbx.done_extracting_microsegments = False
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
-            set_widgets_status(all_step_4_5_widgets, enable=False)
+            set_widgets_status(all_step_4_5_widgets, mode='disable')
 
         if self.tbx.done_extracting_features:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
@@ -474,10 +494,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustermethod_combobox.setCurrentText(self.tbx.clustering_method)
             #self.clustering_option
             if self.tbx.choose_number_of_maps == 'Auto':
-                self.ui.step2_auto_numberofmaps_radio.setChecked(True)
+                self.ui.step2_auto_k_radio.setChecked(True)
             elif self.tbx.choose_number_of_maps == 'User':
-                self.ui.step2_user_numberofmaps_radio.setChecked(True)
-                self.ui.step2_user_numberofmaps_input.setText(str(self.tbx.number_of_maps))
+                self.ui.step2_user_k_radio.setChecked(True)
+                self.ui.step2_user_k_input.setText(str(self.tbx.number_of_maps))
             if self.tbx.initializer == 'Random':
                 self.ui.step2_random_initializer_radio.setChecked(True)
             elif self.tbx.initializer == 'K-Means++':
@@ -569,33 +589,33 @@ class MainMicrostateWindow(QMainWindow):
                 self.smoothing_gfp = False
                 self.tbx.smoothing_distance = ''
                 # self.min_distance_size = []
-            if self.ui.step2_auto_numberofmaps_radio.isChecked():
+            if self.ui.step2_auto_k_radio.isChecked():
                 self.tbx.choose_number_of_maps = "auto"
                 # TODO: should automatically set a self.number_of_maps
                 # if self.ui.step2_stopping_traditional_radio.isChecked():
                 #     self.tbx.elbow_version = 'traditional'
                 # else:
                 #     self.tbx.elbow_version = 'modified'
-                self.tbx.kmin = int(self.ui.step2_auto_range_kmin_input.text())
-                self.tbx.kmax = int(self.ui.step2_auto_range_kmax_input.text())
-                if self.ui.step2_stopping_gev_radio.isChecked():
+                self.tbx.kmin = int(self.ui.step2_auto_range_kmin_combobox.currentText())
+                self.tbx.kmax = int(self.ui.step2_auto_range_kmax_combobox.currentText())
+
+                auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
+                if auto_k_method == 'Global Explained Variance':
                     self.tbx.stopping_mode = 'gev'
-                    self.tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
-                elif self.ui.step2_stopping_residual_radio.isChecked():
-                    self.tbx.stopping_mode = 'residual'
-                    self.tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
-                elif self.ui.step2_stopping_sil_radio.isChecked():
+                elif auto_k_method == 'Residual Variance':
+                    self.tbx.stopping_mode = 'res'
+                elif auto_k_method == 'Silhouette Score':
                     self.tbx.stopping_mode = 'sil'
-                    self.tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
-                print(self.tbx.stopping_parameter)
+
+                self.tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
                 self.tbx.number_of_maps = 'auto'
-            elif self.ui.step2_user_numberofmaps_radio.isChecked():
+            elif self.ui.step2_user_k_radio.isChecked():
                 self.tbx.choose_number_of_maps = "user"
                 self.tbx.stopping_mode = ''
                 self.tbx.stopping_parameter = ''
                 self.tbx.kmin = ''
                 self.tbx.kmax = ''
-                self.tbx.number_of_maps = int(self.ui.step2_user_numberofmaps_input.text())
+                self.tbx.number_of_maps = int(self.ui.step2_user_k_input.text())
             #print(self.number_of_maps)
             if self.ui.step2_random_initializer_radio.isChecked():
                 self.tbx.initializer = "Random"
