@@ -3,7 +3,7 @@ import os.path
 import webbrowser
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
-from PyQt5.QtGui import QColor
+from gui.CheckableComboBox import CheckableComboBox
 
 from gui.newstudywindow import NewStudyWindow
 from gui.numbermapsdialog import NumberMapsDialog
@@ -12,9 +12,9 @@ from gui.visualizationdialog import VisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
 
 import pickle
+import re
 
 from functions.utils.data_io import load_eeg_info, find_data, load_config, save_config
-from functions.utils.backfit_func import backfit_func
 from functions.utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data
 from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
@@ -51,7 +51,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.NewStudyWindow = NewStudyWindow(context, main_window=self, tbx=self.tbx)
         self.ui.NumberMapsDialog = NumberMapsDialog(context)
         self.ui.SourceVisualizationDialog = SourceVisualizationDialog(context)
-        
+
         # self.ui.VisualizationDialog = VisualizationDialog(context, tbx=self.tbx)
 
         self.done_preprocessing = False
@@ -67,6 +67,18 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.open_github_action.triggered.connect(self.open_github)
         self.ui.report_issues_action.triggered.connect(self.report_issues)
         self.ui.update_action.triggered.connect(self.update_toolbox)
+
+        self.ui.step4_features2extract_combobox = CheckableComboBox()
+        self.CheckableComboBox_Layout.addWidget(self.ui.step4_features2extract_combobox)
+        list_features = [
+            "Coverage (COV)",
+            "Mean Microstate Duration (MMD)",
+            "Frequency of Occurrence (OCC)",
+            "Global Explained Variance (GEV)",
+            "Transition Probability (TP)",
+            "Microstate Complexity (LZC)"
+        ]
+        self.ui.step4_features2extract_combobox.addItems(list_features)
 
         self.ui.step0_new_study_action.triggered.connect(self.open_new_study_dialog)
         self.ui.step0_new_study_button.clicked.connect(self.open_new_study_dialog)
@@ -223,6 +235,7 @@ class MainMicrostateWindow(QMainWindow):
             box.setCurrentText(current)
 
     def mainwindow_controller(self):
+
         after_preprocessing_widgets = [
             self.ui.step2_clustering_title_label,
             self.ui.step2_clustermethod_combo_label,
@@ -306,6 +319,27 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_smooth_segments_lambda_input
         ]
 
+        feature_extraction_widgets = [
+            self.ui.step4_features_title_label,
+            self.ui.step4_featurestoextract_label,
+            self.ui.step4_features2extract_combobox,
+            self.ui.step4_duration_of_window,
+            self.ui.step4_duration_of_window_label,
+            self.ui.step4_extractfeatures_button,
+            self.ui.step4_outputformats_label,
+            self.ui.step4_outputformats_combobox
+            ]
+
+        source_localization_widgets = [
+            self.ui.step5_source_localization_title_label,
+            self.ui.step5_inverse_method_label,
+            self.ui.step5_inverse_method_combobox,
+            self.ui.step5_permutations_label,
+            self.ui.step5_permutations_input,
+            self.ui.step5_spacing_label,
+            self.ui.step5_spacing_combobox,
+            self.ui.step5_estimate_sources_button
+        ]
 
         if self.tbx.done_preprocessing:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
@@ -327,68 +361,54 @@ class MainMicrostateWindow(QMainWindow):
             else:
                 set_widgets_status(advanced_widgets, mode='disable')
                 set_widgets_status(advanced_widgets, mode='hide')
+
+            self.tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
+            if self.tbx.clustering_method == "K-means":
+                self.ui.step2_other_label.setText("Similarity metric:")
+                options = ['Cosine Similarity', 'Spatial Correlation']
+                self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
+
+            elif self.tbx.clustering_method == "Agglomerative hierarchical clustering":
+                self.ui.step2_other_label.setText("Type of link between clusters:")
+                options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
+                self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
+
+            elif self.tbx.clustering_method == "X-means":
+                self.ui.step2_other_label.setText("X-means splitting criterion:")
+                options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
+                self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Bayesian Information Criterion')
+
+            else:
+                self.ui.step2_other_label.setText("Other options:")
+                self.reset_option_box(self.ui.step2_other_options_combobox)
+
+            if self.ui.step2_use_peaks_radio.isChecked():
+                cluster_data_log = 'the local peaks of the global field power.'
+                set_widgets_status(peaks2use_widgets, mode='enable')
+                set_widgets_status(rand2use_widgets, mode='disable')
+            elif self.ui.step2_use_percent_radio.isChecked():
+                cluster_data_log = 'a randomly selected subset of the data.'
+                set_widgets_status(rand2use_widgets, mode='enable')
+                set_widgets_status(peaks2use_widgets, mode='disable')
+
+            # Update the clustering log
+            self.step2_clustering_log_textedit.clear()
+            self.step2_clustering_log_textedit.appendPlainText(
+                f"EEG microstates will be identified using {self.tbx.clustering_method} clustering algorithm")
+            self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
+            self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
+
         else:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
             set_widgets_status(after_preprocessing_widgets, mode='disable')
             self.ui.step2_user_k_input.setDisabled(True)
-
-
-        self.tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
-        if self.tbx.clustering_method == "K-means":
-            self.ui.step2_other_label.setText("Similarity metric:")
-            options = ['Cosine Similarity', 'Spatial Correlation']
-            self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
-
-        elif self.tbx.clustering_method == "Agglomerative hierarchical clustering":
-            self.ui.step2_other_label.setText("Type of link between clusters:")
-            options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
-            self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
-
-        elif self.tbx.clustering_method == "X-means":
-            self.ui.step2_other_label.setText("X-means splitting criterion:")
-            options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
-            self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Bayesian Information Criterion')
-
-        else:
-            self.ui.step2_other_label.setText("Other options:")
-            self.reset_option_box(self.ui.step2_other_options_combobox)
-
-        if self.ui.step2_use_peaks_radio.isChecked():
-            cluster_data_log = 'the local peaks of the global field power.'
-            set_widgets_status(peaks2use_widgets, mode='enable')
-            set_widgets_status(rand2use_widgets, mode='disable')
-        elif self.ui.step2_use_percent_radio.isChecked():
-            cluster_data_log = 'a randomly selected subset of the data.'
-            set_widgets_status(rand2use_widgets, mode='enable')
-            set_widgets_status(peaks2use_widgets, mode='disable')
-
-        # Update the clustering log
-        self.step2_clustering_log_textedit.clear()
-        self.step2_clustering_log_textedit.appendPlainText(
-            f"EEG microstates will be identified using {self.tbx.clustering_method} clustering algorithm")
-        self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
-        self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
-
-
-        # filter segments with occurrence less than xxx ms
-        # Replace short segments with previous dominant microstate 
-        # Remove short segments
         
         if self.tbx.done_clustering:
             self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
+            set_widgets_status(after_clustering_widgets, mode='enable')
 
             outputformat = self.ui.step4_outputformats_combobox.currentText()
-            if outputformat == "Comma-Separated Values (.csv)":
-                self.tbx.output_format = '.csv'
-            elif outputformat == "Pickle (.pkl)":
-                self.tbx.output_format = '.pkl'
-            elif outputformat == "Hierarchical Data Format (.hdf)":
-                self.tbx.output_format = '.hdf'
-            elif outputformat == "Java Script Object Notation (.json)":
-                self.tbx.output_format = '.json'
-
-            
-            set_widgets_status(after_clustering_widgets, mode='enable')
+            self.tbx.output_format = outputformat.split("(")[-1].split(")")[0]
 
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 set_widgets_status(filter_segments_widgets, mode='enable')
@@ -425,39 +445,17 @@ class MainMicrostateWindow(QMainWindow):
             self.tbx.done_source_localization = False
             self.tbx.done_extracting_microsegments = False
 
-        all_step_4_5_widgets = [
-            self.ui.step4_features_title_label,
-            self.ui.step4_featurestoextract_label,
-            self.ui.step4_coverage_featurestoextract_checkbox,
-            self.ui.step4_foc_featurestoextract_checkbox,
-            self.ui.step4_duration_of_window,
-            self.ui.step4_duration_of_window_label,
-            self.ui.step4_mmd_featurestoextract_checkbox,
-            self.ui.step4_gev_featurestoextract_checkbox,
-            self.ui.step4_tp_featurestoextract_checkbox,
-            self.ui.step4_complexity_featurestoextract_checkbox,
-            self.ui.step4_extractfeatures_button,
-            self.ui.step4_outputformats_label,
-            self.ui.step4_outputformats_combobox,
-            # self.ui.step6_extract_microseg_button,
-            # self.ui.step6_extract_microsegments_title_label,
-            self.ui.step5_source_localization_title_label,
-            self.ui.step5_inverse_method_label,
-            self.ui.step5_inverse_method_combobox,
-            self.ui.step5_permutations_label,
-            self.ui.step5_permutations_input,
-            self.ui.step5_spacing_label,
-            self.ui.step5_spacing_combobox,
-            self.ui.step5_estimate_sources_button
-        ]
         if self.tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
-            set_widgets_status(all_step_4_5_widgets, mode='enable')
+            set_widgets_status(feature_extraction_widgets, mode='enable')
+            set_widgets_status(source_localization_widgets, mode='enable')
+
         else:
             self.tbx.done_extracting_features = False
             self.tbx.done_extracting_microsegments = False
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
-            set_widgets_status(all_step_4_5_widgets, mode='disable')
+            set_widgets_status(feature_extraction_widgets, mode='disable')
+            set_widgets_status(source_localization_widgets, mode='disable')
 
         if self.tbx.done_extracting_features:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
@@ -510,6 +508,7 @@ class MainMicrostateWindow(QMainWindow):
             elif self.tbx.backfit_to == 'peaks':
                 self.ui.step3_backfit_peaks_radio.setChecked(True)
             #self.ui.step4_outputformats_combobox.setCurrentText(self.output_format)
+        """
         if self.tbx.done_extracting_features:
             if 'COV' in self.tbx.Features:
                 self.ui.step4_coverage_featurestoextract_checkbox.setChecked(True)
@@ -535,7 +534,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step4_complexity_featurestoextract_checkbox.setChecked(True)
             else:
                 self.ui.step4_complexity_featurestoextract_checkbox.setChecked(False)
-
+            """
     def plot_elbow(self):
         self.NumberMapsDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
         self.NumberMapsDialog.extension = self.tbx.extension
@@ -683,7 +682,6 @@ class MainMicrostateWindow(QMainWindow):
                     self.tbx.filter_segments_option = 'remove'
                 elif filter_segments_method == 'Smooth segments':
                     self.tbx.filter_segments_option = 'smooth'
-                    # TODO: add parameters
                     self.tbx.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
                     self.tbx.b = self.tbx.remove_segments_less_than
                     self.tbx.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
@@ -693,7 +691,6 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.filter_segments_option = ''
                 self.tbx.remove_segments_less_than = []
 
-            
             self.tbx.do_backfitting()
             self.tbx.save_tbx()
             self.mainwindow_controller()
@@ -807,6 +804,13 @@ class MainMicrostateWindow(QMainWindow):
             self.mainwindow_controller()
 
             self.tbx.Features = []
+            features2extract = self.ui.step4_features2extract_combobox.currentData()
+            for feature in features2extract:
+                match = re.search(r'\((\w+)\)', feature)
+                if match:
+                    self.tbx.Features.append(match.group(1))
+
+            """
             if self.ui.step4_coverage_featurestoextract_checkbox.isChecked():
                 self.tbx.Features.append("COV")
             if self.ui.step4_foc_featurestoextract_checkbox.isChecked():
@@ -823,6 +827,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.Features.append("LZC")
             if self.ui.step4_gev_featurestoextract_checkbox.isChecked():
                 self.tbx.Features.append("GEV")
+            """
             
             self.tbx.extract_features_from_map()
             self.tbx.save_tbx()

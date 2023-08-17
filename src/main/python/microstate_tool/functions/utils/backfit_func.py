@@ -2,14 +2,7 @@
 import numpy as np
 import h5py
 import os.path
-import pandas as pd
-from scipy.stats import mode
-import math
-from scipy.stats import pearsonr
 from scipy.signal import find_peaks
-from scipy.stats import zscore
-from itertools import groupby
-
 from functions.utils.data_io import find_data, load_eegs, get_eeg_data
 from functions.utils.substitude_maps_with_duration import substitude_maps_with_duration
 
