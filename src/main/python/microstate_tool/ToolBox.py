@@ -1,15 +1,17 @@
 
-from functions.utils.data_io import find_data, save_eeg_info, export_eegs
+from functions.data_utils.data_io import find_data, save_eeg_info, export_eegs
 import os
-from functions import preprocess
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from functions.clustering_functions import clustering_func
-from functions.utils.backfit_func import backfit_func
-from functions.features.extract_features_functions import save_transitions, extract_features, transition_matrix, save_features, extract_dynamic_features
-from functions.features.source_localization_functions import run_source_localization #, visualize_sources
+from functions.sourcelocalization_utils.source_localization_functions import run_source_localization #, visualize_sources
 import pickle
+
+from functions.data_utils.data_preprocessor import DataPreprocessor
+from functions.features_utils.feature_extractor import FeatureExtractor
+from functions.features_utils.feature_io import FeatureIO
+from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
+from functions.clustering_utils.microstate_clusterer import clustering_func
 
 
 class ToolBox:
@@ -57,7 +59,7 @@ class ToolBox:
 		self.remove_channels = config.getboolean('load_new_study', 'remove_channels')
 		self.ch2rm = config['load_new_study']['ch2rm'] if self.remove_channels else 'missing'
 
-		# clustering
+		# clustering_utils
 		self.smoothing_gfp = config.getboolean('do_clustering', 'smoothing_gfp')
 		self.smoothing_distance = config.getint('do_clustering', 'smoothing_distance') if self.smoothing_gfp else ''
 		self.raw_features_path = os.path.join(self.save_dir, 'raw_features')
@@ -72,13 +74,13 @@ class ToolBox:
 		self.clustering_method = config['do_clustering']['clustering_method']
 		self.max_iterations = config.getint('do_clustering', 'max_iterations')
 		self.clustering_tolerance = config.getfloat('do_clustering', 'clustering_tolerance')
-		need_options = ['X-means', 'Agglomerative hierarchical clustering', 'K-means']
+		need_options = ['X-means', 'Agglomerative hierarchical clustering_utils', 'K-means']
 		self.clustering_option = config['do_clustering']['clustering_option'] if self.clustering_method in need_options else ''
 		self.number_of_repeats = config.getint('do_clustering', 'number_of_repeats')
 		self.microstate_maps_path = os.path.join(self.raw_features_path, 'microstate_maps.csv')
 		self.use_percentages = config.getint('do_clustering', 'use_percentages')
 
-		# backfitting
+		# backfitting_utils
 		self.backfit_to = config['do_backfitting']['backfit_to']
 		self.filter_segments = config.getboolean('do_backfitting', 'filter_segments')
 		self.remove_segments_less_than = config.getint('do_backfitting', 'remove_segments_less_than') if self.filter_segments else ''
@@ -91,12 +93,12 @@ class ToolBox:
 
 		# extract feature
 		self.extracted_features_path = os.path.join(self.save_dir, 'extracted_features')
-		self.hf_segmentation_path = os.path.join(self.raw_features_path, self.study_name+'_segmentation.hdf')
+		self.segmentation_path = os.path.join(self.raw_features_path, self.study_name+'_segmentation.hdf')
 		self.raw_transitions_path = os.path.join(self.raw_features_path, 'raw_transitions')
-		self.output_format = config['extract_features']['output_format']
-		self.Features = [x for x in config['extract_features']['Features'].split(',')]
-		self.save_transitions_bool = True if 'TP' in self.Features else False
-		self.duration_of_window = config.getint('extract_features', 'duration_of_window') if 'OCC' in self.Features else ''
+		self.export_format = config['extract_features']['export_format']
+		self.feature_list = [x for x in config['extract_features']['feature_list'].split(',')]
+		self.save_transitions_bool = True if 'TP' in self.feature_list else False
+		self.window_size = config.getint('extract_features', 'window_size') if 'OCC' in self.feature_list else ''
 
 		# source localize microstates
 		self.localized_sources_path = os.path.join(self.raw_features_path, 'localized_sources')
@@ -114,9 +116,9 @@ class ToolBox:
 			self.pattern = '*'
 		else:
 			self.pattern = '*'+self.pattern_content+'*'
-		self.list_eegs_path = find_data(self.input_folder, self.extension, self.pattern)
-		self.list_eegs = [os.path.basename(x).split('.')[0] for x in self.list_eegs_path]
-		assert self.list_eegs_path, 'eeg list is empty'
+		self.list_eegs_path, self.list_eegs = find_data(self.input_folder, self.extension, self.pattern)
+		#self.list_eegs = [os.path.basename(x).split('.')[0] for x in self.list_eegs_path]
+		#assert self.list_eegs_path, 'eeg list is empty'
 
 	def load_channel_location(self):
 		# Load channel location
@@ -140,7 +142,9 @@ class ToolBox:
 		length_all_data = []
 		counter = 1
 		for filename in tqdm(self.list_eegs_path):
-			progress, eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(
+			# Create an instance of the DataPreprocessor class
+			preprocessor = DataPreprocessor()
+			progress, eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocessor.preprocess_eegs(
 					filename,
 					self.list_eegs_path,
 					self.extension,
@@ -195,7 +199,7 @@ class ToolBox:
 		avaliable_methods = ['Modified K-means',
 							'K-means',
 							'X-means',
-							'Agglomerative hierarchical clustering',
+							'Agglomerative hierarchical clustering_utils',
 							]
 		assert self.clustering_method in avaliable_methods, "clustering_method not supported"
 
@@ -242,53 +246,116 @@ class ToolBox:
 
 	def do_backfitting(self):
 		print('\nBackfitting Maps to Data ...')
-		backfit_func(self.study_name,
-					 self.preprocessed_data_path,
-					 self.best_maps,
-					 self.backfit_to,
-					 self.sample_rate,
-					 self.filter_segments_option,
-					 self.remove_segments_less_than,
-					 self.micro_labels,
-					 self.raw_features_path,
-					 self.extension,
-					 self.datatype,
-					 [self.epsilon, self.b, self.lamb]
-					 )
+
+		backfitter_instance = MicrostateBackfitter(
+			self.study_name,
+			self.preprocessed_data_path,
+			self.best_maps,
+			self.backfit_to,
+			self.filter_segments_option,
+			self.remove_segments_less_than,
+			self.micro_labels,
+			self.raw_features_path,
+			self.extension,
+			self.datatype,
+			[self.epsilon, self.b, self.lamb],
+			self.export_format)
+		backfitter_instance.perform_segmentation()
+
 		self.done_backfitting = True
 		if self.auto_save:
 			self.save_tbx()
 
 
-	def extract_features_from_map(self):
-		print("\nExtracting Features ...\n")
+	def extract_features(self):
+		print("\nExtracting Static Features ...\n")
 
-		if not os.path.exists(self.extracted_features_path):
-			os.makedirs(self.extracted_features_path)
+		#self.feature_mode = ['static', 'dynamic']
+		if 'static' in self.feature_mode:
+			static_features_path = os.path.join(self.extracted_features_path, 'static')
+			if not os.path.exists(static_features_path):
+				os.makedirs(static_features_path)
+			feature_extractor = FeatureExtractor(self.segmentation_path,
+												 self.sample_rate,
+												 self.window_size,
+												 mode='static')
+			feature_io = FeatureIO()
+			print(self.feature_list)
+			if 'COV' in self.feature_list:
+				static_microstate_coverage = feature_extractor.microstate_coverage()
+				print(static_microstate_coverage)
+				feature_io.export_features(static_microstate_coverage, 'static', static_features_path,
+										   self.export_format,
+										   static_features_path)
+			if 'OCC' in self.feature_list:
+				static_microstate_occurrence = feature_extractor.microstate_occurrence()
+				print(static_microstate_occurrence)
+				feature_io.export_features(static_microstate_occurrence, 'static', static_features_path,
+										   self.export_format,
+										   static_features_path)
+			if 'DUR' in self.feature_list:
+				static_microstate_duration = feature_extractor.microstate_duration()
+				print(static_microstate_duration)
+				feature_io.export_features(static_microstate_duration, 'static', static_features_path,
+										   self.export_format,
+										   static_features_path)
+			if 'TP' in self.feature_list:
+				static_microstate_transition_probability = feature_extractor.transition_probability()
+				feature_io.export_features(static_microstate_transition_probability, 'static', static_features_path,
+										   self.export_format,
+										   static_features_path)
+			if 'LZC' in self.feature_list:
+				static_microstate_complexity = feature_extractor.lempel_ziv_complexity()
+				feature_io.export_features(static_microstate_complexity, 'static', static_features_path,
+										   self.export_format,
+										   static_features_path)
 
-		length_data = [int(x) for x in self.length_all_data]
-		extracted_features_df = extract_features(self.preprocessed_data_path,
-														 self.hf_segmentation_path,
-														 self.best_maps,
-														 self.micro_labels,
-														 self.sample_rate,
-														 self.Features,
-														 np.min(length_data), 
-														 self.duration_of_window,
-														 self.extension,
-														 self.datatype
-														 )
-		save_features(extracted_features_df, 'extracted_features',
-							  self.output_format,
-							  self.extracted_features_path)
+		if 'dynamic' in self.feature_mode:
+			dynamic_features_path = os.path.join(self.extracted_features_path, 'dynamic')
+			if not os.path.exists(dynamic_features_path):
+				os.makedirs(dynamic_features_path)
 
+			feature_extractor = FeatureExtractor(self.segmentation_path,
+												 self.sample_rate,
+												 self.window_size,
+												 mode='dynamic')
+			feature_io = FeatureIO()
+			if 'COV' in self.feature_list:
+				dynamic_microstate_coverage = feature_extractor.microstate_coverage()
+				feature_io.export_features(dynamic_microstate_coverage, 'dynamic', dynamic_features_path,
+										   self.export_format,
+										   dynamic_features_path)
+			if 'OCC' in self.feature_list:
+				dynamic_microstate_occurrence = feature_extractor.microstate_occurrence()
+				feature_io.export_features(dynamic_microstate_occurrence, 'dynamic', dynamic_features_path,
+										   self.export_format,
+										   dynamic_features_path)
+			if 'DUR' in self.feature_list:
+				dynamic_microstate_duration = feature_extractor.microstate_duration()
+				feature_io.export_features(dynamic_microstate_duration, 'dynamic', dynamic_features_path,
+										   self.export_format,
+										   dynamic_features_path)
+			if 'TP' in self.feature_list:
+				dynamic_microstate_transition_probability = feature_extractor.transition_probability()
+				feature_io.export_features(dynamic_microstate_transition_probability, 'dynamic', dynamic_features_path,
+										   self.export_format,
+										   dynamic_features_path)
+			if 'LZC' in self.feature_list:
+				dynamic_microstate_complexity = feature_extractor.lempel_ziv_complexity()
+				feature_io.export_features(dynamic_microstate_complexity, 'dynamic', dynamic_features_path,
+										   self.export_format,
+										   dynamic_features_path)
+
+
+		"""
 		if self.save_transitions_bool:
 			if not os.path.exists(self.raw_transitions_path):
 				os.makedirs(self.raw_transitions_path)
 			save_transitions(self.raw_features_path,
 							 self.micro_labels,
-							 self.output_format,
+							 self.export_format,
 							 self.raw_transitions_path)
+	 	"""
 		print('\n*** Finished ***')
 		self.done_extracting_features = True
 		if self.auto_save:
@@ -302,7 +369,7 @@ class ToolBox:
 		self.subjects_dir = 'fsaverage'
 
 		run_source_localization(self.preprocessed_data_path,
-										self.hf_segmentation_path,
+										self.segmentation_path,
 										self.localized_sources_path,
 										self.subjects_dir, #'fsaverage', # TODO:
 										microstate_maps,

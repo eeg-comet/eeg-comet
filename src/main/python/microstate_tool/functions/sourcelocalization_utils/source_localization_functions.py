@@ -16,7 +16,8 @@ import os.path
 import numpy as np
 import pandas as pd
 from scipy import stats
-from functions.utils.data_io import find_data, load_eegs, get_eeg_data, stc_read, stc_write
+from functions.data_utils.data_io import find_data, load_eegs, get_eeg_data
+#from functions.sourcelocalization_utils.stc_io import stc_read, stc_write
 
 import mne
 # mne.viz.set_3d_backend("pyvista")
@@ -292,19 +293,19 @@ def run_source_localization(preprocessed_data_path,
         os.makedirs(stc_data_path)
     
 
-    file_names = find_data(preprocessed_data_path, extension, '*')
+    list_eeg_path, list_eeg_names = find_data(preprocessed_data_path, extension, '*')
 
     counter = 0
-    for filename in file_names:
+    for eeg_path in list_eeg_path:
         counter += 1
-        rawfilename = os.path.split(filename)[1].split('.')[0]
+        rawfilename = os.path.split(eeg_path)[1].split('.')[0]
         print("Source Localizing Microstates", rawfilename)
-        print("\n", 100 * counter / len(file_names))
+        print("\n", 100 * counter / len(list_eeg_path))
 
         # Load the EEG data
         # hf = h5py.File(filename, "r")
         # eeg_data = hf[list(hf.keys())[0]]
-        eeg = load_eegs(filename, extension, data_type)
+        eeg = load_eegs(eeg_path, extension, data_type)
         eeg_data = get_eeg_data(eeg, data_type)
         # eeg_data = np.asarray(eeg_data) * pow(10, 6)
 
@@ -367,7 +368,7 @@ def identify_microstates_sources(stc_file, labelled_data_path,
         if not os.path.exists(avg_sources_path):
             os.makedirs(avg_sources_path)
 
-        list_segmented_data = find_data(labelled_data_path, '.csv', pattern='*')
+        list_segmented_data, _ = find_data(labelled_data_path, '.csv', pattern='*')
         for segmented_path in list_segmented_data:
             segment_data = pd.read_csv(segmented_path, header=0)
             filename, _ = os.path.splitext(os.path.basename(segmented_path))

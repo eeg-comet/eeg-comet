@@ -3,7 +3,7 @@ import os.path
 import numpy as np
 import pandas as pd
 
-from functions.utils.data_io import find_data, save_features
+from functions.data_utils.data_io import find_data, save_features
 
 
 def add_segment_labels(segmentation_folder, fs, micro_labels, file_format):

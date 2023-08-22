@@ -52,5 +52,6 @@ def plot_maps(microstate_maps, eeg_info):
     plt.figure(figsize=(2 * len(microstate_maps), 2))
     for i, microstate_map in enumerate(microstate_maps):
         plt.subplot(1, len(microstate_maps), i + 1)
-        mne.viz.plot_topomap(microstate_map, eeg_info, sensors=False, show_names=False, contours=6)
+        plot_map(microstate_map, eeg_info, polarity=1, cmap=None, sensors=False, show_names=False, contours=6)
+        #mne.viz.plot_topomap(microstate_map, eeg_info, sensors=False, show_names=False, contours=6)
         plt.title('%d' % i)

@@ -1,6 +1,6 @@
 """
 Last Modified: April 18th, 2023
-Description: This file provides functions for performing Modified K-Means clustering on EEG data.
+Description: This file provides functions for performing Modified K-Means clustering_utils on EEG data.
 
 Authors:
     Amin Kabir
@@ -16,13 +16,13 @@ import seaborn as sns
 import pandas as pd
 from scipy.signal import find_peaks
 from sklearn.metrics import silhouette_score
-from functions.clustering_functions import run_modified_kmeans
+from functions.clustering_utils.microstate_clusterer import run_modified_kmeans
 from functions.utils.corr_vectors import corr_vectors
 from sklearn.mixture import GaussianMixture
 
 def get_elbow(data, min_dist, tolerance, n_inits, kmin, kmax, ax1, ax2, ax3):
     """
-    Perform Modified K-Means clustering on EEG data and compute the elbow point using the Silhouette score.
+    Perform Modified K-Means clustering_utils on EEG data and compute the elbow point using the Silhouette score.
 
     Inputs:
         data (ndarray): EEG data of shape (n_channels, n_samples).

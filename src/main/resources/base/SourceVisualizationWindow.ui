@@ -10,16 +10,32 @@
     <height>950</height>
    </rect>
   </property>
+  <property name="font">
+   <font>
+    <family>Calibri</family>
+    <pointsize>14</pointsize>
+   </font>
+  </property>
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
     <widget class="QSplitter" name="splitter">
+     <property name="font">
+      <font>
+       <pointsize>14</pointsize>
+      </font>
+     </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
      <widget class="QWidget" name="gridLayoutWidget">
+      <property name="font">
+       <font>
+        <pointsize>14</pointsize>
+       </font>
+      </property>
       <layout class="QGridLayout" name="gridLayout_3">
        <item row="4" column="0">
         <widget class="QPushButton" name="plot_reconstruction_button">
@@ -31,7 +47,7 @@
          </property>
          <property name="font">
           <font>
-           <pointsize>12</pointsize>
+           <pointsize>14</pointsize>
           </font>
          </property>
          <property name="text">
@@ -49,7 +65,7 @@
          </property>
          <property name="font">
           <font>
-           <pointsize>12</pointsize>
+           <pointsize>14</pointsize>
            <weight>75</weight>
            <bold>true</bold>
           </font>
@@ -64,6 +80,11 @@
        </item>
        <item row="2" column="2" rowspan="7">
         <widget class="Line" name="line">
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+          </font>
+         </property>
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
@@ -89,7 +110,7 @@
         <widget class="QPushButton" name="subjects_dir_button">
          <property name="font">
           <font>
-           <pointsize>12</pointsize>
+           <pointsize>14</pointsize>
           </font>
          </property>
          <property name="text">
@@ -103,7 +124,7 @@
           <widget class="QPushButton" name="plot_sources_button">
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
+             <pointsize>14</pointsize>
             </font>
            </property>
            <property name="text">
@@ -121,7 +142,7 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
+             <pointsize>14</pointsize>
             </font>
            </property>
           </widget>
@@ -132,7 +153,7 @@
         <widget class="QPushButton" name="plot_alignment_button">
          <property name="font">
           <font>
-           <pointsize>12</pointsize>
+           <pointsize>14</pointsize>
           </font>
          </property>
          <property name="text">
@@ -141,11 +162,22 @@
         </widget>
        </item>
        <item row="1" column="0">
-        <widget class="QLineEdit" name="subjects_dir_lineedit"/>
+        <widget class="QLineEdit" name="subjects_dir_lineedit">
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+          </font>
+         </property>
+        </widget>
        </item>
       </layout>
      </widget>
      <widget class="QWidget" name="verticalLayoutWidget">
+      <property name="font">
+       <font>
+        <pointsize>14</pointsize>
+       </font>
+      </property>
       <layout class="QVBoxLayout" name="PV_Layout">
        <item>
         <widget class="QLabel" name="boxplots_label">

@@ -5,11 +5,8 @@ import seaborn as sns
 
 from PyQt5 import uic
 #from PyQt5 import QtWebEngineWidgets
-from PyQt5 import QtCore
 from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout
 
-from functions.utils.data_io import load_config
-import plotly.express as px
 
 class VisualizationDialog(QDialog):
     def __init__(self, context, parent=None, tbx=None):
@@ -20,7 +17,7 @@ class VisualizationDialog(QDialog):
         basepath = os.path.dirname(__file__)
         self.ui = uic.loadUi(context.get_resource("VisualizationWindow.ui"), self)
 
-        self.ui.setWindowTitle("Visualization of the extracted features")
+        self.ui.setWindowTitle("Visualization of the extracted features_utils")
 
         self.ui.plot_all_button.clicked.connect(self.show_boxplots_all)
         self.ui.plot_groups_button.clicked.connect(self.show_boxplots_groups)
@@ -78,7 +75,7 @@ class VisualizationDialog(QDialog):
         self.load_filenames()
 
     def load_filenames(self):
-        # Load extracted features
+        # Load extracted features_utils
         self.extracted_features_df = pd.read_csv(os.path.join(self.tbx.extracted_features_path,
                                                          'extracted_features.csv'))
 

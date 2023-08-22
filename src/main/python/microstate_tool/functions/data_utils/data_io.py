@@ -8,7 +8,6 @@ reference projection. The script is designed to enhance flexibility and efficien
 
 import os.path
 import pickle
-from configparser import ConfigParser
 from fnmatch import fnmatch
 import numpy as np
 import mne
@@ -91,7 +90,8 @@ def find_data(input_folder, extension, pattern='*'):
     ...
     """
 
-    list_data = []  # Initialize an empty list to store matching file paths
+    list_path = []  # Initialize an empty list to store matching file paths
+    list_filename = []
 
     # Walk through the directory tree rooted at input_folder
     for path, subdirs, files in os.walk(input_folder):
@@ -99,9 +99,9 @@ def find_data(input_folder, extension, pattern='*'):
             # Check if the file name matches the pattern with the specified extension
             if fnmatch(name, pattern + extension):
                 # Add the matching file's full path to the list
-                list_data.append(os.path.join(path, name))
-
-    return list_data
+                list_path.append(os.path.join(path, name))
+                list_filename.append(name[0].split('.')[0])
+    return list_path, list_filename
 
 
 def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[]):
@@ -226,7 +226,7 @@ def get_eeg_data(eeg, datatype):
     datatype (str): The type of EEG data ('epoched' for segmented data or any other value for continuous data).
 
     Returns:
-    data (numpy.ndarray): Extracted EEG data as a NumPy array.
+    eeg_data (numpy.ndarray): Extracted EEG data as a NumPy array.
 
     Explanation:
     This function extracts EEG data from an MNE-Python Epochs or Raw object and returns it as a NumPy array.
@@ -244,172 +244,13 @@ def get_eeg_data(eeg, datatype):
         # Concatenate the epoch data along the specified axis
         for index in range(eeg.__len__()):
             if index == 0:
-                data = np.squeeze(eeg[0].get_data())
+                eeg_data = np.squeeze(eeg[0].get_data())
             else:
                 epoch = np.squeeze(eeg[index].get_data())
-                data = np.append(data, epoch, axis=1)
+                eeg_data = np.append(eeg_data, epoch, axis=1)
     else:
-        data = eeg.get_data()  # Get continuous raw data
+        eeg_data = eeg.get_data()  # Get continuous raw data
 
-    return data
+    return eeg_data
 
-
-def initialize_config(config_path, config):
-    """
-    Initialize and populate a configuration dictionary with default values.
-
-    Parameters:
-    config_path (str): The file path where the configuration will be saved.
-    config (dict): An empty dictionary where configuration settings will be stored.
-
-    Returns:
-    None
-
-    Explanation:
-    This function initializes a configuration dictionary with predefined sections and default values.
-    It sets up various sections for different aspects of a data processing pipeline and assigns initial values.
-    The purpose is to provide a structured way to manage and store settings for data processing steps.
-
-    Example usage:
-    >>> config = {}  # An empty dictionary to hold configuration settings
-    >>> initialize_config('/path/to/save/config.ini', config)
-    """
-
-    # Create sections for different processing aspects
-    config['progress'] = {}  # Progress tracking
-    config['study info'] = {}  # Study information
-    config['preprocessing settings'] = {}  # Preprocessing settings
-    config['preprocessing results'] = {}  # Preprocessing results
-    config['clustering settings'] = {}  # Clustering settings
-    config['clustering results'] = {}  # Clustering results
-    config['backfitting settings'] = {}  # Backfitting settings
-    config['feature extraction settings'] = {}  # Feature extraction settings
-    config['feature visualization groups'] = {}  # Feature visualization groups
-    config['source localization settings'] = {}  # Source localization settings
-
-    # Initialize progress indicators with 'False'
-    str_false = "False"
-    config['progress']['done_preprocessing'] = str_false
-    config['progress']['done_clustering'] = str_false
-    config['progress']['done_labeling_microstates'] = str_false
-    config['progress']['done_backfitting'] = str_false
-    config['progress']['done_extracting_features'] = str_false
-    config['progress']['done_extracting_microsegments'] = str_false
-    config['progress']['done_source_localization'] = str_false
-
-    # Save the initialized configuration to the specified file path
-    save_config(config_path, config)
-
-
-
-def load_config(config_path):
-    """
-    Load and parse configuration settings from a file.
-
-    Parameters:
-    config_path (str): The path to the configuration file.
-
-    Returns:
-    config (ConfigParser): A ConfigParser object containing the loaded configuration settings.
-
-    Explanation:
-    This function reads and parses configuration settings from a specified file using the ConfigParser module.
-    The ConfigParser object can be used to access and manipulate the loaded configuration values.
-
-    Example usage:
-    >>> loaded_config = load_config('/path/to/config.ini')
-    >>> value = loaded_config.get('section', 'option')
-    """
-
-    config = ConfigParser()  # Create a ConfigParser object
-    config.read(config_path)  # Read and parse the configuration file
-    return config
-
-
-def save_config(config_path, config):
-    """
-    Save configuration settings to a file.
-
-    Parameters:
-    config_path (str): The path where the configuration file will be saved.
-    config (ConfigParser): A ConfigParser object containing the configuration settings.
-
-    Returns:
-    config (ConfigParser): The same ConfigParser object provided as input.
-
-    Explanation:
-    This function saves configuration settings from a ConfigParser object to a specified file.
-    The ConfigParser object should contain the desired configuration values.
-
-    Example usage:
-    >>> config = ConfigParser()
-    >>> config['section']['option'] = 'value'
-    >>> save_config('/path/to/save/config.ini', config)
-    """
-
-    with open(config_path, 'w+') as configfile:
-        config.write(configfile)  # Write the configuration settings to the specified file
-    return config
-    
-
-def save_features(df, filename, file_format, path):
-    """
-    Save a DataFrame containing features to a file with the specified format.
-
-    Parameters:
-    df (pandas.DataFrame): The DataFrame containing features to be saved.
-    filename (str): The base name of the file (without extension).
-    file_format (str): The desired file format ('.csv', '.pkl', '.hdf', '.json').
-    path (str): The directory path where the file will be saved.
-
-    Returns:
-    None
-
-    Explanation:
-    This function allows you to save a DataFrame containing features to a file with the specified format.
-    It first checks if the specified path exists, and if not, creates the necessary directories.
-    Depending on the chosen file format, the DataFrame is saved using different methods available in pandas.
-
-    Example usage:
-    >>> features = pd.DataFrame(...)  # A pandas DataFrame containing features
-    >>> save_features(features, 'feature_data', '.csv', '/path/to/save/')
-    """
-
-    if not os.path.exists(path):
-        os.makedirs(path)  # Create the directory path if it doesn't exist
-
-    save_path = os.path.join(path, filename + file_format)  # Complete file path
-
-    if file_format == '.csv':
-        df.to_csv(save_path, header=True, index=False)  # Save DataFrame to CSV format
-    elif file_format == '.pkl':
-        df.to_pickle(save_path)  # Save DataFrame to pickle format
-    elif file_format == '.hdf':
-        df.to_hdf(save_path, key='df', mode='w')  # Save DataFrame to HDF5 format
-    elif file_format == '.json':
-        df.to_json(save_path)  # Save DataFrame to JSON format
-        
-
-def stc_read(stc_data_subject_path):
-    # Read source time series from disk
-    list_stcs = find_data(stc_data_subject_path, '.stc', pattern='*')
-    stc_file = []
-    for idx in range(int(len(list_stcs) / 2)):  # Replace num_stcs with the actual number of STCs you saved
-        filepath_lh = os.path.join(stc_data_subject_path, f'stc_{idx}-lh.stc')
-        filepath_rh = os.path.join(stc_data_subject_path, f'stc_{idx}-rh.stc')
-        stc_lh = mne.read_source_estimate(filepath_lh)
-        stc_rh = mne.read_source_estimate(filepath_rh)
-        # Combine the left and right hemisphere STCs into a single STC object if needed
-        stc_combined = stc_lh + stc_rh
-        stc_file.append(stc_combined)
-
-    return stc_file
-
-
-def stc_write(stc_data_subject_path, stc_file):
-    # Write source time series to disk
-    for idx, stc in enumerate(stc_file):
-        filename = f'stc_{idx}'
-        filepath = os.path.join(stc_data_subject_path, filename)
-        stc.save(filepath)
 

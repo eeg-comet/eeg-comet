@@ -1,9 +1,9 @@
-from functions.utils.data_io import load_config
+from functions.gui_utils.config_io import load_config
 import warnings
 from ToolBox import ToolBox
 import pickle
-import matplotlib.pyplot as plt
-import mne
+
+
 # from functions.utils.extract_peaks_maps import extract_peaks_maps
 
 def main():

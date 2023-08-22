@@ -9,7 +9,7 @@ class CheckableComboBox(QComboBox):
     class Delegate(QStyledItemDelegate):
         def sizeHint(self, option, index):
             size = super().sizeHint(option, index)
-            size.setHeight(100)
+            size.setHeight(80)
             return size
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

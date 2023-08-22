@@ -1,7 +1,7 @@
 """
 Last Modified: April 18th, 2023
 Description: This script provides functions for extracting GFP (Global Field Power) peaks,
-and generating microstate maps for clustering.
+and generating microstate maps for clustering_utils.
 
 Authors:
     Amin Kabir
@@ -14,16 +14,16 @@ Organization: SFU eBrain Lab, www.ebrainlab.ca
 import numpy as np
 from scipy.signal import find_peaks
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
-from functions.utils.data_io import find_data, load_eegs, get_eeg_data
+from functions.data_utils.data_io import find_data, load_eegs, get_eeg_data
 
 
 def initialize_cluster_centers(maps, n_states, initializer):
     """
-    Initialize cluster centers for k-means clustering algorithm.
+    Initialize cluster centers for k-means clustering_utils algorithm.
 
     Args:
-        maps (2D numpy array): Microstate maps for clustering.
-        n_states (int): Number of states for clustering.
+        maps (2D numpy array): Microstate maps for clustering_utils.
+        n_states (int): Number of states for clustering_utils.
         initializer (str): Cluster initialization method ('Random' or 'K-Means++').
 
     Returns:
@@ -77,7 +77,7 @@ def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percen
         preprocessed_folder (str): Path to the folder containing preprocessed EEG data files.
         extension (str): File extension of the EEG data files.
         datatype (str): Data type of the EEG data (e.g., 'float32').
-        use_percentages (int or None): If provided, specify the percentage of time points to use for clustering.
+        use_percentages (int or None): If provided, specify the percentage of time points to use for clustering_utils.
         min_dist (int or None): Minimum distance between peaks.
 
     Returns:
@@ -86,7 +86,7 @@ def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percen
     """
     print('Generating Maps and Peaks...')
 
-    all_preprocessed_paths = find_data(preprocessed_folder, extension)
+    all_preprocessed_paths, _ = find_data(preprocessed_folder, extension)
     maps2use, peaks2use = [], []
     counter = 0
     for eeg_path in all_preprocessed_paths:

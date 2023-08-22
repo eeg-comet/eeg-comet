@@ -3,23 +3,24 @@ import os.path
 import webbrowser
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
-from gui.CheckableComboBox import CheckableComboBox
+from functions.gui_utils.CheckableComboBox import CheckableComboBox
 
 from gui.newstudywindow import NewStudyWindow
+from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
 from gui.numbermapsdialog import NumberMapsDialog
-from gui.microstatedialog import MicrostateDialog
 from gui.visualizationdialog import VisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
 
 import pickle
 import re
 
-from functions.utils.data_io import load_eeg_info, find_data, load_config, save_config
-from functions.utils.set_widgets_status import set_widgets_status
+from functions.data_utils.data_io import load_eeg_info, find_data
+from functions.gui_utils.config_io import load_config, save_config
+from functions.gui_utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data
-from functions.features.extract_features_functions import extract_segments, save_segmentation_results,\
-    save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
-#from functions.features.source_localization_functions import run_source_localization
+#from functions.features_utils.extract_features_functions import extract_segments, save_segmentation_results,\
+#    save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
+#from functions.features_utils.source_localization_functions import run_source_localization
 
 from ToolBox import ToolBox
 
@@ -49,6 +50,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.showMaximized()
 
         self.ui.NewStudyWindow = NewStudyWindow(context, main_window=self, tbx=self.tbx)
+        self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(context, main_window=self, tbx=self.tbx)
         self.ui.NumberMapsDialog = NumberMapsDialog(context)
         self.ui.SourceVisualizationDialog = SourceVisualizationDialog(context)
 
@@ -71,9 +73,9 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step4_features2extract_combobox = CheckableComboBox()
         self.CheckableComboBox_Layout.addWidget(self.ui.step4_features2extract_combobox)
         list_features = [
-            "Coverage (COV)",
-            "Mean Microstate Duration (MMD)",
-            "Frequency of Occurrence (OCC)",
+            "Microstate Coverage (COV)",
+            "Microstate Duration (DUR)",
+            "Microstate Occurrence (OCC)",
             "Global Explained Variance (GEV)",
             "Transition Probability (TP)",
             "Microstate Complexity (LZC)"
@@ -174,7 +176,7 @@ class MainMicrostateWindow(QMainWindow):
 
         # Load preprocessing information
         if self.tbx.done_preprocessing:
-            self.tbx.hf_segmentation_path = os.path.join(self.tbx.raw_features_path, self.tbx.study_name+'_segmentation.hdf')
+            self.tbx.segmentation_path = os.path.join(self.tbx.raw_features_path, self.tbx.study_name+'_segmentation.hdf')
 
             # Show study name on the main window
             self.ui.step0_study_name_mainwin_lineedit.setText(self.tbx.study_name)
@@ -196,10 +198,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step0_log_textbrowser.insertPlainText("\nPreprocessing is done.\n")
             self.ui.step0_log_textbrowser.insertPlainText(20*"* " + "\n")
 
-        # Load clustering information
+        # Load clustering_utils information
         if self.tbx.done_clustering:
             if self.tbx.done_labeling_microstates:
-                # micro_labels_str = config['clustering results']['micro_labels']
+                # micro_labels_str = config['clustering_utils results']['micro_labels']
                 # self.micro_labels = micro_labels_str.split(",")
                 micro_labels_str = ','.join(self.tbx.micro_labels)
                 self.ui.step0_log_textbrowser.insertPlainText(
@@ -323,8 +325,11 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_features_title_label,
             self.ui.step4_featurestoextract_label,
             self.ui.step4_features2extract_combobox,
-            self.ui.step4_duration_of_window,
+            self.ui.step4_duration_of_window_input,
             self.ui.step4_duration_of_window_label,
+            self.ui.step4_duration_of_window_label_2,
+            self.ui.step4_static_features_checkbox,
+            self.ui.step4_dynamic_features_checkbox,
             self.ui.step4_extractfeatures_button,
             self.ui.step4_outputformats_label,
             self.ui.step4_outputformats_combobox
@@ -368,7 +373,7 @@ class MainMicrostateWindow(QMainWindow):
                 options = ['Cosine Similarity', 'Spatial Correlation']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
 
-            elif self.tbx.clustering_method == "Agglomerative hierarchical clustering":
+            elif self.tbx.clustering_method == "Agglomerative hierarchical clustering_utils":
                 self.ui.step2_other_label.setText("Type of link between clusters:")
                 options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
@@ -391,10 +396,10 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(rand2use_widgets, mode='enable')
                 set_widgets_status(peaks2use_widgets, mode='disable')
 
-            # Update the clustering log
+            # Update the clustering_utils log
             self.step2_clustering_log_textedit.clear()
             self.step2_clustering_log_textedit.appendPlainText(
-                f"EEG microstates will be identified using {self.tbx.clustering_method} clustering algorithm")
+                f"EEG microstates will be identified using {self.tbx.clustering_method} clustering_utils algorithm")
             self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
             self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
 
@@ -408,7 +413,7 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status(after_clustering_widgets, mode='enable')
 
             outputformat = self.ui.step4_outputformats_combobox.currentText()
-            self.tbx.output_format = outputformat.split("(")[-1].split(")")[0]
+            self.tbx.export_format = outputformat.split(".")[-1].split(")")[0]
 
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 set_widgets_status(filter_segments_widgets, mode='enable')
@@ -649,7 +654,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.tbx.done_backfitting:
             ret = QMessageBox.question(self, 'MessageBox', "Microstates have been backfitted to data once,"
-                                                           " do you want to redo backfitting?",
+                                                           " do you want to redo backfitting_utils?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
             self.do_backfitting_from_scratch = False
             if ret == QMessageBox.Yes:
@@ -718,28 +723,32 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.show_labelling_window:
             if just_show_labels == True:
-                self.ui.MicrostateDialog = MicrostateDialog(main_window=self, tbx=self.tbx)
-                
-                self.MicrostateDialog.save_dir = self.tbx.save_dir
-                self.MicrostateDialog.plot_maps(self.tbx.best_maps, self.tbx.gev, self.tbx.eeg_info, labels=self.tbx.micro_labels)
-                self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-                self.MicrostateDialog.showMaximized()
+
+                #self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
+                self.MicrostateVisualizationDialog.n_states = self.tbx.best_maps.shape[0]
+                self.MicrostateVisualizationDialog.microstate_maps = self.tbx.best_maps
+                self.MicrostateVisualizationDialog.eeg_info = self.tbx.eeg_info
+                self.MicrostateVisualizationDialog.microstates_combobox.addItems([str(i) for i in range(self.tbx.best_maps.shape[0])])
+                self.MicrostateVisualizationDialog.microstates_image_path = os.path.join(self.tbx.save_dir, f"{self.tbx.study_name}_microstates.png")
+                self.MicrostateVisualizationDialog.set_layout(self.tbx.micro_labels)
+                self.MicrostateVisualizationDialog.plot_maps()
+                self.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+                self.MicrostateVisualizationDialog.showMaximized()
 
                 self.mainwindow_controller()
             else:
-                self.ui.MicrostateDialog = MicrostateDialog(main_window=self, tbx=self.tbx)
                 self.tbx.done_labeling_microstates = False
                 self.tbx.done_backfitting = False
                 self.tbx.done_extracting_features = False
                 # self.tbx.done_extracting_microsegments = False
                 self.tbx.done_source_localization = False
-                
-                self.MicrostateDialog.save_dir = self.tbx.save_dir
-                self.MicrostateDialog.plot_maps(self.tbx.best_maps, self.tbx.gev, self.tbx.eeg_info)
-                self.MicrostateDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-                self.MicrostateDialog.showMaximized()
+                """
+                self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
+                self.MicrostateVisualizationDialog.plot_maps(self.tbx.best_maps, self.tbx.eeg_info)
+                self.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+                self.MicrostateVisualizationDialog.showMaximized()
                 self.mainwindow_controller()
-
+                """
     def extract_microsegments(self):
         # Load config
         config_file = os.path.join(self.save_folder, 'log.ini')
@@ -770,7 +779,7 @@ class MainMicrostateWindow(QMainWindow):
                 os.makedirs(self.micro_segments_path)
             # Extract data segments
             micro_segments_data(self.hdf_concatenated_data_path,
-                                self.hf_segmentation_path,
+                                self.segmentation_path,
                                 self.n_chan,
                                 self.micro_labels,
                                 self.micro_segments_path)
@@ -791,7 +800,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.done_extracting_features:
             ret = QMessageBox.question(self, 'MessageBox', "Features have been extracted once,"
-                                                           " do you want to extract features again?",
+                                                           " do you want to extract features_utils again?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
             self.do_extracting_features_from_scratch = False
             if ret == QMessageBox.Yes:
@@ -803,33 +812,24 @@ class MainMicrostateWindow(QMainWindow):
             self.tbx.done_extracting_features = False
             self.mainwindow_controller()
 
-            self.tbx.Features = []
+            self.tbx.feature_list = []
             features2extract = self.ui.step4_features2extract_combobox.currentData()
             for feature in features2extract:
                 match = re.search(r'\((\w+)\)', feature)
                 if match:
-                    self.tbx.Features.append(match.group(1))
+                    self.tbx.feature_list.append(match.group(1))
 
-            """
-            if self.ui.step4_coverage_featurestoextract_checkbox.isChecked():
-                self.tbx.Features.append("COV")
-            if self.ui.step4_foc_featurestoextract_checkbox.isChecked():
-                self.tbx.Features.append("OCC")
-                self.tbx.duration_of_window = int(self.ui.step4_duration_of_window.text())
-            if self.ui.step4_mmd_featurestoextract_checkbox.isChecked():
-                self.tbx.Features.append("MMD")
-            if self.ui.step4_tp_featurestoextract_checkbox.isChecked():
-                self.tbx.Features.append("TP")
-                self.tbx.save_transitions_bool = True
-            else:
-                self.tbx.save_transitions_bool = False
-            if self.ui.step4_complexity_featurestoextract_checkbox.isChecked():
-                self.tbx.Features.append("LZC")
-            if self.ui.step4_gev_featurestoextract_checkbox.isChecked():
-                self.tbx.Features.append("GEV")
-            """
-            
-            self.tbx.extract_features_from_map()
+            self.tbx.feature_mode = []
+            if self.ui.step4_static_features_checkbox.isChecked():
+                self.tbx.feature_mode.append('static')
+            if self.ui.step4_dynamic_features_checkbox.isChecked():
+                self.tbx.feature_mode.append('dynamic')
+
+            self.tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
+
+            print(self.tbx.export_format)
+
+            self.tbx.extract_features()
             self.tbx.save_tbx()
             
             self.ui.step0_log_textbrowser.insertPlainText("\n" + 20 * "* ")

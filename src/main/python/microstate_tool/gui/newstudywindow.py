@@ -7,9 +7,9 @@ import shutil
 import mne
 import warnings
 from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
-from gui.CheckableComboBox import CheckableComboBox
-from functions.utils.set_widgets_status import set_widgets_status
-from functions.utils.data_io import load_eegs
+from functions.gui_utils.CheckableComboBox import CheckableComboBox
+from functions.gui_utils.set_widgets_status import set_widgets_status
+from functions.data_utils.data_io import load_eegs
 
 
 class NewStudyWindow(QDialog):

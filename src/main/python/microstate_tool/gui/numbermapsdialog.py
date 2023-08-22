@@ -1,6 +1,6 @@
 
 import os.path
-from functions.utils.elbow_function import get_elbow
+from functions.clustering_utils.elbow_function import get_elbow
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog
