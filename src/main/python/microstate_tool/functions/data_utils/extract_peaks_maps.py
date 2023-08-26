@@ -14,7 +14,7 @@ Organization: SFU eBrain Lab, www.ebrainlab.ca
 import numpy as np
 from scipy.signal import find_peaks
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
-from functions.data_utils.data_io import find_data, load_eegs, get_eeg_data
+from functions.data_utils.data_io import DataIO
 
 
 def initialize_cluster_centers(maps, n_states, initializer):
@@ -86,12 +86,13 @@ def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percen
     """
     print('Generating Maps and Peaks...')
 
-    all_preprocessed_paths, _ = find_data(preprocessed_folder, extension)
+    data_io = DataIO()
+    all_preprocessed_paths, _ = data_io.find_data(preprocessed_folder, extension)
     maps2use, peaks2use = [], []
     counter = 0
     for eeg_path in all_preprocessed_paths:
-        eeg = load_eegs(eeg_path, extension, datatype)
-        eeg_data = get_eeg_data(eeg, datatype)
+        eeg = data_io.load_eegs(eeg_path, extension, datatype)
+        eeg_data = data_io.get_eeg_data(eeg, datatype)
         maps, peaks = extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist)
 
         if counter == 0:

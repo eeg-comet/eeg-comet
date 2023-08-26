@@ -1,5 +1,4 @@
 
-from functions.data_utils.data_io import find_data, save_eeg_info, export_eegs
 import os
 import numpy as np
 import pandas as pd
@@ -7,18 +6,20 @@ from tqdm import tqdm
 from functions.sourcelocalization_utils.source_localization_functions import run_source_localization #, visualize_sources
 import pickle
 
+from functions.data_utils.data_io import DataIO
 from functions.data_utils.data_preprocessor import DataPreprocessor
 from functions.features_utils.feature_extractor import FeatureExtractor
 from functions.features_utils.feature_io import FeatureIO
+from functions.backfitting_utils.segmentation_io import SegmentationIO
 from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
 from functions.clustering_utils.microstate_clusterer import clustering_func
 
 
-class ToolBox:
+class COMET:
 	def __init__(self, config=None, auto_save=True):
 		'''
 		config: should be a ConfigParser, use it to load configs
-		auto_save: if True, the ToolBox will automatically save itself after each process
+		auto_save: if True, the COMET will automatically save itself after each process
 		'''
 		if config:
 			self.load_config(config)
@@ -93,7 +94,7 @@ class ToolBox:
 
 		# extract feature
 		self.extracted_features_path = os.path.join(self.save_dir, 'extracted_features')
-		self.segmentation_path = os.path.join(self.raw_features_path, self.study_name+'_segmentation.hdf')
+		self.segmentation_path = os.path.join(self.save_dir, 'segmentations')
 		self.raw_transitions_path = os.path.join(self.raw_features_path, 'raw_transitions')
 		self.export_format = config['extract_features']['export_format']
 		self.feature_list = [x for x in config['extract_features']['feature_list'].split(',')]
@@ -116,7 +117,8 @@ class ToolBox:
 			self.pattern = '*'
 		else:
 			self.pattern = '*'+self.pattern_content+'*'
-		self.list_eegs_path, self.list_eegs = find_data(self.input_folder, self.extension, self.pattern)
+
+		self.list_eegs_path, self.list_eegs = DataIO().find_data(self.input_folder, self.extension, self.pattern)
 		#self.list_eegs = [os.path.basename(x).split('.')[0] for x in self.list_eegs_path]
 		#assert self.list_eegs_path, 'eeg list is empty'
 
@@ -140,6 +142,7 @@ class ToolBox:
 			os.makedirs(self.preprocessed_data_path)
 
 		length_all_data = []
+		data_io = DataIO()
 		counter = 1
 		for filename in tqdm(self.list_eegs_path):
 			# Create an instance of the DataPreprocessor class
@@ -165,7 +168,7 @@ class ToolBox:
 				self.sample_rate = int(self.eeg_info['sfreq'])
 			self.channels2remove = channels2remove
 
-			save_eeg_info(self.eeg_info_path, eeg_info)
+			data_io.save_eeg_info(self.eeg_info_path, eeg_info)
 
 			ch_names, ch_location = list(self.eeg_info['ch_names']), self.eeg_info['chs']
 			n_chan = len(ch_names)
@@ -180,7 +183,7 @@ class ToolBox:
 
 			# save EEG object
 			print(f"\nPreprocessing file: {filename}")
-			export_eegs(eeg, save_path, self.extension, self.datatype)
+			data_io.export_eegs(eeg, save_path, self.extension, self.datatype)
 
 		self.done_preprocessing = True
 		if self.auto_save:
@@ -245,6 +248,8 @@ class ToolBox:
 
 
 	def do_backfitting(self):
+		if not os.path.exists(self.segmentation_path):
+			os.makedirs(self.segmentation_path)
 		print('\nBackfitting Maps to Data ...')
 
 		backfitter_instance = MicrostateBackfitter(
@@ -255,7 +260,7 @@ class ToolBox:
 			self.filter_segments_option,
 			self.remove_segments_less_than,
 			self.micro_labels,
-			self.raw_features_path,
+			self.segmentation_path,
 			self.extension,
 			self.datatype,
 			[self.epsilon, self.b, self.lamb],
@@ -268,83 +273,96 @@ class ToolBox:
 
 
 	def extract_features(self):
+		if not os.path.exists(self.extracted_features_path):
+			os.makedirs(self.extracted_features_path)
+
 		print("\nExtracting Static Features ...\n")
 
-		#self.feature_mode = ['static', 'dynamic']
-		if 'static' in self.feature_mode:
-			static_features_path = os.path.join(self.extracted_features_path, 'static')
-			if not os.path.exists(static_features_path):
-				os.makedirs(static_features_path)
-			feature_extractor = FeatureExtractor(self.segmentation_path,
-												 self.sample_rate,
-												 self.window_size,
-												 mode='static')
-			feature_io = FeatureIO()
-			print(self.feature_list)
-			if 'COV' in self.feature_list:
-				static_microstate_coverage = feature_extractor.microstate_coverage()
-				print(static_microstate_coverage)
-				feature_io.export_features(static_microstate_coverage, 'static', static_features_path,
-										   self.export_format,
-										   static_features_path)
-			if 'OCC' in self.feature_list:
-				static_microstate_occurrence = feature_extractor.microstate_occurrence()
-				print(static_microstate_occurrence)
-				feature_io.export_features(static_microstate_occurrence, 'static', static_features_path,
-										   self.export_format,
-										   static_features_path)
-			if 'DUR' in self.feature_list:
-				static_microstate_duration = feature_extractor.microstate_duration()
-				print(static_microstate_duration)
-				feature_io.export_features(static_microstate_duration, 'static', static_features_path,
-										   self.export_format,
-										   static_features_path)
-			if 'TP' in self.feature_list:
-				static_microstate_transition_probability = feature_extractor.transition_probability()
-				feature_io.export_features(static_microstate_transition_probability, 'static', static_features_path,
-										   self.export_format,
-										   static_features_path)
-			if 'LZC' in self.feature_list:
-				static_microstate_complexity = feature_extractor.lempel_ziv_complexity()
-				feature_io.export_features(static_microstate_complexity, 'static', static_features_path,
-										   self.export_format,
-										   static_features_path)
+		segmentation_list_path, segmentation_list_filename = DataIO().find_data(
+			self.segmentation_path,
+			self.export_format
+		)
 
-		if 'dynamic' in self.feature_mode:
-			dynamic_features_path = os.path.join(self.extracted_features_path, 'dynamic')
-			if not os.path.exists(dynamic_features_path):
-				os.makedirs(dynamic_features_path)
+		for s in range(len(segmentation_list_path)):
 
-			feature_extractor = FeatureExtractor(self.segmentation_path,
-												 self.sample_rate,
-												 self.window_size,
-												 mode='dynamic')
-			feature_io = FeatureIO()
-			if 'COV' in self.feature_list:
-				dynamic_microstate_coverage = feature_extractor.microstate_coverage()
-				feature_io.export_features(dynamic_microstate_coverage, 'dynamic', dynamic_features_path,
-										   self.export_format,
-										   dynamic_features_path)
-			if 'OCC' in self.feature_list:
-				dynamic_microstate_occurrence = feature_extractor.microstate_occurrence()
-				feature_io.export_features(dynamic_microstate_occurrence, 'dynamic', dynamic_features_path,
-										   self.export_format,
-										   dynamic_features_path)
-			if 'DUR' in self.feature_list:
-				dynamic_microstate_duration = feature_extractor.microstate_duration()
-				feature_io.export_features(dynamic_microstate_duration, 'dynamic', dynamic_features_path,
-										   self.export_format,
-										   dynamic_features_path)
-			if 'TP' in self.feature_list:
-				dynamic_microstate_transition_probability = feature_extractor.transition_probability()
-				feature_io.export_features(dynamic_microstate_transition_probability, 'dynamic', dynamic_features_path,
-										   self.export_format,
-										   dynamic_features_path)
-			if 'LZC' in self.feature_list:
-				dynamic_microstate_complexity = feature_extractor.lempel_ziv_complexity()
-				feature_io.export_features(dynamic_microstate_complexity, 'dynamic', dynamic_features_path,
-										   self.export_format,
-										   dynamic_features_path)
+			segmentation_path = segmentation_list_path[s]
+			filename = segmentation_list_filename[s]
+			print(filename)
+
+			segmentation_array = SegmentationIO().load_segmentation(segmentation_path, import_format='.csv')
+
+			#self.feature_mode = ['static', 'dynamic']
+			if 'static' in self.feature_mode:
+				static_features_path = os.path.join(self.extracted_features_path, 'static')
+				if not os.path.exists(static_features_path):
+					os.makedirs(static_features_path)
+				feature_extractor = FeatureExtractor(segmentation_array,
+													 self.sample_rate,
+													 self.window_size,
+													 mode='static')
+				feature_io = FeatureIO()
+
+				# TODO: export features
+				print(self.feature_list)
+				if 'COV' in self.feature_list:
+					static_microstate_coverage = feature_extractor.microstate_coverage()
+					print(static_microstate_coverage)
+					feature_io.export_features(static_microstate_coverage, 'static', static_features_path, filename,
+											   self.export_format)
+				if 'OCC' in self.feature_list:
+					static_microstate_occurrence = feature_extractor.microstate_occurrence()
+					print(static_microstate_occurrence)
+					feature_io.export_features(static_microstate_occurrence, 'static', static_features_path, filename,
+											   self.export_format)
+				if 'DUR' in self.feature_list:
+					static_microstate_duration = feature_extractor.microstate_duration()
+					print(static_microstate_duration)
+					feature_io.export_features(static_microstate_duration, 'static', static_features_path, filename,
+											   self.export_format)
+				if 'TP' in self.feature_list:
+					static_microstate_transition_probability = feature_extractor.transition_probability()
+					feature_io.export_features(static_microstate_transition_probability, 'static', static_features_path,
+											   filename,
+											   self.export_format)
+				if 'LZC' in self.feature_list:
+					static_microstate_complexity = feature_extractor.lempel_ziv_complexity()
+					feature_io.export_features(static_microstate_complexity, 'static', static_features_path, filename,
+											   self.export_format)
+
+			if 'dynamic' in self.feature_mode:
+				dynamic_features_path = os.path.join(self.extracted_features_path, 'dynamic')
+				if not os.path.exists(dynamic_features_path):
+					os.makedirs(dynamic_features_path)
+
+				feature_extractor = FeatureExtractor(segmentation_array,
+													 self.sample_rate,
+													 self.window_size,
+													 mode='dynamic')
+				feature_io = FeatureIO()
+				if 'COV' in self.feature_list:
+					dynamic_microstate_coverage = feature_extractor.microstate_coverage()
+					feature_io.export_features(dynamic_microstate_coverage, 'dynamic', dynamic_features_path, filename,
+											   self.export_format)
+				if 'OCC' in self.feature_list:
+					dynamic_microstate_occurrence = feature_extractor.microstate_occurrence()
+					feature_io.export_features(dynamic_microstate_occurrence, 'dynamic', dynamic_features_path,
+											   filename,
+											   self.export_format)
+				if 'DUR' in self.feature_list:
+					dynamic_microstate_duration = feature_extractor.microstate_duration()
+					feature_io.export_features(dynamic_microstate_duration, 'dynamic', dynamic_features_path, filename,
+											   self.export_format)
+				if 'TP' in self.feature_list:
+					dynamic_microstate_transition_probability = feature_extractor.transition_probability()
+					feature_io.export_features(dynamic_microstate_transition_probability, 'dynamic',
+											   dynamic_features_path,
+											   filename,
+											   self.export_format)
+				if 'LZC' in self.feature_list:
+					dynamic_microstate_complexity = feature_extractor.lempel_ziv_complexity()
+					feature_io.export_features(dynamic_microstate_complexity, 'dynamic', dynamic_features_path,
+											   filename,
+											   self.export_format)
 
 
 		"""
