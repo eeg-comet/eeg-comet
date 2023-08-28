@@ -10,13 +10,83 @@ import numpy as np
 from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouette
 from pyclustering.utils.metric import distance_metric, type_metric
 
-from functions.utils.corr_vectors import corr_vectors
-from functions.utils.compute_gev import compute_gev
 from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
 
 # from functions.utils.elbow_function import get_elbow_without_plt
 
-# TODO: create a class containing functions related to clustering_utils
+
+def corr_vectors(A, B, axis=0):
+    """
+    Computes the Pearson correlation between two matrices A and B along a specified axis.
+
+    Parameters:
+        A: The first matrix with shape (n_samples, n_features).
+        B: The second matrix with shape (n_samples, n_features).
+        axis: The axis along which to compute the correlation. Defaults to 0.
+
+    Returns:
+        corr: The correlation between the two matrices along the specified axis.
+
+    Raises:
+        ValueError: If the shapes of A and B are not compatible for correlation.
+    """
+    # Check for shape compatibility
+    if A.shape != B.shape:
+        raise ValueError("Both matrices A and B must have the same shape.")
+
+    # Centering the matrices along the specified axis
+    An = A - np.mean(A, axis=axis, keepdims=True)
+    Bn = B - np.mean(B, axis=axis, keepdims=True)
+
+    # Normalizing the matrices along the specified axis
+    An /= np.linalg.norm(An, axis=axis, keepdims=True)
+    Bn /= np.linalg.norm(Bn, axis=axis, keepdims=True)
+
+    # Computing the Pearson correlation along the specified axis
+    corr = np.sum(An * Bn, axis=axis)
+
+    return corr
+
+def compute_gev(data, maps):
+    """
+    Computes the global explained variance (GEV) of microstate maps.
+
+    Inputs:
+        data: The EEG data as a numpy array.
+        maps: The microstate maps as a numpy array.
+
+    Outputs:
+        gev: The GEV as a float.
+    """
+    # Check for compatibility between data and maps
+    if data.shape[0] != maps.shape[0]:
+        raise ValueError("Incompatible shapes between EEG data and microstate maps.")
+
+    # Calculate Global Field Power (GFP)
+    gfp = np.std(data, axis=0)
+
+    # Normalize the microstate maps
+    if maps.ndim == 1:
+        maps = maps / np.linalg.norm(maps)
+        maps = np.reshape(maps, (1, -1))
+    else:
+        maps = maps / np.linalg.norm(maps, axis=1, keepdims=True)
+
+    # Compute activation and segmentation
+    activation = maps.dot(data)
+    segmentation = np.argmax(np.abs(activation), axis=0)
+
+    # Ensure the selected maps are properly shaped for correlation
+    selected_maps = maps[segmentation, :]
+
+    # Compute map correlations using the corr_vectors function
+    map_corr = corr_vectors(data, selected_maps.T)
+
+    # Compute the GEV
+    gev = np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
+
+    return gev
+
 def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6):
 
     # Get the dimensions of the data

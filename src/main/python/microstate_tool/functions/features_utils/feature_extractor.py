@@ -5,9 +5,10 @@ The features_utils include microstate coverage, microstate occurrence, microstat
 and Lempel-Ziv complexity. The class supports both 'static' and 'dynamic' modes for calculating these features_utils.
 """
 
+import numpy as np
 import pandas as pd
 from collections import Counter, defaultdict
-
+from functions.clustering_utils.microstate_clusterer import compute_gev
 
 class FeatureExtractor:
     def __init__(self, segment, sampling_rate, window_size, mode='static'):
@@ -70,6 +71,58 @@ class FeatureExtractor:
             dict: Dictionary with elements as keys and zero values.
         """
         return {element: 0 for element in set(self.segment)}
+
+    def global_explained_variance(self, eeg_data, microstate_maps, microstate_labels=None):
+        """
+        Compute Global Explained Variance (GEV) for a given EEG data and microstate maps.
+
+        Parameters:
+        eeg_data: np.array, shape (n_channels, n_timepoints)
+            The EEG data matrix.
+        microstate_maps: np.array, shape (n_maps, n_channels)
+            The microstate topography used for computation.
+        microstate_labels: list of strings, optional
+            Labels for each microstate map.
+
+        Returns:
+        gev: float or list of float or dict
+            The Global Explained Variance.
+        """
+        if microstate_labels and len(microstate_labels) != microstate_maps.shape[0]:
+            raise ValueError("Length of microstate_labels must match the number of microstate maps.")
+
+        window_element_gev = [self._initialize_empty_window_data() for _ in range(self.num_windows)]
+        window_size_samples = self.window_size * self.sampling_rate
+
+        if self.mode == 'dynamic':
+            gevs = {}
+            for i, label in enumerate(microstate_labels):
+                gevs[label] = []
+                for window_index in range(self.num_windows):
+                    window_start = window_index * window_size_samples
+                    window_end = (window_index + 1) * window_size_samples
+                    window_eeg_data = eeg_data[:, window_start:window_end]
+
+                    # Check if window is empty
+                    if window_eeg_data.size == 0:
+                        gevs[label].append(0)
+                        continue
+
+                    # Compute GEV using the imported function
+                    gev = compute_gev(window_eeg_data, microstate_maps[i, :])
+                    window_element_gev[window_index][label] = gev
+            return window_element_gev
+
+        elif self.mode == 'static':
+            gevs = {}
+            for i, label in enumerate(microstate_labels):
+                # Compute GEV
+                gev = compute_gev(eeg_data, microstate_maps[i, :])
+                gevs[label] = gev
+            return gevs
+
+        else:
+            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
 
     def microstate_coverage(self):
         """
@@ -306,7 +359,7 @@ class FeatureExtractor:
                     k = 1
         return c / len(segment)
 
-    def extract_features(self, filename, feature_list):
+    def extract_features(self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None):
         """
         Extract features from the provided segment data using the specified feature extraction methods.
 
@@ -329,6 +382,10 @@ class FeatureExtractor:
         if 'DUR' in feature_list:
             extracted_microstate_duration = self.microstate_duration()
             features_dict.append(('DUR', extracted_microstate_duration))
+        if 'GEV' in feature_list:
+            extracted_explained_variance = self.global_explained_variance(eeg_data, microstate_maps, microstate_labels)
+            features_dict.append(('GEV', extracted_explained_variance))
+
         if 'TP' in feature_list:
             extracted_microstate_transition_probability = self.transition_probability()
             features_dict.append(extracted_microstate_transition_probability)

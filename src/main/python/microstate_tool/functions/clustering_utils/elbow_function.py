@@ -16,8 +16,7 @@ import seaborn as sns
 import pandas as pd
 from scipy.signal import find_peaks
 from sklearn.metrics import silhouette_score
-from functions.clustering_utils.microstate_clusterer import run_modified_kmeans
-from functions.utils.corr_vectors import corr_vectors
+from functions.clustering_utils.microstate_clusterer import run_modified_kmeans, corr_vectors
 from sklearn.mixture import GaussianMixture
 
 def get_elbow(data, min_dist, tolerance, n_inits, kmin, kmax, ax1, ax2, ax3):
