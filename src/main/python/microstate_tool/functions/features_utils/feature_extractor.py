@@ -223,63 +223,22 @@ class FeatureExtractor:
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
 
-    def transition_probability(self):
+
+    def compute_transition_probabilities(self):
         """
-        Calculate transition probability using a sliding window implementation.
+        Compute the transition probabilities for a given segment.
 
         Returns:
-            dict or list of dict: Depending on the mode, returns either the average transition probabilities
-                                  over all windows (mode='static'), or the transition probabilities of each
-                                  window (mode='dynamic').
+        transition_prob: dict
+            The transition probabilities.
         """
-        n = len(self.segment)
-        if n == 0:
-            return {} if self.mode == 'static' else []
 
-        window_size_samples = int(self.sampling_rate * self.window_size)
-
-        if self.mode == 'static':
-            num_windows = n // window_size_samples
-            total_probabilities = defaultdict(float)
-
-            for i in range(num_windows):
-                window_segment = self.segment[i * window_size_samples : (i + 1) * window_size_samples]
-                window_probabilities = self._calculate_single_window_probabilities(window_segment)
-                for pair, prob in window_probabilities.items():
-                    total_probabilities[pair] += prob
-
-            for pair in total_probabilities:
-                total_probabilities[pair] /= num_windows
-
-            return total_probabilities
-
-        elif self.mode == 'dynamic':
-            num_windows = n // window_size_samples
-            window_probabilities = []
-
-            for i in range(num_windows):
-                window_segment = self.segment[i * window_size_samples : (i + 1) * window_size_samples]
-                window_probabilities.append(self._calculate_single_window_probabilities(window_segment))
-
-            return window_probabilities
-        else:
-            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
-
-    def _calculate_single_window_probabilities(self, segment):
-        """
-        Calculate transition probabilities for a single window.
-
-        Args:
-            segment (list): Input sequence of symbols.
-
-        Returns:
-            dict: Transition probabilities of the input sequence.
-        """
         transitions = defaultdict(int)
         total_transitions = 0
 
-        for i in range(len(segment) - 1):
-            transitions[(segment[i], segment[i + 1])] += 1
+        for i in range(len(self.segment) - 1):
+            transition_label = f"{self.segment[i]}_{self.segment[i + 1]}"
+            transitions[transition_label] += 1
             total_transitions += 1
 
         probabilities = {pair: count / total_transitions for pair, count in transitions.items()}
@@ -290,36 +249,27 @@ class FeatureExtractor:
         Calculate Lempel-Ziv complexity using the LZ76 algorithm and a sliding window implementation.
 
         Returns:
-            float or list of float: Depending on the mode, returns either the average complexity
-                                    over all windows (mode='static'), or the complexity of each
-                                    window (mode='dynamic').
+        dict: Dictionary containing either the average complexity over all windows (mode='static'),
+              or a list of complexities for each window (mode='dynamic').
         """
-        n = len(self.segment)
-        if n == 0:
-            return 0.0 if self.mode == 'static' else []
 
         window_size_samples = int(self.sampling_rate * self.window_size)
+        num_windows = len(self.segment) // window_size_samples
+        window_complexities = [0.0 for _ in range(self.num_windows)]  # Initialize list with zeros
+
+        for window_index in range(num_windows):
+            window_start = window_index * window_size_samples
+            window_end = window_start + window_size_samples
+            window_segment = self.segment[window_start:window_end]
+            window_complexities[window_index] = self._calculate_single_window_complexity(window_segment)
 
         if self.mode == 'static':
-            num_windows = n // window_size_samples
-            total_complexity = 0.0
-
-            for i in range(num_windows):
-                window_segment = self.segment[i * window_size_samples : (i + 1) * window_size_samples]
-                window_complexity = self._calculate_single_window_complexity(window_segment)
-                total_complexity += window_complexity
-
-            return total_complexity / num_windows if num_windows > 0 else 0.0
+            avg_complexity = sum(window_complexities) / num_windows if num_windows > 0 else 0.0
+            return avg_complexity
 
         elif self.mode == 'dynamic':
-            num_windows = n // window_size_samples
-            window_complexities = []
-
-            for i in range(num_windows):
-                window_segment = self.segment[i * window_size_samples : (i + 1) * window_size_samples]
-                window_complexities.append(self._calculate_single_window_complexity(window_segment))
-
             return window_complexities
+
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
 
@@ -359,16 +309,28 @@ class FeatureExtractor:
                     k = 1
         return c / len(segment)
 
-    def extract_features(self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None):
+    def extract_microstate_features(self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None):
         """
-        Extract features from the provided segment data using the specified feature extraction methods.
+        Extracts a set of microstate features from EEG data segments, given a list of feature identifiers.
+        The function operates in two modes: 'static' and 'dynamic'.
+
+        In 'static' mode, the function returns aggregated feature values over the entire segment for each feature.
+        In 'dynamic' mode, it returns features calculated over a set of windows within the segment.
+
+        Note: The 'TP' (Transition Probability) feature is only supported in 'static' mode.
+              If 'TP' is requested in 'dynamic' mode, it will be ignored.
 
         Args:
             filename (str): Name of the file being analyzed.
-            feature_list (list): List of feature identifiers to extract (e.g., ['COV', 'OCC', 'DUR']).
+            feature_list (list): List of feature identifiers to extract.
+                                 Possible values include 'COV', 'OCC', 'DUR', 'GEV', and 'TP'.
+            eeg_data (array, optional): Raw EEG data. Required if 'GEV' is among the features to be extracted.
+            microstate_maps (array, optional): Microstate maps. Required if 'GEV' is among the features to be extracted.
+            microstate_labels (array, optional): Microstate labels. Required if 'GEV' is among the features to be extracted.
 
         Returns:
-            DataFrame: Extracted features organized based on the chosen mode ('static' or 'dynamic').
+            pd.DataFrame: Extracted features organized based on the chosen mode ('static' or 'dynamic').
+                          The DataFrame will have different columns depending on the mode.
         """
 
         features_dict = []
@@ -386,24 +348,32 @@ class FeatureExtractor:
             extracted_explained_variance = self.global_explained_variance(eeg_data, microstate_maps, microstate_labels)
             features_dict.append(('GEV', extracted_explained_variance))
 
-        if 'TP' in feature_list:
-            extracted_microstate_transition_probability = self.transition_probability()
-            features_dict.append(extracted_microstate_transition_probability)
+        # Only add TP if the mode is not dynamic
+        if 'TP' in feature_list and self.mode != 'dynamic':
+            extracted_microstate_transition_probability = self.compute_transition_probabilities()
+            features_dict.append(('TP', extracted_microstate_transition_probability))
+
         if 'LZC' in feature_list:
             extracted_microstate_complexity = self.lempel_ziv_complexity()
-            features_dict.append(extracted_microstate_complexity)
+            features_dict.append(('LZC', extracted_microstate_complexity))
 
         # Create a list to hold the data
         output_features_data = []
 
         for feature, feature_data in features_dict:
             if self.mode == 'static':
-                for element, value in feature_data.items():
-                    output_features_data.append([filename, f"{feature}_{element}", value])
+                if isinstance(feature_data, dict):
+                    for element, value in feature_data.items():
+                        output_features_data.append([filename, f"{feature}_{element}", value])
+                else:
+                    output_features_data.append([filename, feature, feature_data])
             elif self.mode == 'dynamic':
                 for window_index, window_data in enumerate(feature_data):
-                    for element, value in window_data.items():
-                        output_features_data.append([filename, window_index, f"{feature}_{element}", value])
+                    if isinstance(window_data, dict):
+                        for element, value in window_data.items():
+                            output_features_data.append([filename, window_index, f"{feature}_{element}", value])
+                    else:
+                        output_features_data.append([filename, window_index, feature, window_data])
 
         if self.mode == 'static':
             columns = ['Filename', 'Feature', 'Value']

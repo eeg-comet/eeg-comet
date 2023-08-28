@@ -302,10 +302,10 @@ class COMET:
 					eeg_path = os.path.join(self.preprocessed_data_path, f"{filename}{self.extension}")
 					eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
 					eeg_data = data_io.get_eeg_data(eeg, self.datatype)
-					output_features = feature_extractor.extract_features(filename, self.feature_list, eeg_data,
+					output_features = feature_extractor.extract_microstate_features(filename, self.feature_list, eeg_data,
 																		 self.best_maps, self.micro_labels)
 				else:
-					output_features = feature_extractor.extract_features(filename, self.feature_list)
+					output_features = feature_extractor.extract_microstate_features(filename, self.feature_list)
 				if s == 0:
 					static_features_dfs = output_features
 				else:
@@ -322,10 +322,10 @@ class COMET:
 					eeg_path = os.path.join(self.preprocessed_data_path, f"{filename}{self.extension}")
 					eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
 					eeg_data = data_io.get_eeg_data(eeg, self.datatype)
-					output_features = feature_extractor.extract_features(filename, self.feature_list, eeg_data,
+					output_features = feature_extractor.extract_microstate_features(filename, self.feature_list, eeg_data,
 																		 self.best_maps, self.micro_labels)
 				else:
-					output_features = feature_extractor.extract_features(filename, self.feature_list)
+					output_features = feature_extractor.extract_microstate_features(filename, self.feature_list)
 				if s == 0:
 					dynamic_features_dfs = output_features
 				else:
