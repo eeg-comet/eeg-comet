@@ -9,7 +9,7 @@ from gui.newstudywindow import NewStudyWindow
 from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
 from gui.numbermapsdialog import NumberMapsDialog
 from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
-from gui.visualizationdialog import VisualizationDialog
+from gui.feature_visualization_dialog import FeatureVisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
 
 from functions.gui_utils.config_io import load_config, save_config
@@ -49,6 +49,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
         self.ui.NumberMapsDialog = NumberMapsDialog(self.context)
         self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
+        self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(self.context, tbx=self.tbx)
         self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context)
 
     def init_flags(self):
@@ -102,7 +103,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
         self.ui.step3_backfit_button.clicked.connect(self.do_backfitting)
         self.ui.step4_extractfeatures_button.clicked.connect(self.extract_features)
-        self.ui.step4_visualizefeatures_button.clicked.connect(self.open_visualize_features_dialog)
+        self.ui.step4_visualizefeatures_button.clicked.connect(self.visualize_microstate_features)
         self.ui.step3_backfit_visualization_button.clicked.connect(self.visualize_microstate_segmentation)
         self.ui.step5_estimate_sources_button.clicked.connect(self.source_localize_microstates)
         self.ui.step5_visualize_sources_button.clicked.connect(self.visualize_source_localized_microstates)
@@ -139,15 +140,6 @@ class MainMicrostateWindow(QMainWindow):
         self.tbx.done_extracting_microsegments = False
         self.ui.NewStudyWindow.setWindowModality(QtCore.Qt.ApplicationModal)
         self.ui.NewStudyWindow.showMaximized()
-        self.mainwindow_controller()
-
-    def open_visualize_features_dialog(self):
-        self.ui.VisualizationDialog = VisualizationDialog(self.context, tbx=self.tbx)
-        self.ui.VisualizationDialog.extracted_features_path = self.tbx.extracted_features_path
-        self.ui.VisualizationDialog.save_folder = self.tbx.save_dir
-        self.ui.VisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.ui.VisualizationDialog.showMaximized()
-        self.ui.VisualizationDialog.load_filenames()
         self.mainwindow_controller()
 
     def load_study(self, save_folder=None):
@@ -862,6 +854,16 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step0_log_textbrowser.insertPlainText("\n" + 20 * "* ")
             self.ui.step0_log_textbrowser.insertPlainText("\n" + "Features are extracted.\n")
             self.mainwindow_controller()
+
+    def visualize_microstate_features(self):
+
+        self.FeatureVisualizationDialog.extracted_features_path = self.tbx.extracted_features_path
+        self.FeatureVisualizationDialog.export_format = self.tbx.export_format
+        self.FeatureVisualizationDialog.feature_combo.addItems([i for i in self.tbx.feature_list])
+        self.FeatureVisualizationDialog.list_eegs = self.tbx.list_eegs
+        self.FeatureVisualizationDialog.reset_groups()
+        self.FeatureVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.FeatureVisualizationDialog.showMaximized()
 
 
     def source_localize_microstates(self):
