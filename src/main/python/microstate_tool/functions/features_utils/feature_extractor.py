@@ -5,6 +5,7 @@ The features_utils include microstate coverage, microstate occurrence, microstat
 and Lempel-Ziv complexity. The class supports both 'static' and 'dynamic' modes for calculating these features_utils.
 """
 
+import pandas as pd
 from collections import Counter, defaultdict
 
 
@@ -24,6 +25,7 @@ class FeatureExtractor:
         self.sampling_rate = sampling_rate
         self.window_size = window_size
         self.mode = mode
+        self.num_windows = len(segment) // (sampling_rate * window_size)
 
     def _calculate_window_index(self, i):
         """
@@ -37,6 +39,38 @@ class FeatureExtractor:
         """
         return i // (self.sampling_rate * self.window_size)
 
+    def _remove_consecutive_duplicates(self, str_array):
+        """
+        Remove consecutive duplicate characters from a string.
+
+        Args:
+            str_array (str or list): The string or list of strings to remove duplicates from.
+
+        Returns:
+            new_str_array: The new string with consecutive duplicates removed.
+        """
+        if isinstance(str_array, list):
+            str_array = "".join(str_array)
+
+        new_str_array = ""
+        prev_char = None
+
+        for char in str_array:
+            if char != prev_char:
+                new_str_array += char
+                prev_char = char
+
+        return new_str_array
+
+    def _initialize_empty_window_data(self):
+        """
+        Create a dictionary with zero values for all elements in the segment.
+
+        Returns:
+            dict: Dictionary with elements as keys and zero values.
+        """
+        return {element: 0 for element in set(self.segment)}
+
     def microstate_coverage(self):
         """
         Calculate the coverage percentage of each element within windows.
@@ -46,25 +80,27 @@ class FeatureExtractor:
                                   per element over all windows (mode='static'), or the dynamic
                                   coverage of each element per window (mode='dynamic').
         """
-        num_windows = len(self.segment) // (self.sampling_rate * self.window_size)
+        window_element_coverage = [self._initialize_empty_window_data() for _ in range(self.num_windows)]
 
-        window_element_coverage = [{} for _ in range(num_windows)]
+        for window_index in range(self.num_windows):
+            window_start = window_index * self.window_size * self.sampling_rate
+            window_end = (window_index + 1) * self.window_size * self.sampling_rate
+            window_segment = self.segment[window_start:window_end]
+            element_counts = Counter(window_segment)
 
-        element_counts = Counter(self.segment)
-
-        for i, s in enumerate(self.segment):
-            window_index = self._calculate_window_index(i)
-            if window_index < num_windows:
-                coverage = element_counts[s] / len(self.segment) * 100  # Convert to percentage
-                window_element_coverage[window_index][s] = coverage
+            total_elements = sum(element_counts.values())
+            if total_elements > 0:
+                for element, count in element_counts.items():
+                    coverage = count / total_elements * 100
+                    window_element_coverage[window_index][element] = coverage
 
         if self.mode == 'static':
-            # Calculate the average coverage over all windows
             total_coverage = Counter()
             for window_coverage in window_element_coverage:
                 total_coverage.update(window_coverage)
             num_windows = len(window_element_coverage)
-            average_coverage = {element: min(coverage / num_windows, 100.0) for element, coverage in total_coverage.items()}
+            average_coverage = {element: min(coverage / num_windows, 100.0) for element, coverage in
+                                total_coverage.items()}
             return average_coverage
         elif self.mode == 'dynamic':
             return window_element_coverage
@@ -73,34 +109,32 @@ class FeatureExtractor:
 
     def microstate_occurrence(self):
         """
-        Compute the frequency of occurrence of elements within non-overlapping windows.
+        Compute the number of times an element changes from another element within non-overlapping windows.
 
         Returns:
-            dict or list of dict: Depending on the mode, returns either the average frequency
+            dict or list of dict: Depending on the mode, returns either the average count
                                   per symbol over all windows (mode='static'), or the dynamic
-                                  frequency of occurrence per window (mode='dynamic').
+                                  count of changes per window (mode='dynamic').
         """
-        num_windows = len(self.segment) // (self.sampling_rate * self.window_size)
+        window_change_counts = [self._initialize_empty_window_data() for _ in range(self.num_windows)]
+        total_element_counts = Counter()
 
-        window_symbol_counts = [Counter() for _ in range(num_windows)]
+        for window_index in range(self.num_windows):
+            window_start = window_index * (self.sampling_rate * self.window_size)
+            window_end = window_start + (self.sampling_rate * self.window_size)
+            window_segment = self.segment[window_start:window_end]
+            window_segment = self._remove_consecutive_duplicates(window_segment)
 
-        for i, s in enumerate(self.segment):
-            window_index = self._calculate_window_index(i)
-            if window_index < num_windows:
-                window_symbol_counts[window_index][s] += 1
-
-        freq_per_window = [{symbol: count for symbol, count in window_counts.items()} for window_counts in window_symbol_counts]
+            element_counts = Counter(window_segment)
+            window_change_counts[window_index] = element_counts
+            total_element_counts.update(element_counts)
 
         if self.mode == 'static':
-            # Calculate the average frequency over all windows
-            total_symbol_counts = Counter()
-            for window in freq_per_window:
-                total_symbol_counts.update(window)
-            num_windows = len(freq_per_window)
-            average_frequency = {symbol: count / num_windows for symbol, count in total_symbol_counts.items()}
-            return average_frequency
+            num_windows = len(window_change_counts)
+            average_counts = {element: count / num_windows for element, count in total_element_counts.items()}
+            return average_counts
         elif self.mode == 'dynamic':
-            return freq_per_window
+            return window_change_counts
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
 
@@ -109,27 +143,27 @@ class FeatureExtractor:
         Compute the duration of each element within non-overlapping windows.
 
         Returns:
-            dict or list of dict: Depending on the mode, returns either the average frequency
+            dict or list of dict: Depending on the mode, returns either the average duration
                                   per symbol over all windows (mode='static'), or the dynamic
-                                  frequency of occurrence per window (mode='dynamic').
+                                  duration per window (mode='dynamic').
         """
-        num_windows = len(self.segment) // (self.sampling_rate * self.window_size)
-
-        window_element_durations = [Counter() for _ in range(num_windows)]
+        window_element_durations = [Counter() for _ in range(self.num_windows)]
 
         for i, s in enumerate(self.segment):
             window_index = i // (self.sampling_rate * self.window_size)
-            if window_index < num_windows:
+            if window_index < self.num_windows:
                 window_element_durations[window_index][s] += 1
 
-        duration_per_window = [{element: count * 1000 / (self.sampling_rate * self.window_size) for element, count in window_counts.items()} for window_counts in window_element_durations]
+        duration_per_window = [{element: count * self.window_size for element, count in window_counts.items()}
+                               for window_counts in window_element_durations]
 
         if self.mode == 'static':
             total_element_durations = Counter()
             for window in duration_per_window:
                 total_element_durations.update(window)
             num_windows = len(duration_per_window)
-            average_duration = {element: duration / num_windows for element, duration in total_element_durations.items()}
+            average_duration = {element: duration / num_windows for element, duration in
+                                total_element_durations.items()}
             return average_duration
         elif self.mode == 'dynamic':
             return duration_per_window
@@ -271,4 +305,60 @@ class FeatureExtractor:
                 else:
                     k = 1
         return c / len(segment)
+
+    def extract_features(self, filename, feature_list):
+        """
+        Extract features from the provided segment data using the specified feature extraction methods.
+
+        Args:
+            filename (str): Name of the file being analyzed.
+            feature_list (list): List of feature identifiers to extract (e.g., ['COV', 'OCC', 'DUR']).
+
+        Returns:
+            DataFrame: Extracted features organized based on the chosen mode ('static' or 'dynamic').
+        """
+
+        features_dict = []
+
+        if 'COV' in feature_list:
+            extracted_microstate_coverage = self.microstate_coverage()
+            features_dict.append(('COV', extracted_microstate_coverage))
+        if 'OCC' in feature_list:
+            extracted_microstate_occurrence = self.microstate_occurrence()
+            features_dict.append(('OCC', extracted_microstate_occurrence))
+        if 'DUR' in feature_list:
+            extracted_microstate_duration = self.microstate_duration()
+            features_dict.append(('DUR', extracted_microstate_duration))
+        if 'TP' in feature_list:
+            extracted_microstate_transition_probability = self.transition_probability()
+            features_dict.append(extracted_microstate_transition_probability)
+        if 'LZC' in feature_list:
+            extracted_microstate_complexity = self.lempel_ziv_complexity()
+            features_dict.append(extracted_microstate_complexity)
+
+        # Create a list to hold the data
+        output_features_data = []
+
+        for feature, feature_data in features_dict:
+            if self.mode == 'static':
+                for element, value in feature_data.items():
+                    output_features_data.append([filename, f"{feature}_{element}", value])
+            elif self.mode == 'dynamic':
+                for window_index, window_data in enumerate(feature_data):
+                    for element, value in window_data.items():
+                        output_features_data.append([filename, window_index, f"{feature}_{element}", value])
+
+        if self.mode == 'static':
+            columns = ['Filename', 'Feature', 'Value']
+        elif self.mode == 'dynamic':
+            columns = ["Filename", "Window_index", "Feature", "Value"]
+
+        output_features_df = pd.DataFrame(output_features_data, columns=columns)
+
+        if self.mode == 'static':
+            output_features_df = output_features_df.pivot_table(index='Filename', columns='Feature', values='Value').reset_index()
+        elif self.mode == 'dynamic':
+            output_features_df = output_features_df.pivot_table(index=["Filename", "Window_index"], columns="Feature", values="Value").reset_index()
+
+        return output_features_df
 

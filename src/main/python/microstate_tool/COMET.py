@@ -276,7 +276,7 @@ class COMET:
 		if not os.path.exists(self.extracted_features_path):
 			os.makedirs(self.extracted_features_path)
 
-		print("\nExtracting Static Features ...\n")
+		print("\nExtracting Microstate Features ...\n")
 
 		segmentation_list_path, segmentation_list_filename = DataIO().find_data(
 			self.segmentation_path,
@@ -291,89 +291,45 @@ class COMET:
 
 			segmentation_array = SegmentationIO().load_segmentation(segmentation_path, import_format='.csv')
 
-			#self.feature_mode = ['static', 'dynamic']
+			# TODO: make compatible with GEV, TP, LZC features
 			if 'static' in self.feature_mode:
-				static_features_path = os.path.join(self.extracted_features_path, 'static')
-				if not os.path.exists(static_features_path):
-					os.makedirs(static_features_path)
 				feature_extractor = FeatureExtractor(segmentation_array,
 													 self.sample_rate,
 													 self.window_size,
 													 mode='static')
-				feature_io = FeatureIO()
-
-				# TODO: export features
-				print(self.feature_list)
-				if 'COV' in self.feature_list:
-					static_microstate_coverage = feature_extractor.microstate_coverage()
-					print(static_microstate_coverage)
-					feature_io.export_features(static_microstate_coverage, 'static', static_features_path, filename,
-											   self.export_format)
-				if 'OCC' in self.feature_list:
-					static_microstate_occurrence = feature_extractor.microstate_occurrence()
-					print(static_microstate_occurrence)
-					feature_io.export_features(static_microstate_occurrence, 'static', static_features_path, filename,
-											   self.export_format)
-				if 'DUR' in self.feature_list:
-					static_microstate_duration = feature_extractor.microstate_duration()
-					print(static_microstate_duration)
-					feature_io.export_features(static_microstate_duration, 'static', static_features_path, filename,
-											   self.export_format)
-				if 'TP' in self.feature_list:
-					static_microstate_transition_probability = feature_extractor.transition_probability()
-					feature_io.export_features(static_microstate_transition_probability, 'static', static_features_path,
-											   filename,
-											   self.export_format)
-				if 'LZC' in self.feature_list:
-					static_microstate_complexity = feature_extractor.lempel_ziv_complexity()
-					feature_io.export_features(static_microstate_complexity, 'static', static_features_path, filename,
-											   self.export_format)
+				output_features = feature_extractor.extract_features(filename, self.feature_list)
+				if s == 0:
+					static_features_dfs = output_features
+				else:
+					static_features_dfs = pd.concat([static_features_dfs, output_features], ignore_index=True)
 
 			if 'dynamic' in self.feature_mode:
-				dynamic_features_path = os.path.join(self.extracted_features_path, 'dynamic')
-				if not os.path.exists(dynamic_features_path):
-					os.makedirs(dynamic_features_path)
-
 				feature_extractor = FeatureExtractor(segmentation_array,
 													 self.sample_rate,
 													 self.window_size,
 													 mode='dynamic')
-				feature_io = FeatureIO()
-				if 'COV' in self.feature_list:
-					dynamic_microstate_coverage = feature_extractor.microstate_coverage()
-					feature_io.export_features(dynamic_microstate_coverage, 'dynamic', dynamic_features_path, filename,
-											   self.export_format)
-				if 'OCC' in self.feature_list:
-					dynamic_microstate_occurrence = feature_extractor.microstate_occurrence()
-					feature_io.export_features(dynamic_microstate_occurrence, 'dynamic', dynamic_features_path,
-											   filename,
-											   self.export_format)
-				if 'DUR' in self.feature_list:
-					dynamic_microstate_duration = feature_extractor.microstate_duration()
-					feature_io.export_features(dynamic_microstate_duration, 'dynamic', dynamic_features_path, filename,
-											   self.export_format)
-				if 'TP' in self.feature_list:
-					dynamic_microstate_transition_probability = feature_extractor.transition_probability()
-					feature_io.export_features(dynamic_microstate_transition_probability, 'dynamic',
-											   dynamic_features_path,
-											   filename,
-											   self.export_format)
-				if 'LZC' in self.feature_list:
-					dynamic_microstate_complexity = feature_extractor.lempel_ziv_complexity()
-					feature_io.export_features(dynamic_microstate_complexity, 'dynamic', dynamic_features_path,
-											   filename,
-											   self.export_format)
+				output_features = feature_extractor.extract_features(filename, self.feature_list)
+				if s == 0:
+					dynamic_features_dfs = output_features
+				else:
+					dynamic_features_dfs = pd.concat([dynamic_features_dfs, output_features], ignore_index=True)
 
+		feature_io = FeatureIO()
+		if 'static' in self.feature_mode:
+			feature_io.export_features(
+				static_features_dfs,
+				'static',
+				self.extracted_features_path,
+				self.export_format
+			)
+		if 'dynamic' in self.feature_mode:
+			feature_io.export_features(
+				dynamic_features_dfs,
+				'dynamic',
+				self.extracted_features_path,
+				self.export_format
+			)
 
-		"""
-		if self.save_transitions_bool:
-			if not os.path.exists(self.raw_transitions_path):
-				os.makedirs(self.raw_transitions_path)
-			save_transitions(self.raw_features_path,
-							 self.micro_labels,
-							 self.export_format,
-							 self.raw_transitions_path)
-	 	"""
 		print('\n*** Finished ***')
 		self.done_extracting_features = True
 		if self.auto_save:

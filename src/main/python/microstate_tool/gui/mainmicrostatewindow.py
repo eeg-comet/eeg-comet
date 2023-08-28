@@ -852,7 +852,13 @@ class MainMicrostateWindow(QMainWindow):
 
             self.tbx.extract_features()
             self.tbx.save_tbx()
-            
+
+            # Show a message box to inform the user about the successful image save
+            QMessageBox.information(self,
+                                    "Extraction Successful",
+                                    f"The {self.tbx.feature_mode} features have been successfully extracted.",
+                                    QMessageBox.Ok)
+
             self.ui.step0_log_textbrowser.insertPlainText("\n" + 20 * "* ")
             self.ui.step0_log_textbrowser.insertPlainText("\n" + "Features are extracted.\n")
             self.mainwindow_controller()
