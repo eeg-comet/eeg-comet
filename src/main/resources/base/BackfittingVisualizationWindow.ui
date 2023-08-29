@@ -144,10 +144,18 @@
        <item>
         <layout class="QGridLayout" name="gridLayout_4">
          <item row="0" column="1">
-          <widget class="QLineEdit" name="xlim_min_input"/>
+          <widget class="QLineEdit" name="xlim_min_input">
+           <property name="text">
+            <string>0</string>
+           </property>
+          </widget>
          </item>
          <item row="0" column="3">
-          <widget class="QLineEdit" name="xlim_max_input"/>
+          <widget class="QLineEdit" name="xlim_max_input">
+           <property name="text">
+            <string>500</string>
+           </property>
+          </widget>
          </item>
          <item row="0" column="4">
           <widget class="QLabel" name="label_5">

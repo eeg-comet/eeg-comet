@@ -1,110 +1,122 @@
 
 import os.path
 from PyQt5 import uic, QtGui, QtCore
-from PyQt5.QtWidgets import QDialog, QLabel, QPushButton, QLineEdit, QLCDNumber, QMessageBox
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QSizePolicy
-from configparser import ConfigParser
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+from PyQt5.QtWidgets import (QDialog, QLabel, QPushButton, QLineEdit,
+                             QLCDNumber, QMessageBox, QFileDialog, QVBoxLayout,
+                             QHBoxLayout, QSizePolicy)
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 from functions.clustering_utils.microstate_visualizer import show_microstate
-from functions.gui_utils.config_io import load_config, save_config
 
 class MicrostateVisualizationDialog(QDialog):
     def __init__(self, context, parent=None, main_window=None, tbx=None):
         super(MicrostateVisualizationDialog, self).__init__(parent)
+        self.setupUI(context)
+        self.init_attributes(main_window, tbx)
+        self.connectUI()
 
-        self.main_window = main_window
-        self.tbx = tbx
-
+    def setupUI(self, context):
+        """Setup UI components"""
         self.ui = uic.loadUi(context.get_resource("MicrostateVisualizationWindow.ui"), self)
         self.ui.setWindowTitle("Visualization of the identified microstates")
 
+    def init_attributes(self, main_window, tbx):
+        """Initialize dialog attributes"""
+        self.main_window = main_window
+        self.tbx = tbx
+
+    def connectUI(self):
+        """Connect UI signals to slots"""
         self.ui.num_contours_spinbox.valueChanged.connect(self.update_maps)
         self.ui.colormap_combobox.activated.connect(self.update_maps)
         self.ui.reverse_polarity_checkbox.clicked.connect(self.update_maps)
         self.ui.show_sensors_checkbox.clicked.connect(self.update_maps)
-
         self.ui.apply_all_button.clicked.connect(self.plot_maps)
-
         self.ui.export_microstates_image_button.clicked.connect(self.export_microstates_image)
         self.ui.manual_labeling_button.clicked.connect(self.manual_micro_label)
         self.ui.auto_labeling_button.clicked.connect(self.auto_micro_label)
 
     def set_layout(self, micro_labels=None):
+        """Set layout for microstate visualization"""
+        self.create_figure_and_canvas()
+        self.create_label_widgets(micro_labels)
+
+    def create_figure_and_canvas(self):
+        """Create matplotlib figure and canvas"""
         self.figure = Figure()
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(
-            QSizePolicy.Preferred,
-            QSizePolicy.Preferred)
+        self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.Microstate_Layout.addWidget(self.canvas)
 
+    def create_label_widgets(self, micro_labels):
+        """Create QLineEdit widgets for microstate labels"""
         for i in range(self.n_states):
-            exec(f'self.micro_labels{i} = QLineEdit(self)')
-            microlabel_attr = getattr(self, "micro_labels{}".format(i))
-            self.Microstates_Labels_Layout.addWidget(microlabel_attr)
-            microlabel_attr.setAlignment(QtCore.Qt.AlignCenter)
-            regex = QtCore.QRegExp("[a-z-A-Z]")
-            validator = QtGui.QRegExpValidator(regex, microlabel_attr)
-            microlabel_attr.setValidator(validator)
-            font = QtGui.QFont("Calibri", 15, QtGui.QFont.Bold)
-            microlabel_attr.setFont(font)
-            microlabel_attr.setMaxLength(1)
-            if micro_labels:
-                exec(f'self.micro_labels{i}.setText(micro_labels[{i}])')
-                exec(f'self.micro_labels{i}.setDisabled(True)')
+            label_widget = QLineEdit(self)
+            self.set_label_widget_attributes(label_widget, micro_labels, i)
+            setattr(self, f"micro_labels{i}", label_widget)
+            self.Microstates_Labels_Layout.addWidget(label_widget)
+
+    def set_label_widget_attributes(self, widget, micro_labels, index):
+        """Configure QLineEdit widget attributes"""
+        widget.setAlignment(QtCore.Qt.AlignCenter)
+        widget.setValidator(QtGui.QRegExpValidator(QtCore.QRegExp("[a-z-A-Z]")))
+        widget.setFont(QtGui.QFont("Calibri", 15, QtGui.QFont.Bold))
+        widget.setMaxLength(1)
+        if micro_labels:
+            widget.setText(micro_labels[index])
+            widget.setDisabled(True)
 
     def plot_maps(self):
-        self.axs = []
-        for idx in range(self.n_states):
-            ax = self.figure.add_subplot(1, self.microstate_maps.shape[0], idx + 1)
-            self.axs.append(ax)
+        """Plot microstate maps on canvas"""
+        self.axs = [self.figure.add_subplot(1, self.microstate_maps.shape[0], idx + 1)
+                    for idx in range(self.n_states)]
+        for idx, ax in enumerate(self.axs):
             ax.clear()
-            if self.ui.reverse_polarity_checkbox.isChecked():
-                polarity = -1
-            else:
-                polarity = 1
-            if self.ui.show_sensors_checkbox.isChecked():
-                sensors = True
-            else:
-                sensors = False
+            polarity = -1 if self.ui.reverse_polarity_checkbox.isChecked() else 1
+            sensors = self.ui.show_sensors_checkbox.isChecked()
+            contours = int(self.ui.num_contours_spinbox.value())
+            cmap = self.ui.colormap_combobox.currentText()
+
             show_microstate(self.microstate_maps[idx, :], self.eeg_info, ax,
-                            polarity=polarity,
-                            sensors=sensors,
-                            contours=int(self.ui.num_contours_spinbox.value()),
-                            cmap=self.ui.colormap_combobox.currentText())
-            self.canvas.draw()
+                            polarity=polarity, sensors=sensors, contours=contours, cmap=cmap)
+        self.canvas.draw()
 
     def update_maps(self):
+        """Update specific microstate map based on user inputs"""
         idx = int(self.ui.microstates_combobox.currentText())
         ax = self.axs[idx]
         ax.clear()
-        if self.ui.reverse_polarity_checkbox.isChecked():
-            polarity = -1
-        else:
-            polarity = 1
-        if self.ui.show_sensors_checkbox.isChecked():
-            sensors = True
-        else:
-            sensors = False
+
+        polarity = -1 if self.ui.reverse_polarity_checkbox.isChecked() else 1
+        sensors = self.ui.show_sensors_checkbox.isChecked()
+        contours = int(self.ui.num_contours_spinbox.value())
+        cmap = self.ui.colormap_combobox.currentText()
+
         show_microstate(self.microstate_maps[idx, :], self.eeg_info, ax,
-                        polarity=polarity,
-                        sensors=sensors,
-                        contours=int(self.ui.num_contours_spinbox.value()),
-                        cmap=self.ui.colormap_combobox.currentText())
+                        polarity=polarity, sensors=sensors, contours=contours, cmap=cmap)
         self.canvas.draw()
 
 
-
     def export_microstates_image(self):
-        # Save the current figure to the specified image path
-        self.figure.savefig(self.microstates_image_path, bbox_inches='tight', dpi=200)
-        # Show a message box to inform the user about the successful image save
-        QMessageBox.information(self,
-                                "Image Saved",
-                                f"The image was saved to the study folder as '{self.microstates_image_path}' successfully.",
-                                QMessageBox.Ok)
+        """Export microstate images to file"""
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_name, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "",
+                                                   "PNG Files (*.png);;JPG Files (*.jpg);;All Files (*)",
+                                                   options=options)
+
+        if file_name:
+            extension = os.path.splitext(file_name)[-1].lower()
+
+            # Ensure that the file has an extension
+            if not extension:
+                file_name += '.png'  # Default to PNG if no extension specified
+
+            self.figure.savefig(file_name)
+
     def manual_micro_label(self):
+        """Manually label the microstates"""
         self.micro_labels = []
         for i in range(self.n_states):
             microlabel_attr = getattr(self, "micro_labels{}".format(i))
