@@ -8,7 +8,8 @@ and Lempel-Ziv complexity. The class supports both 'static' and 'dynamic' modes 
 import numpy as np
 import pandas as pd
 from collections import Counter, defaultdict
-from functions.clustering_utils.microstate_clusterer import compute_gev
+from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
+
 
 class FeatureExtractor:
     def __init__(self, segment, sampling_rate, window_size, mode='static'):
@@ -109,7 +110,7 @@ class FeatureExtractor:
                         continue
 
                     # Compute GEV using the imported function
-                    gev = compute_gev(window_eeg_data, microstate_maps[i, :])
+                    gev = MicrostateClusterer().compute_gev(window_eeg_data, microstate_maps[i, :])
                     window_element_gev[window_index][label] = gev
             return window_element_gev
 
@@ -117,7 +118,7 @@ class FeatureExtractor:
             gevs = {}
             for i, label in enumerate(microstate_labels):
                 # Compute GEV
-                gev = compute_gev(eeg_data, microstate_maps[i, :])
+                gev = MicrostateClusterer().compute_gev(eeg_data, microstate_maps[i, :])
                 gevs[label] = gev
             return gevs
 

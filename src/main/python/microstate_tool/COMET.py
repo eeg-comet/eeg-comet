@@ -12,7 +12,7 @@ from functions.features_utils.feature_extractor import FeatureExtractor
 from functions.features_utils.feature_io import FeatureIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
-from functions.clustering_utils.microstate_clusterer import clustering_func
+from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
 
 
 class COMET:
@@ -137,7 +137,7 @@ class COMET:
 		#return chan_loc_extension in valid_chan_loc_extensions
 
 	def load_new_study(self):
-		
+
 		if not os.path.exists(self.preprocessed_data_path):
 			os.makedirs(self.preprocessed_data_path)
 
@@ -206,7 +206,8 @@ class COMET:
 							]
 		assert self.clustering_method in avaliable_methods, "clustering_method not supported"
 
-		best_maps, gev, _, n_states = clustering_func(
+		microstate_clusterer = MicrostateClusterer(self.number_of_repeats, self.max_iterations, self.clustering_tolerance)
+		best_maps, gev, _, n_states = microstate_clusterer.clustering_func(
 					self.preprocessed_data_path,
 					self.extension,
 					self.datatype,
@@ -216,9 +217,6 @@ class COMET:
 					self.initializer,
 					self.use_percentages,
 					self.min_distance_size,
-					self.max_iterations,
-					self.clustering_tolerance,
-					self.number_of_repeats,
 					self.clustering_option,
 					self.stopping_mode,
 					self.stopping_parameter,

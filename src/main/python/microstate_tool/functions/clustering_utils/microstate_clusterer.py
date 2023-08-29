@@ -6,339 +6,359 @@ Clustering Functions
 """
 
 import numpy as np
-
+import pandas as pd
+import seaborn as sns
 from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouette
 from pyclustering.utils.metric import distance_metric, type_metric
-
 from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
 
-# from functions.utils.elbow_function import get_elbow_without_plt
+class MicrostateClusterer:
 
+    def __init__(self, n_inits=10, max_iter=500, tolerance=1e-6):
+        self.n_inits = n_inits
+        self.max_iter = max_iter
+        self.tolerance = tolerance
+        self.best_maps = None
+        self.best_gev = 0
+        self.best_residual = None
 
-def corr_vectors(A, B, axis=0):
-    """
-    Computes the Pearson correlation between two matrices A and B along a specified axis.
+    def corr_vectors(self, A, B, axis=0):
+        """Computes the Pearson correlation between two matrices A and B along a specified axis."""
+        if A.shape != B.shape:
+            raise ValueError("Both matrices A and B must have the same shape.")
 
-    Parameters:
-        A: The first matrix with shape (n_samples, n_features).
-        B: The second matrix with shape (n_samples, n_features).
-        axis: The axis along which to compute the correlation. Defaults to 0.
+        # Center and normalize matrices
+        An = A - np.mean(A, axis=axis, keepdims=True)
+        An /= np.linalg.norm(An, axis=axis, keepdims=True)
+        Bn = B - np.mean(B, axis=axis, keepdims=True)
+        Bn /= np.linalg.norm(Bn, axis=axis, keepdims=True)
 
-    Returns:
-        corr: The correlation between the two matrices along the specified axis.
+        return np.sum(An * Bn, axis=axis)
 
-    Raises:
-        ValueError: If the shapes of A and B are not compatible for correlation.
-    """
-    # Check for shape compatibility
-    if A.shape != B.shape:
-        raise ValueError("Both matrices A and B must have the same shape.")
+    def compute_gev(self, data, maps):
+        """Computes the global explained variance (GEV) of microstate maps."""
 
-    # Centering the matrices along the specified axis
-    An = A - np.mean(A, axis=axis, keepdims=True)
-    Bn = B - np.mean(B, axis=axis, keepdims=True)
+        gfp = np.std(data, axis=0)  # Global Field Power
 
-    # Normalizing the matrices along the specified axis
-    An /= np.linalg.norm(An, axis=axis, keepdims=True)
-    Bn /= np.linalg.norm(Bn, axis=axis, keepdims=True)
+        # Normalize maps
+        if maps.ndim == 1:
+            maps = maps / np.linalg.norm(maps)
+            maps = np.reshape(maps, (1, -1))
+        else:
+            maps = maps / np.linalg.norm(maps, axis=1, keepdims=True)
 
-    # Computing the Pearson correlation along the specified axis
-    corr = np.sum(An * Bn, axis=axis)
-
-    return corr
-
-def compute_gev(data, maps):
-    """
-    Computes the global explained variance (GEV) of microstate maps.
-
-    Inputs:
-        data: The EEG data as a numpy array.
-        maps: The microstate maps as a numpy array.
-
-    Outputs:
-        gev: The GEV as a float.
-    """
-    # Check for compatibility between data and maps
-    if data.shape[0] != maps.shape[0]:
-        raise ValueError("Incompatible shapes between EEG data and microstate maps.")
-
-    # Calculate Global Field Power (GFP)
-    gfp = np.std(data, axis=0)
-
-    # Normalize the microstate maps
-    if maps.ndim == 1:
-        maps = maps / np.linalg.norm(maps)
-        maps = np.reshape(maps, (1, -1))
-    else:
-        maps = maps / np.linalg.norm(maps, axis=1, keepdims=True)
-
-    # Compute activation and segmentation
-    activation = maps.dot(data)
-    segmentation = np.argmax(np.abs(activation), axis=0)
-
-    # Ensure the selected maps are properly shaped for correlation
-    selected_maps = maps[segmentation, :]
-
-    # Compute map correlations using the corr_vectors function
-    map_corr = corr_vectors(data, selected_maps.T)
-
-    # Compute the GEV
-    gev = np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
-
-    return gev
-
-def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6):
-
-    # Get the dimensions of the data
-    n_channels, n_samples = data.shape
-
-    # Make a copy of initial_maps to avoid modifying the original array
-    maps = initial_maps.copy()
-
-    # Compute the sum of squares of the data
-    data_sum_sq = np.sum(data ** 2)
-
-    # Initialize iteration count and residuals
-    iteration = 1
-    prev_residual = np.inf
-    residual = prev_residual
-
-    for iteration in range(max_iter):
-        # Assign each sample to the best matching microstate
+        # Compute activation and segmentation
         activation = maps.dot(data)
         segmentation = np.argmax(np.abs(activation), axis=0)
 
-        for state in range(n_states):
-            idx = (segmentation == state)
+        selected_maps = maps[segmentation, :]
+        map_corr = self.corr_vectors(data, selected_maps.T)
 
-            # Update the microstate map for the current state
-            maps[state] = np.dot(data[:, idx], activation[state, idx])
-            maps[state] /= np.linalg.norm(maps[state])
+        return np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
 
-        # Estimate residual noise
-        # V-maps, T-like symbol-segmentation
-        act_sum_sq = np.sum(np.sum(maps[segmentation].T * data, axis=0) ** 2)
-        residual = abs(data_sum_sq - act_sum_sq) / float(n_samples * (n_channels - 1))
+    def modified_kmeans(self, data, initial_maps, n_states, max_iter=500, thresh=1e-6):
+        # Initial setup
+        n_channels, n_samples = data.shape
+        maps = initial_maps.copy()
+        data_sum_sq = np.sum(data ** 2)
+        prev_residual = np.inf
 
-        # Check for convergence
-        if (prev_residual - residual) < (thresh * residual):
-            print('Converged at', iteration, 'iterations.')
-            break
+        # Clustering iterations
+        for iteration in range(max_iter):
+            # Assign each sample to the best matching microstate
+            activation = maps.dot(data)
+            segmentation = np.argmax(np.abs(activation), axis=0)
 
-        # Update previous residual and iteration count
-        prev_residual = residual
-        iteration += 1
+            for state in range(n_states):
+                idx = (segmentation == state)
+                maps[state] = np.dot(data[:, idx], activation[state, idx])
+                maps[state] /= np.linalg.norm(maps[state])
 
-    return maps, prev_residual
+            # Estimate residual noise
+            act_sum_sq = np.sum(np.sum(maps[segmentation].T * data, axis=0) ** 2)
+            residual = abs(data_sum_sq - act_sum_sq) / float(n_samples * (n_channels - 1))
 
+            # Check for convergence
+            if (prev_residual - residual) < (thresh * residual):
+                print('Converged at', iteration, 'iterations.')
+                break
 
-def run_modified_kmeans(maps2use, n_states, n_inits, initializer='Random', max_iter=500, thresh=1e-6):
+            prev_residual = residual
 
-    # Initialize variables to store the best results
-    best_residual = None
-    best_gev = 0
-    best_maps = None
+        return maps, prev_residual
 
-    # Perform clustering_utils for multiple initializations
-    for init in range(n_inits):
-        print('\nClustering #', init + 1, 'of', n_inits)
+    def run_modified_kmeans(self, maps2use, n_states, n_inits, initializer='Random', max_iter=500, thresh=1e-6):
+        best_residual, best_gev, best_maps = None, 0, None
 
-        # Initialize microstate maps using the specified initializer
-        initial_maps = initialize_cluster_centers(maps2use, n_states, initializer)
-
-        # Run modified k-means algorithm
-        maps, residual = modified_kmeans(maps2use, initial_maps, n_states, max_iter, thresh)
-
-        # Compute GEV (Global Explained Variance)
-        gev = compute_gev(maps2use, maps)
-
-        print('Found', n_states, 'Microstate Maps')
-        print('GEV:', gev)
-
-        # Update the best results if the current GEV is higher
-        if gev > best_gev:
-            best_residual, best_gev, best_maps = residual, gev, maps
-
-    print('\nBest GEV:', best_gev)
-    return best_maps, best_gev, best_residual
-
-
-def clustering_func(preprocessed_data_path, extension, datatype,
-                    n_channels, method, n_states, initializer, use_percentages,
-                    min_dist, max_iter, tolerance, n_inits, metric,
-                    stopping_mode='gev', stopping_parameter=10.0, kmin=2, kmax=10):
-    '''
-    preprocessed_data_path: Path to the preprocessed data.
-    hdf_concatenated_data_path: Path to the HDF concatenated data.
-    n_channels: Number of channels in the data.
-    method: Clustering method to use.
-    n_states: Number of microstate maps
-    initializer: Initialization method
-    min_dist: Minimum distance
-    n_inits: Number of initializations
-    tolerance: Convergence threshold
-    metric: Distance metric to use for clustering_utils.
-
-    '''
-
-    maps2use, peaks2use = generate_maps_and_peaks(preprocessed_data_path, extension, datatype,
-                                                  use_percentages, min_dist)
-
-    if n_states == 'auto':
-
-        n_states = get_elbow_without_plt(maps2use, tolerance, n_inits,
-                                        kmin=kmin, kmax=kmax, max_iter=max_iter, stopping_mode=stopping_mode, threshold=stopping_parameter)
-        print(f'result: n_states = {n_states}')
-
-    if method == 'Modified K-means':
-        best_maps, best_gev, best_residual = run_modified_kmeans(
-            maps2use=maps2use,
-            n_states=n_states,
-            n_inits=n_inits,
-            initializer=initializer,
-            max_iter=max_iter,
-            thresh=tolerance)
-    else:
-
-        initial_centers = initialize_cluster_centers(maps2use, n_states, initializer)
-        maps2use = np.transpose(maps2use)
-
-        if method == 'K-means':
-            from scipy.spatial import distance
-            if metric == 'Cosine Similarity':
-                def cosine_sim(point1, point2):
-                    return 1 - abs(distance.cosine(point1, point2))
-
-                METRIC = distance_metric(type_metric.USER_DEFINED, func=cosine_sim)
-            elif metric == 'Spatial Correlation':
-                def spatial_corr(point1, point2):
-                    return 1 - abs(distance.correlation(point1, point2))
-
-                METRIC = distance_metric(type_metric.USER_DEFINED, func=spatial_corr)
-            else:
-                raise ValueError("Failed to match metric")
-
-            clustering_instance = kmeans.kmeans(maps2use, initial_centers,
-                                         tolerance=tolerance, itermax=max_iter,
-                                         metric=METRIC)
-
-        elif method == 'X-means':
-            if metric == 'Bayesian Information Criterion':
-                CRITERION = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
-            elif metric == 'Minimum Noiseless Description Length':
-                CRITERION = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH 
-            else:
-                raise ValueError("Failed to match metric")
-            clustering_instance = xmeans.xmeans(maps2use, initial_centers, n_states,
-                                 tolerance=tolerance, criterion=CRITERION)
-        elif method == 'Agglomerative hierarchical clustering_utils':
-            from sklearn.cluster import AgglomerativeClustering
-            from sklearn.metrics import pairwise_distances
-            def cosine_distance(X, Y=None):
-                return pairwise_distances(X, Y, metric='cosine')
-
-            clustering_instance = AgglomerativeClustering(n_clusters=n_states,
-                                                          affinity=cosine_distance,
-                                                          linkage='average')
-        else:
-            raise ValueError("Failed to match method")
-
-        best_gev = 0
         for init in range(n_inits):
-            print('\nClustering #', str(init + 1), 'of', str(n_inits))
+            print(f'\nClustering #{init + 1} of {n_inits}')
+
+            initial_maps = initialize_cluster_centers(maps2use, n_states, initializer)
+            maps, residual = self.modified_kmeans(maps2use, initial_maps, n_states, max_iter, thresh)
+            gev = self.compute_gev(maps2use, maps)
+
+            print(f'Found {n_states} Microstate Maps')
+            print(f'GEV: {gev}')
+
+            # Update the best results if current gev is higher
+            if gev > best_gev:
+                best_residual, best_gev, best_maps = residual, gev, maps
+
+        print(f'\nBest GEV: {best_gev}')
+        return best_maps, best_gev, best_residual
+
+    def clustering_func(self, preprocessed_data_path, extension, datatype,
+                        n_channels, method, n_states, initializer, use_percentages,
+                        min_dist, metric, stopping_mode='gev', stopping_parameter=10.0, kmin=2, kmax=10):
+        """
+        Performs clustering on preprocessed data to find microstate maps.
+
+        Parameters:
+            preprocessed_data_path: Path to the preprocessed data.
+            hdf_concatenated_data_path: Path to the HDF concatenated data.
+            n_channels: Number of channels in the data.
+            method: Clustering method to use.
+            n_states: Number of microstate maps
+            initializer: Initialization method
+            min_dist: Minimum distance
+            n_inits: Number of initializations
+            tolerance: Convergence threshold
+            metric: Distance metric to use for clustering_utils.
+
+        Returns:
+            best_maps: Best cluster centers (microstate maps)
+            best_gev: Best global explained variance
+            best_residual: Best residual error
+            n_states: Optimal number of clusters (microstate maps)
+        """
+
+        maps2use, peaks2use = generate_maps_and_peaks(preprocessed_data_path, extension, datatype,
+                                                      use_percentages, min_dist)
+
+        elbow_optimizer = ElbowOptimizer(maps2use, min_dist, self.n_inits, kmin, kmax, self.tolerance, self.max_iter)
+        if n_states == 'auto':
+            n_states = elbow_optimizer.find_elbow_without_plot(stopping_mode='gev', threshold=stopping_parameter)
+            print(f'result: n_states = {n_states}')
+
+        if method == 'Modified K-means':
+            best_maps, best_gev, best_residual = self.run_modified_kmeans(
+                maps2use=maps2use,
+                n_states=n_states,
+                n_inits=self.n_inits,
+                initializer=initializer,
+                max_iter=self.max_iter,
+                thresh=self.tolerance)
+        else:
+
+            initial_centers = initialize_cluster_centers(maps2use, n_states, initializer)
+            maps2use = np.transpose(maps2use)
 
             if method == 'K-means':
-                clustering_instance.process()
-                residual = clustering_instance.get_total_wce()
-                centroids = clustering_instance.get_centers()
+                from scipy.spatial import distance
+                if metric == 'Cosine Similarity':
+                    def cosine_sim(point1, point2):
+                        return 1 - abs(distance.cosine(point1, point2))
+
+                    METRIC = distance_metric(type_metric.USER_DEFINED, func=cosine_sim)
+                elif metric == 'Spatial Correlation':
+                    def spatial_corr(point1, point2):
+                        return 1 - abs(distance.correlation(point1, point2))
+
+                    METRIC = distance_metric(type_metric.USER_DEFINED, func=spatial_corr)
+                else:
+                    raise ValueError("Failed to match metric")
+
+                clustering_instance = kmeans.kmeans(maps2use, initial_centers,
+                                             tolerance=self.tolerance, itermax=self.max_iter,
+                                             metric=METRIC)
+
+            elif method == 'X-means':
+                if metric == 'Bayesian Information Criterion':
+                    CRITERION = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
+                elif metric == 'Minimum Noiseless Description Length':
+                    CRITERION = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH
+                else:
+                    raise ValueError("Failed to match metric")
+                clustering_instance = xmeans.xmeans(maps2use, initial_centers, n_states,
+                                     tolerance=self.tolerance, criterion=CRITERION)
             elif method == 'Agglomerative hierarchical clustering_utils':
-                clusters = clustering_instance.fit_predict(maps2use)
-                residual = 0#clustering_instance.get_total_wce()
-                centroids = np.empty((n_states,n_channels))
-                for cl in range(len(clusters)):
-                    centroids[cl,:] = np.mean(maps2use[clusters[cl],:],axis=0)
+                from sklearn.cluster import AgglomerativeClustering
+                from sklearn.metrics import pairwise_distances
+                def cosine_distance(X, Y=None):
+                    return pairwise_distances(X, Y, metric='cosine')
+
+                clustering_instance = AgglomerativeClustering(n_clusters=n_states,
+                                                              affinity=cosine_distance,
+                                                              linkage='average')
+            else:
+                raise ValueError("Failed to match method")
+
+            best_gev = 0
+            for init in range(self.n_inits):
+                print('\nClustering #', str(init + 1), 'of', str(self.n_inits))
+
+                if method == 'K-means':
+                    clustering_instance.process()
+                    residual = clustering_instance.get_total_wce()
+                    centroids = clustering_instance.get_centers()
+                elif method == 'Agglomerative hierarchical clustering_utils':
+                    clusters = clustering_instance.fit_predict(maps2use)
+                    residual = 0#clustering_instance.get_total_wce()
+                    centroids = np.empty((n_states,n_channels))
+                    for cl in range(len(clusters)):
+                        centroids[cl,:] = np.mean(maps2use[clusters[cl],:],axis=0)
 
 
-            GEV_R = compute_gev(np.transpose(maps2use), np.array(centroids))
+                GEV_R = self.compute_gev(np.transpose(maps2use), np.array(centroids))
 
-            print('Found', str(int(n_states)), 'Microstate Maps')
-            print('GEV:', str(GEV_R))
-            if GEV_R > best_gev:
-                best_gev = GEV_R
-                best_maps = centroids
-                best_residual = residual
+                print('Found', str(int(n_states)), 'Microstate Maps')
+                print('GEV:', str(GEV_R))
+                if GEV_R > best_gev:
+                    best_gev = GEV_R
+                    best_maps = centroids
+                    best_residual = residual
 
-        print('\nBest GEV:', str(best_gev))
+            print('\nBest GEV:', str(best_gev))
 
-    return best_maps, best_gev, best_residual, n_states
+        return best_maps, best_gev, best_residual, n_states
 
-def get_elbow_without_plt(maps2use, tolerance, n_inits, kmin, kmax, max_iter, stopping_mode='gev', threshold=0.1):
-    """
-    use elbow algorithm to get the best number of states
 
-    Args:
-        maps2use (numpy array): Concatenated GFP maps at peaks (peaks x channels).
-        tolerance: threshold for kmeans
-        n_inits: number of inits for the algorithm
-        kmin~kmax: range of k for elbow algorithm
-        max_iter: maximum iteration of the loop
-        stopping_mode: the target for deciding the elbow point
-        threshold: max percentage of change of the target
 
-    Returns:
-        n_states: number of states
-    """
-    # change thresholf to percentage
-    if threshold > 1:
-        threshold /= 100
-    # gfp = np.std(data, axis=0)
-    # peaks, _ = find_peaks(gfp)
-    # all_maps = data.T
-    # all_maps /= np.linalg.norm(all_maps, axis=1, keepdims=True)
+class ElbowOptimizer:
+    """Finds the optimal number of clusters (K) for clustering EEG data using the Elbow method.
 
-    SIL = []
-    N, RES, GEV = [], [], []
-    for k in range(kmin, kmax+1):
-        print('\nClustering data with', k, 'microstates')
+        Attributes:
+            maps2use (numpy array): The EEG data for clustering.
+            min_dist (float): The minimum distance between clusters.
+            n_inits (int): Number of initializations for K-Means.
+            kmin (int): Minimum number of clusters to evaluate.
+            kmax (int): Maximum number of clusters to evaluate.
+            tolerance (float, optional): The tolerance for convergence.
+            max_iter (int, optional): Maximum iterations for K-Means.
+        """
+    def __init__(self, maps2use, min_dist, n_inits, kmin, kmax, tolerance=None, max_iter=None):
+        """Initialize the ElbowOptimizer with given parameters."""
+        self.maps2use = maps2use
+        self.min_dist = min_dist
+        self.tolerance = tolerance
+        self.n_inits = n_inits
+        self.kmin = kmin
+        self.kmax = kmax
+        self.max_iter = max_iter
+        self.microstate_clusterer = MicrostateClusterer(n_inits=1)
+        self.N, self.RES, self.GEV, self.SIL = [], [], [], []
+
+    def _cluster_and_evaluate(self, k):
+        """Cluster the EEG data for a given K and evaluate the quality using various metrics."""
         gev_i, residual_i = 0, 0
-        for init in range(n_inits):
-            # maps, gev, residual = run_modified_kmeans(maps2use=data,
-            #                                          min_dist=min_dist,
-            #                                          n_states=k,
-            #                                          thresh=tolerance,
-            #                                          n_inits=1,
-            #                                          initializer="Random")
-            maps, gev, residual = run_modified_kmeans(maps2use=maps2use,
-                                                    n_states=k,
-                                                    n_inits=1,
-                                                    initializer="Random",
-                                                    max_iter=max_iter,
-                                                    thresh=tolerance)
-            gev_i = gev_i + gev
-            residual_i = residual_i + residual
+        for init in range(self.n_inits):
+            maps, gev, residual = self.microstate_clusterer.run_modified_kmeans(
+                maps2use=self.maps2use,
+                n_states=k,
+                n_inits=1,
+                initializer="Random",
+                max_iter=self.max_iter,
+                thresh=self.tolerance
+            )
+            gev_i += gev
+            residual_i += residual
             # Compute the Silhouette score
-            activation = np.array(maps).dot(maps2use)
+            activation = np.array(maps).dot(self.maps2use)
             classes = np.argmax(np.abs(activation), axis=0)
-            sil_score_i = np.mean(abs(corr_vectors(maps2use, maps[classes].T)))
+            sil_score_i = np.mean(abs(self.microstate_clusterer.corr_vectors(self.maps2use, maps[classes].T)))
 
-        N = np.append(N, k)
-        residual_mean = residual_i / n_inits
-        RES = np.append(RES, residual_mean)
-        gev_mean = gev_i / n_inits
-        GEV = np.append(GEV, gev_mean)
-        sil_mean = sil_score_i / n_inits
-        SIL = np.append(SIL, sil_mean)
-        if len(N) == 1:
-            continue
-        if stopping_mode=='gev':
-            if abs(gev_mean - GEV[-2]) / GEV[-2] < threshold:
+        return gev_i / self.n_inits, residual_i / self.n_inits, sil_score_i / self.n_inits
+
+    def find_elbow_with_plot(self, ax1, ax2, ax3):
+        """Find the elbow point with plots to visualize the clustering metrics."""
+        for k in range(self.kmin, self.kmax + 1):
+            print(f'\nClustering data with {k} microstates')
+            gev_mean, residual_mean, sil_mean = self._cluster_and_evaluate(k)
+            self.N.append(k)
+            self.RES.append(residual_mean)
+            self.GEV.append(gev_mean)
+            self.SIL.append(sil_mean)
+
+        df = pd.DataFrame({
+            'K': self.N,
+            'Residual': self.RES,
+            'Global Explained Variance': self.GEV,
+            'Silhouette Score': self.SIL
+        })
+        self._plot(df, ax1, ax2, ax3)
+
+    def find_elbow_without_plot(self, stopping_mode='gev', threshold=0.1):
+        """Find the elbow point without generating plots."""
+        for k in range(self.kmin, self.kmax + 1):
+            print(f'\nClustering data with {k} microstates')
+            gev_mean, residual_mean, sil_mean = self._cluster_and_evaluate(k)
+            self.N.append(k)
+            self.RES.append(residual_mean)
+            self.GEV.append(gev_mean)
+            self.SIL.append(sil_mean)
+
+            if len(self.N) == 1:
+                continue
+
+            if self._should_stop(stopping_mode, gev_mean, residual_mean, sil_mean, threshold):
                 return k
-        elif stopping_mode=='res':
-            if abs(RES[-2] - residual_mean) / RES[-2]  < threshold:
-                return k
-        elif stopping_mode=='sil':
-            if abs(sil_mean - SIL[-2]) / SIL[-2] < threshold:
-               return k
+
+        return int((self.kmin + self.kmax) / 2)
+
+    def _plot(self, df, ax1, ax2, ax3):
+        """Generate line plots for the calculated metrics to visualize the elbow point."""
+        # Visualize the result
+        res_fig = sns.lineplot(data=df, x="K", y="Residual",
+                               linewidth=5, marker="o", markersize=16, dashes=False, ax=ax1)
+        res_fig.set_xlabel("Number of Microstate Maps", size=16)
+        res_fig.set_ylabel("Residual", size=16)
+
+        xlabel_format = '{:,.0f}'
+        ticks_loc = ax1.get_xticks().tolist()
+        ax1.set_xticks(ax1.get_xticks().tolist())
+        ax1.set_xticklabels([xlabel_format.format(x) for x in ticks_loc], size=14)
+        ylabel_format = '{:,.2f}'
+        ticks_loc = ax1.get_yticks().tolist()
+        ax1.set_yticks(ax1.get_yticks().tolist())
+        ax1.set_yticklabels([ylabel_format.format(x) for x in ticks_loc], size=14)
 
 
-    return int((kmin + kmax)/2)
+        gev_fig = sns.lineplot(data=df, x="K", y="Global Explained Variance",
+                               linewidth=5, style=None, marker="o", markersize=16, dashes=False, ax=ax2)
+        gev_fig.set_xlabel("Number of Microstate Maps", size=16)
+        gev_fig.set_ylabel("Global Explained Variance", size=16)
+
+        xlabel_format = '{:,.0f}'
+        ticks_loc = ax2.get_xticks().tolist()
+        ax2.set_xticks(ax2.get_xticks().tolist())
+        ax2.set_xticklabels([xlabel_format.format(x) for x in ticks_loc], size=14)
+        ylabel_format = '{:,.2f}'
+        ticks_loc = ax2.get_yticks().tolist()
+        ax2.set_yticks(ax2.get_yticks().tolist())
+        ax2.set_yticklabels([ylabel_format.format(x) for x in ticks_loc], size=14)
+
+        silhouette_fig = sns.lineplot(data=df, x="K", y="Silhouette Score",
+                               linewidth=5, style=None, marker="o", markersize=16, dashes=False, ax=ax3)
+        silhouette_fig.set_xlabel("Number of Microstate Maps", size=16)
+        silhouette_fig.set_ylabel("Silhouette Score", size=16)
+
+        xlabel_format = '{:,.0f}'
+        ticks_loc = ax3.get_xticks().tolist()
+        ax3.set_xticks(ax3.get_xticks().tolist())
+        ax3.set_xticklabels([xlabel_format.format(x) for x in ticks_loc], size=14)
+        ylabel_format = '{:,.2f}'
+        ticks_loc = ax3.get_yticks().tolist()
+        ax3.set_yticks(ax3.get_yticks().tolist())
+        ax3.set_yticklabels([ylabel_format.format(x) for x in ticks_loc], size=14)
+
+
+    def _should_stop(self, stopping_mode, gev_mean, residual_mean, sil_mean, threshold):
+        """Decide if the clustering should stop based on the given stopping mode and threshold."""
+        if stopping_mode == 'gev':
+            return abs(gev_mean - self.GEV[-2]) / self.GEV[-2] < threshold
+        elif stopping_mode == 'res':
+            return abs(residual_mean - self.RES[-2]) / self.RES[-2] < threshold
+        elif stopping_mode == 'sil':
+            return abs(sil_mean - self.SIL[-2]) / self.SIL[-2] < threshold
+        else:
+            raise ValueError("Invalid stopping_mode. Choose 'gev', 'res', or 'sil'.")

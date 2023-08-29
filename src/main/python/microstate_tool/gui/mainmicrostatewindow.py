@@ -7,7 +7,7 @@ from functions.gui_utils.CheckableComboBox import CheckableComboBox
 
 from gui.newstudywindow import NewStudyWindow
 from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
-from gui.numbermapsdialog import NumberMapsDialog
+from gui.elbow_visualization_dialog import ElbowVisualizationDialog
 from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
 from gui.feature_visualization_dialog import FeatureVisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
@@ -47,7 +47,7 @@ class MainMicrostateWindow(QMainWindow):
     def init_dialogs(self):
         self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, tbx=self.tbx)
         self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
-        self.ui.NumberMapsDialog = NumberMapsDialog(self.context)
+        self.ui.ElbowVisualizationDialog = ElbowVisualizationDialog(self.context)
         self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
         self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(self.context, tbx=self.tbx)
         self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context)
@@ -98,7 +98,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_method_combobox.activated.connect(self.mainwindow_controller)
 
-        self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.plot_elbow)
+        self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.visualize_elbow)
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
         self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
         self.ui.step3_backfit_button.clicked.connect(self.do_backfitting)
@@ -532,20 +532,21 @@ class MainMicrostateWindow(QMainWindow):
             else:
                 self.ui.step4_complexity_featurestoextract_checkbox.setChecked(False)
             """
-    def plot_elbow(self):
-        self.NumberMapsDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
-        self.NumberMapsDialog.extension = self.tbx.extension
-        self.NumberMapsDialog.datatype = self.tbx.datatype
+    def visualize_elbow(self):
+        self.ElbowVisualizationDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
+        self.ElbowVisualizationDialog.extension = self.tbx.extension
+        self.ElbowVisualizationDialog.datatype = self.tbx.datatype
         if self.ui.step2_use_percent_radio.isChecked():
             self.tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
         else:
             self.tbx.use_percentages = None
-        self.NumberMapsDialog.use_percentages = self.tbx.use_percentages
-        self.NumberMapsDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
-        self.NumberMapsDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-        self.NumberMapsDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
-        self.NumberMapsDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.NumberMapsDialog.showMaximized()
+        self.ElbowVisualizationDialog.use_percentages = self.tbx.use_percentages
+        self.ElbowVisualizationDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
+        self.ElbowVisualizationDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+        self.ElbowVisualizationDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+        self.ElbowVisualizationDialog.max_iterations = self.tbx.max_iterations
+        self.ElbowVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.ElbowVisualizationDialog.showMaximized()
 
     def do_clustering(self):
 
