@@ -1,61 +1,58 @@
-
 import os.path
 import webbrowser
+import pickle
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
 from functions.gui_utils.CheckableComboBox import CheckableComboBox
 
 from gui.newstudywindow import NewStudyWindow
 from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
-from gui.numbermapsdialog import NumberMapsDialog
-from gui.visualizationdialog import VisualizationDialog
+from gui.elbow_visualization_dialog import ElbowVisualizationDialog
+from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
+from gui.feature_visualization_dialog import FeatureVisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
 
-import pickle
-import re
-
-from functions.data_utils.data_io import load_eeg_info, find_data
 from functions.gui_utils.config_io import load_config, save_config
 from functions.gui_utils.set_widgets_status import set_widgets_status
 from functions.utils.micro_segments_data import micro_segments_data
-#from functions.features_utils.extract_features_functions import extract_segments, save_segmentation_results,\
-#    save_transitions, save_raw_results, extract_features, transition_matrix, save_features, extract_dynamic_features
-#from functions.features_utils.source_localization_functions import run_source_localization
 
-from ToolBox import ToolBox
+from COMET import COMET
 
-# Settings Class
+
 class SettingsModel:
-
     def __init__(self, settings=None):
-        super(SettingsModel, self).__init__()
         self.settings = settings or []
 
     def show_settings(self):
         return print(self.settings)
 
-# Main Class
-class MainMicrostateWindow(QMainWindow):
 
+class MainMicrostateWindow(QMainWindow):
     def __init__(self, context, parent=None):
         super(MainMicrostateWindow, self).__init__(parent)
 
-        self.tbx = ToolBox()
+        self.tbx = COMET()
         self.context = context
-        # load the ui
-        basepath = os.path.dirname(__file__)
-        self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
 
+        self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
         self.ui.setWindowTitle("Microstate Toolbox")
         self.ui.showMaximized()
 
-        self.ui.NewStudyWindow = NewStudyWindow(context, main_window=self, tbx=self.tbx)
-        self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(context, main_window=self, tbx=self.tbx)
-        self.ui.NumberMapsDialog = NumberMapsDialog(context)
-        self.ui.SourceVisualizationDialog = SourceVisualizationDialog(context)
+        self.init_dialogs()
+        self.init_flags()
 
-        # self.ui.VisualizationDialog = VisualizationDialog(context, tbx=self.tbx)
+        self.init_ui_components()
+        self.setup_connections()
 
+    def init_dialogs(self):
+        self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, tbx=self.tbx)
+        self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
+        self.ui.ElbowVisualizationDialog = ElbowVisualizationDialog(self.context)
+        self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
+        self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(self.context, tbx=self.tbx)
+        self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context)
+
+    def init_flags(self):
         self.done_preprocessing = False
         self.done_clustering = False
         self.done_labeling_microstates = False
@@ -66,10 +63,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.foldername_raw_data = ""
         self.ui.foldername_preprocessed_data = ""
 
-        self.ui.open_github_action.triggered.connect(self.open_github)
-        self.ui.report_issues_action.triggered.connect(self.report_issues)
-        self.ui.update_action.triggered.connect(self.update_toolbox)
-
+    def init_ui_components(self):
         self.ui.step4_features2extract_combobox = CheckableComboBox()
         self.CheckableComboBox_Layout.addWidget(self.ui.step4_features2extract_combobox)
         list_features = [
@@ -81,6 +75,11 @@ class MainMicrostateWindow(QMainWindow):
             "Microstate Complexity (LZC)"
         ]
         self.ui.step4_features2extract_combobox.addItems(list_features)
+
+    def setup_connections(self):
+        self.ui.open_github_action.triggered.connect(self.open_github)
+        self.ui.report_issues_action.triggered.connect(self.report_issues)
+        self.ui.update_action.triggered.connect(self.update_toolbox)
 
         self.ui.step0_new_study_action.triggered.connect(self.open_new_study_dialog)
         self.ui.step0_new_study_button.clicked.connect(self.open_new_study_dialog)
@@ -99,20 +98,19 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_method_combobox.activated.connect(self.mainwindow_controller)
 
-        self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.plot_elbow)
+        self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.visualize_elbow)
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
         self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
         self.ui.step3_backfit_button.clicked.connect(self.do_backfitting)
         self.ui.step4_extractfeatures_button.clicked.connect(self.extract_features)
-        self.ui.step4_visualizefeatures_button.clicked.connect(self.open_visualize_features_dialog)
+        self.ui.step4_visualizefeatures_button.clicked.connect(self.visualize_microstate_features)
+        self.ui.step3_backfit_visualization_button.clicked.connect(self.visualize_microstate_segmentation)
         self.ui.step5_estimate_sources_button.clicked.connect(self.source_localize_microstates)
         self.ui.step5_visualize_sources_button.clicked.connect(self.visualize_source_localized_microstates)
         # self.ui.step6_extract_microseg_button.clicked.connect(self.extract_microsegments)
         # self.ui.step4_visualize_sensor_microseg_button.clicked.connect(self.visualize_microsegments)
 
         self.ui.step0_exit_button.clicked.connect(self.exit_msg)
-
-        # Set actions
 
         # self.ui.import_settings_action.triggered.connect(self.import_settings)
         # self.ui.export_settings_action.triggered.connect(self.export_settings)
@@ -142,15 +140,6 @@ class MainMicrostateWindow(QMainWindow):
         self.tbx.done_extracting_microsegments = False
         self.ui.NewStudyWindow.setWindowModality(QtCore.Qt.ApplicationModal)
         self.ui.NewStudyWindow.showMaximized()
-        self.mainwindow_controller()
-
-    def open_visualize_features_dialog(self):
-        self.ui.VisualizationDialog = VisualizationDialog(self.context, tbx=self.tbx)
-        self.ui.VisualizationDialog.extracted_features_path = self.tbx.extracted_features_path
-        self.ui.VisualizationDialog.save_folder = self.tbx.save_dir
-        self.ui.VisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.ui.VisualizationDialog.showMaximized()
-        self.ui.VisualizationDialog.load_filenames()
         self.mainwindow_controller()
 
     def load_study(self, save_folder=None):
@@ -413,7 +402,10 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status(after_clustering_widgets, mode='enable')
 
             outputformat = self.ui.step4_outputformats_combobox.currentText()
-            self.tbx.export_format = outputformat.split(".")[-1].split(")")[0]
+            opening_parenthesis = outputformat.find("(")
+            closing_parenthesis = outputformat.find(")")
+            if opening_parenthesis != -1 and closing_parenthesis != -1:
+                self.tbx.export_format = outputformat[opening_parenthesis + 1: closing_parenthesis]
 
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 set_widgets_status(filter_segments_widgets, mode='enable')
@@ -540,20 +532,21 @@ class MainMicrostateWindow(QMainWindow):
             else:
                 self.ui.step4_complexity_featurestoextract_checkbox.setChecked(False)
             """
-    def plot_elbow(self):
-        self.NumberMapsDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
-        self.NumberMapsDialog.extension = self.tbx.extension
-        self.NumberMapsDialog.datatype = self.tbx.datatype
+    def visualize_elbow(self):
+        self.ElbowVisualizationDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
+        self.ElbowVisualizationDialog.extension = self.tbx.extension
+        self.ElbowVisualizationDialog.datatype = self.tbx.datatype
         if self.ui.step2_use_percent_radio.isChecked():
             self.tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
         else:
             self.tbx.use_percentages = None
-        self.NumberMapsDialog.use_percentages = self.tbx.use_percentages
-        self.NumberMapsDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
-        self.NumberMapsDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-        self.NumberMapsDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
-        self.NumberMapsDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.NumberMapsDialog.showMaximized()
+        self.ElbowVisualizationDialog.use_percentages = self.tbx.use_percentages
+        self.ElbowVisualizationDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
+        self.ElbowVisualizationDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+        self.ElbowVisualizationDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+        self.ElbowVisualizationDialog.max_iterations = self.tbx.max_iterations
+        self.ElbowVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.ElbowVisualizationDialog.showMaximized()
 
     def do_clustering(self):
 
@@ -724,7 +717,7 @@ class MainMicrostateWindow(QMainWindow):
         if self.show_labelling_window:
             if just_show_labels == True:
 
-                #self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
+                self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
                 self.MicrostateVisualizationDialog.n_states = self.tbx.best_maps.shape[0]
                 self.MicrostateVisualizationDialog.microstate_maps = self.tbx.best_maps
                 self.MicrostateVisualizationDialog.eeg_info = self.tbx.eeg_info
@@ -742,13 +735,32 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.done_extracting_features = False
                 # self.tbx.done_extracting_microsegments = False
                 self.tbx.done_source_localization = False
-                """
+
                 self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
-                self.MicrostateVisualizationDialog.plot_maps(self.tbx.best_maps, self.tbx.eeg_info)
+                self.MicrostateVisualizationDialog.n_states = self.tbx.best_maps.shape[0]
+                self.MicrostateVisualizationDialog.microstate_maps = self.tbx.best_maps
+                self.MicrostateVisualizationDialog.eeg_info = self.tbx.eeg_info
+                self.MicrostateVisualizationDialog.microstates_combobox.addItems([str(i) for i in range(self.tbx.best_maps.shape[0])])
+                self.MicrostateVisualizationDialog.microstates_image_path = os.path.join(self.tbx.save_dir, f"{self.tbx.study_name}_microstates.png")
+                self.MicrostateVisualizationDialog.set_layout()
+                self.MicrostateVisualizationDialog.plot_maps()
                 self.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
                 self.MicrostateVisualizationDialog.showMaximized()
                 self.mainwindow_controller()
-                """
+
+
+
+    def visualize_microstate_segmentation(self):
+        self.BackfittingVisualizationDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
+        self.BackfittingVisualizationDialog.extension = self.tbx.extension
+        self.BackfittingVisualizationDialog.datatype = self.tbx.datatype
+        self.BackfittingVisualizationDialog.eeg_filenames_combobox.addItems([i for i in self.tbx.list_eegs])
+        self.BackfittingVisualizationDialog.segmentation_path = self.tbx.segmentation_path
+        self.BackfittingVisualizationDialog.export_format = self.tbx.export_format
+        self.BackfittingVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.BackfittingVisualizationDialog.showMaximized()
+
+
     def extract_microsegments(self):
         # Load config
         config_file = os.path.join(self.save_folder, 'log.ini')
@@ -815,9 +827,11 @@ class MainMicrostateWindow(QMainWindow):
             self.tbx.feature_list = []
             features2extract = self.ui.step4_features2extract_combobox.currentData()
             for feature in features2extract:
-                match = re.search(r'\((\w+)\)', feature)
-                if match:
-                    self.tbx.feature_list.append(match.group(1))
+                opening_parenthesis = feature.find('(')
+                closing_parenthesis = feature.find(')')
+                if opening_parenthesis != -1 and closing_parenthesis != -1:
+                    extracted_feature = feature[opening_parenthesis + 1: closing_parenthesis]
+                    self.tbx.feature_list.append(extracted_feature)
 
             self.tbx.feature_mode = []
             if self.ui.step4_static_features_checkbox.isChecked():
@@ -831,10 +845,26 @@ class MainMicrostateWindow(QMainWindow):
 
             self.tbx.extract_features()
             self.tbx.save_tbx()
-            
+
+            # Show a message box to inform the user about the successful image save
+            QMessageBox.information(self,
+                                    "Extraction Successful",
+                                    f"The {self.tbx.feature_mode} features have been successfully extracted.",
+                                    QMessageBox.Ok)
+
             self.ui.step0_log_textbrowser.insertPlainText("\n" + 20 * "* ")
             self.ui.step0_log_textbrowser.insertPlainText("\n" + "Features are extracted.\n")
             self.mainwindow_controller()
+
+    def visualize_microstate_features(self):
+
+        self.FeatureVisualizationDialog.extracted_features_path = self.tbx.extracted_features_path
+        self.FeatureVisualizationDialog.export_format = self.tbx.export_format
+        self.FeatureVisualizationDialog.feature_combo.addItems([i for i in self.tbx.feature_list])
+        self.FeatureVisualizationDialog.list_eegs = self.tbx.list_eegs
+        self.FeatureVisualizationDialog.reset_groups()
+        self.FeatureVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.FeatureVisualizationDialog.showMaximized()
 
 
     def source_localize_microstates(self):

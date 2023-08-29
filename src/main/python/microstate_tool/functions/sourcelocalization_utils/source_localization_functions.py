@@ -16,7 +16,8 @@ import os.path
 import numpy as np
 import pandas as pd
 from scipy import stats
-from functions.data_utils.data_io import find_data, load_eegs, get_eeg_data
+
+from functions.data_utils.data_io import DataIO
 #from functions.sourcelocalization_utils.stc_io import stc_read, stc_write
 
 import mne
@@ -291,9 +292,9 @@ def run_source_localization(preprocessed_data_path,
     # Create a new directory because it does not exist
     if not os.path.exists(stc_data_path):
         os.makedirs(stc_data_path)
-    
 
-    list_eeg_path, list_eeg_names = find_data(preprocessed_data_path, extension, '*')
+    data_io = DataIO()
+    list_eeg_path, list_eeg_names = data_io.find_data(preprocessed_data_path, extension, '*')
 
     counter = 0
     for eeg_path in list_eeg_path:
@@ -302,17 +303,10 @@ def run_source_localization(preprocessed_data_path,
         print("Source Localizing Microstates", rawfilename)
         print("\n", 100 * counter / len(list_eeg_path))
 
+        data_io = DataIO()
         # Load the EEG data
-        # hf = h5py.File(filename, "r")
-        # eeg_data = hf[list(hf.keys())[0]]
-        eeg = load_eegs(eeg_path, extension, data_type)
-        eeg_data = get_eeg_data(eeg, data_type)
-        # eeg_data = np.asarray(eeg_data) * pow(10, 6)
-
-        # Create new eeg structure
-        #raw = load_eegs(filename, eeg_format, data_type, '', [])
-        # raw = mne.io.RawArray(eeg_data, eeg_info)
-        # raw.set_eeg_reference('average', projection=True)
+        eeg = data_io.load_eegs(eeg_path, extension, data_type)
+        eeg_data = data_io.get_eeg_data(eeg, data_type)
         eeg_info = eeg.info
 
         if subjects_dir == 'fsaverage':

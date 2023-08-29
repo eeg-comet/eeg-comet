@@ -8,7 +8,8 @@ to EEG data according to specified parameters.
 
 import numpy as np
 import collections
-from functions.data_utils.data_io import load_eegs
+
+from functions.data_utils.data_io import DataIO
 
 class DataPreprocessor:
     def __init__(self):
@@ -25,7 +26,7 @@ class DataPreprocessor:
             for file in range(len(list_eegs)):
                 filename = list_eegs[file]
                 # Load the EEG data
-                eeg = load_eegs(filename, eeg_format, datatype, channel_location_dir, channels2remove)
+                eeg = DataIO().load_eegs(filename, eeg_format, datatype, channel_location_dir, channels2remove)
                 if file == 0:
                     channels = eeg.info['ch_names']
                 else:
@@ -38,7 +39,7 @@ class DataPreprocessor:
             channels2remove[0] = chan2rm
 
         # Load the EEG data
-        eeg = load_eegs(eegfile, eeg_format, datatype, channel_location_dir, channels2remove[0])
+        eeg = DataIO().load_eegs(eegfile, eeg_format, datatype, channel_location_dir, channels2remove[0])
 
         # Apply filtering
         if filter_true:

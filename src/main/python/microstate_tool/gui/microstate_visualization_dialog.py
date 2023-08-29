@@ -129,6 +129,6 @@ class MicrostateVisualizationDialog(QDialog):
                                     QMessageBox.Ok)
 
     def auto_micro_label(self):
-        # UNDER DEVELOPMENT
+        # TODO: UNDER DEVELOPMENT
         print("under development ...")
 

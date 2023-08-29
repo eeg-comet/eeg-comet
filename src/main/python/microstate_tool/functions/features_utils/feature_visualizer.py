@@ -30,7 +30,7 @@ class FeatureVisualizer:
         feature_results = {}
 
         feature_results[feature_name] = feature_io.load_features(feature_name, mode)
-
+        print(feature_results)
         sns.set(style="whitegrid")
         plt.figure(figsize=(8, 6))
 

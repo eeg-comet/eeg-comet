@@ -5,7 +5,7 @@ from scipy.signal import find_peaks
 from collections import Counter
 from itertools import groupby
 import h5py
-from functions.data_utils.data_io import find_data, load_eegs, get_eeg_data
+from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 
 class MicrostateBackfitter:
@@ -244,10 +244,11 @@ class MicrostateBackfitter:
         # Create an instance of the SegmentationIO class
         segmentation_io = SegmentationIO()
 
-        list_eeg_path, list_eeg_names = find_data(self.preprocessed_data_path, self.extension, "*")
+        data_io = DataIO()
+        list_eeg_path, list_eeg_names = data_io.find_data(self.preprocessed_data_path, self.extension, "*")
 
         for eeg_path in list_eeg_path:
-            eeg = load_eegs(eeg_path, self.extension, self.datatype)
+            eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
             eeg_data = eeg.get_data()
             eeg_times = eeg.times * 1000
             filename = os.path.split(eeg_path)[1].split('.')[0]

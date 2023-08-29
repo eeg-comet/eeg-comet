@@ -1,6 +1,6 @@
 from functions.gui_utils.config_io import load_config
 import warnings
-from ToolBox import ToolBox
+from COMET import COMET
 import pickle
 
 
@@ -23,7 +23,7 @@ def main():
 
 	new_tbx = False
 	if new_tbx:
-		tbx = ToolBox(config)
+		tbx = COMET(config)
 	else:
 		with open('/Users/bottlecap/Downloads/output/yyy/tbx_object.pkl', 'rb') as input_tbx:
 			tbx = pickle.load(input_tbx)

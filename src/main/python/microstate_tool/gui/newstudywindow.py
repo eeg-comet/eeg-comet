@@ -1,37 +1,41 @@
-
 import os.path
+import shutil
 import re
 import numpy as np
-from PyQt5 import uic
-import shutil
 import mne
-import warnings
-from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
+from PyQt5 import uic
+from PyQt5.QtWidgets import (
+    QFileDialog, QDialog, QMessageBox, QVBoxLayout, QWidget
+)
 from functions.gui_utils.CheckableComboBox import CheckableComboBox
 from functions.gui_utils.set_widgets_status import set_widgets_status
-from functions.data_utils.data_io import load_eegs
+from functions.data_utils.data_io import DataIO
 
 
 class NewStudyWindow(QDialog):
-
     def __init__(self, context, parent=None, main_window=None, tbx=None):
-        super(NewStudyWindow, self).__init__(parent)
-        # set warning level
-        warnings.simplefilter("ignore")
-        # if main_window:
+        super().__init__(parent)
+
         self.main_window = main_window
-        # load the ui
+        self.tbx = tbx
+
         basepath = os.path.dirname(__file__)
         self.ui = uic.loadUi(context.get_resource("NewStudyWindow.ui"), self)
-        
-        self.ui.setWindowTitle("New Study - Import Raw Data and Preprocess")
+        self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
+
         self.done_preprocessing = False
         self.use_custom_chan_loc = True
         self.use_template_chan_loc = False
 
-        self.ui.step0_ch2rm_combobox = CheckableComboBox()
+        self.init_ui_components()
+        self.setup_connections()
+        self.tbx.channel_location_dir = ""
+
+    def init_ui_components(self):
+        self.step0_ch2rm_combobox = CheckableComboBox()
         self.CheckableComboBox_Layout.addWidget(self.step0_ch2rm_combobox)
 
+    def setup_connections(self):
         self.ui.step0_import_epoched_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_import_raw_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
@@ -55,9 +59,6 @@ class NewStudyWindow(QDialog):
         self.ui.show_montage_button.clicked.connect(self.plot_montage)
         self.ui.show_psd_button.clicked.connect(self.plot_psd)
         self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
-
-        self.tbx = tbx
-        self.tbx.channel_location_dir = ""
 
 
     def newstudy_controller(self):
@@ -255,7 +256,8 @@ class NewStudyWindow(QDialog):
     def update_channel_names(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
         print(self.tbx.channel_location_dir)
-        EEG = load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
+        data_io = DataIO()
+        EEG = data_io.load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
         if not np.isnan(EEG.info['chs'][0]['loc'][0]):
             montage = EEG.get_montage()
             channel_names = montage.ch_names
@@ -397,7 +399,7 @@ class NewStudyWindow(QDialog):
         self.ui.MplWidget.canvas.figure.clear()
         self.ui.MplWidget.canvas.axes.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
+        EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
         if not np.isnan(EEG.info['chs'][0]['loc'][0]):
             montage = EEG.get_montage()
         else:
@@ -420,14 +422,14 @@ class NewStudyWindow(QDialog):
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir)
+        EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir)
         EEG.plot()
 
     def plot_psd(self):
         self.ui.MplWidget.canvas.figure.clear()
         self.ui.MplWidget.canvas.axes.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
+        EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())
