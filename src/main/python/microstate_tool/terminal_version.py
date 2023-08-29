@@ -21,20 +21,20 @@ def main():
 	print(channel_location_dir)
 	print(output_folder)
 
-	new_tbx = True
+	new_tbx = False
 	if new_tbx:
 		tbx = ToolBox(config)
 	else:
-		with open('/Users/bottlecap/Downloads/output/xxx/tbx_object.pkl', 'rb') as input_tbx:
+		with open('/Users/bottlecap/Downloads/output/yyy/tbx_object.pkl', 'rb') as input_tbx:
 			tbx = pickle.load(input_tbx)
 	process = [
-		tbx.load_raw,
-		tbx.load_channel_location,
-		tbx.load_new_study,
-		tbx.do_clustering,
+		# tbx.load_raw,
+		# tbx.load_channel_location,
+		# tbx.load_new_study,
+		# tbx.do_clustering,
 		tbx.do_labeling,
-		tbx.do_backfitting,
-		tbx.extract_features_from_map,
+		# tbx.do_backfitting,
+		# tbx.extract_features_from_map,
 		# tbx.source_localize_microstates
 	]
 

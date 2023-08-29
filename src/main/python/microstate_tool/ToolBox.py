@@ -6,6 +6,12 @@ import pandas as pd
 from tqdm import tqdm
 from functions.sourcelocalization_utils.source_localization_functions import run_source_localization #, visualize_sources
 import pickle
+import matplotlib.pyplot as plt
+
+import mne
+import cv2
+import io
+from keras.models import load_model
 
 from functions.data_utils.data_preprocessor import DataPreprocessor
 from functions.features_utils.feature_extractor import FeatureExtractor
@@ -239,9 +245,73 @@ class ToolBox:
 			self.save_tbx()
 
 	def do_labeling(self):
-		# TODO: label maps
-		self.micro_labels = self.micro_labels[:self.n_states]
+		image_size = 448
+		images = []
+		for i in range(self.best_maps.shape[0]):
+			fig, ax = plt.subplots()
+			mne.viz.plot_topomap(self.best_maps[i, :], self.eeg_info, contours=10, sensors=False, axes=ax, show=False, sphere='auto')
+			with io.BytesIO() as buf:
+				fig.savefig(buf, dpi=200, bbox_inches='tight')
+				buf.seek(0)
+				img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+			image = cv2.imdecode(img_arr, 1)
+			image = cv2.resize(image, (image_size, image_size))
+			# cv2.imshow('1', image)
+			# cv2.waitKey(0)
+			image = np.expand_dims(image, axis=0)
+			images.append(image)
+		image = np.vstack(images)
+		print(image.shape)
+
+		# load model and do inference
+		maps = {0:'A', 1:'B', 2:'C', 3:'D', 4:'E', 5:'F', 6:'G'}
+		model = load_model('/Users/bottlecap/Downloads/model_v1.1.h5', compile = False)
+		output = model.predict(image)
+		label_result = self.get_labels(output, maps)
+
+		# show image for debugging
+		for i in images:
+			cv2.imshow(f'{i}', i.squeeze())
+			cv2.waitKey(0)
+
+		micro_labels = []
+		for i in range(self.n_states):
+			if i in label_result:
+				micro_labels.append(label_result[i])
+			else:
+				micro_labels.append('X')
+			# for other maps(>7), manually label them(leave them empty)
+		
+		# self.micro_labels = self.micro_labels[:self.n_states]
+		self.micro_labels = micro_labels
+		print(self.micro_labels)
 		self.done_labeling_microstates = True
+
+
+	def get_labels(self, confidences, maps):
+		image_pool = set()
+		state_pool = set()
+		result = {}
+		# print(confidences)
+		# print(confidences.argmax())
+		# confidences[0, 1] = 8.2
+		while True:
+			# get max value's coordinate
+			image = confidences.argmax() // confidences.shape[1]
+			state = confidences.argmax() % confidences.shape[1]
+			# print(image, state)
+			if image not in image_pool and state not in state_pool:
+				image_pool.add(image)
+				state_pool.add(state)
+				confidences[image, state] = np.NINF
+				result[image] = maps[state]
+			else:
+				confidences[image, state] = np.NINF
+			if len(result) == confidences.shape[0] or len(result) == 7:
+				break
+		print(result)
+		return result
+
 
 
 	def do_backfitting(self):
@@ -355,7 +425,7 @@ class ToolBox:
 							 self.micro_labels,
 							 self.export_format,
 							 self.raw_transitions_path)
-	 	"""
+		"""
 		print('\n*** Finished ***')
 		self.done_extracting_features = True
 		if self.auto_save:
