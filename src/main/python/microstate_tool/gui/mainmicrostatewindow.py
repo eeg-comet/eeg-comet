@@ -46,7 +46,10 @@ class MainMicrostateWindow(QMainWindow):
 
     def init_dialogs(self):
         self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, tbx=self.tbx)
-        self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
+        # Currently we cannot init this window here since many information will be updated later
+        # no need to warry about memory since it will be automatically deleted after a new window be created
+        # just need to find a more elegant way to implement this
+        # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
         self.ui.ElbowVisualizationDialog = ElbowVisualizationDialog(self.context)
         self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
         self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(self.context, tbx=self.tbx)
@@ -162,7 +165,6 @@ class MainMicrostateWindow(QMainWindow):
         self.tbx.microstate_maps_path = os.path.join(self.tbx.raw_features_path, 'microstate_maps.csv')
         self.tbx.localized_sources_path = os.path.join(self.tbx.raw_features_path, 'localized_sources')
         self.tbx.stc_path = os.path.join(self.tbx.localized_sources_path, 'stc_data.npy')
-
         # Load preprocessing information
         if self.tbx.done_preprocessing:
             self.tbx.segmentation_path = os.path.join(self.tbx.raw_features_path, self.tbx.study_name+'_segmentation.hdf')
@@ -717,7 +719,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.show_labelling_window:
             if just_show_labels == True:
-
+                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
                 self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
                 self.MicrostateVisualizationDialog.n_states = self.tbx.best_maps.shape[0]
                 self.MicrostateVisualizationDialog.microstate_maps = self.tbx.best_maps
@@ -731,6 +733,7 @@ class MainMicrostateWindow(QMainWindow):
 
                 self.mainwindow_controller()
             else:
+                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
                 self.tbx.done_labeling_microstates = False
                 self.tbx.done_backfitting = False
                 self.tbx.done_extracting_features = False
