@@ -107,7 +107,7 @@ class DataIO:
             elif eeg_format == ".egi" or eeg_format == ".mff":
                 eeg = mne.io.read_raw_egi(filename, preload=True, verbose="WARNING")
             elif eeg_format == ".set":
-                eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose="CRITICAL")
             elif eeg_format == ".data":
                 eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose="WARNING")
             elif eeg_format == ".nxe":

@@ -544,6 +544,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ElbowVisualizationDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
         self.ElbowVisualizationDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
         self.ElbowVisualizationDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+        self.tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
         self.ElbowVisualizationDialog.max_iterations = self.tbx.max_iterations
         self.ElbowVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.ElbowVisualizationDialog.showMaximized()
