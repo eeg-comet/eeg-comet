@@ -9,14 +9,14 @@ from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 
 class MicrostateBackfitter:
-    def __init__(self, study_name, preprocessed_data_path, maps, method, filter_segments_option, remove_segments_less_than, micro_labels, save_path, extension, datatype, smooth_param, export_format):
+    def __init__(self, study_name, preprocessed_data_path, microstate_maps, method, filter_segments_option, remove_segments_less_than, micro_labels, save_path, extension, datatype, smooth_param, export_format):
         self.study_name = study_name
         self.preprocessed_data_path = preprocessed_data_path
-        self.maps = maps
+        self.microstate_maps = microstate_maps
         self.method = method
         self.filter_segments_option = filter_segments_option
         self.remove_segments_less_than = remove_segments_less_than
-        self.micro_labels = micro_labels
+        self.microstate_labels = micro_labels
         self.save_path = save_path
         self.extension = extension
         self.datatype = datatype
@@ -111,10 +111,10 @@ class MicrostateBackfitter:
         return filled_segmentation
 
 
-    def segmentation_smooth(self, data, maps, n_states, epsilon=1e-6, b=3, lamb=5):
+    def segmentation_smooth(self, data, microstate_maps, n_states, epsilon=1e-6, b=3, lamb=5):
         '''
         data: V
-        maps: Gamma (T-like symbol)
+        microstate_maps: Gamma (T-like symbol)
         n_states: N_mu in paper
         epsilon: convergence criterion parameter
         b: window size parameter
@@ -136,7 +136,7 @@ class MicrostateBackfitter:
 
         # STEP 2 in TABLE 2
         # V dot Gamma
-        activation = maps.dot(data)
+        activation = microstate_maps.dot(data)
         # L
         segmentation = np.argmax(np.abs(activation), axis=0)
         print(f'SEG BEFORE: {segmentation[400:500]}')
@@ -145,7 +145,7 @@ class MicrostateBackfitter:
         raw_segmentation = segmentation
 
         # STEP 4 in TABLE 2
-        act_sum_sq = np.sum(np.sum(maps[segmentation].T * data, axis=0) ** 2)
+        act_sum_sq = np.sum(np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2)
         e1 = abs(data_sum_sq - act_sum_sq)
         e2 = e1 / float(n_samples * (n_channels - 1))
 
@@ -159,14 +159,14 @@ class MicrostateBackfitter:
                 cnt = Counter(window)
                 N_bkt[i] = [cnt[x] for x in range(n_states)]
             raw_segmentation[b:n_samples - b] = np.argmin(
-                (np.sum(data ** 2, axis=0) - (np.sum(maps[segmentation].T * data, axis=0) ** 2))[b:n_samples - b] / (
+                (np.sum(data ** 2, axis=0) - (np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2))[b:n_samples - b] / (
                             2 * e2 * (n_channels - 1)) - (lamb * N_bkt).T, axis=0)
 
             # STEP 6 in TABLE 2
             segmentation = raw_segmentation  # .copy()
 
             # STEP 7 in TABLE 2
-            act_sum_sq = np.sum(np.sum(maps[segmentation].T * data, axis=0) ** 2)
+            act_sum_sq = np.sum(np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2)
             e1 = abs(data_sum_sq - act_sum_sq)
             sigma_mu = (e1 / float(n_samples * (n_channels - 1)))
             residual = abs(prev_residual - sigma_mu)
@@ -189,7 +189,7 @@ class MicrostateBackfitter:
         return segmentation
 
 
-    def substitude_maps_with_duration(self, segmentation, segments_less_than, option, data, maps, n_states,
+    def substitude_maps_with_duration(self, segmentation, segments_less_than, option, data, microstate_maps, n_states,
                                       smooth_param=[1e-6, 3, 5]):
         """
         Substitute short segments in the segmentation array with neighboring elements based on the chosen option.
@@ -235,11 +235,26 @@ class MicrostateBackfitter:
         elif option == 'smooth':
             print(
                 f"\nSmoothing segments ...")
-            filled_segmentation = self.segmentation_smooth(data, maps, n_states, *smooth_param)
+            filled_segmentation = self.segmentation_smooth(data, microstate_maps, n_states, *smooth_param)
 
         return filled_segmentation
 
     # TODO: create a function to compute the goodness of fit for filtered segmentation
+    def goodness_fit_segmentation(self, eeg_data, labeled_segmentation):
+        similarity_mean = 0
+        for m in range(len(self.microstate_labels)):
+            microstate_map = self.microstate_maps[m, :]
+            microstate_map_norm = np.linalg.norm(microstate_map)
+            data_indices = [i for i, x in enumerate(labeled_segmentation) if x == self.microstate_labels[m]]
+            eeg_data_segement = eeg_data[:, data_indices]
+            eeg_data_segement_norm = np.linalg.norm(eeg_data_segement, axis=0)
+            # Compute the dot product
+            dot_product = np.dot(microstate_map, eeg_data_segement)
+            # Compute the cosine similarity
+            similarity = abs(dot_product / (microstate_map_norm * eeg_data_segement_norm))
+            similarity_mean = similarity_mean + similarity.mean()
+        return similarity_mean / len(self.microstate_labels)
+
     def perform_segmentation(self):
         # Create an instance of the SegmentationIO class
         segmentation_io = SegmentationIO()
@@ -247,6 +262,7 @@ class MicrostateBackfitter:
         data_io = DataIO()
         list_eeg_path, list_eeg_names = data_io.find_data(self.preprocessed_data_path, self.extension, "*")
 
+        segmentation_fit = 0
         for eeg_path in list_eeg_path:
             eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
             eeg_data = eeg.get_data()
@@ -263,8 +279,8 @@ class MicrostateBackfitter:
                     trial_times = eeg_times
 
                 # Calculate the correlation coefficient between each topography and each time point
-                correlation_matrix = np.dot(self.maps, trial_data) / np.sqrt(
-                    np.sum(self.maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
+                correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
+                    np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
 
                 # Find the time point with the highest correlation coefficient for each topography
                 segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
@@ -275,22 +291,25 @@ class MicrostateBackfitter:
                                                                       self.remove_segments_less_than,
                                                                       self.filter_segments_option,
                                                                       trial_data,
-                                                                      self.maps,
-                                                                      len(self.micro_labels),
+                                                                      self.microstate_maps,
+                                                                      len(self.microstate_labels),
                                                                       self.smooth_param)
 
                 segmentation = segmentation + 1
                 segmentation = list(map(int, segmentation))
                 labeled_segmentation = list(map(str, segmentation))
                 labeled_segmentation = np.char.replace(labeled_segmentation, str(0), "NaN")
-                for m in range(1, len(self.micro_labels) + 1):
-                    labeled_segmentation = np.char.replace(labeled_segmentation, str(m), self.micro_labels[m - 1])
+                for m in range(1, len(self.microstate_labels) + 1):
+                    labeled_segmentation = np.char.replace(labeled_segmentation, str(m), self.microstate_labels[m - 1])
 
                 # Call the export_segmentation method
                 if idx is not None:
                     trial_filename = f"{filename}_{idx}"
                 else:
                     trial_filename = filename
+
+                similarity_metric = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
+                segmentation_fit = segmentation_fit + similarity_metric
 
                 export_success = segmentation_io.export_segmentation(
                     self.save_path, trial_filename, labeled_segmentation, trial_times, self.export_format
@@ -300,6 +319,7 @@ class MicrostateBackfitter:
                     print("Segmentation data exported successfully.")
                 else:
                     print("Segmentation data export failed.")
+
 
             """
             elif self.method == 'peaks':
@@ -315,3 +335,6 @@ class MicrostateBackfitter:
                 segmentation_peaks = np.argmax(np.abs(activation), axis=0)
                 segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
             """
+
+
+        print(segmentation_fit / len(list_eeg_path))
