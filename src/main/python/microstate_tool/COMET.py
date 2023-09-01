@@ -271,16 +271,18 @@ class COMET:
 		label_result = self.get_labels(output, maps)
 
 		# show image for debugging
-		for i in images:
-			cv2.imshow(f'{i}', i.squeeze())
-			cv2.waitKey(0)
+		# for i in images:
+		# 	cv2.imshow(f'{i}', i.squeeze())
+		# 	cv2.waitKey(0)
 
 		micro_labels = []
+		additional_label = 'M'
 		for i in range(self.n_states):
 			if i in label_result:
 				micro_labels.append(label_result[i])
 			else:
-				micro_labels.append('X')
+				micro_labels.append(additional_label)
+				additional_label = chr(ord(additional_label)+1)
 			# for other maps(>7), manually label them(leave them empty)
 		
 		# self.micro_labels = self.micro_labels[:self.n_states]

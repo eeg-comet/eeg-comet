@@ -142,5 +142,20 @@ class MicrostateVisualizationDialog(QDialog):
 
     def auto_micro_label(self):
         # TODO: UNDER DEVELOPMENT
-        print("under development ...")
+        # print("under development ...")
+        self.tbx.do_labeling()
+        if self.tbx.done_labeling_microstates:
+            # self.tbx.micro_labels = self.micro_labels
+            str_micro_labels = ','.join(map(str, self.tbx.micro_labels))
+            if self.main_window:
+                self.tbx.done_labeling_microstates = True
+                self.tbx.save_tbx()
+                self.main_window.ui.step0_log_textbrowser.insertPlainText(
+                    f"\nMicrostate labels: {str_micro_labels}\n")
+                self.main_window.mainwindow_controller()
+            self.close()
+        else:
+            QMessageBox.information(self, "Labeling Error",
+                                    "Please add a label to each microstate",
+                                    QMessageBox.Ok)
 
