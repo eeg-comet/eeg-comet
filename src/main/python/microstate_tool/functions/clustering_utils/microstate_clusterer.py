@@ -87,7 +87,11 @@ class MicrostateClusterer:
 
         return maps, prev_residual
 
-    def run_modified_kmeans(self, maps2use, n_states, n_inits, initializer='Random', max_iter=500, thresh=1e-6):
+    def run_modified_kmeans(self, preprocessed_data_path, extension, datatype,
+                            maps2use, n_states, n_inits, initializer='Random', max_iter=500, thresh=1e-6):
+
+        all_data, _ = generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
+
         best_residual, best_gev, best_maps = None, 0, None
 
         for init in range(n_inits):
@@ -95,7 +99,7 @@ class MicrostateClusterer:
 
             initial_maps = initialize_cluster_centers(maps2use, n_states, initializer)
             maps, residual = self.modified_kmeans(maps2use, initial_maps, n_states, max_iter, thresh)
-            gev = self.compute_gev(maps2use, maps)
+            gev = self.compute_gev(all_data, maps)
 
             print(f'Found {n_states} Microstate Maps')
             print(f'GEV: {gev}')
@@ -115,15 +119,15 @@ class MicrostateClusterer:
 
         Parameters:
             preprocessed_data_path: Path to the preprocessed data.
-            hdf_concatenated_data_path: Path to the HDF concatenated data.
-            n_channels: Number of channels in the data.
-            method: Clustering method to use.
+            hdf_concatenated_data_path: Path to the HDF concatenated data
+            n_channels: Number of channels in the data
+            method: Clustering method to use
             n_states: Number of microstate maps
             initializer: Initialization method
             min_dist: Minimum distance
             n_inits: Number of initializations
             tolerance: Convergence threshold
-            metric: Distance metric to use for clustering_utils.
+            metric: Distance metric to use for clustering
 
         Returns:
             best_maps: Best cluster centers (microstate maps)
@@ -142,6 +146,7 @@ class MicrostateClusterer:
 
         if method == 'Modified K-means':
             best_maps, best_gev, best_residual = self.run_modified_kmeans(
+                preprocessed_data_path, extension, datatype,
                 maps2use=maps2use,
                 n_states=n_states,
                 n_inits=self.n_inits,
@@ -181,7 +186,7 @@ class MicrostateClusterer:
                     raise ValueError("Failed to match metric")
                 clustering_instance = xmeans.xmeans(maps2use, initial_centers, n_states,
                                      tolerance=self.tolerance, criterion=CRITERION)
-            elif method == 'Agglomerative hierarchical clustering_utils':
+            elif method == 'Agglomerative hierarchical clustering':
                 from sklearn.cluster import AgglomerativeClustering
                 from sklearn.metrics import pairwise_distances
                 def cosine_distance(X, Y=None):
@@ -201,7 +206,7 @@ class MicrostateClusterer:
                     clustering_instance.process()
                     residual = clustering_instance.get_total_wce()
                     centroids = clustering_instance.get_centers()
-                elif method == 'Agglomerative hierarchical clustering_utils':
+                elif method == 'Agglomerative hierarchical clustering':
                     clusters = clustering_instance.fit_predict(maps2use)
                     residual = 0#clustering_instance.get_total_wce()
                     centroids = np.empty((n_states,n_channels))

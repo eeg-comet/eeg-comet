@@ -189,10 +189,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step0_log_textbrowser.insertPlainText("\nPreprocessing is done.\n")
             self.ui.step0_log_textbrowser.insertPlainText(20*"* " + "\n")
 
-        # Load clustering_utils information
+        # Load clustering information
         if self.tbx.done_clustering:
             if self.tbx.done_labeling_microstates:
-                # micro_labels_str = config['clustering_utils results']['micro_labels']
+                # micro_labels_str = config['clustering results']['micro_labels']
                 # self.micro_labels = micro_labels_str.split(",")
                 micro_labels_str = ','.join(self.tbx.micro_labels)
                 self.ui.step0_log_textbrowser.insertPlainText(
@@ -364,7 +364,7 @@ class MainMicrostateWindow(QMainWindow):
                 options = ['Cosine Similarity', 'Spatial Correlation']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
 
-            elif self.tbx.clustering_method == "Agglomerative hierarchical clustering_utils":
+            elif self.tbx.clustering_method == "Agglomerative hierarchical clustering":
                 self.ui.step2_other_label.setText("Type of link between clusters:")
                 options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
@@ -387,10 +387,10 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(rand2use_widgets, mode='enable')
                 set_widgets_status(peaks2use_widgets, mode='disable')
 
-            # Update the clustering_utils log
+            # Update the clustering log
             self.step2_clustering_log_textedit.clear()
             self.step2_clustering_log_textedit.appendPlainText(
-                f"EEG microstates will be identified using {self.tbx.clustering_method} clustering_utils algorithm")
+                f"EEG microstates will be identified using {self.tbx.clustering_method} clustering algorithm")
             self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
             self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
 

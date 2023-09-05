@@ -13,29 +13,49 @@ Organization: SFU eBrain Lab, www.ebrainlab.ca
 
 import numpy as np
 from scipy.signal import find_peaks
+from scipy.signal import correlate
 from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from functions.data_utils.data_io import DataIO
 
 
-def initialize_cluster_centers(maps, n_states, initializer):
+def initialize_cluster_centers(maps2use, n_states, initializer):
     """
-    Initialize cluster centers for k-means clustering_utils algorithm.
+    Initialize cluster centers for k-means clustering algorithm.
 
     Args:
-        maps (2D numpy array): Microstate maps for clustering_utils.
-        n_states (int): Number of states for clustering_utils.
+        maps2use (2D numpy array): Microstate maps for clustering.
+        n_states (int): Number of states for clustering.
         initializer (str): Cluster initialization method ('Random' or 'K-Means++').
 
     Returns:
         initial_centers (2D numpy array): Initial cluster centers.
     """
+
+    # Initialize with random states
     if initializer == 'Random':
         random_state = np.random.RandomState(None)
-        initial_peaks = random_state.choice(np.size(maps, 1), size=n_states, replace=False)
-        initial_centers = maps[:, initial_peaks].T
+        initial_peaks = random_state.choice(np.size(maps2use, 1), size=n_states, replace=False)
+        initial_centers = maps2use[:, initial_peaks].T
+
+    # Initialize with K-Means++
     elif initializer == 'K-Means++':
-        initial_centers = kmeans_plusplus_initializer(maps, n_states).initialize()
+        initial_centers = []
+        initial_idx = np.random.choice(np.size(maps2use, 1))
+        initial_centers.append(maps2use[:, initial_idx])
+        for _ in range(1, n_states):
+            dists = np.array([
+                min([abs(correlate(d, c, mode='valid')[0]) for c in initial_centers])
+                for d in maps2use.T  # Transposed to iterate over columns
+            ])
+            probs = dists / dists.sum()
+            next_idx = np.random.choice(np.size(maps2use, 1), p=probs)
+            next_centroid = maps2use[:, next_idx]
+            initial_centers.append(next_centroid)
+        initial_centers = np.array(initial_centers)
+
+    # Normalize the centroids
     initial_centers /= np.linalg.norm(initial_centers, axis=1, keepdims=True)
+
     return initial_centers
 
 
@@ -69,7 +89,7 @@ def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None):
     return maps, peaks
 
 
-def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percentages, min_dist):
+def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percentages=None, min_dist=None):
     """
     Generate GFP maps and peak indices from preprocessed EEG data.
 

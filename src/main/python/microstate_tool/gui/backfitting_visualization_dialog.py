@@ -43,7 +43,10 @@ class BackfittingVisualizationDialog(QDialog):
         segmentation_data = segmentation_io.load_segmentation(segmentation_path, import_format=self.export_format)
 
         time_min, time_max = self._get_time_range()
-        self._plot_data(eeg_times, data_to_use, segmentation_data, time_min, time_max)
+        fontsize = int(self.ui.font_size_input.text())
+        labelsize = int(self.ui.label_size_input.text())
+        colormap = self.ui.colormap_combobox.currentText()
+        self._plot_data(eeg_times, data_to_use, segmentation_data, time_min, time_max, fontsize, labelsize, colormap)
 
     def _get_data_to_use(self, eeg_data):
         if self.datatype == 'epoched':
@@ -56,7 +59,8 @@ class BackfittingVisualizationDialog(QDialog):
         time_max = int(self.ui.xlim_max_input.text())
         return time_min, time_max
 
-    def _plot_data(self, eeg_times, data_to_use, segmentation_data, time_min, time_max):
+    def _plot_data(self, eeg_times, data_to_use, segmentation_data, time_min, time_max, fontsize, labelsize, colormap):
+
         xmin = np.argmin(np.abs(eeg_times - time_min))
         xmax = np.argmin(np.abs(eeg_times - time_max))
 
@@ -69,19 +73,20 @@ class BackfittingVisualizationDialog(QDialog):
         ax.clear()
 
         # Generate the plot
-        legend_elements, color_map = self._prepare_legend_and_colors(segmentation_to_use)
+        legend_elements, color_map = self._prepare_legend_and_colors(segmentation_to_use, colormap)
         self._fill_plot(ax, times_to_use, data_to_use, segmentation_to_use, color_map, legend_elements)
 
-        ax.set_xlabel('Time (ms)')
-        ax.set_ylabel('Potential (μV)')
+        ax.set_xlabel('Time (ms)', fontsize=fontsize)
+        ax.set_ylabel('Potential (μV)', fontsize=fontsize)
+        ax.tick_params(axis='both', which='major', labelsize=labelsize)
         ax.set_xlim([time_min, time_max])
-        ax.legend(handles=legend_elements, loc='upper right')
+        ax.legend(handles=legend_elements, loc='upper right', fontsize=fontsize)
 
         self.ui.MplWidget.canvas.draw()
 
-    def _prepare_legend_and_colors(self, segmentation_data):
+    def _prepare_legend_and_colors(self, segmentation_data, colormap):
         unique_labels = sorted(set(segmentation_data))
-        cm = plt.get_cmap('tab10')
+        cm = plt.get_cmap(colormap)
         unique_colors = [cm(1. * i / len(unique_labels)) for i in range(len(unique_labels))]
         color_map = {label: color for label, color in zip(unique_labels, unique_colors)}
         legend_elements = [Patch(facecolor=color, edgecolor='none', label=label) for label, color in zip(unique_labels, unique_colors)]
