@@ -413,7 +413,8 @@ class NewStudyWindow(QDialog):
         if self.ui.step0_ch2rm_combobox.currentData():
             self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
             EEG.info["bads"].extend(self.ch2rm)
-        fig, _ = EEG.plot_sensors(kind='select', show_names=show_names)
+
+        fig, _ = EEG.plot_sensors(kind='select', show_names=show_names, show=False)
         #fig = montage.plot(show_names=show_names)
 
         self.ui.MplWidget.canvas.figure = fig
@@ -428,6 +429,7 @@ class NewStudyWindow(QDialog):
     def plot_psd(self):
         self.ui.MplWidget.canvas.figure.clear()
         self.ui.MplWidget.canvas.axes.clear()
+        # self.ui.MplWidget.canvas.draw()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
@@ -440,7 +442,7 @@ class NewStudyWindow(QDialog):
             EEG = EEG.filter(l_freq=lowcut, h_freq=highcut, method=filter_method, n_jobs=-1)
         fmin_plot = int(self.ui.rawdata_range_psd_min.text())
         fmax_plot = int(self.ui.rawdata_range_psd_max.text())
-        fig = EEG.compute_psd(fmin=fmin_plot, fmax=fmax_plot).plot()
+        fig = EEG.compute_psd(fmin=fmin_plot, fmax=fmax_plot).plot(show=False)
         #mne.viz.plot_raw_psd(EEG, fmin=fmin_plot, fmax=fmax_plot, ax=ax)
         self.ui.MplWidget.canvas.figure = fig
         self.ui.figure_title_lineedit.setText("Power Spectral Density (PSD) using Multitapers")
