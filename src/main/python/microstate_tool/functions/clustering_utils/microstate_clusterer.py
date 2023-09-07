@@ -8,6 +8,7 @@ Clustering Functions
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from scipy import spatial
 from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouette
 from pyclustering.utils.metric import distance_metric, type_metric
 from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
@@ -159,23 +160,21 @@ class MicrostateClusterer:
             maps2use = np.transpose(maps2use)
 
             if method == 'K-means':
-                from scipy.spatial import distance
-                if metric == 'Cosine Similarity':
-                    def cosine_sim(point1, point2):
-                        return 1 - abs(distance.cosine(point1, point2))
+                def metric_function(point1, point2):
+                    if metric == 'Cosine Similarity':
+                        # Calculates the cosine similarity
+                        dist = spatial.distance.cosine(point1, point2)
+                    elif metric == 'Spatial Correlation':
+                        # Calculates the spatial correlation
+                        dist = spatial.distance.correlation(point1, point2)
+                    else:
+                        raise ValueError("Failed to match metric")
+                    return 1 - dist
 
-                    METRIC = distance_metric(type_metric.USER_DEFINED, func=cosine_sim)
-                elif metric == 'Spatial Correlation':
-                    def spatial_corr(point1, point2):
-                        return 1 - abs(distance.correlation(point1, point2))
-
-                    METRIC = distance_metric(type_metric.USER_DEFINED, func=spatial_corr)
-                else:
-                    raise ValueError("Failed to match metric")
-
+                metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
                 clustering_instance = kmeans.kmeans(maps2use, initial_centers,
                                              tolerance=self.tolerance, itermax=self.max_iter,
-                                             metric=METRIC)
+                                             metric=metric)
 
             elif method == 'X-means':
                 if metric == 'Bayesian Information Criterion':
