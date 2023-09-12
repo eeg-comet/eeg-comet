@@ -266,7 +266,15 @@ class COMET:
 
 		# load model and do inference
 		maps = {0:'A', 1:'B', 2:'C', 3:'D', 4:'E', 5:'F', 6:'G'}
-		model = load_model('/Users/bottlecap/Downloads/model_v1.1.h5', compile = False)
+		# model_path = 
+		directory = os.getcwd()
+		directory = os.path.basename(directory)
+		print(directory)
+		if directory == 'EEG-Microstate-Feature-Extraction':
+			model_path = './src/main/python/microstate_tool/models/model_v1.9.h5' 
+		else:
+			model_path = './models/model_v1.9.h5'
+		model = load_model(model_path, compile = False)
 		output = model.predict(image)
 		label_result = self.get_labels(output, maps)
 

@@ -25,7 +25,7 @@ def main():
 	if new_tbx:
 		tbx = COMET(config)
 	else:
-		with open('/Users/bottlecap/Downloads/output/yyy/tbx_object.pkl', 'rb') as input_tbx:
+		with open('/Users/bottlecap/Downloads/output/qwerty/tbx_object.pkl', 'rb') as input_tbx:
 			tbx = pickle.load(input_tbx)
 	process = [
 		# tbx.load_raw,
