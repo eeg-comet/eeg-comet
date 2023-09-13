@@ -271,9 +271,9 @@ class COMET:
 		directory = os.path.basename(directory)
 		print(directory)
 		if directory == 'EEG-Microstate-Feature-Extraction':
-			model_path = './src/main/python/microstate_tool/models/model_v1.9.h5' 
+			model_path = './src/main/python/microstate_tool/models/model_v1.11.h5' 
 		else:
-			model_path = './models/model_v1.9.h5'
+			model_path = './models/model_v1.11.h5'
 		model = load_model(model_path, compile = False)
 		output = model.predict(image)
 		label_result = self.get_labels(output, maps)
