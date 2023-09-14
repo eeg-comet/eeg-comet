@@ -140,7 +140,7 @@ class MicrostateClusterer:
         maps2use, peaks2use = generate_maps_and_peaks(preprocessed_data_path, extension, datatype,
                                                       use_percentages, min_dist)
 
-        elbow_optimizer = ElbowOptimizer(maps2use, min_dist, self.n_inits, kmin, kmax, self.tolerance, self.max_iter)
+        elbow_optimizer = ElbowOptimizer(maps2use, min_dist, self.n_inits, kmin, kmax, preprocessed_data_path, extension, datatype, self.tolerance, self.max_iter)
         if n_states == 'auto':
             n_states = elbow_optimizer.find_elbow_without_plot(stopping_mode='gev', threshold=stopping_parameter)
             print(f'result: n_states = {n_states}')
@@ -240,7 +240,7 @@ class ElbowOptimizer:
             tolerance (float, optional): The tolerance for convergence.
             max_iter (int, optional): Maximum iterations for K-Means.
         """
-    def __init__(self, maps2use, min_dist, n_inits, kmin, kmax, tolerance=None, max_iter=None):
+    def __init__(self, maps2use, min_dist, n_inits, kmin, kmax, preprocessed_data_path, extension, datatype, tolerance=None, max_iter=None):
         """Initialize the ElbowOptimizer with given parameters."""
         self.maps2use = maps2use
         self.min_dist = min_dist
@@ -250,6 +250,9 @@ class ElbowOptimizer:
         self.kmax = kmax
         self.max_iter = max_iter
         self.microstate_clusterer = MicrostateClusterer(n_inits=1)
+        self.preprocessed_data_path = preprocessed_data_path
+        self.extension = extension
+        self.datatype = datatype
         self.N, self.RES, self.GEV, self.SIL = [], [], [], []
 
     def _cluster_and_evaluate(self, k):
@@ -257,6 +260,9 @@ class ElbowOptimizer:
         gev_i, residual_i = 0, 0
         for init in range(self.n_inits):
             maps, gev, residual = self.microstate_clusterer.run_modified_kmeans(
+                preprocessed_data_path=self.preprocessed_data_path,
+                extension=self.extension,
+                datatype=self.datatype,
                 maps2use=self.maps2use,
                 n_states=k,
                 n_inits=1,

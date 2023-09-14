@@ -208,7 +208,7 @@ class COMET:
 		avaliable_methods = ['Modified K-means',
 							'K-means',
 							'X-means',
-							'Agglomerative hierarchical clustering_utils',
+							'Agglomerative hierarchical clustering',
 							]
 		assert self.clustering_method in avaliable_methods, "clustering_method not supported"
 
