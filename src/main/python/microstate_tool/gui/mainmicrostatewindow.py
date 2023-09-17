@@ -12,9 +12,7 @@ from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
 from gui.feature_visualization_dialog import FeatureVisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
 
-from functions.gui_utils.config_io import load_config, save_config
 from functions.gui_utils.set_widgets_status import set_widgets_status
-from functions.utils.micro_segments_data import micro_segments_data
 
 from COMET import COMET
 
@@ -62,7 +60,6 @@ class MainMicrostateWindow(QMainWindow):
         self.done_backfitting = False
         self.done_extracting_features = False
         self.done_source_localization = False
-        self.done_extracting_microsegments = False
         self.ui.foldername_raw_data = ""
         self.ui.foldername_preprocessed_data = ""
 
@@ -100,6 +97,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step3_backfit_peaks_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_method_combobox.activated.connect(self.mainwindow_controller)
+        self.ui.step5_use_tess_radio.clicked.connect(self.mainwindow_controller)
 
         self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.visualize_elbow)
         self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
@@ -110,13 +108,9 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step3_backfit_visualization_button.clicked.connect(self.visualize_microstate_segmentation)
         self.ui.step5_estimate_sources_button.clicked.connect(self.source_localize_microstates)
         self.ui.step5_visualize_sources_button.clicked.connect(self.visualize_source_localized_microstates)
-        # self.ui.step6_extract_microseg_button.clicked.connect(self.extract_microsegments)
-        # self.ui.step4_visualize_sensor_microseg_button.clicked.connect(self.visualize_microsegments)
 
         self.ui.step0_exit_button.clicked.connect(self.exit_msg)
 
-        # self.ui.import_settings_action.triggered.connect(self.import_settings)
-        # self.ui.export_settings_action.triggered.connect(self.export_settings)
 
     def open_github(self):
         webbrowser.open('https://github.com/eBrainLab/EEG-COMET')
@@ -140,7 +134,6 @@ class MainMicrostateWindow(QMainWindow):
         self.tbx.done_backfitting = False
         self.tbx.done_extracting_features = False
         self.tbx.done_source_localization = False
-        self.tbx.done_extracting_microsegments = False
         self.ui.NewStudyWindow.setWindowModality(QtCore.Qt.ApplicationModal)
         self.ui.NewStudyWindow.showMaximized()
         self.mainwindow_controller()
@@ -159,12 +152,12 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx = pickle.load(input_tbx)
         # Define global directories
         # self.preprocessed_data_path = os.path.join(self.save_folder, 'preprocessed_data')
-        self.tbx.raw_features_path = os.path.join(self.tbx.save_dir, 'raw_features')
-        self.tbx.raw_transitions_path = os.path.join(self.tbx.raw_features_path, 'raw_transitions')
-        self.tbx.extracted_features_path = os.path.join(self.tbx.save_dir, 'extracted_features')
-        self.tbx.microstate_maps_path = os.path.join(self.tbx.raw_features_path, 'microstate_maps.csv')
-        self.tbx.localized_sources_path = os.path.join(self.tbx.raw_features_path, 'localized_sources')
-        self.tbx.stc_path = os.path.join(self.tbx.localized_sources_path, 'stc_data.npy')
+        #self.tbx.raw_features_path = os.path.join(self.tbx.save_dir, 'raw_features')
+        #self.tbx.raw_transitions_path = os.path.join(self.tbx.raw_features_path, 'raw_transitions')
+        #self.tbx.extracted_features_path = os.path.join(self.tbx.save_dir, 'extracted_features')
+        #self.tbx.microstate_maps_path = os.path.join(self.tbx.raw_features_path, 'microstate_maps.csv')
+        #self.tbx.localized_sources_path = os.path.join(self.tbx.raw_features_path, 'localized_sources')
+        #self.tbx.stc_path = os.path.join(self.tbx.localized_sources_path, 'stc_data.npy')
         # Load preprocessing information
         if self.tbx.done_preprocessing:
             self.tbx.segmentation_path = os.path.join(self.tbx.save_dir, self.tbx.study_name+'_segmentation')
@@ -329,17 +322,22 @@ class MainMicrostateWindow(QMainWindow):
 
         source_localization_widgets = [
             self.ui.step5_source_localization_title_label,
-            self.ui.step5_anatomical_label,
             self.ui.step5_use_fsaverage_radio,
             self.ui.step5_use_individual_radio,
             self.ui.step5_inverse_method_label,
             self.ui.step5_inverse_method_combobox,
-            self.ui.step5_permutations_label,
-            self.ui.step5_permutations_input,
+            self.ui.step5_use_tess_radio,
+            self.ui.step5_use_avg_radio,
             self.ui.step5_spacing_label,
             self.ui.step5_spacing_combobox,
             self.ui.step5_estimate_sources_button
         ]
+
+        tess_widgets = [
+            self.ui.step5_permutations_label,
+            self.ui.step5_permutations_input,
+        ]
+
 
         if self.tbx.done_preprocessing:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
@@ -431,7 +429,6 @@ class MainMicrostateWindow(QMainWindow):
             self.tbx.done_backfitting = False
             self.tbx.done_extracting_features = False
             self.tbx.done_source_localization = False
-            self.tbx.done_extracting_microsegments = False
 
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
             # set ALL disabled
@@ -446,17 +443,21 @@ class MainMicrostateWindow(QMainWindow):
             self.tbx.done_backfitting = False
             self.tbx.done_extracting_features = False
             self.tbx.done_source_localization = False
-            self.tbx.done_extracting_microsegments = False
 
         if self.tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
             self.ui.step3_backfit_visualization_button.setEnabled(True)
             set_widgets_status(feature_extraction_widgets, mode='enable')
             set_widgets_status(source_localization_widgets, mode='enable')
+            if self.ui.step5_use_tess_radio.isChecked():
+                set_widgets_status(tess_widgets, mode='enable')
+                set_widgets_status(tess_widgets, mode='show')
+            else:
+                set_widgets_status(tess_widgets, mode='disable')
+                set_widgets_status(tess_widgets, mode='hide')
 
         else:
             self.tbx.done_extracting_features = False
-            self.tbx.done_extracting_microsegments = False
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
             self.ui.step3_backfit_visualization_button.setDisabled(True)
             set_widgets_status(feature_extraction_widgets, mode='disable')
@@ -469,21 +470,12 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
             self.ui.step4_visualizefeatures_button.setDisabled(True)
 
-        # if self.done_extracting_microsegments:
-        #     self.ui.step6_extract_microseg_button.setStyleSheet("background-color: lightgreen")
-        #     self.ui.step4_visualize_sensor_microseg_button.setEnabled(True)
-        # else:
-        #     self.ui.step6_extract_microseg_button.setStyleSheet("background-color: none")
-        #     self.ui.step4_visualize_sensor_microseg_button.setDisabled(True)
-
         if self.tbx.done_source_localization:
             self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
             self.ui.step5_visualize_sources_button.setEnabled(True)
-            # self.ui.step6_visualize_source_microseg_button.setEnabled(True)
         else:
             self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
             self.ui.step5_visualize_sources_button.setDisabled(True)
-            # self.ui.step6_visualize_source_microseg_button.setDisabled(True)
 
     def update_mainwindow_gui(self):
         if self.tbx.done_clustering:
@@ -512,34 +504,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step3_backfit_all_radio.setChecked(True)
             elif self.tbx.backfit_to == 'peaks':
                 self.ui.step3_backfit_peaks_radio.setChecked(True)
-            #self.ui.step4_outputformats_combobox.setCurrentText(self.output_format)
-        """
-        if self.tbx.done_extracting_features:
-            if 'COV' in self.tbx.Features:
-                self.ui.step4_coverage_featurestoextract_checkbox.setChecked(True)
-            else:
-                self.ui.step4_coverage_featurestoextract_checkbox.setChecked(False)
-            if 'MMD' in self.tbx.Features:
-                self.ui.step4_mmd_featurestoextract_checkbox.setChecked(True)
-            else:
-                self.ui.step4_mmd_featurestoextract_checkbox.setChecked(False)
-            if 'OCC' in self.tbx.Features:
-                self.ui.step4_foc_featurestoextract_checkbox.setChecked(True)
-            else:
-                self.ui.step4_foc_featurestoextract_checkbox.setChecked(False)
-            if 'GEV' in self.tbx.Features:
-                self.ui.step4_gev_featurestoextract_checkbox.setChecked(True)
-            else:
-                self.ui.step4_gev_featurestoextract_checkbox.setChecked(False)
-            if 'TP' in self.tbx.Features:
-                self.ui.step4_tp_featurestoextract_checkbox.setChecked(True)
-            else:
-                self.ui.step4_tp_featurestoextract_checkbox.setChecked(False)
-            if 'LZC' in self.tbx.Features:
-                self.ui.step4_complexity_featurestoextract_checkbox.setChecked(True)
-            else:
-                self.ui.step4_complexity_featurestoextract_checkbox.setChecked(False)
-            """
+
     def visualize_elbow(self):
         self.ElbowVisualizationDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
         self.ElbowVisualizationDialog.extension = self.tbx.extension
@@ -572,7 +537,6 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.done_labeling_microstates = False
                 self.tbx.done_backfitting = False
                 self.tbx.done_extracting_features = False
-                # self.done_extracting_microsegments = False
                 self.tbx.done_source_localization = False
         else:
             self.do_clustering_from_scratch = True
@@ -590,7 +554,6 @@ class MainMicrostateWindow(QMainWindow):
                 # self.min_distance_size = []
             if self.ui.step2_auto_k_radio.isChecked():
                 self.tbx.choose_number_of_maps = "auto"
-                # TODO: should automatically set a self.number_of_maps
                 # if self.ui.step2_stopping_traditional_radio.isChecked():
                 #     self.tbx.elbow_version = 'traditional'
                 # else:
@@ -629,9 +592,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.use_percentages = None
             self.tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
             self.tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-            #print(self.clustering_tolerance)
             self.tbx.clustering_option = self.ui.step2_other_options_combobox.currentText()
-            #print(self.clustering_option)
             self.tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
             self.tbx.do_clustering()
@@ -649,10 +610,6 @@ class MainMicrostateWindow(QMainWindow):
             self.mainwindow_controller()
 
     def do_backfitting(self):
-        # Load config
-        # config_file = os.path.join(self.save_folder, 'log.ini')
-        # config = load_config(config_file)
-        # self.done_backfitting = config.getboolean('progress', 'done_backfitting')
 
         if self.tbx.done_backfitting:
             ret = QMessageBox.question(self, 'MessageBox', "Microstates have been backfitted to data once,"
@@ -666,7 +623,6 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.do_backfitting_from_scratch:
             self.tbx.done_extracting_features = False
-            self.tbx.done_extracting_microsegments = False
             self.tbx.done_source_localization = False
             
             if self.ui.step3_backfit_all_radio.isChecked():
@@ -703,10 +659,7 @@ class MainMicrostateWindow(QMainWindow):
             self.mainwindow_controller()
 
     def label_maps(self):
-        # Load config
-        # config_file = os.path.join(self.save_folder, 'log.ini')
-        # config = load_config(config_file)
-        # self.done_labeling_microstates = config.getboolean('progress', 'done_labeling_microstates')
+
         just_show_labels = False
 
         if self.tbx.done_labeling_microstates:
@@ -743,7 +696,6 @@ class MainMicrostateWindow(QMainWindow):
                 self.tbx.done_labeling_microstates = False
                 self.tbx.done_backfitting = False
                 self.tbx.done_extracting_features = False
-                # self.tbx.done_extracting_microsegments = False
                 self.tbx.done_source_localization = False
 
                 self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
@@ -771,54 +723,7 @@ class MainMicrostateWindow(QMainWindow):
         self.BackfittingVisualizationDialog.showMaximized()
 
 
-    def extract_microsegments(self):
-        # Load config
-        config_file = os.path.join(self.save_folder, 'log.ini')
-        config = load_config(config_file)
-        self.done_extracting_microsegments = config.getboolean('progress', 'done_extracting_microsegments')
-
-        if self.done_extracting_microsegments:
-            ret = QMessageBox.question(self, 'MessageBox', "Microstates have been labeled once,"
-                                                           " do you want to relabel microstates?",
-                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
-            self.do_extracting_microsegments_from_scratch = False
-            if ret == QMessageBox.Yes:
-                self.do_extracting_microsegments_from_scratch = True
-        else:
-            self.do_extracting_microsegments_from_scratch = True
-
-        if self.do_extracting_microsegments_from_scratch:
-            self.done_extracting_microsegments = False
-            # Remove the previous log
-            config_file = os.path.join(self.save_folder, 'log.ini')
-            config = load_config(config_file)
-            config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
-            save_config(config_file, config)
-            self.mainwindow_controller()
-
-            print("\nExtracting Segments ...\n")
-            if not os.path.exists(self.micro_segments_path):
-                os.makedirs(self.micro_segments_path)
-            # Extract data segments
-            micro_segments_data(self.hdf_concatenated_data_path,
-                                self.segmentation_path,
-                                self.n_chan,
-                                self.micro_labels,
-                                self.micro_segments_path)
-            self.done_extracting_microsegments = True
-            # Write "feature extraction settings" to config
-            config_file = os.path.join(self.save_folder, 'log.ini')
-            config = load_config(config_file)
-            config['progress']['done_extracting_microsegments'] = str(self.done_extracting_microsegments)
-            save_config(config_file, config)
-            self.mainwindow_controller()
-
-
     def extract_features(self):
-        # Load config
-        # config_file = os.path.join(self.save_folder, 'log.ini')
-        # config = load_config(config_file)
-        # self.done_extracting_features = config.getboolean('progress', 'done_extracting_features')
 
         if self.done_extracting_features:
             ret = QMessageBox.question(self, 'MessageBox', "Features have been extracted once,"
@@ -855,6 +760,7 @@ class MainMicrostateWindow(QMainWindow):
 
             self.tbx.extract_features()
             self.tbx.save_tbx()
+            self.tbx.done_extracting_features = True
 
             # Show a message box to inform the user about the successful image save
             QMessageBox.information(self,
