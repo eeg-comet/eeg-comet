@@ -47,7 +47,7 @@ class COMET:
 
 		self.save_dir = os.path.join(self.output_folder, self.study_name)
 		assert self.study_name != "", "study name cannot be empty"
-		self.preprocessed_data_path = os.path.join(self.save_dir, 'preprocessed_data')
+		self.preprocessed_data_path = os.path.join(self.save_dir, self.study_name+'_preprocessed_data')
 		self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
 
 		# load new study
@@ -442,6 +442,7 @@ class COMET:
 										   self.localized_sources_path,
 										   self.preprocessed_data_path,
 										   self.segmentation_path,
+										   self.use_anatomy,
 										   self.extension,
 										   self.datatype,
 										   self.spacing,

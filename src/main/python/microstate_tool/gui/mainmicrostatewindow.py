@@ -17,19 +17,11 @@ from functions.gui_utils.set_widgets_status import set_widgets_status
 from COMET import COMET
 
 
-class SettingsModel:
-    def __init__(self, settings=None):
-        self.settings = settings or []
-
-    def show_settings(self):
-        return print(self.settings)
-
-
 class MainMicrostateWindow(QMainWindow):
     def __init__(self, context, parent=None):
         super(MainMicrostateWindow, self).__init__(parent)
 
-        self.tbx = COMET()
+        self.comet_tbx = COMET()
         self.context = context
 
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
@@ -43,14 +35,14 @@ class MainMicrostateWindow(QMainWindow):
         self.setup_connections()
 
     def init_dialogs(self):
-        self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, tbx=self.tbx)
+        self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, tbx=self.comet_tbx)
         # Currently we cannot init this window here since many information will be updated later
         # no need to warry about memory since it will be automatically deleted after a new window be created
         # just need to find a more elegant way to implement this
-        # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
+        # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.comet_tbx)
         self.ui.ElbowVisualizationDialog = ElbowVisualizationDialog(self.context)
         self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
-        self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(self.context, tbx=self.tbx)
+        self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(self.context, tbx=self.comet_tbx)
         self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context)
 
     def init_flags(self):
@@ -85,7 +77,6 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step0_new_study_button.clicked.connect(self.open_new_study_dialog)
         self.ui.step0_load_study_action.triggered.connect(self.load_study)
         self.ui.step0_load_study_button.clicked.connect(self.load_study)
-        self.ui.step0_save_log_button.clicked.connect(self.save_log)
 
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_auto_k_radio.clicked.connect(self.mainwindow_controller)
@@ -126,86 +117,46 @@ class MainMicrostateWindow(QMainWindow):
                 'https://github.com/eBrainLab/EEG-COMET/archive/refs/heads/main.zip')
 
     def open_new_study_dialog(self):
-        self.ui.step0_log_textbrowser.clear()
         self.ui.step0_study_name_mainwin_lineedit.clear()
-        self.tbx.done_preprocessing = False
-        self.tbx.done_clustering = False
-        self.tbx.done_labeling_microstates = False
-        self.tbx.done_backfitting = False
-        self.tbx.done_extracting_features = False
-        self.tbx.done_source_localization = False
+        self.comet_tbx.done_preprocessing = False
+        self.comet_tbx.done_clustering = False
+        self.comet_tbx.done_labeling_microstates = False
+        self.comet_tbx.done_backfitting = False
+        self.comet_tbx.done_extracting_features = False
+        self.comet_tbx.done_source_localization = False
         self.ui.NewStudyWindow.setWindowModality(QtCore.Qt.ApplicationModal)
         self.ui.NewStudyWindow.showMaximized()
         self.mainwindow_controller()
 
     def load_study(self, save_folder=None):
 
-        if self.tbx.done_preprocessing == False:  
+        if self.comet_tbx.done_preprocessing == False:  
             self.save_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
-            tbx_object = os.path.join(self.save_folder, 'tbx_object.pkl')
+            tbx_object = os.path.join(self.save_folder, 'comet_tbx_object.pkl')
             if not os.path.exists(tbx_object):
                 QMessageBox.information(self, "Load error",
                                         "The selected folder does not contain a valid study!",
                                         QMessageBox.Ok)
                 return
             with open(tbx_object, 'rb') as input_tbx:
-                self.tbx = pickle.load(input_tbx)
+                self.comet_tbx = pickle.load(input_tbx)
         # Define global directories
-        # self.preprocessed_data_path = os.path.join(self.save_folder, 'preprocessed_data')
-        #self.tbx.raw_features_path = os.path.join(self.tbx.save_dir, 'raw_features')
-        #self.tbx.raw_transitions_path = os.path.join(self.tbx.raw_features_path, 'raw_transitions')
-        #self.tbx.extracted_features_path = os.path.join(self.tbx.save_dir, 'extracted_features')
-        #self.tbx.microstate_maps_path = os.path.join(self.tbx.raw_features_path, 'microstate_maps.csv')
-        #self.tbx.localized_sources_path = os.path.join(self.tbx.raw_features_path, 'localized_sources')
-        #self.tbx.stc_path = os.path.join(self.tbx.localized_sources_path, 'stc_data.npy')
+        self.comet_tbx.preprocessed_data_path = os.path.join(self.comet_tbx.save_dir, self.comet_tbx.study_name+'_preprocessed_data')
+        self.comet_tbx.extracted_features_path = os.path.join(self.comet_tbx.save_dir, self.comet_tbx.study_name+'_extracted_features')
+        self.comet_tbx.microstate_maps_path = os.path.join(self.comet_tbx.save_dir, 'microstate_maps.csv')
+        self.comet_tbx.localized_sources_path = os.path.join(self.comet_tbx.save_dir, self.comet_tbx.study_name+'_localized_sources')
+        self.comet_tbx.stc_path = os.path.join(self.comet_tbx.localized_sources_path, self.comet_tbx.study_name+'_stc_data.npy')
         # Load preprocessing information
-        if self.tbx.done_preprocessing:
-            self.tbx.segmentation_path = os.path.join(self.tbx.save_dir, self.tbx.study_name+'_segmentation')
+        if self.comet_tbx.done_preprocessing:
+            self.comet_tbx.segmentation_path = os.path.join(self.comet_tbx.save_dir, self.comet_tbx.study_name+'_segmentation')
 
             # Show study name on the main window
-            self.ui.step0_study_name_mainwin_lineedit.setText(self.tbx.study_name)
-            self.ui.step0_log_textbrowser.insertPlainText("Study Name: " + self.tbx.study_name + "\n")
-            self.ui.step0_log_textbrowser.insertPlainText(20 * "* " + "\n")
-
-            self.ui.step0_log_textbrowser.insertPlainText("\n"
-                                                          + str(len(self.tbx.list_eegs))
-                                                          + " EEG files are found:\n\n"
-                                                          + "\n".join(self.tbx.list_eegs)+"\n")
-
-            if self.tbx.filter_data:
-                self.ui.step0_log_textbrowser.insertPlainText(
-                    f"\nFiltered data using {self.tbx.filter_method.upper()} between {self.tbx.lowcut_freq} Hz and {self.tbx.highcut_freq} Hz\n")
-            if self.tbx.downsample_data:
-                self.ui.step0_log_textbrowser.insertPlainText(
-                    f"\nDownsampled data to {self.tbx.sample_rate} Hz\n")
-            self.ui.step0_log_textbrowser.insertPlainText("\n" + 20*"* ")
-            self.ui.step0_log_textbrowser.insertPlainText("\nPreprocessing is done.\n")
-            self.ui.step0_log_textbrowser.insertPlainText(20*"* " + "\n")
-
-        # Load clustering information
-        if self.tbx.done_clustering:
-            if self.tbx.done_labeling_microstates:
-                # micro_labels_str = config['clustering results']['micro_labels']
-                # self.micro_labels = micro_labels_str.split(",")
-                micro_labels_str = ','.join(self.tbx.micro_labels)
-                self.ui.step0_log_textbrowser.insertPlainText(
-                    f"\nMicrostate labels: {micro_labels_str}\n")
-
-            self.ui.step0_log_textbrowser.insertPlainText(f"\nGlobal Explained Variance: {self.tbx.gev}\n")
-            self.ui.step0_log_textbrowser.insertPlainText("\n" + 20*"* ")
-            self.ui.step0_log_textbrowser.insertPlainText("\nClustering is done.\n")
-            self.ui.step0_log_textbrowser.insertPlainText(20*"* " + "\n")
+            self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
 
         # Update GUI
         self.update_mainwindow_gui()
 
         self.mainwindow_controller()
-
-    def save_log(self):
-        text = self.step0_log_textbrowser.toPlainText()
-        save_log_path = os.path.join(self.tbx.save_dir, f'{self.tbx.study_name}_log.txt')
-        with open(save_log_path, 'w') as f:
-            f.write(text)
 
     def reset_option_box(self, box, options=[], current=None):
         '''
@@ -339,7 +290,7 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
 
-        if self.tbx.done_preprocessing:
+        if self.comet_tbx.done_preprocessing:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
             set_widgets_status(after_preprocessing_widgets, mode='enable')
             if self.ui.step2_auto_k_radio.isChecked():
@@ -360,18 +311,18 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(advanced_widgets, mode='disable')
                 set_widgets_status(advanced_widgets, mode='hide')
 
-            self.tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
-            if self.tbx.clustering_method == "K-means":
+            self.comet_tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
+            if self.comet_tbx.clustering_method == "K-means":
                 self.ui.step2_other_label.setText("Similarity metric:")
                 options = ['Cosine Similarity', 'Spatial Correlation']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
 
-            elif self.tbx.clustering_method == "Agglomerative hierarchical clustering":
+            elif self.comet_tbx.clustering_method == "Agglomerative hierarchical clustering":
                 self.ui.step2_other_label.setText("Type of link between clusters:")
                 options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
 
-            elif self.tbx.clustering_method == "X-means":
+            elif self.comet_tbx.clustering_method == "X-means":
                 self.ui.step2_other_label.setText("X-means splitting criterion:")
                 options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Bayesian Information Criterion')
@@ -392,7 +343,7 @@ class MainMicrostateWindow(QMainWindow):
             # Update the clustering log
             self.step2_clustering_log_textedit.clear()
             self.step2_clustering_log_textedit.appendPlainText(
-                f"EEG microstates will be identified using {self.tbx.clustering_method} clustering algorithm")
+                f"EEG microstates will be identified using {self.comet_tbx.clustering_method} clustering algorithm")
             self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
             self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
 
@@ -401,7 +352,7 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status(after_preprocessing_widgets, mode='disable')
             self.ui.step2_user_k_input.setDisabled(True)
         
-        if self.tbx.done_clustering:
+        if self.comet_tbx.done_clustering:
             self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
             set_widgets_status(after_clustering_widgets, mode='enable')
 
@@ -409,7 +360,7 @@ class MainMicrostateWindow(QMainWindow):
             opening_parenthesis = outputformat.find("(")
             closing_parenthesis = outputformat.find(")")
             if opening_parenthesis != -1 and closing_parenthesis != -1:
-                self.tbx.export_format = outputformat[opening_parenthesis + 1: closing_parenthesis]
+                self.comet_tbx.export_format = outputformat[opening_parenthesis + 1: closing_parenthesis]
 
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 set_widgets_status(filter_segments_widgets, mode='enable')
@@ -425,10 +376,10 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(smooth_segments_widgets, mode='disable')
 
         else:
-            self.tbx.done_labeling_microstates = False
-            self.tbx.done_backfitting = False
-            self.tbx.done_extracting_features = False
-            self.tbx.done_source_localization = False
+            self.comet_tbx.done_labeling_microstates = False
+            self.comet_tbx.done_backfitting = False
+            self.comet_tbx.done_extracting_features = False
+            self.comet_tbx.done_source_localization = False
 
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
             # set ALL disabled
@@ -436,15 +387,15 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status(after_clustering_widgets, mode='disable')
             set_widgets_status(filter_segments_widgets, mode='disable')
 
-        if self.tbx.done_labeling_microstates:
+        if self.comet_tbx.done_labeling_microstates:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
         else:
             self.ui.step3_label_maps_button.setStyleSheet("background-color: none")
-            self.tbx.done_backfitting = False
-            self.tbx.done_extracting_features = False
-            self.tbx.done_source_localization = False
+            self.comet_tbx.done_backfitting = False
+            self.comet_tbx.done_extracting_features = False
+            self.comet_tbx.done_source_localization = False
 
-        if self.tbx.done_backfitting:
+        if self.comet_tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
             self.ui.step3_backfit_visualization_button.setEnabled(True)
             set_widgets_status(feature_extraction_widgets, mode='enable')
@@ -457,20 +408,20 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(tess_widgets, mode='hide')
 
         else:
-            self.tbx.done_extracting_features = False
+            self.comet_tbx.done_extracting_features = False
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
             self.ui.step3_backfit_visualization_button.setDisabled(True)
             set_widgets_status(feature_extraction_widgets, mode='disable')
             set_widgets_status(source_localization_widgets, mode='disable')
 
-        if self.tbx.done_extracting_features:
+        if self.comet_tbx.done_extracting_features:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
             self.ui.step4_visualizefeatures_button.setEnabled(True)
         else:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
             self.ui.step4_visualizefeatures_button.setDisabled(True)
 
-        if self.tbx.done_source_localization:
+        if self.comet_tbx.done_source_localization:
             self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
             self.ui.step5_visualize_sources_button.setEnabled(True)
         else:
@@ -478,54 +429,54 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_visualize_sources_button.setDisabled(True)
 
     def update_mainwindow_gui(self):
-        if self.tbx.done_clustering:
-            self.ui.step2_clustermethod_combobox.setCurrentText(self.tbx.clustering_method)
+        if self.comet_tbx.done_clustering:
+            self.ui.step2_clustermethod_combobox.setCurrentText(self.comet_tbx.clustering_method)
             #self.clustering_option
-            if self.tbx.choose_number_of_maps == 'Auto':
+            if self.comet_tbx.choose_number_of_maps == 'Auto':
                 self.ui.step2_auto_k_radio.setChecked(True)
-            elif self.tbx.choose_number_of_maps == 'User':
+            elif self.comet_tbx.choose_number_of_maps == 'User':
                 self.ui.step2_user_k_radio.setChecked(True)
-                self.ui.step2_user_k_input.setText(str(self.tbx.number_of_maps))
-            if self.tbx.initializer == 'Random':
+                self.ui.step2_user_k_input.setText(str(self.comet_tbx.number_of_maps))
+            if self.comet_tbx.initializer == 'Random':
                 self.ui.step2_random_initializer_radio.setChecked(True)
-            elif self.tbx.initializer == 'K-Means++':
+            elif self.comet_tbx.initializer == 'K-Means++':
                 self.ui.step2_kmeans_initializer_radio.setChecked(True)
             #self.smoothing_gfp
-            self.ui.step2_kernel_size_input.setText(str(self.tbx.min_distance_size))
-            self.ui.step2_stopcondition_input.setText(str(self.tbx.clustering_tolerance))
-            self.ui.step2_user_numberofrepeats_input.setText(str(self.tbx.number_of_repeats))
+            self.ui.step2_kernel_size_input.setText(str(self.comet_tbx.min_distance_size))
+            self.ui.step2_stopcondition_input.setText(str(self.comet_tbx.clustering_tolerance))
+            self.ui.step2_user_numberofrepeats_input.setText(str(self.comet_tbx.number_of_repeats))
 
-        if self.tbx.done_backfitting:
-            if self.tbx.filter_segments:
+        if self.comet_tbx.done_backfitting:
+            if self.comet_tbx.filter_segments:
                 self.ui.step3_filter_segments_checkbox.setChecked(True)
             else:
                 self.ui.step3_filter_segments_checkbox.setChecked(False)
-            if self.tbx.backfit_to == 'all':
+            if self.comet_tbx.backfit_to == 'all':
                 self.ui.step3_backfit_all_radio.setChecked(True)
-            elif self.tbx.backfit_to == 'peaks':
+            elif self.comet_tbx.backfit_to == 'peaks':
                 self.ui.step3_backfit_peaks_radio.setChecked(True)
 
     def visualize_elbow(self):
-        self.ElbowVisualizationDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
-        self.ElbowVisualizationDialog.extension = self.tbx.extension
-        self.ElbowVisualizationDialog.datatype = self.tbx.datatype
+        self.ElbowVisualizationDialog.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
+        self.ElbowVisualizationDialog.extension = self.comet_tbx.extension
+        self.ElbowVisualizationDialog.datatype = self.comet_tbx.datatype
         if self.ui.step2_use_percent_radio.isChecked():
-            self.tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
+            self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
         else:
-            self.tbx.use_percentages = None
-        self.ElbowVisualizationDialog.use_percentages = self.tbx.use_percentages
-        self.ElbowVisualizationDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.tbx.sample_rate))
+            self.comet_tbx.use_percentages = None
+        self.ElbowVisualizationDialog.use_percentages = self.comet_tbx.use_percentages
+        self.ElbowVisualizationDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.comet_tbx.sample_rate))
         self.ElbowVisualizationDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
         self.ElbowVisualizationDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
-        self.tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
-        self.ElbowVisualizationDialog.max_iterations = self.tbx.max_iterations
+        self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
+        self.ElbowVisualizationDialog.max_iterations = self.comet_tbx.max_iterations
         self.ElbowVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.ElbowVisualizationDialog.showMaximized()
 
     def do_clustering(self):
 
         # Check if the analysis is already done.
-        if self.tbx.done_clustering:
+        if self.comet_tbx.done_clustering:
             ret = QMessageBox.question(self, 'MessageBox', "Data has been clustered once,"
                                                            " do you want to redo the analysis?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -533,85 +484,77 @@ class MainMicrostateWindow(QMainWindow):
             if ret == QMessageBox.Yes:
                 self.do_clustering_from_scratch = True
                 # Remove the previous log
-                self.tbx.done_clustering = False
-                self.tbx.done_labeling_microstates = False
-                self.tbx.done_backfitting = False
-                self.tbx.done_extracting_features = False
-                self.tbx.done_source_localization = False
+                self.comet_tbx.done_clustering = False
+                self.comet_tbx.done_labeling_microstates = False
+                self.comet_tbx.done_backfitting = False
+                self.comet_tbx.done_extracting_features = False
+                self.comet_tbx.done_source_localization = False
         else:
             self.do_clustering_from_scratch = True
 
         if self.do_clustering_from_scratch:
-            if not os.path.exists(self.tbx.raw_features_path):
-                os.makedirs(self.tbx.raw_features_path)
             if self.ui.step2_kernel_size_input.text():
-                self.tbx.smoothing_gfp = True
-                self.tbx.smoothing_distance = int(self.ui.step2_kernel_size_input.text())
-                # self.tbx.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.sample_rate))
+                self.comet_tbx.smoothing_gfp = True
+                self.comet_tbx.smoothing_distance = int(self.ui.step2_kernel_size_input.text())
+                # self.comet_tbx.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.sample_rate))
             else:
                 self.smoothing_gfp = False
-                self.tbx.smoothing_distance = ''
+                self.comet_tbx.smoothing_distance = ''
                 # self.min_distance_size = []
             if self.ui.step2_auto_k_radio.isChecked():
-                self.tbx.choose_number_of_maps = "auto"
+                self.comet_tbx.choose_number_of_maps = "auto"
                 # if self.ui.step2_stopping_traditional_radio.isChecked():
-                #     self.tbx.elbow_version = 'traditional'
+                #     self.comet_tbx.elbow_version = 'traditional'
                 # else:
-                #     self.tbx.elbow_version = 'modified'
-                self.tbx.kmin = int(self.ui.step2_auto_range_kmin_combobox.currentText())
-                self.tbx.kmax = int(self.ui.step2_auto_range_kmax_combobox.currentText())
+                #     self.comet_tbx.elbow_version = 'modified'
+                self.comet_tbx.kmin = int(self.ui.step2_auto_range_kmin_combobox.currentText())
+                self.comet_tbx.kmax = int(self.ui.step2_auto_range_kmax_combobox.currentText())
 
                 auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
                 if auto_k_method == 'Global Explained Variance':
-                    self.tbx.stopping_mode = 'gev'
+                    self.comet_tbx.stopping_mode = 'gev'
                 elif auto_k_method == 'Residual Variance':
-                    self.tbx.stopping_mode = 'res'
+                    self.comet_tbx.stopping_mode = 'res'
                 elif auto_k_method == 'Silhouette Score':
-                    self.tbx.stopping_mode = 'sil'
+                    self.comet_tbx.stopping_mode = 'sil'
 
-                self.tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
-                self.tbx.number_of_maps = 'auto'
+                self.comet_tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
+                self.comet_tbx.number_of_maps = 'auto'
             elif self.ui.step2_user_k_radio.isChecked():
-                self.tbx.choose_number_of_maps = "user"
-                self.tbx.stopping_mode = ''
-                self.tbx.stopping_parameter = ''
-                self.tbx.kmin = ''
-                self.tbx.kmax = ''
-                self.tbx.number_of_maps = int(self.ui.step2_user_k_input.text())
+                self.comet_tbx.choose_number_of_maps = "user"
+                self.comet_tbx.stopping_mode = ''
+                self.comet_tbx.stopping_parameter = ''
+                self.comet_tbx.kmin = ''
+                self.comet_tbx.kmax = ''
+                self.comet_tbx.number_of_maps = int(self.ui.step2_user_k_input.text())
             #print(self.number_of_maps)
             if self.ui.step2_random_initializer_radio.isChecked():
-                self.tbx.initializer = "Random"
+                self.comet_tbx.initializer = "Random"
             elif self.ui.step2_kmeans_initializer_radio.isChecked():
-                self.tbx.initializer = "K-Means++"
-            self.tbx.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
-            print(self.tbx.clustering_method)
+                self.comet_tbx.initializer = "K-Means++"
+            self.comet_tbx.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
+            print(self.comet_tbx.clustering_method)
 
             if self.ui.step2_use_percent_radio.isChecked():
-                self.tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
+                self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
             else:
-                self.tbx.use_percentages = None
-            self.tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
-            self.tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-            self.tbx.clustering_option = self.ui.step2_other_options_combobox.currentText()
-            self.tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+                self.comet_tbx.use_percentages = None
+            self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
+            self.comet_tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+            self.comet_tbx.clustering_option = self.ui.step2_other_options_combobox.currentText()
+            self.comet_tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
-            self.tbx.do_clustering()
+            self.comet_tbx.do_clustering()
 
             self.label_maps()
-            self.tbx.done_clustering = True
-            self.tbx.save_tbx()
-            
-            # self.use_saved_results = True
-            self.ui.step0_log_textbrowser.insertPlainText("\n" + "Global Explained Variance: " + str(self.tbx.gev) + "\n")
-            self.ui.step0_log_textbrowser.insertPlainText("\n" + 20 * "* ")
-            self.ui.step0_log_textbrowser.insertPlainText("\n" + "Clustering is done.\n")
-            self.ui.step0_log_textbrowser.insertPlainText(20 * "* " + "\n")
+            self.comet_tbx.done_clustering = True
+            self.comet_tbx.save_tbx()
 
             self.mainwindow_controller()
 
     def do_backfitting(self):
 
-        if self.tbx.done_backfitting:
+        if self.comet_tbx.done_backfitting:
             ret = QMessageBox.question(self, 'MessageBox', "Microstates have been backfitted to data once,"
                                                            " do you want to redo backfitting_utils?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -622,47 +565,47 @@ class MainMicrostateWindow(QMainWindow):
             self.do_backfitting_from_scratch = True
 
         if self.do_backfitting_from_scratch:
-            self.tbx.done_extracting_features = False
-            self.tbx.done_source_localization = False
+            self.comet_tbx.done_extracting_features = False
+            self.comet_tbx.done_source_localization = False
             
             if self.ui.step3_backfit_all_radio.isChecked():
-                self.tbx.backfit_to = 'all'
+                self.comet_tbx.backfit_to = 'all'
             elif self.ui.step3_backfit_peaks_radio.isChecked():
-                self.tbx.backfit_to = 'peaks'
+                self.comet_tbx.backfit_to = 'peaks'
 
-            self.tbx.epsilon = ''
-            self.tbx.b = ''
-            self.tbx.lamb = ''
+            self.comet_tbx.epsilon = ''
+            self.comet_tbx.b = ''
+            self.comet_tbx.lamb = ''
             if self.ui.step3_filter_segments_checkbox.isChecked():
-                self.tbx.filter_segments = True
-                self.tbx.remove_segments_less_than = int(int(self.ui.step3_filter_segments_input.text())/(1000/self.tbx.sample_rate))
+                self.comet_tbx.filter_segments = True
+                self.comet_tbx.remove_segments_less_than = int(int(self.ui.step3_filter_segments_input.text())/(1000/self.comet_tbx.sample_rate))
                 filter_segments_method = self.ui.step3_filter_segments_method_combobox.currentText()
                 if filter_segments_method == 'Replace short segments: nearby dominant microstate':
-                    self.tbx.filter_segments_option = 'replace_high'
+                    self.comet_tbx.filter_segments_option = 'replace_high'
                 elif filter_segments_method == 'Replace short segments: half and half':
-                    self.tbx.filter_segments_option = 'replace_half'
+                    self.comet_tbx.filter_segments_option = 'replace_half'
                 elif filter_segments_method == 'Remove short segments':
-                    self.tbx.filter_segments_option = 'remove'
+                    self.comet_tbx.filter_segments_option = 'remove'
                 elif filter_segments_method == 'Smooth segments':
-                    self.tbx.filter_segments_option = 'smooth'
-                    self.tbx.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
-                    self.tbx.b = self.tbx.remove_segments_less_than
-                    self.tbx.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
+                    self.comet_tbx.filter_segments_option = 'smooth'
+                    self.comet_tbx.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
+                    self.comet_tbx.b = self.comet_tbx.remove_segments_less_than
+                    self.comet_tbx.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
 
             else:
-                self.tbx.filter_segments = False
-                self.tbx.filter_segments_option = ''
-                self.tbx.remove_segments_less_than = []
+                self.comet_tbx.filter_segments = False
+                self.comet_tbx.filter_segments_option = ''
+                self.comet_tbx.remove_segments_less_than = []
 
-            self.tbx.do_backfitting()
-            self.tbx.save_tbx()
+            self.comet_tbx.do_backfitting()
+            self.comet_tbx.save_tbx()
             self.mainwindow_controller()
 
     def label_maps(self):
 
         just_show_labels = False
 
-        if self.tbx.done_labeling_microstates:
+        if self.comet_tbx.done_labeling_microstates:
             ret = QMessageBox.question(self, 'MessageBox', "Microstates have been labeled once,"
                                                            " do you want to relabel microstates?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -678,32 +621,32 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.show_labelling_window:
             if just_show_labels == True:
-                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
-                self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
-                self.MicrostateVisualizationDialog.n_states = self.tbx.best_maps.shape[0]
-                self.MicrostateVisualizationDialog.microstate_maps = self.tbx.best_maps
-                self.MicrostateVisualizationDialog.eeg_info = self.tbx.eeg_info
-                self.MicrostateVisualizationDialog.microstates_combobox.addItems([str(i) for i in range(self.tbx.best_maps.shape[0])])
-                self.MicrostateVisualizationDialog.microstates_image_path = os.path.join(self.tbx.save_dir, f"{self.tbx.study_name}_microstates.png")
-                self.MicrostateVisualizationDialog.set_layout(self.tbx.micro_labels)
+                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.comet_tbx)
+                self.MicrostateVisualizationDialog.save_dir = self.comet_tbx.save_dir
+                self.MicrostateVisualizationDialog.n_states = self.comet_tbx.best_maps.shape[0]
+                self.MicrostateVisualizationDialog.microstate_maps = self.comet_tbx.best_maps
+                self.MicrostateVisualizationDialog.eeg_info = self.comet_tbx.eeg_info
+                self.MicrostateVisualizationDialog.microstates_combobox.addItems([str(i) for i in range(self.comet_tbx.best_maps.shape[0])])
+                self.MicrostateVisualizationDialog.microstates_image_path = os.path.join(self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_microstates.png")
+                self.MicrostateVisualizationDialog.set_layout(self.comet_tbx.micro_labels)
                 self.MicrostateVisualizationDialog.plot_maps()
                 self.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
                 self.MicrostateVisualizationDialog.showMaximized()
 
                 self.mainwindow_controller()
             else:
-                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.tbx)
-                self.tbx.done_labeling_microstates = False
-                self.tbx.done_backfitting = False
-                self.tbx.done_extracting_features = False
-                self.tbx.done_source_localization = False
+                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.comet_tbx)
+                self.comet_tbx.done_labeling_microstates = False
+                self.comet_tbx.done_backfitting = False
+                self.comet_tbx.done_extracting_features = False
+                self.comet_tbx.done_source_localization = False
 
-                self.MicrostateVisualizationDialog.save_dir = self.tbx.save_dir
-                self.MicrostateVisualizationDialog.n_states = self.tbx.best_maps.shape[0]
-                self.MicrostateVisualizationDialog.microstate_maps = self.tbx.best_maps
-                self.MicrostateVisualizationDialog.eeg_info = self.tbx.eeg_info
-                self.MicrostateVisualizationDialog.microstates_combobox.addItems([str(i) for i in range(self.tbx.best_maps.shape[0])])
-                self.MicrostateVisualizationDialog.microstates_image_path = os.path.join(self.tbx.save_dir, f"{self.tbx.study_name}_microstates.png")
+                self.MicrostateVisualizationDialog.save_dir = self.comet_tbx.save_dir
+                self.MicrostateVisualizationDialog.n_states = self.comet_tbx.best_maps.shape[0]
+                self.MicrostateVisualizationDialog.microstate_maps = self.comet_tbx.best_maps
+                self.MicrostateVisualizationDialog.eeg_info = self.comet_tbx.eeg_info
+                self.MicrostateVisualizationDialog.microstates_combobox.addItems([str(i) for i in range(self.comet_tbx.best_maps.shape[0])])
+                self.MicrostateVisualizationDialog.microstates_image_path = os.path.join(self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_microstates.png")
                 self.MicrostateVisualizationDialog.set_layout()
                 self.MicrostateVisualizationDialog.plot_maps()
                 self.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
@@ -713,12 +656,12 @@ class MainMicrostateWindow(QMainWindow):
 
 
     def visualize_microstate_segmentation(self):
-        self.BackfittingVisualizationDialog.preprocessed_data_path = self.tbx.preprocessed_data_path
-        self.BackfittingVisualizationDialog.extension = self.tbx.extension
-        self.BackfittingVisualizationDialog.datatype = self.tbx.datatype
-        self.BackfittingVisualizationDialog.eeg_filenames_combobox.addItems([i for i in self.tbx.list_eegs])
-        self.BackfittingVisualizationDialog.segmentation_path = self.tbx.segmentation_path
-        self.BackfittingVisualizationDialog.export_format = self.tbx.export_format
+        self.BackfittingVisualizationDialog.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
+        self.BackfittingVisualizationDialog.extension = self.comet_tbx.extension
+        self.BackfittingVisualizationDialog.datatype = self.comet_tbx.datatype
+        self.BackfittingVisualizationDialog.eeg_filenames_combobox.addItems([i for i in self.comet_tbx.list_eegs])
+        self.BackfittingVisualizationDialog.segmentation_path = self.comet_tbx.segmentation_path
+        self.BackfittingVisualizationDialog.export_format = self.comet_tbx.export_format
         self.BackfittingVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.BackfittingVisualizationDialog.showMaximized()
 
@@ -736,48 +679,46 @@ class MainMicrostateWindow(QMainWindow):
             self.do_extracting_features_from_scratch = True
 
         if self.do_extracting_features_from_scratch:
-            self.tbx.done_extracting_features = False
+            self.comet_tbx.done_extracting_features = False
             self.mainwindow_controller()
 
-            self.tbx.feature_list = []
+            self.comet_tbx.feature_list = []
             features2extract = self.ui.step4_features2extract_combobox.currentData()
             for feature in features2extract:
                 opening_parenthesis = feature.find('(')
                 closing_parenthesis = feature.find(')')
                 if opening_parenthesis != -1 and closing_parenthesis != -1:
                     extracted_feature = feature[opening_parenthesis + 1: closing_parenthesis]
-                    self.tbx.feature_list.append(extracted_feature)
+                    self.comet_tbx.feature_list.append(extracted_feature)
 
-            self.tbx.feature_mode = []
+            self.comet_tbx.feature_mode = []
             if self.ui.step4_static_features_checkbox.isChecked():
-                self.tbx.feature_mode.append('static')
+                self.comet_tbx.feature_mode.append('static')
             if self.ui.step4_dynamic_features_checkbox.isChecked():
-                self.tbx.feature_mode.append('dynamic')
+                self.comet_tbx.feature_mode.append('dynamic')
 
-            self.tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
+            self.comet_tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
 
-            print(self.tbx.export_format)
+            print(self.comet_tbx.export_format)
 
-            self.tbx.extract_features()
-            self.tbx.save_tbx()
-            self.tbx.done_extracting_features = True
+            self.comet_tbx.extract_features()
+            self.comet_tbx.save_tbx()
+            self.comet_tbx.done_extracting_features = True
 
             # Show a message box to inform the user about the successful image save
             QMessageBox.information(self,
                                     "Extraction Successful",
-                                    f"The {self.tbx.feature_mode} features have been successfully extracted.",
+                                    f"The {self.comet_tbx.feature_mode} features have been successfully extracted.",
                                     QMessageBox.Ok)
 
-            self.ui.step0_log_textbrowser.insertPlainText("\n" + 20 * "* ")
-            self.ui.step0_log_textbrowser.insertPlainText("\n" + "Features are extracted.\n")
             self.mainwindow_controller()
 
     def visualize_microstate_features(self):
 
-        self.FeatureVisualizationDialog.extracted_features_path = self.tbx.extracted_features_path
-        self.FeatureVisualizationDialog.export_format = self.tbx.export_format
-        self.FeatureVisualizationDialog.feature_combo.addItems([i for i in self.tbx.feature_list])
-        self.FeatureVisualizationDialog.list_eegs = self.tbx.list_eegs
+        self.FeatureVisualizationDialog.extracted_features_path = self.comet_tbx.extracted_features_path
+        self.FeatureVisualizationDialog.export_format = self.comet_tbx.export_format
+        self.FeatureVisualizationDialog.feature_combo.addItems([i for i in self.comet_tbx.feature_list])
+        self.FeatureVisualizationDialog.list_eegs = self.comet_tbx.list_eegs
         self.FeatureVisualizationDialog.reset_groups()
         self.FeatureVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.FeatureVisualizationDialog.showMaximized()
@@ -785,7 +726,7 @@ class MainMicrostateWindow(QMainWindow):
 
     def source_localize_microstates(self):
         
-        if self.tbx.done_source_localization:
+        if self.comet_tbx.done_source_localization:
             ret = QMessageBox.question(self, 'MessageBox', "Microstates have been source localized once,"
                                                            " do you want to source localize microstates again?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -796,30 +737,30 @@ class MainMicrostateWindow(QMainWindow):
             self.do_source_localization_from_scratch = True
 
         if self.do_source_localization_from_scratch:
-            self.tbx.done_source_localization = False
+            self.comet_tbx.done_source_localization = False
             self.mainwindow_controller()
 
             if self.step5_use_fsaverage_radio.isChecked():
-                self.tbx.use_anatomy = "fsaverage"
+                self.comet_tbx.use_anatomy = "fsaverage"
             elif self.step5_use_individual_radio.isChecked():
-                self.tbx.use_anatomy = "individual"
-                self.tbx.individual_subjects_dir = QFileDialog.getExistingDirectory(self, "Locate Folder with Individual Anatomical Reconstructions")
+                self.comet_tbx.use_anatomy = "individual"
+                self.comet_tbx.individual_subjects_dir = QFileDialog.getExistingDirectory(self, "Locate Folder with Individual Anatomical Reconstructions")
 
             inverse_method = self.ui.step5_inverse_method_combobox.currentText()
-            self.tbx.inverse_method = inverse_method[inverse_method.find("(") + 1:inverse_method.find(")")]
-            self.tbx.nperm = int(self.ui.step5_permutations_input.text())
+            self.comet_tbx.inverse_method = inverse_method[inverse_method.find("(") + 1:inverse_method.find(")")]
+            self.comet_tbx.nperm = int(self.ui.step5_permutations_input.text())
             spacing = self.ui.step5_spacing_combobox.currentText()
-            self.tbx.spacing = spacing[spacing.find("(") + 1:spacing.find(")")].lower()
+            self.comet_tbx.spacing = spacing[spacing.find("(") + 1:spacing.find(")")].lower()
 
-            self.tbx.source_localize_microstates()
-            self.tbx.save_tbx()
+            self.comet_tbx.source_localize_microstates()
+            self.comet_tbx.save_tbx()
             self.mainwindow_controller()
             
     def visualize_source_localized_microstates(self):
         # TODO
         self.SourceVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.SourceVisualizationDialog.showMaximized()
-        #visualize_sources(self.tbx.localized_sources_path, self.tbx.spacing)
+        #visualize_sources(self.comet_tbx.localized_sources_path, self.comet_tbx.spacing)
 
     def exit_msg(self, event):
         reply = QMessageBox.question(self, "Quit",

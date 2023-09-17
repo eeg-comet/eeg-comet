@@ -325,7 +325,7 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def preprocess_data(self):
-        self.save_preprocessed_path = os.path.join(self.save_dir, 'preprocessed_data')
+        self.preprocessed_data_path = os.path.join(self.save_dir, self.study_name+'_preprocessed_data')
 
         if self.ui.step0_no_option_checkbox.isChecked():
             self.filter_data = False
@@ -367,7 +367,7 @@ class NewStudyWindow(QDialog):
             self.ch2rm = 'missing'
 
         # print("preprocessing data ...")
-        self.tbx.preprocessed_data_path = self.save_preprocessed_path
+        self.tbx.preprocessed_data_path = self.preprocessed_data_path
         self.tbx.filter_data = self.filter_data
         self.tbx.filter_method = self.filter_method
         self.tbx.lowcut_freq = self.lowcut_freq
