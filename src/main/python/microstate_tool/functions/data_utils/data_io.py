@@ -55,7 +55,7 @@ class DataIO:
         Inputs:
         - input_folder (str): Folder path where data files are located.
         - extension (str): File extension to search for (e.g., ".hdf").
-        - pattern (str): Pattern to match in file names (e.g., "*").
+        - pattern (str): Pattern to match in file names (e.g., "eyes_closed").
     
         Outputs:
         - list_path (list): List of file paths matching the search criteria.

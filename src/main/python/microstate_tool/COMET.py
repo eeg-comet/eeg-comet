@@ -68,7 +68,6 @@ class COMET:
 		# clustering_utils
 		self.smoothing_gfp = config.getboolean('do_clustering', 'smoothing_gfp')
 		self.smoothing_distance = config.getint('do_clustering', 'smoothing_distance') if self.smoothing_gfp else ''
-		self.raw_features_path = os.path.join(self.save_dir, 'raw_features')
 		number_of_maps = config['do_clustering']['number_of_maps']
 		self.number_of_maps = number_of_maps if number_of_maps=='auto' else int(number_of_maps)
 		self.choose_number_of_maps = 'Auto' if number_of_maps == 'auto' else 'User'
@@ -83,7 +82,7 @@ class COMET:
 		need_options = ['X-means', 'Agglomerative hierarchical clustering_utils', 'K-means']
 		self.clustering_option = config['do_clustering']['clustering_option'] if self.clustering_method in need_options else ''
 		self.number_of_repeats = config.getint('do_clustering', 'number_of_repeats')
-		self.microstate_maps_path = os.path.join(self.raw_features_path, 'microstate_maps.csv')
+		self.microstate_maps_path = os.path.join(self.save_dir, 'microstate_maps.csv')
 		self.use_percentages = config.getint('do_clustering', 'use_percentages')
 
 		# backfitting_utils
@@ -100,15 +99,13 @@ class COMET:
 		# extract feature
 		self.extracted_features_path = os.path.join(self.save_dir, 'extracted_features')
 		self.segmentation_path = os.path.join(self.save_dir, 'segmentations')
-		self.raw_transitions_path = os.path.join(self.raw_features_path, 'raw_transitions')
 		self.export_format = config['extract_features']['export_format']
 		self.feature_list = [x for x in config['extract_features']['feature_list'].split(',')]
 		self.save_transitions_bool = True if 'TP' in self.feature_list else False
 		self.window_size = config.getint('extract_features', 'window_size') if 'OCC' in self.feature_list else ''
 
 		# source localize microstates
-		self.localized_sources_path = os.path.join(self.raw_features_path, 'localized_sources')
-		# self.microstate_maps_path = os.path.join(self.raw_features_path, 'microstate_maps.csv')
+		self.localized_sources_path = os.path.join(self.save_dir, 'localized_sources')
 		self.inverse_method = config['source_localize_microstates']['inverse_method']
 		self.nperm = config.getint('source_localize_microstates', 'nperm')
 		self.spacing = config['source_localize_microstates']['spacing']
@@ -196,8 +193,6 @@ class COMET:
 			
 
 	def do_clustering(self):
-		if not os.path.exists(self.raw_features_path):
-			os.makedirs(self.raw_features_path)
 
 		if self.smoothing_gfp:
 			self.min_distance_size = int(self.smoothing_distance/(1000/self.sample_rate))
@@ -269,7 +264,7 @@ class COMET:
 		directory = os.getcwd()
 		directory = os.path.basename(directory)
 		print(directory)
-		if directory == 'EEG-Microstate-Feature-Extraction':
+		if directory == 'EEG-COMET':
 			model_path = './src/main/python/microstate_tool/models/model_v1.11.h5' 
 		else:
 			model_path = './models/model_v1.11.h5'
@@ -443,17 +438,16 @@ class COMET:
 		elif self.use_anatomy == "individual":
 			subjects_dir = self.individual_subjects_dir
 
-		stc_path = os.path.join(self.save_dir, "stc")
-		if not os.path.exists(stc_path):
-			os.makedirs(stc_path)
-
 		source_localizer = SourceLocalizer(subjects_dir,
-										   stc_path,
+										   self.localized_sources_path,
 										   self.preprocessed_data_path,
+										   self.segmentation_path,
 										   self.extension,
 										   self.datatype,
 										   self.spacing,
-										   self.inverse_method)
+										   self.inverse_method,
+										   self.best_maps,
+										   self.nperm)
 		source_localizer.run_source_localization()
 
 		self.done_source_localization = True

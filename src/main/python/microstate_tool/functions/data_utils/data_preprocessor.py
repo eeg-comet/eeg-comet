@@ -43,7 +43,7 @@ class DataPreprocessor:
 
         # Apply filtering
         if filter_true:
-            eeg = eeg.filter(l_freq=lowcut, h_freq=highcut, method=filtermethod, n_jobs=-1, verbose=verbose)
+            eeg = eeg.filter(l_freq=lowcut, h_freq=highcut, method=filtermethod, phase='zero-double', n_jobs=-1, verbose=verbose)
 
         # Apply downsampling
         sfreq = eeg.info['sfreq']

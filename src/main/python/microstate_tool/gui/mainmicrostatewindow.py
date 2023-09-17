@@ -119,17 +119,17 @@ class MainMicrostateWindow(QMainWindow):
         # self.ui.export_settings_action.triggered.connect(self.export_settings)
 
     def open_github(self):
-        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction')
+        webbrowser.open('https://github.com/eBrainLab/EEG-COMET')
 
     def report_issues(self):
-        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/issues/new')
+        webbrowser.open('https://github.com/eBrainLab/EEG-COMET/issues/new')
 
     def update_toolbox(self):
         ret = QMessageBox.question(self, 'MessageBox', "Download toolbox?",
                                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
         if ret == QMessageBox.Yes:
             webbrowser.open(
-                'https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/archive/refs/heads/main.zip')
+                'https://github.com/eBrainLab/EEG-COMET/archive/refs/heads/main.zip')
 
     def open_new_study_dialog(self):
         self.ui.step0_log_textbrowser.clear()
@@ -167,7 +167,7 @@ class MainMicrostateWindow(QMainWindow):
         self.tbx.stc_path = os.path.join(self.tbx.localized_sources_path, 'stc_data.npy')
         # Load preprocessing information
         if self.tbx.done_preprocessing:
-            self.tbx.segmentation_path = os.path.join(self.tbx.raw_features_path, self.tbx.study_name+'_segmentation.hdf')
+            self.tbx.segmentation_path = os.path.join(self.tbx.save_dir, self.tbx.study_name+'_segmentation')
 
             # Show study name on the main window
             self.ui.step0_study_name_mainwin_lineedit.setText(self.tbx.study_name)
@@ -294,6 +294,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_backfit_all_radio,
             self.ui.step3_backfit_peaks_radio,
             self.ui.step3_filter_segments_checkbox,
+            self.ui.step3_identify_short_checkbox,
             self.ui.step3_backfit_button
         ]
 
@@ -449,6 +450,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
+            self.ui.step3_backfit_visualization_button.setEnabled(True)
             set_widgets_status(feature_extraction_widgets, mode='enable')
             set_widgets_status(source_localization_widgets, mode='enable')
 
@@ -456,6 +458,7 @@ class MainMicrostateWindow(QMainWindow):
             self.tbx.done_extracting_features = False
             self.tbx.done_extracting_microsegments = False
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
+            self.ui.step3_backfit_visualization_button.setDisabled(True)
             set_widgets_status(feature_extraction_widgets, mode='disable')
             set_widgets_status(source_localization_widgets, mode='disable')
 
