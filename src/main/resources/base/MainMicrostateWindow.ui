@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>2967</width>
-    <height>1712</height>
+    <width>891</width>
+    <height>1651</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -260,9 +260,9 @@
         <property name="geometry">
          <rect>
           <x>0</x>
-          <y>-507</y>
-          <width>2192</width>
-          <height>2156</height>
+          <y>0</y>
+          <width>534</width>
+          <height>1601</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -271,74 +271,6 @@
            <property name="sizeConstraint">
             <enum>QLayout::SetDefaultConstraint</enum>
            </property>
-           <item row="4" column="1">
-            <widget class="QComboBox" name="step2_clustermethod_combobox">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <item>
-              <property name="text">
-               <string>Modified K-means</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>K-means</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>X-means</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Agglomerative hierarchical clustering</string>
-              </property>
-             </item>
-            </widget>
-           </item>
-           <item row="19" column="1">
-            <widget class="QLineEdit" name="step2_user_numberofrepeats_input">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="inputMethodHints">
-              <set>Qt::ImhDigitsOnly</set>
-             </property>
-             <property name="text">
-              <string>5</string>
-             </property>
-             <property name="maxLength">
-              <number>4</number>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
            <item row="6" column="1">
             <layout class="QGridLayout" name="gridLayout_2">
              <item row="1" column="2" colspan="2">
@@ -689,6 +621,346 @@
              </item>
             </layout>
            </item>
+           <item row="30" column="1">
+            <layout class="QGridLayout" name="gridLayout_8">
+             <item row="0" column="0">
+              <widget class="QLabel" name="step3_filter_segments_label">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Window size:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QLabel" name="step3_filter_segments_label_2">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>ms</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>1E-6</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Convergence criterion:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="step3_filter_segments_input">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>20</string>
+               </property>
+               <property name="maxLength">
+                <number>3</number>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="step3_smooth_segments_lambda_label">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Non-smoothness penalty:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>5</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="25" column="1">
+            <widget class="Line" name="line_7">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="36" column="1">
+            <widget class="QLabel" name="step4_featurestoextract_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Features to extract:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="23" column="1">
+            <widget class="Line" name="line_2">
+             <property name="lineWidth">
+              <number>2</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="32" column="1">
+            <widget class="QPushButton" name="step3_backfit_visualization_button">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+              </font>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="text">
+              <string>Visualize Backfitting</string>
+             </property>
+            </widget>
+           </item>
+           <item row="31" column="1">
+            <widget class="QPushButton" name="step3_backfit_button">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="text">
+              <string>Start Backfitting</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="1">
+            <widget class="QCheckBox" name="step2_advanced_checkbox">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Advanced options:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="27" column="1">
+            <widget class="QRadioButton" name="step3_backfit_peaks_radio">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Backfit microstate maps to GFP peaks</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_4</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="28" column="1">
+            <widget class="QCheckBox" name="step3_filter_segments_checkbox">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Filter short segments</string>
+             </property>
+            </widget>
+           </item>
+           <item row="11" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_10">
+             <item>
+              <widget class="QRadioButton" name="step2_random_initializer_radio">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Random</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup</string>
+               </attribute>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="step2_kmeans_initializer_radio">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>K-Means++</string>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup</string>
+               </attribute>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="15" column="1">
+            <widget class="QLineEdit" name="step2_maxiter_input">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>500</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
            <item row="13" column="1">
             <layout class="QGridLayout" name="gridLayout_7">
              <item row="1" column="0">
@@ -885,79 +1157,6 @@
              </item>
             </layout>
            </item>
-           <item row="11" column="1">
-            <layout class="QHBoxLayout" name="horizontalLayout_10">
-             <item>
-              <widget class="QRadioButton" name="step2_random_initializer_radio">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Random</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup</string>
-               </attribute>
-              </widget>
-             </item>
-             <item>
-              <widget class="QRadioButton" name="step2_kmeans_initializer_radio">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>K-Means++</string>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup</string>
-               </attribute>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item row="15" column="1">
-            <widget class="QLineEdit" name="step2_maxiter_input">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>500</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
            <item row="17" column="1">
             <widget class="QLineEdit" name="step2_stopcondition_input">
              <property name="enabled">
@@ -982,59 +1181,6 @@
              </property>
             </widget>
            </item>
-           <item row="9" column="1">
-            <widget class="QComboBox" name="step2_other_options_combobox">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-            </widget>
-           </item>
-           <item row="49" column="1">
-            <widget class="QLabel" name="step5_permutations_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Number of permutations:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="54" column="1">
-            <widget class="QPushButton" name="step5_visualize_sources_button">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
-             <property name="text">
-              <string>Visualize Microstate Locallized Sources</string>
-             </property>
-            </widget>
-           </item>
            <item row="8" column="1">
             <widget class="QLabel" name="step2_other_label">
              <property name="enabled">
@@ -1055,6 +1201,106 @@
              </property>
              <property name="text">
               <string>Options:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="56" column="1">
+            <widget class="QPushButton" name="step5_visualize_sources_button">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="text">
+              <string>Visualize Microstate Locallized Sources</string>
+             </property>
+            </widget>
+           </item>
+           <item row="51" column="1">
+            <widget class="QLabel" name="step5_permutations_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Number of permutations:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="9" column="1">
+            <widget class="QComboBox" name="step2_other_options_combobox">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+           <item row="34" column="1">
+            <widget class="QLabel" name="step4_features_title_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>⚫ Extract Features</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0" colspan="2">
+            <widget class="Line" name="line_11">
+             <property name="lineWidth">
+              <number>2</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="46" column="1">
+            <widget class="Line" name="line_9">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="35" column="1">
+            <widget class="Line" name="line_8">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
              </property>
             </widget>
            </item>
@@ -1087,7 +1333,7 @@
              </property>
             </widget>
            </item>
-           <item row="53" column="1">
+           <item row="55" column="1">
             <widget class="QPushButton" name="step5_estimate_sources_button">
              <property name="enabled">
               <bool>false</bool>
@@ -1116,15 +1362,8 @@
              </property>
             </widget>
            </item>
-           <item row="46" column="1">
-            <widget class="Line" name="line_9">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="0" colspan="2">
-            <widget class="Line" name="line_11">
+           <item row="33" column="1">
+            <widget class="Line" name="line_3">
              <property name="lineWidth">
               <number>2</number>
              </property>
@@ -1133,15 +1372,29 @@
              </property>
             </widget>
            </item>
-           <item row="35" column="1">
-            <widget class="Line" name="line_8">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+           <item row="10" column="1">
+            <widget class="QLabel" name="step2_initializer_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Map initializer:</string>
              </property>
             </widget>
            </item>
-           <item row="34" column="1">
-            <widget class="QLabel" name="step4_features_title_label">
+           <item row="24" column="1">
+            <widget class="QLabel" name="step3_backfit_title_label">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1159,22 +1412,53 @@
               </font>
              </property>
              <property name="text">
-              <string>⚫ Extract Features</string>
+              <string>⚫ Backfitting</string>
              </property>
             </widget>
            </item>
-           <item row="33" column="1">
-            <widget class="Line" name="line_3">
-             <property name="lineWidth">
-              <number>2</number>
+           <item row="14" column="1">
+            <widget class="QLabel" name="step2_maxiter_label">
+             <property name="enabled">
+              <bool>false</bool>
              </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Maximum Number of Iterations</string>
              </property>
             </widget>
            </item>
-           <item row="36" column="1">
-            <widget class="QLabel" name="step4_featurestoextract_label">
+           <item row="22" column="1">
+            <widget class="QPushButton" name="step3_label_maps_button">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="text">
+              <string>Label Microstate Maps</string>
+             </property>
+            </widget>
+           </item>
+           <item row="26" column="1">
+            <widget class="QRadioButton" name="step3_backfit_all_radio">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1187,38 +1471,38 @@
              <property name="font">
               <font>
                <pointsize>12</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
               </font>
              </property>
              <property name="text">
-              <string>Features to extract:</string>
+              <string>Backfit microstate maps to all time points</string>
              </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_4</string>
+             </attribute>
             </widget>
            </item>
-           <item row="32" column="1">
-            <widget class="QPushButton" name="step3_backfit_visualization_button">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
+           <item row="1" column="1">
+            <widget class="QLabel" name="step2_clustering_title_label">
+             <property name="enabled">
+              <bool>false</bool>
              </property>
              <property name="font">
               <font>
                <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
              <property name="text">
-              <string>Visualize Backfitting</string>
+              <string>⚫ Clustering</string>
              </property>
             </widget>
            </item>
-           <item row="31" column="1">
-            <widget class="QPushButton" name="step3_backfit_button">
+           <item row="21" column="1">
+            <widget class="QPushButton" name="step2_clustering_button">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1227,6 +1511,18 @@
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>16777215</height>
+              </size>
              </property>
              <property name="font">
               <font>
@@ -1239,12 +1535,38 @@
               <cursorShape>PointingHandCursor</cursorShape>
              </property>
              <property name="text">
-              <string>Start Backfitting</string>
+              <string>Start Clustering</string>
              </property>
             </widget>
            </item>
-           <item row="23" column="1">
-            <widget class="Line" name="line_2">
+           <item row="43" column="1">
+            <widget class="QPushButton" name="step4_visualizefeatures_button">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="text">
+              <string>Visualize Extracted Features</string>
+             </property>
+            </widget>
+           </item>
+           <item row="44" column="1">
+            <widget class="Line" name="line">
              <property name="lineWidth">
               <number>2</number>
              </property>
@@ -1253,8 +1575,8 @@
              </property>
             </widget>
            </item>
-           <item row="7" column="1">
-            <widget class="QCheckBox" name="step2_advanced_checkbox">
+           <item row="5" column="1">
+            <widget class="QLabel" name="step2_numberofmaps_label">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1270,19 +1592,153 @@
               </font>
              </property>
              <property name="text">
-              <string>Advanced options:</string>
+              <string>Number of microstates to extract:</string>
              </property>
             </widget>
            </item>
-           <item row="25" column="1">
-            <widget class="Line" name="line_7">
+           <item row="42" column="1">
+            <widget class="QPushButton" name="step4_extractfeatures_button">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="text">
+              <string>Extract Selected Features</string>
+             </property>
+            </widget>
+           </item>
+           <item row="57" column="0" colspan="2">
+            <widget class="Line" name="line_5">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
             </widget>
            </item>
-           <item row="27" column="1">
-            <widget class="QRadioButton" name="step3_backfit_peaks_radio">
+           <item row="2" column="1">
+            <widget class="Line" name="line_6">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="54" column="1">
+            <widget class="QComboBox" name="step5_spacing_combobox">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <item>
+              <property name="text">
+               <string>Recursively Subdivided Icosahedron - 642 sources/hemisphere (ICO3)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Recursively Subdivided Icosahedron - 2562 sources/hemisphere (ICO4)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Recursively Subdivided Icosahedron - 10242 sources/hemisphere (ICO5)</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="49" column="1">
+            <widget class="QLabel" name="step5_inverse_method_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Inverse method: </string>
+             </property>
+            </widget>
+           </item>
+           <item row="12" column="1">
+            <widget class="QLabel" name="step2_select_times_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Select time points for clustering</string>
+             </property>
+            </widget>
+           </item>
+           <item row="45" column="1">
+            <widget class="QLabel" name="step5_source_localization_title_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>⚫ Source Localization of Microstates</string>
+             </property>
+            </widget>
+           </item>
+           <item row="53" column="1">
+            <widget class="QLabel" name="step5_spacing_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>The spacing to use:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="18" column="1">
+            <widget class="QLabel" name="step2_numberofrepeats_label">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1298,15 +1754,12 @@
               </font>
              </property>
              <property name="text">
-              <string>Backfit microstate maps to GFP peaks</string>
+              <string>Number of Repeats:</string>
              </property>
-             <attribute name="buttonGroup">
-              <string notr="true">buttonGroup_4</string>
-             </attribute>
             </widget>
            </item>
-           <item row="28" column="1">
-            <widget class="QCheckBox" name="step3_filter_segments_checkbox">
+           <item row="16" column="1">
+            <widget class="QLabel" name="step2_stopcondition_label">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1322,172 +1775,31 @@
               </font>
              </property>
              <property name="text">
-              <string>Filter short segments</string>
+              <string>Stop Condition</string>
              </property>
             </widget>
            </item>
-           <item row="30" column="1">
-            <layout class="QGridLayout" name="gridLayout_8">
-             <item row="0" column="0">
-              <widget class="QLabel" name="step3_filter_segments_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Window size:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="2">
-              <widget class="QLabel" name="step3_filter_segments_label_2">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>ms</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>1E-6</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Convergence criterion:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1">
-              <widget class="QLineEdit" name="step3_filter_segments_input">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>20</string>
-               </property>
-               <property name="maxLength">
-                <number>3</number>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="step3_smooth_segments_lambda_label">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Non-smoothness penalty:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="text">
-                <string>5</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item row="29" column="1">
-            <widget class="QComboBox" name="step3_filter_segments_method_combobox">
+           <item row="19" column="1">
+            <widget class="QLineEdit" name="step2_user_numberofrepeats_input">
              <property name="enabled">
               <bool>false</bool>
              </property>
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
-             </property>
-             <item>
-              <property name="text">
-               <string>Smooth segments</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Remove short segments</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Replace short segments: nearby dominant microstate</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Replace short segments: half and half</string>
-              </property>
-             </item>
-            </widget>
-           </item>
-           <item row="50" column="1">
-            <widget class="QLineEdit" name="step5_permutations_input">
-             <property name="enabled">
-              <bool>false</bool>
              </property>
              <property name="font">
               <font>
                <pointsize>12</pointsize>
               </font>
              </property>
-             <property name="toolTip">
-              <string/>
+             <property name="inputMethodHints">
+              <set>Qt::ImhDigitsOnly</set>
              </property>
              <property name="text">
-              <string>2000</string>
+              <string>5</string>
              </property>
              <property name="maxLength">
               <number>4</number>
@@ -1497,40 +1809,43 @@
              </property>
             </widget>
            </item>
-           <item row="48" column="1">
-            <widget class="QComboBox" name="step5_inverse_method_combobox">
+           <item row="4" column="1">
+            <widget class="QComboBox" name="step2_clustermethod_combobox">
              <property name="enabled">
               <bool>false</bool>
              </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <property name="font">
               <font>
-               <pointsize>12</pointsize>
+               <pointsize>14</pointsize>
               </font>
              </property>
              <item>
               <property name="text">
-               <string>Dynamic Statistical Parametric Maps (dSPM)</string>
+               <string>Modified K-means</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>Minimum Norm Estimation (MNE)</string>
+               <string>K-means</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>Standardized Low-resolution Brain Electromagnetic Tomography (sLORETA)</string>
+               <string>X-means</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>Exact Low-resolution Brain Electromagnetic Tomography (eLORETA)</string>
+               <string>Agglomerative hierarchical clustering</string>
               </property>
              </item>
             </widget>
-           </item>
-           <item row="37" column="1">
-            <layout class="QVBoxLayout" name="CheckableComboBox_Layout"/>
            </item>
            <item row="40" column="1" rowspan="2">
             <layout class="QGridLayout" name="gridLayout_12">
@@ -1636,6 +1951,45 @@
              </item>
             </layout>
            </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="step2_clustermethod_combo_label">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Clustering method:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="20" column="1">
+            <widget class="QPlainTextEdit" name="step2_clustering_log_textedit">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="cursor" stdset="0">
+              <cursorShape>ArrowCursor</cursorShape>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+             <property name="plainText">
+              <string notr="true"/>
+             </property>
+             <property name="backgroundVisible">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
            <item row="39" column="1">
             <widget class="QComboBox" name="step4_outputformats_combobox">
              <property name="enabled">
@@ -1686,70 +2040,11 @@
              </item>
             </widget>
            </item>
-           <item row="3" column="1">
-            <widget class="QLabel" name="step2_clustermethod_combo_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Clustering method:</string>
-             </property>
-            </widget>
+           <item row="37" column="1">
+            <layout class="QVBoxLayout" name="CheckableComboBox_Layout"/>
            </item>
-           <item row="20" column="1">
-            <widget class="QPlainTextEdit" name="step2_clustering_log_textedit">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="cursor" stdset="0">
-              <cursorShape>ArrowCursor</cursorShape>
-             </property>
-             <property name="readOnly">
-              <bool>true</bool>
-             </property>
-             <property name="plainText">
-              <string notr="true"/>
-             </property>
-             <property name="backgroundVisible">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="24" column="1">
-            <widget class="QLabel" name="step3_backfit_title_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>⚫ Backfitting</string>
-             </property>
-            </widget>
-           </item>
-           <item row="26" column="1">
-            <widget class="QRadioButton" name="step3_backfit_all_radio">
+           <item row="29" column="1">
+            <widget class="QComboBox" name="step3_filter_segments_method_combobox">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1759,250 +2054,54 @@
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Backfit microstate maps to all time points</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">buttonGroup_4</string>
-             </attribute>
-            </widget>
-           </item>
-           <item row="14" column="1">
-            <widget class="QLabel" name="step2_maxiter_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Maximum Number of Iterations</string>
-             </property>
-            </widget>
-           </item>
-           <item row="22" column="1">
-            <widget class="QPushButton" name="step3_label_maps_button">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
-             <property name="text">
-              <string>Label Microstate Maps</string>
-             </property>
-            </widget>
-           </item>
-           <item row="10" column="1">
-            <widget class="QLabel" name="step2_initializer_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Map initializer:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="21" column="1">
-            <widget class="QPushButton" name="step2_clustering_button">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
-             <property name="text">
-              <string>Start Clustering</string>
-             </property>
-            </widget>
-           </item>
-           <item row="43" column="1">
-            <widget class="QPushButton" name="step4_visualizefeatures_button">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
-             <property name="text">
-              <string>Visualize Extracted Features</string>
-             </property>
-            </widget>
-           </item>
-           <item row="5" column="1">
-            <widget class="QLabel" name="step2_numberofmaps_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Number of microstates to extract:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="44" column="1">
-            <widget class="Line" name="line">
-             <property name="lineWidth">
-              <number>2</number>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLabel" name="step2_clustering_title_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>⚫ Clustering</string>
-             </property>
-            </widget>
-           </item>
-           <item row="42" column="1">
-            <widget class="QPushButton" name="step4_extractfeatures_button">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
-             </property>
-             <property name="text">
-              <string>Extract Selected Features</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="Line" name="line_6">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="55" column="0" colspan="2">
-            <widget class="Line" name="line_5">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
+             <item>
+              <property name="text">
+               <string>Smooth segments</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Remove short segments</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Replace short segments: nearby dominant microstate</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Replace short segments: half and half</string>
+              </property>
+             </item>
             </widget>
            </item>
            <item row="52" column="1">
-            <widget class="QComboBox" name="step5_spacing_combobox">
+            <widget class="QLineEdit" name="step5_permutations_input">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="toolTip">
+              <string/>
+             </property>
+             <property name="text">
+              <string>2000</string>
+             </property>
+             <property name="maxLength">
+              <number>4</number>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="50" column="1">
+            <widget class="QComboBox" name="step5_inverse_method_combobox">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -2013,71 +2112,28 @@
              </property>
              <item>
               <property name="text">
-               <string>Recursively Subdivided Icosahedron - 642 sources/hemisphere (ICO3)</string>
+               <string>Dynamic Statistical Parametric Maps (dSPM)</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>Recursively Subdivided Octahedron - 1026 sources/hemisphere (OCT5)</string>
+               <string>Minimum Norm Estimation (MNE)</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>Recursively Subdivided Icosahedron - 2562 sources/hemisphere (ICO4)</string>
+               <string>Standardized Low-resolution Brain Electromagnetic Tomography (sLORETA)</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>Recursively Subdivided Octahedron - 4098 sources/hemisphere (OCT6)</string>
+               <string>Exact Low-resolution Brain Electromagnetic Tomography (eLORETA)</string>
               </property>
              </item>
-             <item>
-              <property name="text">
-               <string>Recursively Subdivided Icosahedron - 10242 sources/hemisphere (ICO5)</string>
-              </property>
-             </item>
-            </widget>
-           </item>
-           <item row="18" column="1">
-            <widget class="QLabel" name="step2_numberofrepeats_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Number of Repeats:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="45" column="1">
-            <widget class="QLabel" name="step5_source_localization_title_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <weight>75</weight>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>⚫ Source Localization of Microstates</string>
-             </property>
             </widget>
            </item>
            <item row="47" column="1">
-            <widget class="QLabel" name="step5_inverse_method_label">
+            <widget class="QLabel" name="step5_anatomical_label">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -2087,60 +2143,52 @@
               </font>
              </property>
              <property name="text">
-              <string>Inverse method: </string>
+              <string>Anatomical reconstruction: subject folder path</string>
              </property>
             </widget>
            </item>
-           <item row="51" column="1">
-            <widget class="QLabel" name="step5_spacing_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>The spacing to use:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="12" column="1">
-            <widget class="QLabel" name="step2_select_times_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Select time points for clustering</string>
-             </property>
-            </widget>
-           </item>
-           <item row="16" column="1">
-            <widget class="QLabel" name="step2_stopcondition_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>12</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Stop Condition</string>
-             </property>
-            </widget>
+           <item row="48" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_4">
+             <item>
+              <widget class="QRadioButton" name="step5_use_fsaverage_radio">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Use default template brain</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup_3</string>
+               </attribute>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="step5_use_individual_radio">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Use individual anatomies</string>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">buttonGroup_3</string>
+               </attribute>
+              </widget>
+             </item>
+            </layout>
            </item>
           </layout>
          </item>
@@ -2156,8 +2204,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>2967</width>
-     <height>22</height>
+     <width>891</width>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -2281,9 +2329,10 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_5"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>

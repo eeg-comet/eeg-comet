@@ -328,6 +328,9 @@ class MainMicrostateWindow(QMainWindow):
 
         source_localization_widgets = [
             self.ui.step5_source_localization_title_label,
+            self.ui.step5_anatomical_label,
+            self.ui.step5_use_fsaverage_radio,
+            self.ui.step5_use_individual_radio,
             self.ui.step5_inverse_method_label,
             self.ui.step5_inverse_method_combobox,
             self.ui.step5_permutations_label,
@@ -886,6 +889,12 @@ class MainMicrostateWindow(QMainWindow):
         if self.do_source_localization_from_scratch:
             self.tbx.done_source_localization = False
             self.mainwindow_controller()
+
+            if self.step5_use_fsaverage_radio.isChecked():
+                self.tbx.use_anatomy = "fsaverage"
+            elif self.step5_use_individual_radio.isChecked():
+                self.tbx.use_anatomy = "individual"
+                self.tbx.individual_subjects_dir = QFileDialog.getExistingDirectory(self, "Locate Folder with Individual Anatomical Reconstructions")
 
             inverse_method = self.ui.step5_inverse_method_combobox.currentText()
             self.tbx.inverse_method = inverse_method[inverse_method.find("(") + 1:inverse_method.find(")")]

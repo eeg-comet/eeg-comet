@@ -3,7 +3,6 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from functions.sourcelocalization_utils.source_localization_functions import run_source_localization #, visualize_sources
 import pickle
 import matplotlib.pyplot as plt
 
@@ -19,7 +18,7 @@ from functions.features_utils.feature_io import FeatureIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
-
+from functions.sourcelocalization_utils.source_localizer import SourceLocalizer
 
 class COMET:
 	def __init__(self, config=None, auto_save=True):
@@ -341,8 +340,10 @@ class COMET:
 			self.segmentation_path,
 			self.extension,
 			self.datatype,
+			self.sample_rate,
 			[self.epsilon, self.b, self.lamb],
-			self.export_format)
+			self.export_format,
+		)
 		backfitter_instance.perform_segmentation()
 
 		self.done_backfitting = True
@@ -369,7 +370,6 @@ class COMET:
 
 			segmentation_array = SegmentationIO().load_segmentation(segmentation_path, import_format='.csv')
 
-			# TODO: make compatible with TP, LZC features
 			if 'static' in self.feature_mode:
 				feature_extractor = FeatureExtractor(segmentation_array,
 													 self.sample_rate,
@@ -435,19 +435,27 @@ class COMET:
 
 		microstate_maps_df = pd.read_csv(self.microstate_maps_path)
 		microstate_maps = np.asarray(microstate_maps_df.iloc[:, 1:])
-		self.subjects_dir = 'fsaverage'
 
-		run_source_localization(self.preprocessed_data_path,
-										self.segmentation_path,
-										self.localized_sources_path,
-										self.subjects_dir, #'fsaverage', # TODO:
-										microstate_maps,
-										self.inverse_method,
-										self.nperm,
-										self.spacing,
-										self.source_localization_method,
-										self.extension,
-										self.datatype)
+
+		if self.use_anatomy == "fsaverage":
+			fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
+			subjects_dir = os.path.dirname(fs_dir)
+		elif self.use_anatomy == "individual":
+			subjects_dir = self.individual_subjects_dir
+
+		stc_path = os.path.join(self.save_dir, "stc")
+		if not os.path.exists(stc_path):
+			os.makedirs(stc_path)
+
+		source_localizer = SourceLocalizer(subjects_dir,
+										   stc_path,
+										   self.preprocessed_data_path,
+										   self.extension,
+										   self.datatype,
+										   self.spacing,
+										   self.inverse_method)
+		source_localizer.run_source_localization()
+
 		self.done_source_localization = True
 		if self.auto_save:
 			self.save_tbx()
