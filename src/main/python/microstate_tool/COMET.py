@@ -279,6 +279,7 @@ class COMET:
 
 		micro_labels = []
 		additional_label = 'M'
+		assert self.n_states < 27, 'cannot label microstates more than 27: number of letters is not enough'
 		for i in range(self.n_states):
 			if i in label_result:
 				micro_labels.append(label_result[i])

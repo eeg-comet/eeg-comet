@@ -141,7 +141,7 @@ class MicrostateBackfitter:
         activation = microstate_maps.dot(data)
         # L
         segmentation = np.argmax(np.abs(activation), axis=0)
-        print(f'SEG BEFORE: {segmentation[400:500]}')
+        # print(f'SEG BEFORE: {segmentation[400:500]}')
 
         # STEP 3 in TABLE 2
         raw_segmentation = segmentation
@@ -178,7 +178,7 @@ class MicrostateBackfitter:
             thresh = epsilon * sigma_mu
             iteration += 1
 
-        print(f'SEG AFTER : {segmentation[400:500]}')
+        # print(f'SEG AFTER : {segmentation[400:500]}')
         print('Finishes after', str(iteration), 'Iterations.')
 
         # STEP 9 in TABLE 2
