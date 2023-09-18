@@ -708,7 +708,7 @@ class MainMicrostateWindow(QMainWindow):
             # Show a message box to inform the user about the successful image save
             QMessageBox.information(self,
                                     "Extraction Successful",
-                                    f"The {self.comet_tbx.feature_mode} features have been successfully extracted.",
+                                    f"The {self.comet_tbx.feature_mode[0]} features have been successfully extracted.",
                                     QMessageBox.Ok)
 
             self.mainwindow_controller()

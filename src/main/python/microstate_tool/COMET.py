@@ -264,7 +264,9 @@ class COMET:
 		directory = os.getcwd()
 		directory = os.path.basename(directory)
 		print(directory)
-		if directory == 'EEG-COMET':
+		# TODO: need to find a better way to distinguish the path
+		# currently just for start the toolbox app from different path(GUI and terminal version)
+		if directory == 'EEG-Microstate-Feature-Extraction':
 			model_path = './src/main/python/microstate_tool/models/model_v1.11.h5' 
 		else:
 			model_path = './models/model_v1.11.h5'
@@ -457,7 +459,7 @@ class COMET:
 			self.save_tbx()
 
 	def save_tbx(self):
-		self.tbx_object_path = os.path.join(self.save_dir, 'tbx_object.pkl')
+		self.tbx_object_path = os.path.join(self.save_dir, 'comet_tbx_object.pkl')
 		with open(self.tbx_object_path, 'wb') as output:
 			pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 

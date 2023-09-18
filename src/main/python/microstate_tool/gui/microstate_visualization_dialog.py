@@ -150,8 +150,9 @@ class MicrostateVisualizationDialog(QDialog):
             if self.main_window:
                 self.tbx.done_labeling_microstates = True
                 self.tbx.save_tbx()
-                self.main_window.ui.step0_log_textbrowser.insertPlainText(
-                    f"\nMicrostate labels: {str_micro_labels}\n")
+                # currently commented (mainWindow's log needs to be updated)
+                # self.main_window.ui.step0_log_textbrowser.insertPlainText(
+                #     f"\nMicrostate labels: {str_micro_labels}\n")
                 self.main_window.mainwindow_controller()
             self.close()
         else:

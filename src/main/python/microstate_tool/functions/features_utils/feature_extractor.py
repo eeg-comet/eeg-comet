@@ -59,7 +59,7 @@ class FeatureExtractor:
 
         for char in str_array:
             if char != prev_char:
-                new_str_array += char
+                new_str_array += str(char)
                 prev_char = char
 
         return new_str_array
