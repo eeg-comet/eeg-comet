@@ -51,7 +51,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Plot the results of anatomical reconstruction</string>
+          <string>(Disabled) Plot the results of anatomical reconstruction</string>
          </property>
         </widget>
        </item>
@@ -114,7 +114,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Subjects Dir</string>
+          <string>Choose 'stc' folder within 'project_localized_sources'</string>
          </property>
         </widget>
        </item>
@@ -157,7 +157,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Plot head, sensor, and source space alignment</string>
+          <string>(Disabled) Plot head, sensor, and source space alignment</string>
          </property>
         </widget>
        </item>

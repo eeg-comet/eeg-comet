@@ -978,7 +978,7 @@
               <cursorShape>PointingHandCursor</cursorShape>
              </property>
              <property name="text">
-              <string>Visualize Microstate Locallized Sources</string>
+              <string>Visualize Microstate Localized Sources</string>
              </property>
             </widget>
            </item>

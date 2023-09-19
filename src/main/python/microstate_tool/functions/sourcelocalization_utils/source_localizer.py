@@ -267,7 +267,7 @@ class SourceLocalizer:
         list_segmented_data, _ = DataIO().find_data(labelled_data_path, '.csv', pattern='*')
         all_sources_dict = {}
         for segmented_path in list_segmented_data:
-            segment_data =SegmentationIO().load_segmentation(segmented_path, import_format='.csv')
+            segment_data = SegmentationIO().load_segmentation(segmented_path, import_format='.csv')
             for m in segment_data['segmentation'].unique():
                 sources_m_times = segment_data.index[segment_data['segmentation'] == m].tolist()
                 sources_m = stc_data[sources_m_times, :]
