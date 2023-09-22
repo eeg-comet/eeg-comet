@@ -2,6 +2,7 @@ from functions.gui_utils.config_io import load_config
 import warnings
 from COMET import COMET
 import pickle
+import os
 
 
 # from functions.utils.extract_peaks_maps import extract_peaks_maps
@@ -21,17 +22,19 @@ def main():
 	print(channel_location_dir)
 	print(output_folder)
 
-	new_tbx = False
+	new_tbx = True
 	if new_tbx:
 		tbx = COMET(config)
 	else:
-		with open('/Users/bottlecap/Downloads/output/qwerty/tbx_object.pkl', 'rb') as input_tbx:
+		save_dir = os.path.join(output_folder, study_name)
+		tbx_path = os.path.join(save_dir, 'comet_tbx_object.pkl')
+		with open(tbx_path, 'rb') as input_tbx:
 			tbx = pickle.load(input_tbx)
 	process = [
-		# tbx.load_raw,
-		# tbx.load_channel_location,
-		# tbx.load_new_study,
-		# tbx.do_clustering,
+		tbx.load_raw,
+		tbx.load_channel_location,
+		tbx.load_new_study,
+		tbx.do_clustering,
 		tbx.do_labeling,
 		# tbx.do_backfitting,
 		# tbx.extract_features_from_map,
@@ -52,18 +55,3 @@ if __name__ == '__main__':
 
 
 
-
-		# hdf_concatenated_data_path = '/Users/bottlecap/Downloads/output/test_tbx_4/test_tbx_4_concatenated_data.hdf'
-	# concatenated_data = import_hdf_data(hdf_concatenated_data_path)
-	# min_distance_size = int(tbx.smoothing_distance/(1000/tbx.sample_rate))
-	# all_maps, peaks = extract_peaks_maps(concatenated_data, min_distance_size)
-	# print(all_maps.shape)
-	# kmeans = pickle.load(open('/Users/bottlecap/Downloads/kmeans.pkl', 'rb'))
-	# for i in range(0, all_maps.shape[0], 10):
-	# 	fig, axes = plt.subplots(1)  # assuming 3 channel types
-	# 	mne.viz.plot_topomap(all_maps[i, :], tbx.eeg_info, axes=axes, sensors=False, show=False)
-	# 	result = kmeans.predict(all_maps[i, :].reshape((1, -1)))
-	# 	# print(all_maps[i, :].shape)
-	# 	fig.savefig(f'/Users/bottlecap/Downloads/eeg_images/res_{result[0]}_{i}.png')
-	# 	if i > 3000:
-	# 		break
