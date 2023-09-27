@@ -196,8 +196,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>1831</width>
-          <height>1510</height>
+          <width>1827</width>
+          <height>1514</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -376,6 +376,16 @@
                  <pointsize>12</pointsize>
                 </font>
                </property>
+               <item>
+                <property name="text">
+                 <string>Cross Validation</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Gap Statistics</string>
+                </property>
+               </item>
                <item>
                 <property name="text">
                  <string>Global Explained Variance</string>
@@ -2359,11 +2369,11 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_6"/>
+  <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>

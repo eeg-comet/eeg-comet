@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy import spatial
+from sklearn.model_selection import KFold
 from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouette
 from pyclustering.utils.metric import distance_metric, type_metric
 from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
@@ -142,7 +143,7 @@ class MicrostateClusterer:
 
         elbow_optimizer = ElbowOptimizer(maps2use, min_dist, self.n_inits, kmin, kmax, preprocessed_data_path, extension, datatype, self.tolerance, self.max_iter)
         if n_states == 'auto':
-            n_states = elbow_optimizer.find_elbow_without_plot(stopping_mode='gev', threshold=stopping_parameter)
+            n_states = elbow_optimizer.find_elbow_without_plot(stopping_mode, threshold=stopping_parameter)
             print(f'result: n_states = {n_states}')
 
         if method == 'Modified K-means':
@@ -153,7 +154,8 @@ class MicrostateClusterer:
                 n_inits=self.n_inits,
                 initializer=initializer,
                 max_iter=self.max_iter,
-                thresh=self.tolerance)
+                thresh=self.tolerance
+            )
         else:
 
             initial_centers = initialize_cluster_centers(maps2use, n_states, initializer)
@@ -297,23 +299,123 @@ class ElbowOptimizer:
         })
         self._plot(df, ax1, ax2, ax3)
 
+
     def find_elbow_without_plot(self, stopping_mode='gev', threshold=0.1):
         """Find the elbow point without generating plots."""
-        for k in range(self.kmin, self.kmax + 1):
-            print(f'\nClustering data with {k} microstates')
-            gev_mean, residual_mean, sil_mean = self._cluster_and_evaluate(k)
-            self.N.append(k)
-            self.RES.append(residual_mean)
-            self.GEV.append(gev_mean)
-            self.SIL.append(sil_mean)
+        if stopping_mode == 'gs':
+            return self.find_optimal_k_gap_statistic(n_random_datasets=10)
+        elif stopping_mode == 'cv':
+            return self.find_optimal_k_cross_validation(n_splits=5)
+        else:
+            for k in range(self.kmin, self.kmax + 1):
+                print(f'\nClustering data with {k} microstates')
+                gev_mean, residual_mean, sil_mean = self._cluster_and_evaluate(k)
+                self.N.append(k)
+                self.RES.append(residual_mean)
+                self.GEV.append(gev_mean)
+                self.SIL.append(sil_mean)
+                if len(self.N) == 1:
+                    continue
+                if self._should_stop(stopping_mode, gev_mean, residual_mean, sil_mean, threshold):
+                    return k
+            return int((self.kmin + self.kmax) / 2)
 
-            if len(self.N) == 1:
-                continue
+    def _calculate_wcss(self, data, n_clusters):
+        # Initialize variables to store the WCSS
+        wcss = 0
+        # Run your modified K-means clustering algorithm
+        maps, _, _ = self.microstate_clusterer.run_modified_kmeans(
+            preprocessed_data_path=self.preprocessed_data_path,
+            extension=self.extension,
+            datatype=self.datatype,
+            maps2use=self.maps2use,
+            n_states=n_clusters,
+            n_inits=1,
+            initializer="Random",
+            max_iter=self.max_iter,
+            thresh=self.tolerance
+        )
+        segmentation = np.argmax(np.abs(maps.dot(data)), axis=0)
+        # Calculate WCSS for each cluster
+        for cluster_idx in range(n_clusters):
+            cluster_points = data[:, segmentation == cluster_idx]
+            cluster_center = maps[cluster_idx]
 
-            if self._should_stop(stopping_mode, gev_mean, residual_mean, sil_mean, threshold):
-                return k
+            # Calculate the sum of squares of distances within the cluster
+            cluster_sse = np.sum(np.sum((cluster_points - cluster_center.reshape(-1, 1)) ** 2, axis=0))
+            wcss += cluster_sse
+        return wcss
 
-        return int((self.kmin + self.kmax) / 2)
+    def find_optimal_k_gap_statistic(self, n_random_datasets=10):
+        data, _ = generate_maps_and_peaks(self.preprocessed_data_path,
+                                          self.extension,
+                                          self.datatype,
+                                          use_percentages=100
+                                          )
+        # Number of clusters to consider
+        k_values = range(self.kmin, self.kmax + 1)
+        # Initialize arrays to store WCSS values
+        wcss_real = np.zeros(len(k_values))
+        wcss_random = np.zeros((len(k_values), n_random_datasets))
+        # Calculate WCSS for the real data
+        for i, k in enumerate(k_values):
+            wcss_real[i] = self._calculate_wcss(data, k)
+        # Generate random datasets and calculate WCSS for each random dataset
+        for j in range(n_random_datasets):
+            random_data = np.random.rand(*data.shape)  # Generate random data with the same shape as your data
+            for i, k in enumerate(k_values):
+                wcss_random[i, j] = self._calculate_wcss(random_data, k)
+        # Calculate the expected WCSS for random data
+        wcss_random_mean = wcss_random.mean(axis=1)
+        # Calculate the gap statistic
+        gap = np.log(wcss_random_mean) - np.log(wcss_real)
+        # Find the optimal number of clusters (the maximum point of the gap statistic)
+        optimal_clusters = np.argmax(gap) + 1
+        print(f"\noptimal_clusters: {optimal_clusters}")
+        return optimal_clusters
+
+    def find_optimal_k_cross_validation(self, n_splits=5):
+        data, _ = generate_maps_and_peaks(self.preprocessed_data_path,
+                                          self.extension,
+                                          self.datatype,
+                                          use_percentages=100
+                                          )
+        # Number of clusters to consider
+        k_values = range(self.kmin, self.kmax + 1)
+        # Initialize arrays to store cross-validation scores
+        cv_scores = []
+        for k in k_values:
+            wcss = 0
+            kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+            for train_index, test_index in kf.split(data.T):
+                train_data, test_data = data[:, train_index], data[:, test_index]
+                # Run the modified K-means clustering algorithm
+                maps, _, _ = self.microstate_clusterer.run_modified_kmeans(
+                    preprocessed_data_path=self.preprocessed_data_path,
+                    extension=self.extension,
+                    datatype=self.datatype,
+                    maps2use=self.maps2use,
+                    n_states=k,
+                    n_inits=1,
+                    initializer="Random",
+                    max_iter=self.max_iter,
+                    thresh=self.tolerance
+                )
+                segmentation = np.argmax(np.abs(maps.dot(test_data)), axis=0)
+                # Calculate WCSS for each cluster
+                for cluster_idx in range(k):
+                    cluster_points = test_data[:, segmentation == cluster_idx]
+                    cluster_center = maps[cluster_idx]
+                    # Calculate the sum of squares of distances within the cluster
+                    cluster_sse = np.sum(np.sum((cluster_points - cluster_center.reshape(-1, 1)) ** 2, axis=0))
+                    wcss += cluster_sse
+            # Calculate the average WCSS over all folds
+            avg_wcss = wcss / n_splits
+            cv_scores.append(avg_wcss)
+        # Find the optimal number of clusters (k) with the minimum average WCSS
+        optimal_clusters = k_values[np.argmin(cv_scores)]
+        print(f"\noptimal_clusters: {optimal_clusters}")
+        return optimal_clusters
 
     def _plot(self, df, ax1, ax2, ax3):
         """Generate line plots for the calculated metrics to visualize the elbow point."""

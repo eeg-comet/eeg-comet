@@ -511,7 +511,11 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.kmax = int(self.ui.step2_auto_range_kmax_combobox.currentText())
 
                 auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
-                if auto_k_method == 'Global Explained Variance':
+                if auto_k_method == 'Gap Statistics':
+                    self.comet_tbx.stopping_mode = 'gs'
+                elif auto_k_method == 'Cross Validation':
+                    self.comet_tbx.stopping_mode = 'cv'
+                elif auto_k_method == 'Global Explained Variance':
                     self.comet_tbx.stopping_mode = 'gev'
                 elif auto_k_method == 'Residual Variance':
                     self.comet_tbx.stopping_mode = 'res'

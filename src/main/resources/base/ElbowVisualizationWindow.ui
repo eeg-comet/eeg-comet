@@ -255,14 +255,14 @@
       </layout>
      </item>
      <item row="4" column="0">
-      <widget class="QLabel" name="sumsqr_label">
+      <widget class="QLabel" name="gapstat_label">
        <property name="font">
         <font>
          <pointsize>14</pointsize>
         </font>
        </property>
        <property name="text">
-        <string>Sum of Squares</string>
+        <string>Gap Statistics</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
