@@ -79,7 +79,8 @@ class COMET:
 		self.clustering_method = config['do_clustering']['clustering_method']
 		self.max_iterations = config.getint('do_clustering', 'max_iterations')
 		self.clustering_tolerance = config.getfloat('do_clustering', 'clustering_tolerance')
-		need_options = ['X-means', 'Agglomerative hierarchical clustering_utils', 'K-means']
+		need_options = ['X-Means Clustering', 'Agglomerative Hierarchical Clustering', 'K-Means Clustering', 'PCA + K-Means Clustering',
+							 'Autoencoder + K-Means Clustering',]
 		self.clustering_option = config['do_clustering']['clustering_option'] if self.clustering_method in need_options else ''
 		self.number_of_repeats = config.getint('do_clustering', 'number_of_repeats')
 		self.microstate_maps_path = os.path.join(self.save_dir, 'microstate_maps.csv')
@@ -199,13 +200,14 @@ class COMET:
 		else:
 			self.min_distance_size = []
 
-		avaliable_methods = ['Modified K-means',
-							'K-means',
-							'X-means',
-							'Agglomerative hierarchical clustering',
-							]
+		avaliable_methods = ['Modified K-Means Clustering',
+							 'K-Means Clustering',
+							 'PCA + K-Means Clustering',
+							 'Autoencoder + K-Means Clustering',
+							 'X-Means Clustering',
+							 'Agglomerative Hierarchical Clustering',
+							 ]
 		assert self.clustering_method in avaliable_methods, "clustering_method not supported"
-
 		microstate_clusterer = MicrostateClusterer(self.number_of_repeats, self.max_iterations, self.clustering_tolerance)
 		best_maps, gev, _, n_states = microstate_clusterer.clustering_func(
 					self.preprocessed_data_path,

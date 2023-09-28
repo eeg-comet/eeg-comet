@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1857</width>
-    <height>1651</height>
+    <width>1859</width>
+    <height>1659</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -196,7 +196,7 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>1827</width>
+          <width>1829</width>
           <height>1514</height>
          </rect>
         </property>
@@ -383,7 +383,7 @@
                </item>
                <item>
                 <property name="text">
-                 <string>Gap Statistics</string>
+                 <string>Gap Statistic</string>
                 </property>
                </item>
                <item>
@@ -1868,22 +1868,32 @@
              </property>
              <item>
               <property name="text">
-               <string>Modified K-means</string>
+               <string>Modified K-Means Clustering</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>K-means</string>
+               <string>K-Means Clustering</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>X-means</string>
+               <string>PCA + K-Means Clustering</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>Agglomerative hierarchical clustering</string>
+               <string>Autoencoder + K-Means Clustering</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>X-Means Clustering</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Agglomerative Hierarchical Clustering</string>
               </property>
              </item>
             </widget>
@@ -2252,7 +2262,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1857</width>
+     <width>1859</width>
      <height>18</height>
     </rect>
    </property>

@@ -312,17 +312,17 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(advanced_widgets, mode='hide')
 
             self.comet_tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
-            if self.comet_tbx.clustering_method == "K-means":
+            if self.comet_tbx.clustering_method in ["K-Means Clustering", 'PCA + K-Means Clustering', 'Autoencoder + K-Means Clustering']:
                 self.ui.step2_other_label.setText("Similarity metric:")
                 options = ['Cosine Similarity', 'Spatial Correlation']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
 
-            elif self.comet_tbx.clustering_method == "Agglomerative hierarchical clustering":
+            elif self.comet_tbx.clustering_method == "Agglomerative Hierarchical Clustering":
                 self.ui.step2_other_label.setText("Type of link between clusters:")
                 options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
 
-            elif self.comet_tbx.clustering_method == "X-means":
+            elif self.comet_tbx.clustering_method == "X-Means Clustering":
                 self.ui.step2_other_label.setText("X-means splitting criterion:")
                 options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
                 self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Bayesian Information Criterion')
