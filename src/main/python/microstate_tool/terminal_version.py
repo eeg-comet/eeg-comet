@@ -5,8 +5,6 @@ import pickle
 import os
 
 
-# from functions.utils.extract_peaks_maps import extract_peaks_maps
-
 def main():
 	warnings.simplefilter("ignore")
 	config_file = '/Users/bottlecap/EEG-Microstate-Feature-Extraction/src/main/python/microstate_tool/config.ini'
@@ -17,6 +15,7 @@ def main():
 	channel_location_dir = config['base']['channel_location_dir']
 	output_folder = config['base']['output_folder']
 
+	# For config file double checking
 	print(study_name)
 	print(input_folder)
 	print(channel_location_dir)
@@ -30,6 +29,10 @@ def main():
 		tbx_path = os.path.join(save_dir, 'comet_tbx_object.pkl')
 		with open(tbx_path, 'rb') as input_tbx:
 			tbx = pickle.load(input_tbx)
+
+	# ==================================================================
+	# The only part that need to be edit
+	# choose funtion for the toolbox (to run)
 	process = [
 		tbx.load_raw,
 		tbx.load_channel_location,
@@ -40,6 +43,7 @@ def main():
 		# tbx.extract_features_from_map,
 		# tbx.source_localize_microstates
 	]
+	# ==================================================================
 
 	for i in process:
 		i()
