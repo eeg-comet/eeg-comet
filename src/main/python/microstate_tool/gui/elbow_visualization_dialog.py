@@ -2,7 +2,7 @@
 import os.path
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog
-from functions.clustering_utils.microstate_clusterer import ElbowOptimizer
+from functions.clustering_utils.microstate_clusterer import ClusterOptimizer
 from functions.data_utils.extract_peaks_maps import generate_maps_and_peaks
 
 
@@ -30,7 +30,7 @@ class ElbowVisualizationDialog(QDialog):
 
         maps2use, peaks2use = generate_maps_and_peaks(self.preprocessed_data_path, self.extension, self.datatype,
                                                       self.use_percentages, self.min_distance_size)
-        elbow_optimizer = ElbowOptimizer(maps2use, self.min_distance_size, self.number_of_repeats,
+        elbow_optimizer = ClusterOptimizer(maps2use, self.min_distance_size, self.number_of_repeats,
                                          self.k_min, self.k_max, self.preprocessed_data_path,
                                          self.extension, self.datatype, self.clustering_tolerance, self.max_iterations)
         elbow_optimizer.find_elbow_with_plot(ax1=ax_res, ax2=ax_gev, ax3=ax_sil)

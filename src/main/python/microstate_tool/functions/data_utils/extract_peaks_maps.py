@@ -104,7 +104,7 @@ def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percen
         maps2use (numpy array): Concatenated GFP maps at peaks (peaks x channels).
         peaks2use (numpy array): Concatenated indices of GFP peaks in the EEG data.
     """
-    print('Generating Maps and Peaks...')
+    #print('Generating Maps and Peaks...')
 
     data_io = DataIO()
     all_preprocessed_paths, _ = data_io.find_data(preprocessed_folder, extension)
