@@ -80,6 +80,7 @@ class MainMicrostateWindow(QMainWindow):
 
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_auto_k_radio.clicked.connect(self.mainwindow_controller)
+        self.ui.step2_auto_k_method_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_user_k_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step2_advanced_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step2_use_percent_radio.clicked.connect(self.mainwindow_controller)
@@ -188,8 +189,7 @@ class MainMicrostateWindow(QMainWindow):
 
         elbow_widgets = [
             self.ui.step2_auto_target_label,
-            self.ui.step2_stopping_threshold_label,
-            self.ui.step2_stopping_threshold_percentage_label,
+            self.ui.step2_auto_target_parameter_label,
             self.ui.step2_stopping_threshold_input,
             self.ui.step2_auto_range_kmin_combobox,
             self.ui.step2_auto_range_kmax_combobox,
@@ -298,6 +298,16 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step2_user_k_input.setDisabled(True)
                 self.ui.step2_numberofmaps_elbow_button.setDisabled(True)
                 set_widgets_status(elbow_widgets, mode='enable')
+
+                auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
+                if auto_k_method == 'Gap Statistic':
+                    step2_auto_target_parameter_text = 'Random datasets:'
+                elif auto_k_method == 'Cross Validation':
+                    step2_auto_target_parameter_text = 'Folds:'
+                elif auto_k_method in ['Global Explained Variance', 'Residual Variance', 'Silhouette Score']:
+                    step2_auto_target_parameter_text = 'Threshold (%):'
+                self.ui.step2_auto_target_parameter_label.setText(step2_auto_target_parameter_text)
+
             if self.ui.step2_user_k_radio.isChecked():
                 k_log = 'is user-predefined.'
                 self.ui.step2_user_k_input.setEnabled(True)
@@ -511,7 +521,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.kmax = int(self.ui.step2_auto_range_kmax_combobox.currentText())
 
                 auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
-                if auto_k_method == 'Gap Statistics':
+                if auto_k_method == 'Gap Statistic':
                     self.comet_tbx.stopping_mode = 'gs'
                 elif auto_k_method == 'Cross Validation':
                     self.comet_tbx.stopping_mode = 'cv'

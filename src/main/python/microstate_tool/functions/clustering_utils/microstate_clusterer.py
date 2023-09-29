@@ -203,7 +203,7 @@ class MicrostateClusterer:
 
     def clustering_func(self, preprocessed_data_path, extension, datatype,
                         n_channels, method, n_states, initializer, use_percentages,
-                        min_dist, clustering_option, optimizer_mode='gev', stopping_parameter=10.0, kmin=2, kmax=10):
+                        min_dist, clustering_option, optimizer_mode='gev', parameter_value=5, kmin=2, kmax=10):
         """
         Performs clustering on preprocessed data to find microstate maps.
 
@@ -234,7 +234,7 @@ class MicrostateClusterer:
 
         elbow_optimizer = ClusterOptimizer(maps2use, min_dist, self.n_inits, kmin, kmax, preprocessed_data_path, extension, datatype, self.tolerance, self.max_iter)
         if n_states == 'auto':
-            n_states = elbow_optimizer.find_optimal_k(optimizer_mode, threshold=stopping_parameter)
+            n_states = elbow_optimizer.find_optimal_k(optimizer_mode, parameter_value)
             print(f'result: n_states = {n_states}')
 
         if method == 'Modified K-Means Clustering':
@@ -411,13 +411,14 @@ class ClusterOptimizer:
         self._plot(df, ax1, ax2, ax3)
 
 
-    def find_optimal_k(self, optimizer_mode='gev', threshold=0.1, n_random_datasets=5, n_splits=5):
+    def find_optimal_k(self, optimizer_mode='cv', parameter_value=5):
         """Find the elbow point without generating plots."""
         if optimizer_mode == 'gs':
-            return self.find_optimal_k_gap_statistic(n_random_datasets)
+            return self.find_optimal_k_gap_statistic(int(parameter_value))
         elif optimizer_mode == 'cv':
-            return self.find_optimal_k_cross_validation(n_splits)
+            return self.find_optimal_k_cross_validation(int(parameter_value))
         else:
+            parameter_value = parameter_value / 100
             k_range = range(self.kmin, self.kmax + 1)
             progress_bar = tqdm(k_range, desc="Progress", ncols=100, position=0, leave=True)
 
@@ -431,7 +432,7 @@ class ClusterOptimizer:
                 self.SIL.append(sil_mean)
                 if len(self.N) == 1:
                     continue
-                if self._should_stop(optimizer_mode, gev_mean, residual_mean, sil_mean, threshold):
+                if self._should_stop(optimizer_mode, gev_mean, residual_mean, sil_mean, parameter_value):
                     return k
             return int((self.kmin + self.kmax) / 2)
 
@@ -520,8 +521,13 @@ class ClusterOptimizer:
         # Initialize arrays to store cross-validation scores
         cv_scores = []
 
-        # Create a tqdm progress bar for k_values
-        for k in tqdm(k_values, desc="Progress", ncols=100, position=0, leave=True):
+        # Calculate the total number of updates
+        total_updates = len(k_values) * n_splits
+
+        # Create a tqdm progress bar for k_values * n_splits
+        combined_progress = tqdm(total=total_updates, desc="Progress", ncols=100, position=0, leave=True)
+
+        for k in k_values:
             wcss = 0
             kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
             for train_index, test_index in kf.split(data.T):
@@ -547,9 +553,13 @@ class ClusterOptimizer:
                     # Calculate the sum of squares of distances within the cluster
                     cluster_sse = np.sum(np.sum((cluster_points - cluster_center.reshape(-1, 1)) ** 2, axis=0))
                     wcss += cluster_sse
+                # Update the combined progress bar
+                combined_progress.update(1)
             # Calculate the average WCSS over all folds
             avg_wcss = wcss / n_splits
             cv_scores.append(avg_wcss)
+
+        combined_progress.close()
 
         # Find the optimal number of clusters (k) with the minimum average WCSS
         optimal_clusters = k_values[np.argmin(cv_scores)]
