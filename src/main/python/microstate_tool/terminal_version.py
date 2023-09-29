@@ -7,7 +7,10 @@ import os
 
 def main():
 	warnings.simplefilter("ignore")
-	config_file = '/Users/bottlecap/EEG-Microstate-Feature-Extraction/src/main/python/microstate_tool/config.ini'
+	# ==================================================================
+	# TODO#1 set config file path here
+	config_file = './config.ini'
+	# ==================================================================
 	config = load_config(config_file)
 	
 	study_name = config['base']['study_name']
@@ -31,8 +34,7 @@ def main():
 			tbx = pickle.load(input_tbx)
 
 	# ==================================================================
-	# The only part that need to be edit
-	# choose funtion for the toolbox (to run)
+	# # TODO#2 choose funtion for the toolbox (to run)
 	process = [
 		tbx.load_raw,
 		tbx.load_channel_location,
