@@ -4,7 +4,6 @@ import os.path
 from scipy.signal import find_peaks
 from collections import Counter
 from itertools import groupby
-import h5py
 from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 

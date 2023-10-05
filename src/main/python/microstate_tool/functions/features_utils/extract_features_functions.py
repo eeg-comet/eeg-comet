@@ -11,11 +11,8 @@ import numpy as np
 import pandas as pd
 import h5py
 import pickle
-from itertools import groupby
 
 from functions.data_utils.data_io import find_data, load_eegs, get_eeg_data, save_features
-from functions.utils.compute_gev import compute_gev
-
 from functions.features_utils.feature_extractor import FeatureExtractor
 
 def save_segmentation_results(filenames, len_data, sampling_rate, segmentation, file_format, save_path):
@@ -104,12 +101,3 @@ def extract_features(preprocessed_data_path, hf_segmentation_path, maps, micro_l
         if "LZC" in features:
             extracted_complexity = feature_extractor.lempel_ziv_complexity()
             feature_extractor.export_results(extracted_complexity, format=output_format, filename=filename+'_complexity_static')
-
-"""
-            for c in micro_labels:
-                # Global Explained Variance
-                if "GEV" in features_utils:
-                    GEV = 100 * compute_gev(data, maps[micro_labels.index(c), :])
-                    headers = np.append(headers, "GEV_" + c)
-                    extracted_features = np.append(extracted_features, GEV)
-"""

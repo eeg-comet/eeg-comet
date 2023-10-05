@@ -14,7 +14,6 @@ Organization: SFU eBrain Lab, www.ebrainlab.ca
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.signal import correlate
-from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from functions.data_utils.data_io import DataIO
 
 

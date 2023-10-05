@@ -5,7 +5,6 @@ The features_utils include microstate coverage, microstate occurrence, microstat
 and Lempel-Ziv complexity. The class supports both 'static' and 'dynamic' modes for calculating these features_utils.
 """
 
-import numpy as np
 import pandas as pd
 from collections import Counter, defaultdict
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer

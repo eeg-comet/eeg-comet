@@ -4,12 +4,11 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import pickle
-import matplotlib.pyplot as plt
-
 import mne
 import cv2
 import io
 from keras.models import load_model
+import matplotlib.pyplot as plt
 
 from functions.data_utils.data_io import DataIO
 from functions.data_utils.data_preprocessor import DataPreprocessor

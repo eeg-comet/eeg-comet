@@ -12,6 +12,7 @@ from tqdm import tqdm
 from scipy import spatial
 from sklearn.model_selection import KFold
 from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouette
+from pyclustering.cluster.agglomerative import agglomerative, type_link
 from pyclustering.utils.metric import distance_metric, type_metric
 from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
 
@@ -287,14 +288,11 @@ class MicrostateClusterer:
                                      tolerance=self.tolerance, criterion=CRITERION)
 
             elif method == 'Agglomerative Hierarchical Clustering':
-                from sklearn.cluster import AgglomerativeClustering
-                from sklearn.metrics import pairwise_distances
-                def cosine_distance(X, Y=None):
-                    return pairwise_distances(X, Y, metric='cosine')
+                encoded_features = self.extract_features_with_pca(maps2use, pca_components=10)
+                clustering_instance = agglomerative.agglomerative(encoded_features, n_states,
+                                                                  agglomerative.type_link.SINGLE_LINK, ccore=True)
 
-                clustering_instance = AgglomerativeClustering(n_clusters=n_states,
-                                                              affinity=metric_function,
-                                                              linkage='average')
+
             else:
                 raise ValueError("Failed to match method")
 
@@ -318,11 +316,15 @@ class MicrostateClusterer:
                     # Calculate residuals
                     residual = 0#self.calculate_residuals(maps2use, autoencoder)
                 elif method == 'Agglomerative Hierarchical Clustering':
-                    clusters = clustering_instance.fit_predict(maps2use)
+                    clustering_instance.process()
+                    cluster_labels = clustering_instance.get_clusters(maps2use)
                     residual = 0#clustering_instance.get_total_wce()
-                    centroids = np.empty((n_states,n_channels))
-                    for cl in range(len(clusters)):
-                        centroids[cl,:] = np.mean(maps2use[clusters[cl],:],axis=0)
+                    # Flatten the cluster labels
+                    cluster_labels_flat = np.zeros(len(maps2use))
+                    for cluster_id, cluster in enumerate(cluster_labels):
+                        cluster_labels_flat[cluster] = cluster_id
+                    # Find original centroids
+                    centroids = self.find_original_centroids(maps2use, cluster_labels_flat, n_states)
 
 
                 GEV_R = self.compute_gev(np.transpose(maps2use), np.array(centroids))

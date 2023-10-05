@@ -7,7 +7,7 @@ AminTools Settings
 __authors__     = ['Amin Kabir', 'Raaj Chatterjee']
 __author__      = ','.join(__authors__)
 __credits__     = []
-__copyright__   = 'Copyright (c) 2021'
+__copyright__   = 'Copyright (c) 2023'
 __license__     = 'GPL'
 
 # maintanence information

@@ -1,17 +1,13 @@
 
 import os.path
 import mne
-import pandas as pd
 import numpy as np
-from scipy.sparse import coo_matrix
-
 from PyQt5 import uic
-from PyQt5 import QtCore
 from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout, QFileDialog
 import pyvista as pv
 from pyvistaqt import QtInteractor
 
-
+# TODO: *** not completed
 # TODO: embed 3d visualization into the window
 class SourceVisualizationDialog(QDialog):
     def __init__(self, context, parent=None, tbx=None):
