@@ -1,6 +1,7 @@
 
 import numpy as np
 import os.path
+from tqdm import tqdm
 from scipy.signal import find_peaks
 from collections import Counter
 from itertools import groupby
@@ -127,7 +128,6 @@ class MicrostateBackfitter:
 
         '''
 
-        print(epsilon, b, lamb)
         n_channels, n_samples = data.shape
         data_sum_sq = np.sum(data ** 2)
         iteration = 0
@@ -140,7 +140,6 @@ class MicrostateBackfitter:
         activation = microstate_maps.dot(data)
         # L
         segmentation = np.argmax(np.abs(activation), axis=0)
-        # print(f'SEG BEFORE: {segmentation[400:500]}')
 
         # STEP 3 in TABLE 2
         raw_segmentation = segmentation
@@ -151,7 +150,7 @@ class MicrostateBackfitter:
         e2 = e1 / float(n_samples * (n_channels - 1))
 
         while residual > thresh:
-            print(f'iteration: {iteration + 1} residual: {residual}, thresh: {thresh}')
+            #print(f'iteration: {iteration + 1} residual: {residual}, thresh: {thresh}')
 
             # STEP 5 in TABLE 2
             windows = np.lib.stride_tricks.sliding_window_view(raw_segmentation, 2 * b + 1)
@@ -176,16 +175,7 @@ class MicrostateBackfitter:
             prev_residual = sigma_mu
             thresh = epsilon * sigma_mu
             iteration += 1
-
-        # print(f'SEG AFTER : {segmentation[400:500]}')
-        print('Finishes after', str(iteration), 'Iterations.')
-
-        # STEP 9 in TABLE 2
-        # WARN: seems like we didn't use the result of this step
-
-        # STEP 10 in TABLE 2
-        # sigma_d_squared = data_sum_sq / float(n_samples * (n_channels - 1))
-        # R_squared = 1 - sigma_mu/sigma_d_squared
+        #print('Finishes after', str(iteration), 'Iterations.')
 
         return segmentation
 
@@ -330,9 +320,7 @@ class MicrostateBackfitter:
                     labeled_segmentation = self.label_segments(np.array(segmentation))
                     similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
 
-
             similarity_scores = np.array(similarity_scores)
-            print(similarity_scores)
 
             optimal_indices = []
 
@@ -351,6 +339,9 @@ class MicrostateBackfitter:
 
         else:
             remove_segments_less_than = 0
+
+        # Create a tqdm progress bar
+        progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True)
 
         segmentation_fit = 0
         for eeg_path in list_eeg_path:
@@ -402,6 +393,7 @@ class MicrostateBackfitter:
                     print("Segmentation data exported successfully.")
                 else:
                     print("Segmentation data export failed.")
+            progress_bar.update(1)
 
 
             """
@@ -419,5 +411,5 @@ class MicrostateBackfitter:
                 segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
             """
 
-
+        progress_bar.close()
         print(segmentation_fit / len(list_eeg_path))

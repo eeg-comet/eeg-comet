@@ -15,7 +15,6 @@ from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouett
 from pyclustering.cluster.agglomerative import agglomerative, type_link
 from pyclustering.utils.metric import distance_metric, type_metric
 from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
-
 from tensorflow.keras.layers import Conv1D, Flatten, Dense, Reshape, Input
 from keras.models import Model
 from sklearn.decomposition import PCA
@@ -66,7 +65,7 @@ class MicrostateClusterer:
         return np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
 
     @staticmethod
-    def calculate_spatial_similarity(self, metric, point1, point2):
+    def calculate_spatial_similarity(metric, point1, point2):
         """Computes similarity between two points using cosine similarity or spatial correlation."""
 
         if metric == 'Cosine Similarity':
@@ -118,6 +117,7 @@ class MicrostateClusterer:
 
         all_data, _ = generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
         best_residual, best_gev, best_maps = None, 0, None
+        modified_kmeans_results = {}
 
         for init in range(n_inits):
             if verbose:
@@ -127,6 +127,13 @@ class MicrostateClusterer:
             maps, residual = self.modified_kmeans(maps2use, initial_maps, n_states, max_iter, thresh, verbose=verbose)
             gev = self.compute_gev(all_data, maps)
 
+            # Store the results for this initialization in the dictionary
+            modified_kmeans_results[init] = {
+                'maps': maps,
+                'gev': gev,
+                'residual': residual
+            }
+
             if verbose:
                 print(f'Found {n_states} Microstate Maps')
                 print(f'GEV: {gev}')
@@ -135,9 +142,15 @@ class MicrostateClusterer:
             if gev > best_gev:
                 best_residual, best_gev, best_maps = residual, gev, maps
 
+        modified_kmeans_results['best'] = {
+            'maps': best_maps,
+            'gev': best_gev,
+            'residual': best_residual
+        }
+
         if verbose:
             print(f'\nBest GEV: {best_gev}')
-        return best_maps, best_gev, best_residual
+        return modified_kmeans_results
 
     def create_eeg_autoencoder(self, input_shape, encoding_dim):
         """Creates an autoencoder model for EEG data compression and reconstruction."""
@@ -239,7 +252,7 @@ class MicrostateClusterer:
             print(f'result: n_states = {n_states}')
 
         if method == 'Modified K-Means Clustering':
-            best_maps, best_gev, best_residual = self.run_modified_kmeans(
+            modified_kmeans_results = self.run_modified_kmeans(
                 preprocessed_data_path, extension, datatype,
                 maps2use=maps2use,
                 n_states=n_states,
@@ -248,6 +261,9 @@ class MicrostateClusterer:
                 max_iter=self.max_iter,
                 thresh=self.tolerance
             )
+            best_maps = modified_kmeans_results['best']['maps']
+            best_gev = modified_kmeans_results['best']['gev']
+            best_residual = modified_kmeans_results['best']['residual']
 
         else:
 
@@ -343,19 +359,7 @@ class MicrostateClusterer:
 
 
 class ClusterOptimizer:
-    """Finds the optimal number of clusters (K) for clustering EEG data.
-
-        Attributes:
-            maps2use (numpy array): The EEG data for clustering.
-            min_dist (float): The minimum distance between clusters.
-            n_inits (int): Number of initializations for K-Means.
-            kmin (int): Minimum number of clusters to evaluate.
-            kmax (int): Maximum number of clusters to evaluate.
-            tolerance (float, optional): The tolerance for convergence.
-            max_iter (int, optional): Maximum iterations for K-Means.
-        """
     def __init__(self, maps2use, min_dist, n_inits, kmin, kmax, preprocessed_data_path, extension, datatype, tolerance=None, max_iter=None):
-        """Initialize the ClusterOptimizer with given parameters."""
         self.maps2use = maps2use
         self.min_dist = min_dist
         self.tolerance = tolerance
@@ -363,52 +367,24 @@ class ClusterOptimizer:
         self.kmin = kmin
         self.kmax = kmax
         self.max_iter = max_iter
-        self.microstate_clusterer = MicrostateClusterer(n_inits=1)
+        self.microstate_clusterer = MicrostateClusterer()
         self.preprocessed_data_path = preprocessed_data_path
         self.extension = extension
         self.datatype = datatype
-        self.N, self.RES, self.GEV, self.SIL = [], [], [], []
-
-    def _cluster_and_evaluate(self, k):
-        """Cluster the EEG data for a given K and evaluate the quality using various metrics."""
-        gev_i, residual_i = 0, 0
-        for init in range(self.n_inits):
-            maps, gev, residual = self.microstate_clusterer.run_modified_kmeans(
-                preprocessed_data_path=self.preprocessed_data_path,
-                extension=self.extension,
-                datatype=self.datatype,
-                maps2use=self.maps2use,
-                n_states=k,
-                n_inits=1,
-                initializer="Random",
-                max_iter=self.max_iter,
-                thresh=self.tolerance,
-                verbose=False
-            )
-            gev_i += gev
-            residual_i += residual
-            # Compute the Silhouette score
-            activation = np.array(maps).dot(self.maps2use)
-            classes = np.argmax(np.abs(activation), axis=0)
-            sil_score_i = np.mean(abs(self.microstate_clusterer.corr_vectors(self.maps2use, maps[classes].T)))
-
-        return gev_i / self.n_inits, residual_i / self.n_inits, sil_score_i / self.n_inits
+        self.data, _ = generate_maps_and_peaks(self.preprocessed_data_path,
+                                               self.extension,
+                                               self.datatype,
+                                               use_percentages=100)
 
     def find_elbow_with_plot(self, ax1, ax2, ax3):
         """Find the elbow point with plots to visualize the clustering metrics."""
-        for k in range(self.kmin, self.kmax + 1):
-            print(f'\nClustering data with {k} microstates')
-            gev_mean, residual_mean, sil_mean = self._cluster_and_evaluate(k)
-            self.N.append(k)
-            self.RES.append(residual_mean)
-            self.GEV.append(gev_mean)
-            self.SIL.append(sil_mean)
+        sim_values, gev_values, res_values = self.find_optimal_k_elbow('all')
 
         df = pd.DataFrame({
-            'K': self.N,
-            'Residual': self.RES,
-            'Global Explained Variance': self.GEV,
-            'Silhouette Score': self.SIL
+            'K': list(range(self.kmin, self.kmax + 1)),
+            'Residual': res_values,
+            'Global Explained Variance': gev_values,
+            'Similarity Score': sim_values
         })
         self._plot(df, ax1, ax2, ax3)
 
@@ -417,93 +393,201 @@ class ClusterOptimizer:
         """Find the elbow point without generating plots."""
         if optimizer_mode == 'gs':
             return self.find_optimal_k_gap_statistic(int(parameter_value))
+
         elif optimizer_mode == 'cv':
-            return self.find_optimal_k_cross_validation(int(parameter_value))
+            return self.find_optimal_k_cross_validation(int(parameter_value), int(parameter_value))
+
+        elif optimizer_mode in ['gev', 'res']:
+            return self.find_optimal_k_elbow(optimizer_mode, int(parameter_value))
+
+        elif optimizer_mode == 'sil':
+            return self.find_optimal_k_using_silhouette()
+
         else:
-            parameter_value = parameter_value / 100
-            k_range = range(self.kmin, self.kmax + 1)
-            progress_bar = tqdm(k_range, desc="Progress", ncols=100, position=0, leave=True)
+            raise ValueError("Invalid optimizer_mode.")
 
-            for k in progress_bar:
-                progress_bar.set_postfix({"k": k})
-                print(f'\nClustering data with {k} microstates')
-                gev_mean, residual_mean, sil_mean = self._cluster_and_evaluate(k)
-                self.N.append(k)
-                self.RES.append(residual_mean)
-                self.GEV.append(gev_mean)
-                self.SIL.append(sil_mean)
-                if len(self.N) == 1:
-                    continue
-                if self._should_stop(optimizer_mode, gev_mean, residual_mean, sil_mean, parameter_value):
-                    return k
-            return int((self.kmin + self.kmax) / 2)
-
-    def _calculate_wcss(self, data, n_clusters):
-        # Initialize variables to store the WCSS
-        wcss = 0
-        # Run your modified K-means clustering algorithm
-        maps, _, _ = self.microstate_clusterer.run_modified_kmeans(
+    def _calculate_ssd_ignoring_polarity(self, data, n_clusters):
+        modified_kmeans_results = self.microstate_clusterer.run_modified_kmeans(
             preprocessed_data_path=self.preprocessed_data_path,
             extension=self.extension,
             datatype=self.datatype,
             maps2use=self.maps2use,
             n_states=n_clusters,
-            n_inits=1,
+            n_inits=self.n_inits,
             initializer="Random",
             max_iter=self.max_iter,
             thresh=self.tolerance,
             verbose=False
         )
+        maps = modified_kmeans_results['best']['maps']
         segmentation = np.argmax(np.abs(maps.dot(data)), axis=0)
-        # Calculate WCSS for each cluster
+        ssd = 0
         for cluster_idx in range(n_clusters):
             cluster_points = data[:, segmentation == cluster_idx]
             cluster_center = maps[cluster_idx]
+            ssd += np.sum(np.sum((np.abs(cluster_points) - np.abs(cluster_center).reshape(-1, 1)) ** 2, axis=0))
+        return ssd
 
-            # Calculate the sum of squares of distances within the cluster
-            cluster_sse = np.sum(np.sum((cluster_points - cluster_center.reshape(-1, 1)) ** 2, axis=0))
-            wcss += cluster_sse
-        return wcss
+    def _calculate_silhouette(self, data, n_clusters):
+        # Run your modified K-means clustering algorithm
+        modified_kmeans_results = self.microstate_clusterer.run_modified_kmeans(
+            preprocessed_data_path=self.preprocessed_data_path,
+            extension=self.extension,
+            datatype=self.datatype,
+            maps2use=self.maps2use,
+            n_states=n_clusters,
+            n_inits=self.n_inits,
+            initializer="Random",
+            max_iter=self.max_iter,
+            thresh=self.tolerance,
+            verbose=False
+        )
+        maps = modified_kmeans_results['best']['maps']
+        segmentation = np.argmax(np.abs(maps.dot(data)), axis=0)
+
+        n_samples = data.shape[1]
+        silhouette_values = np.zeros(n_samples)
+
+        for i in range(n_samples):
+            a_i = 0
+            b_i = float('inf')
+
+            cluster_i = segmentation[i]
+            data_i = data[:, i]
+
+            for j in range(n_samples):
+                if i == j:
+                    continue
+
+                cluster_j = segmentation[j]
+                data_j = data[:, j]
+
+                if cluster_i == cluster_j:
+                    a_i += np.dot(data_i, data_j) / (np.linalg.norm(data_i) * np.linalg.norm(data_j))
+                else:
+                    similarity = np.dot(data_i, maps[cluster_j, :]) / (np.linalg.norm(data_i) * np.linalg.norm(maps[cluster_j, :]))
+                    if similarity < b_i:
+                        b_i = similarity
+
+            a_i /= (segmentation == cluster_i).sum() - 1
+            silhouette_values[i] = (b_i - a_i) / max(a_i, b_i)
+
+        silhouette_score = np.mean(silhouette_values)
+
+        return silhouette_score
+
+    def find_optimal_k_using_silhouette(self):
+        print("Identifying the optimal number of clusters using the silhouette method")
+        k_values = range(self.kmin, self.kmax + 1)
+        sil_values = []
+        progress_bar = tqdm(total=len(k_values), ncols=100, position=0, leave=True)
+
+        for k in k_values:
+            sil_value = self._calculate_silhouette(self.data, k)
+            sil_values.append(sil_value)
+            progress_bar.update(1)
+
+        progress_bar.close()
+        optimal_clusters = np.argmax(sil_values) + self.kmin
+        print(f"Optimal clusters: {optimal_clusters}")
+        return optimal_clusters
+
+    def find_optimal_k_elbow(self, metric, threshold=5):
+        print(
+            f"\nIdentifying the optimal number of clusters using the elbow method with %{threshold} threshold")
+
+        # Number of clusters to consider
+        k_values = range(self.kmin, self.kmax + 1)
+
+        # Initialize SSD
+        elbow_vector = []
+
+        # Create a tqdm progress bar
+        progress_bar = tqdm(total=len(k_values), ncols=100, position=0, leave=True)
+
+        for i, k in enumerate(k_values):
+            # Run your modified K-means clustering algorithm
+            modified_kmeans_results = self.microstate_clusterer.run_modified_kmeans(
+                preprocessed_data_path=self.preprocessed_data_path,
+                extension=self.extension,
+                datatype=self.datatype,
+                maps2use=self.maps2use,
+                n_states=k,
+                n_inits=self.n_inits,
+                initializer="Random",
+                max_iter=self.max_iter,
+                thresh=self.tolerance,
+                verbose=False
+            )
+            gev_values, res_values = [], []
+            for init_result in modified_kmeans_results.values():
+                gev_values.append(init_result['gev'])
+                res_values.append(init_result['residual'])
+
+            if metric == 'gev':
+                elbow_vector.append(np.mean(gev_values))
+            elif metric == 'res':
+                elbow_vector.append(np.mean(res_values))
+
+            progress_bar.update(1)
+
+        if metric == 'all':
+            return gev_values, res_values
+
+        else:
+            print(elbow_vector)
+            elbow_vector = [e / k for e, k in zip(elbow_vector, k_values)]
+
+            # Calculate the reduction in elbow values
+            reductions = [elbow_vector[i] - elbow_vector[i - 1] for i in range(1, len(elbow_vector))]
+
+            # Find the index where the reduction is not significant
+            optimal_clusters = None
+
+            for i in range(1, len(reductions)):
+                if reductions[i] <= threshold / 100:
+                    optimal_clusters = k_values[i]  + 1
+                    break
+
+            # If no optimal k is found, choose the last k value
+            if optimal_clusters is None:
+                optimal_clusters = k_values[-1]
+
+            print(f"\nOptimal clusters: {optimal_clusters}")
+            return optimal_clusters
 
     def find_optimal_k_gap_statistic(self, n_random_datasets=5):
         print(
             f"\nIdentifying the optimal number of clusters using the gap statistic method with {n_random_datasets}-random datasets")
 
-        # Load or generate your data
-        data, _ = generate_maps_and_peaks(self.preprocessed_data_path,
-                                          self.extension,
-                                          self.datatype,
-                                          use_percentages=100
-                                          )
-
         # Number of clusters to consider
         k_values = range(self.kmin, self.kmax + 1)
 
-        # Initialize arrays to store WCSS values
-        wcss_real = np.zeros(len(k_values))
-        wcss_random = np.zeros((len(k_values), n_random_datasets))
+        # Initialize arrays to store SSD values
+        ssd_real = np.zeros(len(k_values))
+        ssd_random = np.zeros((len(k_values), n_random_datasets))
 
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(k_values) * (1 + n_random_datasets), ncols=100, position=0, leave=True)
 
         for i, k in enumerate(k_values):
-            wcss_real[i] = self._calculate_wcss(data, k)
+            ssd_real[i] = self._calculate_ssd_ignoring_polarity(self.data, k)
             progress_bar.update(1)
 
         for j in range(n_random_datasets):
-            random_data = np.random.rand(*data.shape)  # Generate random data with the same shape as your data
+            random_data = np.random.rand(*self.data.shape)  # Generate random data with the same shape as your data
             for i, k in enumerate(k_values):
-                wcss_random[i, j] = self._calculate_wcss(random_data, k)
+                ssd_random[i, j] = self._calculate_ssd_ignoring_polarity(random_data, k)
                 progress_bar.update(1)
 
-        # Calculate the expected WCSS for random data
-        wcss_random_mean = wcss_random.mean(axis=1)
+        # Calculate the expected SSD for random data
+        ssd_random_mean = ssd_random.mean(axis=1)
 
         # Calculate the gap statistic
-        gap = np.log(wcss_random_mean) - np.log(wcss_real)
+        gap = np.log(ssd_random_mean) - np.log(ssd_real)
 
         # Find the optimal number of clusters (the maximum point of the gap statistic)
-        optimal_clusters = np.argmax(gap) + self.kmin
+        optimal_clusters = np.argmax(gap) + 1
 
         # Close the progress bar
         progress_bar.close()
@@ -511,13 +595,8 @@ class ClusterOptimizer:
         print(f"\nOptimal clusters: {optimal_clusters}")
         return optimal_clusters
 
-    def find_optimal_k_cross_validation(self, n_splits=5):
+    def find_optimal_k_cross_validation(self, n_splits=5, threshold=5):
         print(f"\nIdentifying the optimal number of microstates using {n_splits}-fold cross-validation method")
-        data, _ = generate_maps_and_peaks(self.preprocessed_data_path,
-                                          self.extension,
-                                          self.datatype,
-                                          use_percentages=100
-                                          )
         # Number of clusters to consider
         k_values = range(self.kmin, self.kmax + 1)
         # Initialize arrays to store cross-validation scores
@@ -532,14 +611,14 @@ class ClusterOptimizer:
         for k in k_values:
             wcss = 0
             kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
-            for train_index, test_index in kf.split(data.T):
-                train_data, test_data = data[:, train_index], data[:, test_index]
+            for train_index, test_index in kf.split(self.data.T):
+                train_data, test_data = self.data[:, train_index], self.data[:, test_index]
                 # Run the modified K-means clustering algorithm
-                maps, _, _ = self.microstate_clusterer.run_modified_kmeans(
+                modified_kmeans_results = self.microstate_clusterer.run_modified_kmeans(
                     preprocessed_data_path=self.preprocessed_data_path,
                     extension=self.extension,
                     datatype=self.datatype,
-                    maps2use=self.maps2use,
+                    maps2use=train_data,
                     n_states=k,
                     n_inits=1,
                     initializer="Random",
@@ -547,14 +626,14 @@ class ClusterOptimizer:
                     thresh=self.tolerance,
                     verbose=False
                 )
+                maps = modified_kmeans_results['best']['maps']
                 segmentation = np.argmax(np.abs(maps.dot(test_data)), axis=0)
                 # Calculate WCSS for each cluster
                 for cluster_idx in range(k):
                     cluster_points = test_data[:, segmentation == cluster_idx]
                     cluster_center = maps[cluster_idx]
                     # Calculate the sum of squares of distances within the cluster
-                    cluster_sse = np.sum(np.sum((cluster_points - cluster_center.reshape(-1, 1)) ** 2, axis=0))
-                    wcss += cluster_sse
+                    wcss += np.sum(np.sum((np.abs(cluster_points) - np.abs(cluster_center).reshape(-1, 1)) ** 2, axis=0))
                 # Update the combined progress bar
                 combined_progress.update(1)
             # Calculate the average WCSS over all folds
@@ -563,21 +642,25 @@ class ClusterOptimizer:
 
         combined_progress.close()
 
-        # Find the optimal number of clusters (k) with the minimum average WCSS
-        optimal_clusters = k_values[np.argmin(cv_scores)]
+        elbow_vector = [e / k for e, k in zip(cv_scores, k_values)]
+
+        # Calculate the reduction in elbow values
+        reductions = [elbow_vector[i] - elbow_vector[i - 1] for i in range(1, len(elbow_vector))]
+
+        # Find the index where the reduction is not significant
+        optimal_clusters = None
+
+        for i in range(1, len(reductions)):
+            if reductions[i] <= threshold / 100:
+                optimal_clusters = k_values[i] + 1
+                break
+
+        # If no optimal k is found, choose the last k value
+        if optimal_clusters is None:
+            optimal_clusters = k_values[-1]
+
         print(f"\nOptimal clusters: {optimal_clusters}")
         return optimal_clusters
-
-    def _should_stop(self, optimizer_mode, gev_mean, residual_mean, sil_mean, threshold):
-        """Decide if the clustering should stop based on the given stopping mode and threshold."""
-        if optimizer_mode == 'gev':
-            return abs(gev_mean - self.GEV[-2]) / self.GEV[-2] < threshold
-        elif optimizer_mode == 'res':
-            return abs(residual_mean - self.RES[-2]) / self.RES[-2] < threshold
-        elif optimizer_mode == 'sil':
-            return abs(sil_mean - self.SIL[-2]) / self.SIL[-2] < threshold
-        else:
-            raise ValueError("Invalid optimizer_mode. Choose 'gev', 'res', or 'sil'.")
 
     def _plot(self, df, ax1, ax2, ax3):
         """Generate line plots for the calculated metrics to visualize the elbow point."""

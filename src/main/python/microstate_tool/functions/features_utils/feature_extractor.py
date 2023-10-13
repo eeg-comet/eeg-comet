@@ -193,35 +193,66 @@ class FeatureExtractor:
 
     def microstate_duration(self):
         """
-        Compute the duration of each element within non-overlapping windows.
+        Compute the average duration of each element uninterrupted in the data.
 
         Returns:
             dict or list of dict: Depending on the mode, returns either the average duration
                                   per symbol over all windows (mode='static'), or the dynamic
                                   duration per window (mode='dynamic').
         """
-        window_element_durations = [Counter() for _ in range(self.num_windows)]
-
-        for i, s in enumerate(self.segment):
-            window_index = i // (self.sampling_rate * self.window_size)
-            if window_index < self.num_windows:
-                window_element_durations[window_index][s] += 1
-
-        duration_per_window = [{element: count * self.window_size for element, count in window_counts.items()}
-                               for window_counts in window_element_durations]
-
         if self.mode == 'static':
-            total_element_durations = Counter()
-            for window in duration_per_window:
-                total_element_durations.update(window)
-            num_windows = len(duration_per_window)
-            average_duration = {element: duration / num_windows for element, duration in
-                                total_element_durations.items()}
-            return average_duration
-        elif self.mode == 'dynamic':
-            return duration_per_window
+            durations = {}
+            current_segment = None
+            current_duration = 0
+
+            for item in self.segment:
+                if item != current_segment:
+                    if current_segment is not None:
+                        if current_segment not in durations:
+                            durations[current_segment] = []
+                        durations[current_segment].append(current_duration * 1000 / self.sampling_rate)
+                    current_segment = item
+                    current_duration = 1
+                else:
+                    current_duration += 1
+
+            if current_segment not in durations:
+                durations[current_segment] = []
+            durations[current_segment].append(current_duration * 1000 / self.sampling_rate)
+
+            average_durations = {key: sum(value) / len(value) for key, value in durations.items()}
+
+        elif self.mode == 'dynamic' and self.window_size is not None:
+            windows = []
+            current_window = {}
+            current_window_duration = 0
+
+            for item in self.segment:
+                if current_window_duration >= self.window_size * self.sampling_rate:
+                    windows.append(current_window.copy())
+                    current_window = {}
+                    current_window_duration = 0
+
+                if item in current_window:
+                    current_window[item] += 1
+                else:
+                    current_window[item] = 1
+
+                current_window_duration += 1
+
+            if current_window:
+                windows.append(current_window)
+
+            for window in windows:
+                for key in window:
+                    window[key] = window[key] * 1000 / self.sampling_rate
+
+            average_durations = windows
+
         else:
-            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
+            raise ValueError("Invalid mode or missing window size for 'dynamic' mode")
+
+        return average_durations
 
 
     def compute_transition_probabilities(self):

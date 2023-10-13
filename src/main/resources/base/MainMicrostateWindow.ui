@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1859</width>
-    <height>1659</height>
+    <width>1857</width>
+    <height>1645</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -196,8 +196,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>1829</width>
-          <height>1512</height>
+          <width>1806</width>
+          <height>2005</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -2079,17 +2079,17 @@
                </item>
                <item>
                 <property name="text">
-                 <string>Global Explained Variance</string>
+                 <string>Silhouette Method</string>
                 </property>
                </item>
                <item>
                 <property name="text">
-                 <string>Residual Variance</string>
+                 <string>Elbow - Global Explained Variance</string>
                 </property>
                </item>
                <item>
                 <property name="text">
-                 <string>Silhouette Score</string>
+                 <string>ELbow - Residual Variance</string>
                 </property>
                </item>
               </widget>
@@ -2254,8 +2254,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1859</width>
-     <height>18</height>
+     <width>1857</width>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -2372,10 +2372,10 @@
  <connections/>
  <buttongroups>
   <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_6"/>
  </buttongroups>
 </ui>

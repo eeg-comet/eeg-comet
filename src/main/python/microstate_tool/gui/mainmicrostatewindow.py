@@ -129,9 +129,20 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.NewStudyWindow.showMaximized()
         self.mainwindow_controller()
 
-    def load_study(self, save_folder=None):
+    def load_study(self):
 
-        if self.comet_tbx.done_preprocessing == False:  
+        if self.comet_tbx.done_preprocessing:
+            ret = QMessageBox.question(self, 'MessageBox', f"The {self.comet_tbx.study_name} is already loaded,"
+                                                           " do you want to load another study?",
+                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
+            if ret == QMessageBox.Yes:
+                do_load_study = True
+            else:
+                do_load_study = False
+        else:
+            do_load_study = True
+
+        if do_load_study:
             self.save_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
             tbx_object = os.path.join(self.save_folder, 'comet_tbx_object.pkl')
             if not os.path.exists(tbx_object):
@@ -141,22 +152,24 @@ class MainMicrostateWindow(QMainWindow):
                 return
             with open(tbx_object, 'rb') as input_tbx:
                 self.comet_tbx = pickle.load(input_tbx)
-        # Define global directories
-        self.comet_tbx.preprocessed_data_path = os.path.join(self.comet_tbx.save_dir, self.comet_tbx.study_name+'_preprocessed_data')
-        self.comet_tbx.extracted_features_path = os.path.join(self.comet_tbx.save_dir, self.comet_tbx.study_name+'_extracted_features')
-        self.comet_tbx.microstate_maps_path = os.path.join(self.comet_tbx.save_dir, 'microstate_maps.csv')
-        self.comet_tbx.localized_sources_path = os.path.join(self.comet_tbx.save_dir, self.comet_tbx.study_name+'_localized_sources')
-        self.comet_tbx.stc_path = os.path.join(self.comet_tbx.localized_sources_path, self.comet_tbx.study_name+'_stc_data.npy')
-        # Load preprocessing information
-        if self.comet_tbx.done_preprocessing:
-            self.comet_tbx.segmentation_path = os.path.join(self.comet_tbx.save_dir, self.comet_tbx.study_name+'_segmentation')
 
+            # Define global directories
+            self.comet_tbx.preprocessed_data_path = os.path.join(self.comet_tbx.save_dir,
+                                                                 self.comet_tbx.study_name + '_preprocessed_data')
+            self.comet_tbx.extracted_features_path = os.path.join(self.comet_tbx.save_dir,
+                                                                  self.comet_tbx.study_name + '_extracted_features')
+            self.comet_tbx.microstate_maps_path = os.path.join(self.comet_tbx.save_dir, 'microstate_maps.csv')
+            self.comet_tbx.segmentation_path = os.path.join(self.comet_tbx.save_dir,
+                                                            self.comet_tbx.study_name + '_segmentation')
+            self.comet_tbx.localized_sources_path = os.path.join(self.comet_tbx.save_dir,
+                                                                 self.comet_tbx.study_name + '_localized_sources')
+            self.comet_tbx.stc_path = os.path.join(self.comet_tbx.localized_sources_path,
+                                                   self.comet_tbx.study_name + '_stc_data.npy')
             # Show study name on the main window
             self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
 
         # Update GUI
         self.update_mainwindow_gui()
-
         self.mainwindow_controller()
 
     def reset_option_box(self, box, options=[], current=None):
@@ -304,8 +317,12 @@ class MainMicrostateWindow(QMainWindow):
                     step2_auto_target_parameter_text = 'Random datasets:'
                 elif auto_k_method == 'Cross Validation':
                     step2_auto_target_parameter_text = 'Folds:'
-                elif auto_k_method in ['Global Explained Variance', 'Residual Variance', 'Silhouette Score']:
+                elif auto_k_method in ['Elbow - Global Explained Variance', 'Elbow - Residual Variance']:
                     step2_auto_target_parameter_text = 'Threshold (%):'
+
+                if auto_k_method == 'Silhouette Method':
+                    step2_auto_target_parameter_text = ''
+                #    set_widgets_status(after_preprocessing_widgets, mode='hide')
                 self.ui.step2_auto_target_parameter_label.setText(step2_auto_target_parameter_text)
 
             if self.ui.step2_user_k_radio.isChecked():
@@ -525,11 +542,11 @@ class MainMicrostateWindow(QMainWindow):
                     self.comet_tbx.stopping_mode = 'gs'
                 elif auto_k_method == 'Cross Validation':
                     self.comet_tbx.stopping_mode = 'cv'
-                elif auto_k_method == 'Global Explained Variance':
+                elif auto_k_method == 'Elbow - Global Explained Variance':
                     self.comet_tbx.stopping_mode = 'gev'
-                elif auto_k_method == 'Residual Variance':
+                elif auto_k_method == 'Elbow - Residual Variance':
                     self.comet_tbx.stopping_mode = 'res'
-                elif auto_k_method == 'Silhouette Score':
+                elif auto_k_method == 'Silhouette Method':
                     self.comet_tbx.stopping_mode = 'sil'
 
                 self.comet_tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
