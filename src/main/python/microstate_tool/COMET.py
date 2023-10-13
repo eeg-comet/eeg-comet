@@ -185,7 +185,6 @@ class COMET:
 			save_path = os.path.join(self.preprocessed_data_path, name)
 			
 			self.length_all_data = np.append(length_all_data, int(length_data))
-			# print("Progress:", progress, "%")
 
 			# save EEG object
 			data_io.export_eegs(eeg, save_path, self.extension, self.datatype)

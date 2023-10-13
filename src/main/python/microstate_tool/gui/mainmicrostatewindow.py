@@ -25,7 +25,7 @@ class MainMicrostateWindow(QMainWindow):
         self.context = context
 
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
-        self.ui.setWindowTitle("Microstate Toolbox")
+        self.ui.setWindowTitle("EEG-COMET: Comprehensive Microstate Extraction Toolbox")
         self.ui.showMaximized()
 
         self.init_dialogs()
@@ -36,9 +36,6 @@ class MainMicrostateWindow(QMainWindow):
 
     def init_dialogs(self):
         self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, tbx=self.comet_tbx)
-        # Currently we cannot init this window here since many information will be updated later
-        # no need to warry about memory since it will be automatically deleted after a new window be created
-        # just need to find a more elegant way to implement this
         # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.comet_tbx)
         self.ui.ElbowVisualizationDialog = ElbowVisualizationDialog(self.context)
         self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
@@ -56,6 +53,8 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.foldername_preprocessed_data = ""
 
     def init_ui_components(self):
+        set_widgets_status(self.scrollArea, mode='hide')
+
         self.ui.step4_features2extract_combobox = CheckableComboBox()
         self.CheckableComboBox_Layout.addWidget(self.ui.step4_features2extract_combobox)
         list_features = [
@@ -166,7 +165,6 @@ class MainMicrostateWindow(QMainWindow):
                 self.load_study_helper()
 
         # Update GUI
-        self.update_mainwindow_gui()
         self.mainwindow_controller()
 
     def reset_option_box(self, box, options=[], current=None):
@@ -299,8 +297,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_permutations_input,
         ]
 
-
         if self.comet_tbx.done_preprocessing:
+            set_widgets_status(self.scrollArea, mode='show')
+
+            self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
             set_widgets_status(after_preprocessing_widgets, mode='enable')
             if self.ui.step2_auto_k_radio.isChecked():
@@ -451,37 +451,6 @@ class MainMicrostateWindow(QMainWindow):
         else:
             self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
             self.ui.step5_visualize_sources_button.setDisabled(True)
-
-    def update_mainwindow_gui(self):
-        if self.comet_tbx.done_preprocessing:
-            self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
-
-        if self.comet_tbx.done_clustering:
-            self.ui.step2_clustermethod_combobox.setCurrentText(self.comet_tbx.clustering_method)
-            #self.clustering_option
-            if self.comet_tbx.choose_number_of_maps == 'Auto':
-                self.ui.step2_auto_k_radio.setChecked(True)
-            elif self.comet_tbx.choose_number_of_maps == 'User':
-                self.ui.step2_user_k_radio.setChecked(True)
-                self.ui.step2_user_k_input.setText(str(self.comet_tbx.number_of_maps))
-            if self.comet_tbx.initializer == 'Random':
-                self.ui.step2_random_initializer_radio.setChecked(True)
-            elif self.comet_tbx.initializer == 'K-Means++':
-                self.ui.step2_kmeans_initializer_radio.setChecked(True)
-            #self.smoothing_gfp
-            self.ui.step2_kernel_size_input.setText(str(self.comet_tbx.min_distance_size))
-            self.ui.step2_stopcondition_input.setText(str(self.comet_tbx.clustering_tolerance))
-            self.ui.step2_user_numberofrepeats_input.setText(str(self.comet_tbx.number_of_repeats))
-
-        if self.comet_tbx.done_backfitting:
-            if self.comet_tbx.filter_segments:
-                self.ui.step3_filter_segments_checkbox.setChecked(True)
-            else:
-                self.ui.step3_filter_segments_checkbox.setChecked(False)
-            if self.comet_tbx.backfit_to == 'all':
-                self.ui.step3_backfit_all_radio.setChecked(True)
-            elif self.comet_tbx.backfit_to == 'peaks':
-                self.ui.step3_backfit_peaks_radio.setChecked(True)
 
     def visualize_elbow(self):
         self.ElbowVisualizationDialog.preprocessed_data_path = self.comet_tbx.preprocessed_data_path

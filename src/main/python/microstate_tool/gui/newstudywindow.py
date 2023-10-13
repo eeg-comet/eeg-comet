@@ -161,8 +161,6 @@ class NewStudyWindow(QDialog):
                 self.ui.step0_ch2rm_combobox.setDisabled(True)
 
             if self.ui.step0_no_option_checkbox.isChecked():
-                self.ui.step0_preprocessing_progress.setEnabled(True)
-
                 self.ui.step0_filter_option_checkbox.setChecked(False)
                 self.ui.step0_filter_option_checkbox.setDisabled(True)
                 self.ui.step0_lowcut_freq_input.setDisabled(True)
@@ -176,14 +174,12 @@ class NewStudyWindow(QDialog):
                 self.ui.step0_filter_option_checkbox.setEnabled(True)
                 self.ui.step0_downsamp_option_checkbox.setEnabled(True)
                 if self.ui.step0_filter_option_checkbox.isChecked():
-                    self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.filter_data = True
                     set_widgets_status(preprocessing_sub_options, mode='enable')
                 else:
                     self.filter_data = False
                     set_widgets_status(preprocessing_sub_options, mode='disable')
                 if self.ui.step0_downsamp_option_checkbox.isChecked():
-                    self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.ui.downsample_data = True
                     set_widgets_status(downsample_sub_options, mode='enable')
                 else:
