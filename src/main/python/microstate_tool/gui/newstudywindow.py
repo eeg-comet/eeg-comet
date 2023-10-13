@@ -392,7 +392,7 @@ class NewStudyWindow(QDialog):
 
         if self.main_window:
             self.main_window.tbx = self.tbx
-            self.main_window.load_study(self.save_dir)
+            self.main_window.load_study()
         self.ui.close()
 
     def plot_montage(self):
