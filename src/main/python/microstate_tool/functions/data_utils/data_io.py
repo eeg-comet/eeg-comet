@@ -154,9 +154,7 @@ class DataIO:
         Output:
         - None
         """
-    
-        print('*'*20, 'save')  # Print a line of asterisks for visual separation
-    
+
         # List of available file extensions for export
         available_extensions = ['.vhdr', '.set', '.edf']
     

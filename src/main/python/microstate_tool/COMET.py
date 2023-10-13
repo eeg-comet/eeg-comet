@@ -145,8 +145,11 @@ class COMET:
 
 		length_all_data = []
 		data_io = DataIO()
-		counter = 1
-		for filename in tqdm(self.list_eegs_path):
+
+		progress_bar = tqdm(total=len(self.list_eegs), ncols=100, position=0, leave=True)
+
+		for filename in self.list_eegs_path:
+			progress_bar.set_description(f"Preprocessing file: {self.list_eegs[self.list_eegs_path.index(filename)]}")
 			# Create an instance of the DataPreprocessor class
 			preprocessor = DataPreprocessor()
 			progress, eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocessor.preprocess_eegs(
@@ -163,6 +166,7 @@ class COMET:
 					self.sample_rate,
 					self.ch2rm
 					)
+			progress_bar.update(1)
 
 			self.eeg_info = eeg.info
 			# Save EEG info
@@ -184,8 +188,9 @@ class COMET:
 			# print("Progress:", progress, "%")
 
 			# save EEG object
-			print(f"\nPreprocessing file: {filename}")
 			data_io.export_eegs(eeg, save_path, self.extension, self.datatype)
+
+		progress_bar.close()
 
 		self.done_preprocessing = True
 		if self.auto_save:

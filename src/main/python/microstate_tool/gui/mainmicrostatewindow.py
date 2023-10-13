@@ -129,30 +129,20 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.NewStudyWindow.showMaximized()
         self.mainwindow_controller()
 
-    def load_study(self):
 
-        if self.comet_tbx.done_preprocessing:
-            ret = QMessageBox.question(self, 'MessageBox', f"The {self.comet_tbx.study_name} is already loaded,"
-                                                           " do you want to load another study?",
-                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
-            if ret == QMessageBox.Yes:
-                do_load_study = True
-            else:
-                do_load_study = False
-        else:
-            do_load_study = True
+    def load_study_helper(self):
+        self.save_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
+        tbx_object = os.path.join(self.save_folder, 'comet_tbx_object.pkl')
+        if not os.path.exists(tbx_object):
+            QMessageBox.information(self, "Load error",
+                                    "The selected folder does not contain a valid study!",
+                                    QMessageBox.Ok)
+            return
+        with open(tbx_object, 'rb') as input_tbx:
+            self.comet_tbx = pickle.load(input_tbx)
 
-        if do_load_study:
-            self.save_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
-            tbx_object = os.path.join(self.save_folder, 'comet_tbx_object.pkl')
-            if not os.path.exists(tbx_object):
-                QMessageBox.information(self, "Load error",
-                                        "The selected folder does not contain a valid study!",
-                                        QMessageBox.Ok)
-                return
-            with open(tbx_object, 'rb') as input_tbx:
-                self.comet_tbx = pickle.load(input_tbx)
-
+    def load_study(self, from_new_study=False):
+        if from_new_study:
             # Define global directories
             self.comet_tbx.preprocessed_data_path = os.path.join(self.comet_tbx.save_dir,
                                                                  self.comet_tbx.study_name + '_preprocessed_data')
@@ -165,8 +155,15 @@ class MainMicrostateWindow(QMainWindow):
                                                                  self.comet_tbx.study_name + '_localized_sources')
             self.comet_tbx.stc_path = os.path.join(self.comet_tbx.localized_sources_path,
                                                    self.comet_tbx.study_name + '_stc_data.npy')
-            # Show study name on the main window
-            self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
+        else:
+            if self.comet_tbx.done_preprocessing:
+                ret = QMessageBox.question(self, 'MessageBox', f"The {self.comet_tbx.study_name} is already loaded,"
+                                                               " do you want to load another study?",
+                                           QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
+                if ret == QMessageBox.Yes:
+                    self.load_study_helper()
+            else:
+                self.load_study_helper()
 
         # Update GUI
         self.update_mainwindow_gui()
@@ -456,6 +453,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_visualize_sources_button.setDisabled(True)
 
     def update_mainwindow_gui(self):
+        if self.comet_tbx.done_preprocessing:
+            self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
+
         if self.comet_tbx.done_clustering:
             self.ui.step2_clustermethod_combobox.setCurrentText(self.comet_tbx.clustering_method)
             #self.clustering_option

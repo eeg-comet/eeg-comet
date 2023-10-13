@@ -633,7 +633,7 @@ class ClusterOptimizer:
                     cluster_points = test_data[:, segmentation == cluster_idx]
                     cluster_center = maps[cluster_idx]
                     # Calculate the sum of squares of distances within the cluster
-                    wcss += np.sum(np.sum((np.abs(cluster_points) - np.abs(cluster_center).reshape(-1, 1)) ** 2, axis=0))
+                    wcss += np.sum(np.sum((cluster_points - cluster_center.reshape(-1, 1)) ** 2, axis=0))
                 # Update the combined progress bar
                 combined_progress.update(1)
             # Calculate the average WCSS over all folds
