@@ -299,7 +299,8 @@ class MicrostateBackfitter:
             rm_max_len = 50
             len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
             similarity_scores = np.empty((len(list_eeg_path), len(len_win2rm_list)))
-            print("\nIdentifying the optimal window length for removal")
+            progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True,
+                                desc="Identifying the optimal window length for removal")
             for eeg_path in list_eeg_path:
                 eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                 eeg_data = eeg.get_data()
@@ -318,6 +319,9 @@ class MicrostateBackfitter:
                     labeled_segmentation = self.label_segments(np.array(segmentation))
                     similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
 
+                progress_bar.update(1)
+
+            progress_bar.close()
             similarity_scores = np.array(similarity_scores)
 
             optimal_indices = []
