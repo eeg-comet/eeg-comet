@@ -32,12 +32,11 @@ class COMET:
 		self.done_labeling_microstates = False
 		self.done_backfitting = False
 		self.done_extracting_features = False
-		# self.done_extracting_microsegments = False
 		self.done_source_localization = False
 		self.auto_save = auto_save
 
 	def load_config(self, config):
-		# base
+		# Base configs
 		self.config = config
 		self.study_name = config['base']['study_name']
 		self.input_folder = config['base']['input_folder']
@@ -49,7 +48,7 @@ class COMET:
 		self.preprocessed_data_path = os.path.join(self.save_dir, self.study_name+'_preprocessed_data')
 		self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
 
-		# load new study
+		# Load new study configs
 		self.load_all_files = config.getboolean('load_new_study', 'load_all_files')
 		if self.load_all_files:
 			self.pattern_content = config.get('load_new_study', 'pattern_content', fallback='')
@@ -64,7 +63,7 @@ class COMET:
 		self.remove_channels = config.getboolean('load_new_study', 'remove_channels')
 		self.ch2rm = config['load_new_study']['ch2rm'] if self.remove_channels else 'missing'
 
-		# clustering_utils
+		# Clustering configs
 		self.smoothing_gfp = config.getboolean('do_clustering', 'smoothing_gfp')
 		self.smoothing_distance = config.getint('do_clustering', 'smoothing_distance') if self.smoothing_gfp else ''
 		number_of_maps = config['do_clustering']['number_of_maps']
@@ -85,8 +84,9 @@ class COMET:
 		self.microstate_maps_path = os.path.join(self.save_dir, 'microstate_maps.csv')
 		self.use_percentages = config.getint('do_clustering', 'use_percentages')
 
-		# backfitting_utils
+		# Backfitting configs
 		self.backfit_to = config['do_backfitting']['backfit_to']
+		self.identify_short_window = config.getboolean('do_backfitting', 'identify_short_window')
 		self.filter_segments = config.getboolean('do_backfitting', 'filter_segments')
 		self.remove_segments_less_than = config.getint('do_backfitting', 'remove_segments_less_than') if self.filter_segments else ''
 		self.filter_segments_option = config['do_backfitting']['filter_segments_option'] if self.filter_segments else ''
@@ -96,7 +96,7 @@ class COMET:
 		# TODO: use models to automatically label them
 		self.micro_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
-		# extract feature
+		# Feature extraction configs
 		self.extracted_features_path = os.path.join(self.save_dir, 'extracted_features')
 		self.segmentation_path = os.path.join(self.save_dir, 'segmentations')
 		self.export_format = config['extract_features']['export_format']
@@ -104,7 +104,7 @@ class COMET:
 		self.save_transitions_bool = True if 'TP' in self.feature_list else False
 		self.window_size = config.getint('extract_features', 'window_size') if 'OCC' in self.feature_list else ''
 
-		# source localize microstates
+		# Source localization configs
 		self.localized_sources_path = os.path.join(self.save_dir, 'localized_sources')
 		self.inverse_method = config['source_localize_microstates']['inverse_method']
 		self.nperm = config.getint('source_localize_microstates', 'nperm')
@@ -152,7 +152,7 @@ class COMET:
 			progress_bar.set_description(f"Preprocessing file: {self.list_eegs[self.list_eegs_path.index(filename)]}")
 			# Create an instance of the DataPreprocessor class
 			preprocessor = DataPreprocessor()
-			progress, eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocessor.preprocess_eegs(
+			eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocessor.preprocess_eegs(
 					filename,
 					self.list_eegs_path,
 					self.extension,
@@ -305,7 +305,7 @@ class COMET:
 		image_pool = set()
 		state_pool = set()
 		result = {}
-		# print(confidences)
+		print(confidences)
 		# print(confidences.argmax())
 		# confidences[0, 1] = 8.2
 		while True:
@@ -326,18 +326,19 @@ class COMET:
 		return result
 
 
-
 	def do_backfitting(self):
+
 		if not os.path.exists(self.segmentation_path):
 			os.makedirs(self.segmentation_path)
-		print('\nBackfitting Maps to Data ...')
 
 		backfitter_instance = MicrostateBackfitter(
 			self.study_name,
 			self.preprocessed_data_path,
 			self.best_maps,
 			self.backfit_to,
+			self.filter_segments,
 			self.filter_segments_option,
+			self.identify_short_window,
 			self.remove_segments_less_than,
 			self.micro_labels,
 			self.segmentation_path,
@@ -358,18 +359,19 @@ class COMET:
 		if not os.path.exists(self.extracted_features_path):
 			os.makedirs(self.extracted_features_path)
 
-		print("\nExtracting Microstate Features ...\n")
-
 		segmentation_list_path, segmentation_list_filename = DataIO().find_data(
 			self.segmentation_path,
 			self.export_format
 		)
 
+		# Create a tqdm progress bar
+		progress_bar = tqdm(total=len(segmentation_list_path), ncols=100, position=0, leave=True)
+
 		for s in range(len(segmentation_list_path)):
 
 			segmentation_path = segmentation_list_path[s]
 			filename = segmentation_list_filename[s]
-			print(filename)
+			progress_bar.set_description(f"Extracting features: {filename}")
 
 			segmentation_array = SegmentationIO().load_segmentation(segmentation_path, import_format='.csv')
 
@@ -412,6 +414,10 @@ class COMET:
 				else:
 					dynamic_features_dfs = pd.concat([dynamic_features_dfs, output_features], ignore_index=True)
 
+			progress_bar.update(1)
+
+		progress_bar.close()
+
 		feature_io = FeatureIO()
 		if 'static' in self.feature_mode:
 			feature_io.export_features(
@@ -428,7 +434,6 @@ class COMET:
 				self.export_format
 			)
 
-		print('\n*** Finished ***')
 		self.done_extracting_features = True
 		if self.auto_save:
 			self.save_tbx()

@@ -18,7 +18,7 @@ class DataPreprocessor:
     def preprocess_eegs(self, eegfile, list_eegs, eeg_format, datatype, channel_location_dir,
                         filter_true, filtermethod, lowcut, highcut, downsample_true, fs, chan2rm):
 
-        verbose = 'WARNING'
+        verbose = 'ERROR'
         channels2remove = ['']
 
         if chan2rm == 'missing':
@@ -66,8 +66,5 @@ class DataPreprocessor:
         length_data = eeg_data.shape[1]
         eeg_info = eeg.info
 
-        # Calculate progress
-        progress = 100 * (list_eegs.index(eegfile) + 1) / len(list_eegs)
-
-        return progress, eeg, eeg_data, length_data, eeg_info, channels2remove
+        return eeg, eeg_data, length_data, eeg_info, channels2remove
 

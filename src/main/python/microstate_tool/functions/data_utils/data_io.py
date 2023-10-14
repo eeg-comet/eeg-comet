@@ -90,53 +90,55 @@ class DataIO:
         Outputs:
         - eeg_data (mne.Raw or mne.Epochs): Loaded and optionally preprocessed EEG data.
         """
-    
+
+        verbose = 'ERROR'
+
         if datatype == 'raw':
     
             # Load EEG data based on the specified format
             if eeg_format == ".vhdr":
-                eeg = mne.io.read_raw_brainvision(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_brainvision(filename, preload=True, verbose=verbose)
             elif eeg_format == ".edf":
-                eeg = mne.io.read_raw_edf(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_edf(filename, preload=True, verbose=verbose)
             elif eeg_format == ".bdf":
-                eeg = mne.io.read_raw_bdf(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_bdf(filename, preload=True, verbose=verbose)
             elif eeg_format == ".gdf":
-                eeg = mne.io.read_raw_gdf(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_gdf(filename, preload=True, verbose=verbose)
             elif eeg_format == ".cnt":
-                eeg = mne.io.read_raw_cnt(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_cnt(filename, preload=True, verbose=verbose)
             elif eeg_format == ".egi" or eeg_format == ".mff":
-                eeg = mne.io.read_raw_egi(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_egi(filename, preload=True, verbose=verbose)
             elif eeg_format == ".set":
-                eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose="CRITICAL")
+                eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose=verbose)
             elif eeg_format == ".data":
-                eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose=verbose)
             elif eeg_format == ".nxe":
-                eeg = mne.io.read_raw_eximia(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_eximia(filename, preload=True, verbose=verbose)
             elif eeg_format == ".lay":
-                eeg = mne.io.read_raw_persyst(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_persyst(filename, preload=True, verbose=verbose)
             elif eeg_format == ".eeg":
-                eeg = mne.io.read_raw_nihon(filename, preload=True, verbose="WARNING")
+                eeg = mne.io.read_raw_nihon(filename, preload=True, verbose=verbose)
         elif datatype == 'epoched':
             if eeg_format == ".set":
-                eeg = mne.io.read_epochs_eeglab(filename, verbose="WARNING")
+                eeg = mne.io.read_epochs_eeglab(filename, verbose=verbose)
     
         # Optional: Load channel locations if provided
         if os.path.isfile(channel_location_dir):
             montage = mne.channels.read_custom_montage(channel_location_dir)
-            eeg.set_montage(montage, match_case=False, on_missing='warn', verbose="WARNING")
+            eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
         elif channel_location_dir in mne.channels.get_builtin_montages():
             montage = mne.channels.make_standard_montage(channel_location_dir)
-            eeg.set_montage(montage, match_case=False, on_missing='warn', verbose="WARNING")
+            eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
     
-        # Pick channels
-        eeg = eeg.pick_types(meg=False, eeg=True, eog=False,
-                             exclude=chan2rm, verbose="WARNING")
-    
+        # Drop channels
+        if any(chan2rm) and not all(elem == '' for elem in chan2rm):
+            eeg = eeg.drop_channels(chan2rm)
+
         # Add average reference projection
-        eeg.set_eeg_reference('average', projection=True, verbose="WARNING")
+        eeg.set_eeg_reference('average', projection=True, verbose=verbose)
     
         # Apply the added projection
-        eeg.apply_proj(verbose="WARNING")
+        eeg.apply_proj(verbose=verbose)
     
         return eeg
     

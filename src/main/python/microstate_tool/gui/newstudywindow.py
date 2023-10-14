@@ -251,7 +251,6 @@ class NewStudyWindow(QDialog):
 
     def update_channel_names(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        print(self.tbx.channel_location_dir)
         data_io = DataIO()
         EEG = data_io.load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
         if not np.isnan(EEG.info['chs'][0]['loc'][0]):
@@ -358,11 +357,9 @@ class NewStudyWindow(QDialog):
 
         if self.ui.step0_ch2rm_radio.isChecked():
             self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
-            print(self.ch2rm)
         elif self.ui.step0_ch2rm_missing_radio.isChecked():
             self.ch2rm = 'missing'
 
-        # print("preprocessing data ...")
         self.tbx.preprocessed_data_path = self.preprocessed_data_path
         self.tbx.filter_data = self.filter_data
         self.tbx.filter_method = self.filter_method

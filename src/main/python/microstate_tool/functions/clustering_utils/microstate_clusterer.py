@@ -530,6 +530,7 @@ class ClusterOptimizer:
                 elbow_vector.append(np.mean(res_values))
 
             progress_bar.update(1)
+        progress_bar.close()
 
         if metric == 'all':
             return gev_values, res_values

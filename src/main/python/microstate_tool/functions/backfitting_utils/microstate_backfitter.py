@@ -9,13 +9,17 @@ from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 
 class MicrostateBackfitter:
-    def __init__(self, study_name, preprocessed_data_path, microstate_maps, method, filter_segments_option,
-                 remove_segments_less_than, micro_labels, save_path, extension, datatype, sample_rate, smooth_param, export_format):
+    def __init__(self, study_name, preprocessed_data_path, microstate_maps, backfit_to,
+                 filter_segments, filter_segments_option, identify_short_window, remove_segments_less_than,
+                 micro_labels, save_path, extension, datatype, sample_rate, smooth_param, export_format):
+
         self.study_name = study_name
         self.preprocessed_data_path = preprocessed_data_path
         self.microstate_maps = microstate_maps
-        self.method = method
+        self.backfit_to = backfit_to
+        self.filter_segments = filter_segments
         self.filter_segments_option = filter_segments_option
+        self.identify_short_window = identify_short_window
         self.remove_segments_less_than = remove_segments_less_than
         self.microstate_labels = micro_labels
         self.save_path = save_path
@@ -213,19 +217,12 @@ class MicrostateBackfitter:
         filled_segmentation = np.array(filled_segmentation)
 
         if option == 'remove':
-            print(f"\nRemoving segments with less than {segments_less_than} ms in duration ...")
             return filled_segmentation
         elif option == 'replace_high':
-            print(
-                f"\nReplacing segments with less than {segments_less_than} by the nearby microstate with higher occurrence ...")
             filled_segmentation = self.fill_with_neighbors_with_higher_count(filled_segmentation)
         elif option == 'replace_half':
-            print(
-                f"\nReplacing segments with less than {segments_less_than} by half by the previous and half by the next dominant microstate ...")
             filled_segmentation = self.fill_with_neighbors_half(filled_segmentation)
         elif option == 'smooth':
-            print(
-                f"\nSmoothing segments ...")
             filled_segmentation = self.segmentation_smooth(data, microstate_maps, n_states, *smooth_param)
 
         return filled_segmentation
@@ -291,13 +288,14 @@ class MicrostateBackfitter:
         return len(values) - 1
 
     def perform_segmentation(self):
+
         # Create an instance of the SegmentationIO class
         segmentation_io = SegmentationIO()
 
         data_io = DataIO()
         list_eeg_path, list_eeg_names = data_io.find_data(self.preprocessed_data_path, self.extension, "*")
 
-        if self.remove_segments_less_than:
+        if self.identify_short_window:
             rm_max_len = 50
             len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
             similarity_scores = np.empty((len(list_eeg_path), len(len_win2rm_list)))
@@ -338,7 +336,20 @@ class MicrostateBackfitter:
             print("Optimal length to remove:", remove_segments_less_than * (1000 / self.sample_rate))
 
         else:
-            remove_segments_less_than = 0
+            remove_segments_less_than = self.remove_segments_less_than
+
+        print('\nBackfitting ...')
+        if self.filter_segments_option == 'remove':
+            print(f"\nRemoving segments with less than {remove_segments_less_than} ms in duration.")
+        elif self.filter_segments_option == 'replace_high':
+            print(
+                f"\nReplacing segments with less than {remove_segments_less_than} by the nearby microstate with higher occurrence.")
+        elif self.filter_segments_option == 'replace_half':
+            print(
+                f"\nReplacing segments with less than {remove_segments_less_than} by half by the previous and half by the next dominant microstate.")
+        elif self.filter_segments_option == 'smooth':
+            print(
+                f"\nSmoothing segments.")
 
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True)
@@ -349,7 +360,7 @@ class MicrostateBackfitter:
             eeg_data = eeg.get_data()
             eeg_times = eeg.times * 1000
             filename = os.path.split(eeg_path)[1].split('.')[0]
-            print("\nBackfitting microstates to all time points", filename)
+            progress_bar.set_description(f"Backfitting microstates to data: {filename}")
 
             for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
                 if self.datatype == 'epoched':
@@ -359,57 +370,54 @@ class MicrostateBackfitter:
                     trial_data = eeg_data
                     trial_times = eeg_times
 
-                # Calculate the correlation coefficient between each topography and each time point
-                correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
-                    np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
+                if self.backfit_to == 'all':
+                    # Calculate the correlation coefficient between each topography and each time point
+                    correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
+                        np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
 
-                # Find the time point with the highest correlation coefficient for each topography
-                segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+                    # Find the time point with the highest correlation coefficient for each topography
+                    segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
 
-                # Remove short segments
-                segmentation = self.substitude_maps_with_duration(segmentation,
-                                                                  remove_segments_less_than,
-                                                                  self.filter_segments_option,
-                                                                  trial_data,
-                                                                  self.microstate_maps,
-                                                                  len(self.microstate_labels),
-                                                                  [self.smooth_param[0], remove_segments_less_than,self.smooth_param[2]])
-                labeled_segmentation = self.label_segments(segmentation)
+                    # Filter short segments
+                    if self.filter_segments:
+                        segmentation = self.substitude_maps_with_duration(segmentation,
+                                                                          remove_segments_less_than,
+                                                                          self.filter_segments_option,
+                                                                          trial_data,
+                                                                          self.microstate_maps,
+                                                                          len(self.microstate_labels),
+                                                                          [self.smooth_param[0], remove_segments_less_than,self.smooth_param[2]])
+                    labeled_segmentation = self.label_segments(segmentation)
 
-                similarity_metric = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
-                segmentation_fit = segmentation_fit + similarity_metric
+                    similarity_metric = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
+                    segmentation_fit = segmentation_fit + similarity_metric
 
-                # Call the export_segmentation method
-                if idx is not None:
-                    trial_filename = f"{filename}_{idx}"
-                else:
-                    trial_filename = filename
+                    # Call the export_segmentation method
+                    if idx is not None:
+                        trial_filename = f"{filename}_{idx}"
+                    else:
+                        trial_filename = filename
 
-                export_success = segmentation_io.export_segmentation(
+                """
+                elif self.backfit_to == 'peaks':
+                    gfp = np.std(eeg_data, axis=0)
+                    peaks, _ = find_peaks(gfp)
+                    troughs = [0]
+                    for p in range(len(peaks) - 1):
+                        min_arg = np.argmin((gfp[peaks[p]:peaks[p + 1]]))
+                        troughs = np.append(troughs, peaks[p] + min_arg)
+                    troughs = np.append(troughs, len(gfp))
+                    diff_troughs = np.diff(troughs)
+                    activation = self.maps.dot(eeg_data[:, peaks])
+                    segmentation_peaks = np.argmax(np.abs(activation), axis=0)
+                    segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
+                """
+
+                segmentation_io.export_segmentation(
                     self.save_path, trial_filename, labeled_segmentation, trial_times, self.export_format
                 )
 
-                if export_success:
-                    print("Segmentation data exported successfully.")
-                else:
-                    print("Segmentation data export failed.")
             progress_bar.update(1)
 
-
-            """
-            elif self.method == 'peaks':
-                gfp = np.std(eeg_data, axis=0)
-                peaks, _ = find_peaks(gfp)
-                troughs = [0]
-                for p in range(len(peaks) - 1):
-                    min_arg = np.argmin((gfp[peaks[p]:peaks[p + 1]]))
-                    troughs = np.append(troughs, peaks[p] + min_arg)
-                troughs = np.append(troughs, len(gfp))
-                diff_troughs = np.diff(troughs)
-                activation = self.maps.dot(eeg_data[:, peaks])
-                segmentation_peaks = np.argmax(np.abs(activation), axis=0)
-                segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
-            """
-
         progress_bar.close()
-        print(segmentation_fit / len(list_eeg_path))
+        #print(segmentation_fit / len(list_eeg_path))

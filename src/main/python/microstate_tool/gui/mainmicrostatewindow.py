@@ -43,12 +43,12 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context)
 
     def init_flags(self):
-        self.done_preprocessing = False
-        self.done_clustering = False
-        self.done_labeling_microstates = False
-        self.done_backfitting = False
-        self.done_extracting_features = False
-        self.done_source_localization = False
+        self.comet_tbx.done_preprocessing = False
+        self.comet_tbx.done_clustering = False
+        self.comet_tbx.done_labeling_microstates = False
+        self.comet_tbx.done_backfitting = False
+        self.comet_tbx.done_extracting_features = False
+        self.comet_tbx.done_source_localization = False
         self.ui.foldername_raw_data = ""
         self.ui.foldername_preprocessed_data = ""
 
@@ -80,6 +80,8 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_auto_k_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step2_auto_k_method_combobox.activated.connect(self.mainwindow_controller)
+        self.ui.step2_auto_range_kmin_spinbox.valueChanged.connect(self.mainwindow_controller)
+        self.ui.step2_auto_range_kmax_spinbox.valueChanged.connect(self.mainwindow_controller)
         self.ui.step2_user_k_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step2_advanced_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step2_use_percent_radio.clicked.connect(self.mainwindow_controller)
@@ -88,6 +90,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step3_backfit_peaks_radio.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step3_filter_segments_method_combobox.activated.connect(self.mainwindow_controller)
+        self.ui.step3_identify_short_checkbox.clicked.connect(self.mainwindow_controller)
         self.ui.step5_use_tess_radio.clicked.connect(self.mainwindow_controller)
 
         self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.visualize_elbow)
@@ -186,7 +189,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustering_title_label,
             self.ui.step2_clustermethod_combo_label,
             self.ui.step2_clustermethod_combobox,
-            self.ui.step2_numberofmaps_label,
             self.ui.step2_advanced_checkbox,
             self.ui.step2_auto_k_radio,
             self.ui.step2_user_k_radio,
@@ -195,12 +197,17 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustering_button
         ]
 
-        elbow_widgets = [
+        user_k_widgets = [
+            self.ui.step2_user_k_input,
+            self.ui.step2_numberofmaps_elbow_button
+        ]
+
+        auto_k_widgets = [
             self.ui.step2_auto_target_label,
             self.ui.step2_auto_target_parameter_label,
             self.ui.step2_stopping_threshold_input,
-            self.ui.step2_auto_range_kmin_combobox,
-            self.ui.step2_auto_range_kmax_combobox,
+            self.ui.step2_auto_range_kmin_spinbox,
+            self.ui.step2_auto_range_kmax_spinbox,
             self.ui.step2_auto_k_method_combobox,
             self.ui.step2_auto_range_label
         ]
@@ -251,6 +258,7 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         filter_segments_widgets = [
+            self.ui.step3_identify_short_checkbox,
             self.ui.step3_filter_segments_input,
             self.ui.step3_filter_segments_label,
             self.ui.step3_filter_segments_method_combobox,
@@ -263,6 +271,13 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_smooth_segments_epsilon_input,
             self.ui.step3_smooth_segments_lambda_label,
             self.ui.step3_smooth_segments_lambda_input
+        ]
+
+        identify_short_widgets = [
+            self.ui.step3_filter_segments_input,
+            self.ui.step3_filter_segments_label,
+            self.ui.step3_filter_segments_label,
+            self.ui.step3_filter_segments_label_2,
         ]
 
         feature_extraction_widgets = [
@@ -305,9 +320,15 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status(after_preprocessing_widgets, mode='enable')
             if self.ui.step2_auto_k_radio.isChecked():
                 k_log = 'will be automatically determined.'
-                self.ui.step2_user_k_input.setDisabled(True)
-                self.ui.step2_numberofmaps_elbow_button.setDisabled(True)
-                set_widgets_status(elbow_widgets, mode='enable')
+                set_widgets_status(user_k_widgets, mode='disable')
+                set_widgets_status(user_k_widgets, mode='hide')
+                set_widgets_status(auto_k_widgets, mode='enable')
+                set_widgets_status(auto_k_widgets, mode='show')
+
+                kmin_value = int(self.ui.step2_auto_range_kmin_spinbox.value())
+                kmax_value = int(self.ui.step2_auto_range_kmax_spinbox.value())
+                if kmax_value <= kmin_value:
+                    self.ui.step2_auto_range_kmax_spinbox.setValue(kmin_value + 1)
 
                 auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
                 if auto_k_method == 'Gap Statistic':
@@ -324,13 +345,28 @@ class MainMicrostateWindow(QMainWindow):
 
             if self.ui.step2_user_k_radio.isChecked():
                 k_log = 'is user-predefined.'
-                self.ui.step2_user_k_input.setEnabled(True)
-                self.ui.step2_numberofmaps_elbow_button.setEnabled(True)
-                set_widgets_status(elbow_widgets, mode='disable')
+                set_widgets_status(user_k_widgets, mode='enable')
+                set_widgets_status(user_k_widgets, mode='show')
+                set_widgets_status(auto_k_widgets, mode='disable')
+                set_widgets_status(auto_k_widgets, mode='hide')
 
             if self.ui.step2_advanced_checkbox.isChecked():
                 set_widgets_status(advanced_widgets, mode='enable')
                 set_widgets_status(advanced_widgets, mode='show')
+
+                if self.ui.step2_use_peaks_radio.isChecked():
+                    cluster_data_log = 'the local peaks of the global field power.'
+                    set_widgets_status(peaks2use_widgets, mode='enable')
+                    set_widgets_status(peaks2use_widgets, mode='show')
+                    set_widgets_status(rand2use_widgets, mode='disable')
+                    set_widgets_status(rand2use_widgets, mode='hide')
+                elif self.ui.step2_use_percent_radio.isChecked():
+                    cluster_data_log = 'a randomly selected subset of the data.'
+                    set_widgets_status(rand2use_widgets, mode='enable')
+                    set_widgets_status(rand2use_widgets, mode='show')
+                    set_widgets_status(peaks2use_widgets, mode='disable')
+                    set_widgets_status(peaks2use_widgets, mode='hide')
+
             else:
                 set_widgets_status(advanced_widgets, mode='disable')
                 set_widgets_status(advanced_widgets, mode='hide')
@@ -355,27 +391,17 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step2_other_label.setText("Other options:")
                 self.reset_option_box(self.ui.step2_other_options_combobox)
 
-            if self.ui.step2_use_peaks_radio.isChecked():
-                cluster_data_log = 'the local peaks of the global field power.'
-                set_widgets_status(peaks2use_widgets, mode='enable')
-                set_widgets_status(rand2use_widgets, mode='disable')
-            elif self.ui.step2_use_percent_radio.isChecked():
-                cluster_data_log = 'a randomly selected subset of the data.'
-                set_widgets_status(rand2use_widgets, mode='enable')
-                set_widgets_status(peaks2use_widgets, mode='disable')
-
             # Update the clustering log
-            self.step2_clustering_log_textedit.clear()
-            self.step2_clustering_log_textedit.appendPlainText(
-                f"EEG microstates will be identified using {self.comet_tbx.clustering_method} clustering algorithm")
-            self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
-            self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
+            #self.step2_clustering_log_textedit.clear()
+            #self.step2_clustering_log_textedit.appendPlainText(
+            #    f"EEG microstates will be identified using {self.comet_tbx.clustering_method} clustering algorithm")
+            #self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
+            #self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
 
         else:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
             set_widgets_status(after_preprocessing_widgets, mode='disable')
-            self.ui.step2_user_k_input.setDisabled(True)
-        
+
         if self.comet_tbx.done_clustering:
             self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
             set_widgets_status(after_clustering_widgets, mode='enable')
@@ -388,6 +414,7 @@ class MainMicrostateWindow(QMainWindow):
 
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 set_widgets_status(filter_segments_widgets, mode='enable')
+                set_widgets_status(filter_segments_widgets, mode='show')
                 filter_segments_method = self.ui.step3_filter_segments_method_combobox.currentText()
                 if filter_segments_method == "Smooth segments":
                     set_widgets_status(smooth_segments_widgets, mode='enable')
@@ -395,9 +422,21 @@ class MainMicrostateWindow(QMainWindow):
                 else:
                     set_widgets_status(smooth_segments_widgets, mode='disable')
                     set_widgets_status(smooth_segments_widgets, mode='hide')
+
+                if not self.ui.step3_identify_short_checkbox.isChecked():
+                    set_widgets_status(identify_short_widgets, mode='enable')
+                    set_widgets_status(identify_short_widgets, mode='show')
+                else:
+                    set_widgets_status(identify_short_widgets, mode='disable')
+                    set_widgets_status(identify_short_widgets, mode='hide')
+                    if filter_segments_method == "Smooth segments":
+                        set_widgets_status(smooth_segments_widgets, mode='disable')
+                        set_widgets_status(smooth_segments_widgets, mode='hide')
             else:
                 set_widgets_status(filter_segments_widgets, mode='disable')
+                set_widgets_status(filter_segments_widgets, mode='hide')
                 set_widgets_status(smooth_segments_widgets, mode='disable')
+                set_widgets_status(smooth_segments_widgets, mode='hide')
 
         else:
             self.comet_tbx.done_labeling_microstates = False
@@ -499,12 +538,9 @@ class MainMicrostateWindow(QMainWindow):
                 # self.min_distance_size = []
             if self.ui.step2_auto_k_radio.isChecked():
                 self.comet_tbx.choose_number_of_maps = "auto"
-                # if self.ui.step2_stopping_traditional_radio.isChecked():
-                #     self.comet_tbx.elbow_version = 'traditional'
-                # else:
-                #     self.comet_tbx.elbow_version = 'modified'
-                self.comet_tbx.kmin = int(self.ui.step2_auto_range_kmin_combobox.currentText())
-                self.comet_tbx.kmax = int(self.ui.step2_auto_range_kmax_combobox.currentText())
+
+                self.comet_tbx.kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
+                self.comet_tbx.kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
 
                 auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
                 if auto_k_method == 'Gap Statistic':
@@ -572,6 +608,11 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.backfit_to = 'all'
             elif self.ui.step3_backfit_peaks_radio.isChecked():
                 self.comet_tbx.backfit_to = 'peaks'
+
+            if self.ui.step3_identify_short_checkbox.isChecked():
+                self.comet_tbx.identify_short_window = True
+            else:
+                self.comet_tbx.identify_short_window = False
 
             self.comet_tbx.epsilon = ''
             self.comet_tbx.b = ''
@@ -668,7 +709,7 @@ class MainMicrostateWindow(QMainWindow):
 
     def extract_features(self):
 
-        if self.done_extracting_features:
+        if self.comet_tbx.done_extracting_features:
             ret = QMessageBox.question(self, 'MessageBox', "Features have been extracted once,"
                                                            " do you want to extract features_utils again?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -698,9 +739,6 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.feature_mode.append('dynamic')
 
             self.comet_tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
-
-            print(self.comet_tbx.export_format)
-
             self.comet_tbx.extract_features()
             self.comet_tbx.save_tbx()
             self.comet_tbx.done_extracting_features = True

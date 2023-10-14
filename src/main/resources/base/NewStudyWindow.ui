@@ -585,7 +585,7 @@
            </font>
           </property>
           <property name="text">
-           <string>Preprocess/Convert All Data</string>
+           <string>Preprocess All Data</string>
           </property>
          </widget>
         </item>
