@@ -342,7 +342,6 @@ class MicrostateBackfitter:
         else:
             remove_segments_less_than = self.remove_segments_less_than
 
-        print('\nBackfitting ...')
         if self.filter_segments_option == 'remove':
             print(f"\nRemoving segments with less than {remove_segments_less_than} ms in duration.")
         elif self.filter_segments_option == 'replace_high':
@@ -391,31 +390,40 @@ class MicrostateBackfitter:
                                                                           self.microstate_maps,
                                                                           len(self.microstate_labels),
                                                                           [self.smooth_param[0], remove_segments_less_than,self.smooth_param[2]])
-                    labeled_segmentation = self.label_segments(segmentation)
 
-                    similarity_metric = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
-                    segmentation_fit = segmentation_fit + similarity_metric
-
-                    # Call the export_segmentation method
-                    if idx is not None:
-                        trial_filename = f"{filename}_{idx}"
-                    else:
-                        trial_filename = filename
-
-                """
                 elif self.backfit_to == 'peaks':
                     gfp = np.std(eeg_data, axis=0)
                     peaks, _ = find_peaks(gfp)
+
+                    # Define troughs between consecutive peaks
                     troughs = [0]
                     for p in range(len(peaks) - 1):
-                        min_arg = np.argmin((gfp[peaks[p]:peaks[p + 1]]))
-                        troughs = np.append(troughs, peaks[p] + min_arg)
-                    troughs = np.append(troughs, len(gfp))
+                        min_arg = np.argmin(gfp[peaks[p]:peaks[p + 1]])
+                        troughs.append(peaks[p] + min_arg)
+                    troughs.append(len(gfp))
+
+                    # Compute the differences between consecutive troughs
                     diff_troughs = np.diff(troughs)
-                    activation = self.maps.dot(eeg_data[:, peaks])
+
+                    # Compute the activation of microstate maps with EEG data at identified peaks
+                    activation = np.dot(self.microstate_maps, eeg_data[:, peaks])
+
+                    # Identify the segmentation based on the highest activation
                     segmentation_peaks = np.argmax(np.abs(activation), axis=0)
+
+                    # Repeat the segmentation based on the identified troughs
                     segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
-                """
+
+                labeled_segmentation = self.label_segments(segmentation)
+
+                similarity_metric = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
+                segmentation_fit = segmentation_fit + similarity_metric
+
+                # Call the export_segmentation method
+                if idx is not None:
+                    trial_filename = f"{filename}_{idx}"
+                else:
+                    trial_filename = filename
 
                 segmentation_io.export_segmentation(
                     self.save_path, trial_filename, labeled_segmentation, trial_times, self.export_format

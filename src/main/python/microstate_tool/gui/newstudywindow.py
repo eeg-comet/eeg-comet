@@ -379,7 +379,7 @@ class NewStudyWindow(QDialog):
             list_eegs = np.append(list_eegs, eegfilename)
         list_eegs = ','.join(map(str, list_eegs))
 
-        self.tbx.load_new_study() 
+        self.tbx.do_preprocessing()
         self.done_preprocessing = True
         self.tbx.save_tbx()
 

@@ -138,7 +138,7 @@ class COMET:
 				'''
 		#return chan_loc_extension in valid_chan_loc_extensions
 
-	def load_new_study(self):
+	def do_preprocessing(self):
 
 		if not os.path.exists(self.preprocessed_data_path):
 			os.makedirs(self.preprocessed_data_path)
@@ -197,6 +197,7 @@ class COMET:
 			
 
 	def do_clustering(self):
+		print('\nClustering ...')
 
 		if self.smoothing_gfp:
 			self.min_distance_size = int(self.smoothing_distance/(1000/self.sample_rate))
@@ -327,6 +328,7 @@ class COMET:
 
 
 	def do_backfitting(self):
+		print('\nBackfitting ...')
 
 		if not os.path.exists(self.segmentation_path):
 			os.makedirs(self.segmentation_path)
@@ -356,6 +358,8 @@ class COMET:
 
 
 	def extract_features(self):
+		print('\nExtracting Features ...')
+
 		if not os.path.exists(self.extracted_features_path):
 			os.makedirs(self.extracted_features_path)
 

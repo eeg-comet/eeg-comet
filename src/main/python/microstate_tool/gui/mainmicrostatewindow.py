@@ -2,8 +2,8 @@ import os.path
 import webbrowser
 import pickle
 from PyQt5 import uic, QtCore
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
-from functions.gui_utils.CheckableComboBox import CheckableComboBox
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QLabel
+from PyQt5.QtGui import QPixmap
 
 from gui.newstudywindow import NewStudyWindow
 from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
@@ -12,6 +12,7 @@ from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
 from gui.feature_visualization_dialog import FeatureVisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
 
+from functions.gui_utils.CheckableComboBox import CheckableComboBox
 from functions.gui_utils.set_widgets_status import set_widgets_status
 
 from COMET import COMET
@@ -25,7 +26,7 @@ class MainMicrostateWindow(QMainWindow):
         self.context = context
 
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
-        self.ui.setWindowTitle("EEG-COMET: Comprehensive Microstate Extraction Toolbox")
+        self.ui.setWindowTitle("EEG-COMET")
         self.ui.showMaximized()
 
         self.init_dialogs()
@@ -313,6 +314,7 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         if self.comet_tbx.done_preprocessing:
+            self.ui.eeg_comet_logo.clear()
             set_widgets_status(self.scrollArea, mode='show')
 
             self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
@@ -411,6 +413,12 @@ class MainMicrostateWindow(QMainWindow):
             closing_parenthesis = outputformat.find(")")
             if opening_parenthesis != -1 and closing_parenthesis != -1:
                 self.comet_tbx.export_format = outputformat[opening_parenthesis + 1: closing_parenthesis]
+
+            if self.ui.step3_backfit_peaks_radio.isChecked():
+                self.ui.step3_filter_segments_checkbox.setChecked(False)
+                set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
+            else:
+                set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='enable')
 
             if self.ui.step3_filter_segments_checkbox.isChecked():
                 set_widgets_status(filter_segments_widgets, mode='enable')

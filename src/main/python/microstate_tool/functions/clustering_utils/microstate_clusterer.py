@@ -308,7 +308,6 @@ class MicrostateClusterer:
                 clustering_instance = agglomerative.agglomerative(encoded_features, n_states,
                                                                   agglomerative.type_link.SINGLE_LINK, ccore=True)
 
-
             else:
                 raise ValueError("Failed to match method")
 
