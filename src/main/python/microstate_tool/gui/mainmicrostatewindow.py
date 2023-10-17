@@ -314,7 +314,8 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         if self.comet_tbx.done_preprocessing:
-            self.ui.eeg_comet_logo.clear()
+            # Hide the logo
+            set_widgets_status(self.ui.eeg_comet_logo, mode='hide')
             set_widgets_status(self.scrollArea, mode='show')
 
             self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
