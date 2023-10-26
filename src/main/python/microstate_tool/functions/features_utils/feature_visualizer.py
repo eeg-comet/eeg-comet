@@ -7,7 +7,7 @@ group bar charts and heatmaps.
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from functions.features.feature_io import FeatureIO
+from functions.features_utils.feature_io import FeatureIO
 
 class FeatureVisualizer:
     def __init__(self):

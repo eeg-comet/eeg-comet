@@ -23,6 +23,7 @@ import os.path
 import sys
 from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from PyQt5.QtWidgets import QApplication
+from gui.mainmicrostatewindow import MainMicrostateWindow
 
 if __name__ == '__main__':
 
@@ -32,7 +33,6 @@ if __name__ == '__main__':
     if not QApplication.instance():
         app = QApplication(sys.argv)
 
-    from gui.mainmicrostatewindow import MainMicrostateWindow
     window = MainMicrostateWindow(appctxt)
     window.show()
 

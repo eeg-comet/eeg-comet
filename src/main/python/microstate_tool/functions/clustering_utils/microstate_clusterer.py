@@ -15,7 +15,7 @@ from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouett
 from pyclustering.cluster.agglomerative import agglomerative, type_link
 from pyclustering.utils.metric import distance_metric, type_metric
 from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
-from tensorflow.keras.layers import Conv1D, Flatten, Dense, Reshape, Input
+from keras.layers import Conv1D, Flatten, Dense, Reshape, Input
 from keras.models import Model
 from sklearn.decomposition import PCA
 
