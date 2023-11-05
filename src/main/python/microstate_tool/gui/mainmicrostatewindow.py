@@ -791,8 +791,8 @@ class MainMicrostateWindow(QMainWindow):
     def source_localize_microstates(self):
         
         if self.comet_tbx.done_source_localization:
-            ret = QMessageBox.question(self, 'MessageBox', "Microstates have been source localized once,"
-                                                           " do you want to source localize microstates again?",
+            ret = QMessageBox.question(self, 'MessageBox', "Source time series have been extracted once,"
+                                                           " do you want to extract source time series again?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
             self.do_source_localization_from_scratch = False
             if ret == QMessageBox.Yes:
@@ -822,7 +822,25 @@ class MainMicrostateWindow(QMainWindow):
             self.mainwindow_controller()
 
     def source_microstates_correlation(self):
-        return
+        if self.comet_tbx.done_source_microstate_correlation:
+            ret = QMessageBox.question(self, 'MessageBox', "Source-microstate correlations have already been calculated,"
+                                                           " do you want to run this step again?",
+                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
+            self.do_source_microstate_correlation_from_scratch = False
+            if ret == QMessageBox.Yes:
+                self.do_source_microstate_correlation_from_scratch = True
+        else:
+            self.do_source_microstate_correlation_from_scratch = True
+
+        if self.do_source_microstate_correlation_from_scratch:
+            self.comet_tbx.done_source_microstate_correlation = False
+            self.mainwindow_controller()
+            # TODO: Add missing options here
+
+            self.comet_tbx.source_microstate_correlation()
+            self.comet_tbx.save_tbx()
+            self.mainwindow_controller()
+
     def visualize_source_localized_microstates(self):
         # TODO
         self.SourceVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)

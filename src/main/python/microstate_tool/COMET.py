@@ -33,6 +33,7 @@ class COMET:
 		self.done_backfitting = False
 		self.done_extracting_features = False
 		self.done_source_localization = False
+		self.done_source_microstate_correlation = False
 		self.auto_save = auto_save
 
 	def load_config(self, config):
@@ -471,6 +472,15 @@ class COMET:
 		self.done_source_localization = True
 		if self.auto_save:
 			self.save_tbx()
+
+	def source_microstate_correlation(self):
+		print("Correlating sources and microstates ...")
+
+	# 	TODO: Need to expand this function to include the following:
+	# 	1. Load the source localized time series
+	# 	2. Load the microstates
+	# 	3. Run TESS and Averaging based on the user input
+	# 	4. Save the results
 
 	def save_tbx(self):
 		self.tbx_object_path = os.path.join(self.save_dir, 'comet_tbx_object.pkl')
