@@ -50,6 +50,7 @@ class MainMicrostateWindow(QMainWindow):
         self.comet_tbx.done_backfitting = False
         self.comet_tbx.done_extracting_features = False
         self.comet_tbx.done_source_localization = False
+        self.comet_tbx.done_source_microstate_correlation = False
         self.ui.foldername_raw_data = ""
         self.ui.foldername_preprocessed_data = ""
 
@@ -102,6 +103,8 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step4_visualizefeatures_button.clicked.connect(self.visualize_microstate_features)
         self.ui.step3_backfit_visualization_button.clicked.connect(self.visualize_microstate_segmentation)
         self.ui.step5_estimate_sources_button.clicked.connect(self.source_localize_microstates)
+        self.ui.step5_compute_source_microstate_correlation_button.clicked.connect(self.source_microstates_correlation)
+        # Need to create function: source_microstates_correlation
         self.ui.step5_visualize_sources_button.clicked.connect(self.visualize_source_localized_microstates)
 
         self.ui.step0_exit_button.clicked.connect(self.exit_msg)
@@ -128,6 +131,7 @@ class MainMicrostateWindow(QMainWindow):
         self.comet_tbx.done_backfitting = False
         self.comet_tbx.done_extracting_features = False
         self.comet_tbx.done_source_localization = False
+        self.comet_tbx.done_source_microstate_correlation = False
         self.ui.NewStudyWindow.setWindowModality(QtCore.Qt.ApplicationModal)
         self.ui.NewStudyWindow.showMaximized()
         self.mainwindow_controller()
@@ -305,7 +309,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_use_avg_radio,
             self.ui.step5_spacing_label,
             self.ui.step5_spacing_combobox,
-            self.ui.step5_estimate_sources_button
+            self.ui.step5_estimate_sources_button,
+            self.ui.step5_compute_source_microstate_correlation_button
         ]
 
         tess_widgets = [
@@ -452,6 +457,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.done_backfitting = False
             self.comet_tbx.done_extracting_features = False
             self.comet_tbx.done_source_localization = False
+            self.comet_tbx.done_source_microstate_correlation = False
 
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
             # set ALL disabled
@@ -466,6 +472,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.done_backfitting = False
             self.comet_tbx.done_extracting_features = False
             self.comet_tbx.done_source_localization = False
+            self.comet_tbx.done_source_microstate_correlation = False
 
         if self.comet_tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
@@ -498,6 +505,13 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_visualize_sources_button.setEnabled(True)
         else:
             self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
+            self.ui.step5_visualize_sources_button.setDisabled(True)
+
+        if self.comet_tbx.done_source_microstate_correlation:
+            self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet("background-color: lightgreen")
+            self.ui.step5_visualize_sources_button.setEnabled(True)
+        else:
+            self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet("background-color: none")
             self.ui.step5_visualize_sources_button.setDisabled(True)
 
     def visualize_elbow(self):
@@ -533,6 +547,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.done_backfitting = False
                 self.comet_tbx.done_extracting_features = False
                 self.comet_tbx.done_source_localization = False
+                self.comet_tbx.done_source_microstate_correlation = False
         else:
             self.do_clustering_from_scratch = True
 
@@ -612,6 +627,7 @@ class MainMicrostateWindow(QMainWindow):
         if self.do_backfitting_from_scratch:
             self.comet_tbx.done_extracting_features = False
             self.comet_tbx.done_source_localization = False
+            self.comet_tbx.done_source_microstate_correlation = False
             
             if self.ui.step3_backfit_all_radio.isChecked():
                 self.comet_tbx.backfit_to = 'all'
@@ -690,6 +706,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.done_backfitting = False
                 self.comet_tbx.done_extracting_features = False
                 self.comet_tbx.done_source_localization = False
+                self.comet_tbx.done_source_microstate_correlation = False
 
                 self.MicrostateVisualizationDialog.save_dir = self.comet_tbx.save_dir
                 self.MicrostateVisualizationDialog.n_states = self.comet_tbx.best_maps.shape[0]
@@ -785,6 +802,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.do_source_localization_from_scratch:
             self.comet_tbx.done_source_localization = False
+            self.comet_tbx.done_source_microstate_correlation = False
             self.mainwindow_controller()
 
             if self.step5_use_fsaverage_radio.isChecked():
