@@ -820,7 +820,9 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.source_localize_microstates()
             self.comet_tbx.save_tbx()
             self.mainwindow_controller()
-            
+
+    def source_microstates_correlation(self):
+        return
     def visualize_source_localized_microstates(self):
         # TODO
         self.SourceVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
