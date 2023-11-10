@@ -35,6 +35,7 @@ class COMET:
 		self.done_source_localization = False
 		self.done_source_microstate_correlation = False
 		self.auto_save = auto_save
+		self.log_text = ""
 
 	def load_config(self, config):
 		# Base configs
