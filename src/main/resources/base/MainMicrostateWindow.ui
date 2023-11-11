@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1308</width>
-    <height>853</height>
+    <width>1290</width>
+    <height>849</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -225,8 +225,8 @@ Comprehensive Microstate Extraction Toolbox</string>
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>1275</width>
-          <height>1926</height>
+          <width>1257</width>
+          <height>1999</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -2204,8 +2204,8 @@ Comprehensive Microstate Extraction Toolbox</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1308</width>
-     <height>37</height>
+     <width>1290</width>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -2214,6 +2214,7 @@ Comprehensive Microstate Extraction Toolbox</string>
     </property>
     <addaction name="step0_new_study_action"/>
     <addaction name="step0_load_study_action"/>
+    <addaction name="step0_reopen_log_window"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -2317,15 +2318,20 @@ Comprehensive Microstate Extraction Toolbox</string>
     </font>
    </property>
   </action>
+  <action name="step0_reopen_log_window">
+   <property name="text">
+    <string>Re-open Log Window</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_5"/>
   <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

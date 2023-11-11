@@ -1,3 +1,4 @@
+eeglabio==0.0.2.post4
 fbs==1.2.1
 h5py==3.10.0
 keras==2.14.0

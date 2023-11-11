@@ -30,10 +30,11 @@ class LogWindow(QWidget):
         self.setLayout(layout)
     #   Potentially connect to the "prints" within the functions
 
-    def append_log(self, log):
+    def append_log(self, log, parent_window=None):
         current_time = datetime.now().strftime("%I:%M:%S %p")
         self.textArea.append(f"[{current_time}]: {log}\n")
-        self.comet_tbx.log_text = self.textArea.toPlainText()
+        if parent_window:
+            parent_window.comet_tbx.log_text = self.textArea.toPlainText()
 
     def replace_log(self, import_log):
         self.textArea.setText(import_log)
@@ -43,6 +44,7 @@ class MainMicrostateWindow(QMainWindow):
         super(MainMicrostateWindow, self).__init__(parent)
 
         self.comet_tbx = COMET()
+        self.log = LogWindow()
         self.context = context
 
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
@@ -55,9 +57,7 @@ class MainMicrostateWindow(QMainWindow):
         self.init_ui_components()
         self.setup_connections()
 
-        self.log = LogWindow()
         self.log.show()
-        # Add a button to re-open the log if closed
 
         current_date = datetime.now().strftime("%d-%m-%y")
         self.log.append_log(f"It's {current_date}, Welcome to EEG-COMET!")
@@ -105,6 +105,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step0_new_study_button.clicked.connect(self.open_new_study_dialog)
         self.ui.step0_load_study_action.triggered.connect(self.load_study)
         self.ui.step0_load_study_button.clicked.connect(self.load_study)
+        self.ui.step0_reopen_log_window.triggered.connect(self.log.show)
 
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_auto_k_radio.clicked.connect(self.mainwindow_controller)
@@ -637,9 +638,9 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.clustering_option = self.ui.step2_other_options_combobox.currentText()
             self.comet_tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
-            self.log.append_log(f"Extracting {self.comet_tbx.number_of_maps} microstate maps using {self.comet_tbx.clustering_method} clustering algorithm...")
+            self.log.append_log(f"Extracting {self.comet_tbx.number_of_maps} microstate maps using {self.comet_tbx.clustering_method} clustering algorithm...", self)
             self.comet_tbx.do_clustering()
-            self.log.append_log(f"Completed clustering")
+            self.log.append_log(f"Completed clustering", self)
             self.label_maps()
             self.comet_tbx.done_clustering = True
             self.comet_tbx.save_tbx()
@@ -697,9 +698,9 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.filter_segments_option = ''
                 self.comet_tbx.remove_segments_less_than = []
 
-            self.log.append_log(f"Started to backfit microstates to data...")
+            self.log.append_log(f"Started to backfit microstates to data...", self)
             self.comet_tbx.do_backfitting()
-            self.log.append_log(f"Completed backfitting")
+            self.log.append_log(f"Completed backfitting", self)
             self.comet_tbx.save_tbx()
             self.mainwindow_controller()
 
@@ -801,9 +802,9 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.feature_mode.append('dynamic')
 
             self.comet_tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
-            self.log.append_log(f"Started to extract {self.comet_tbx.feature_list} features in {self.comet_tbx.feature_mode} mode...")
+            self.log.append_log(f"Started to extract {self.comet_tbx.feature_list} features in {self.comet_tbx.feature_mode} mode...", self)
             self.comet_tbx.extract_features()
-            self.log.append_log(f"Completed feature extraction.")
+            self.log.append_log(f"Completed feature extraction.", self)
             self.comet_tbx.save_tbx()
             self.comet_tbx.done_extracting_features = True
 

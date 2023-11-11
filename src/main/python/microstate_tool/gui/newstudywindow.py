@@ -280,24 +280,18 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def new_study_save_path(self):
-        #step0_study_name_linedit.text()
-        path = QFileDialog.getExistingDirectory(self, "Select the folder to save results")
+        save_parent_directory = QFileDialog.getExistingDirectory(self, "Select a parent folder to create a new study folder within.")
         folder_name = self.ui.step0_study_name_lineedit.text()
-        save_directory = os.path.join(path, folder_name)
-        if not os.path.exists(save_directory):
+        if os.path.exists(save_parent_directory):
+            if folder_name:
+                save_directory = os.path.join(save_parent_directory, folder_name)
+            else:
+                save_directory = os.path.join(save_parent_directory, "new_study")
+                self.ui.step0_study_name_lineedit.setText("new_study")
             os.makedirs(save_directory)
         else:
-            reply = QMessageBox.question(self, "Study exists!",
-                                         "Do you want to overwrite an existing study?",
-                                         QMessageBox.Yes |
-                                         QMessageBox.No)
-            if reply == QMessageBox.Yes:
-                shutil.rmtree(save_directory)
-                os.makedirs(save_directory)
-            else:
-                folder_name = folder_name+'_new'
-                self.ui.step0_study_name_lineedit.setText(folder_name)
-                save_directory = os.path.join(path, folder_name)
+            print("Unable to find selected directory")
+            return
 
         self.study_name = self.ui.step0_study_name_lineedit.text()
         self.save_dir = save_directory
