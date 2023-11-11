@@ -291,15 +291,14 @@ class SourceLocalizer:
         for idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_name)):
             print(f"\nLoading Source Time Courses: {eeg_name}")
             stc_subject_path = os.path.join(self.stc_path, eeg_name)
-            stc_file = self.stc_read(self, stc_subject_path)
+            stc_file = self.stc_read(stc_subject_path)
             stc_data = stc_file.data.T
 
             eeg = self.data_io.load_eegs(eeg_path, self.extension, self.datatype)
             eeg_data = eeg.get_data()
 
-            p_values, z_scores, filtered_z_scores = self.run_tess(self, stc_data, eeg_data, self.nperm)
-
             if source_method == 'tess':
+                p_values, z_scores, filtered_z_scores = self.run_tess(stc_data, eeg_data, self.nperm)
                 print('\nExtracting sources associated with each microstate',
                       '\nusing the topographic electrophysiological state source-imaging (TESS) algorithm ...')
                 tess_subject_path = os.path.join(self.tess_path, list_eeg_name[idx])
@@ -320,7 +319,7 @@ class SourceLocalizer:
                 if not os.path.exists(avg_subject_path):
                     os.makedirs(avg_subject_path)
 
-                all_sources_dict = self.avg_sources(self, self.segmentation_path, stc_data)
+                all_sources_dict = self.avg_sources(self.segmentation_path, stc_data)
                 print(f'\nExporting the averaged microstate sources for subject {list_eeg_name[idx]}')
                 for m, array_data in all_sources_dict.items():
                     filename = os.path.join(avg_subject_path, f"{list_eeg_name[idx]}_{m}.npy")
