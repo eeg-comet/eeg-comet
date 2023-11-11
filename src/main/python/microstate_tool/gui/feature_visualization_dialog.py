@@ -1,9 +1,12 @@
+
 import os
 import pandas as pd
 import seaborn as sns
-
 from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import QDialog, QSizePolicy
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+
 from functions.features_utils.feature_io import FeatureIO
 
 
@@ -13,6 +16,11 @@ class FeatureVisualizationDialog(QDialog):
 
         self.tbx = tbx
         self.ui = self.load_ui(context)
+
+        self.figure = Figure()
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.ui.Figure_Layout.addWidget(self.canvas)
 
         self.setup_window()
         self.bind_events()
@@ -108,8 +116,7 @@ class FeatureVisualizationDialog(QDialog):
 
     def clear_plot(self):
         """Clears the current plot."""
-        self.ui.MplWidget.canvas.axes.clear()
-        self.ui.MplWidget.canvas.draw()
+        self.canvas.draw()
 
     def populate_all_files_list(self):
         """Populates the all_files_list with EEG file names."""
@@ -118,7 +125,7 @@ class FeatureVisualizationDialog(QDialog):
 
     def plot_violin(self, features_df, feature, mode):
         """Plots a violin plot for the selected static feature."""
-        ax = self.ui.MplWidget.canvas.axes
+        ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(feature)]
         filter_cols.sort()
 
@@ -127,11 +134,11 @@ class FeatureVisualizationDialog(QDialog):
 
         self.clear_and_set_fonts(ax)
         sns.violinplot(x='Feature', y=feature, data=plot_data, kind="violin", ax=ax)
-        self.ui.MplWidget.canvas.draw()
+        self.canvas.draw()
 
     def plot_line(self, features_df, feature):
         """Plots a line plot for the selected dynamic feature."""
-        ax = self.ui.MplWidget.canvas.axes
+        ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(feature)]
         filter_cols.sort()
 
@@ -140,7 +147,7 @@ class FeatureVisualizationDialog(QDialog):
 
         self.clear_and_set_fonts(ax)
         sns.lineplot(x='Window_index', y=feature, hue='Feature', data=plot_data, ax=ax)
-        self.ui.MplWidget.canvas.draw()
+        self.canvas.draw()
 
     def get_group_names(self):
         """Returns the names of Group A and Group B."""
@@ -154,7 +161,7 @@ class FeatureVisualizationDialog(QDialog):
 
     def plot_group_comparison(self, features_df, selected_feature, group_a_name, group_b_name):
         """Plots a comparison of features between two groups."""
-        ax = self.ui.MplWidget.canvas.axes
+        ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(selected_feature)]
         filter_cols.sort()
 
@@ -176,4 +183,4 @@ class FeatureVisualizationDialog(QDialog):
 
         self.clear_and_set_fonts(ax)
         sns.violinplot(x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax)
-        self.ui.MplWidget.canvas.draw()
+        self.canvas.draw()

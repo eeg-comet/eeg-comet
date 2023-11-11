@@ -1,10 +1,11 @@
 import os.path
 from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog, QFileDialog
+from PyQt5.QtWidgets import QDialog, QFileDialog, QSizePolicy
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
-
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
 from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 
@@ -23,6 +24,10 @@ class BackfittingVisualizationDialog(QDialog):
 
     def _initialize_ui(self):
         self.ui.setWindowTitle("Visualization of the localized sources")
+        self.figure = Figure()
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.ui.Figure_Layout.addWidget(self.canvas)
         self.ui.show_backfitting_button.clicked.connect(self.show_backfitting)
         self.ui.export_backfitting_image_button.clicked.connect(self.export_plot)
         self.resize(1000, 800)
@@ -69,7 +74,7 @@ class BackfittingVisualizationDialog(QDialog):
         data_to_use = data_to_use[xmin:xmax]
         segmentation_to_use = segmentation_data[xmin:xmax]
 
-        ax = self.ui.MplWidget.canvas.axes
+        ax = self.canvas.figure.gca()
         ax.clear()
 
         # Generate the plot
@@ -82,7 +87,7 @@ class BackfittingVisualizationDialog(QDialog):
         ax.set_xlim([time_min, time_max])
         ax.legend(handles=legend_elements, loc='upper right', fontsize=fontsize)
 
-        self.ui.MplWidget.canvas.draw()
+        self.canvas.draw()
 
     def _prepare_legend_and_colors(self, segmentation_data, colormap):
         unique_labels = sorted(set(segmentation_data))
@@ -119,4 +124,4 @@ class BackfittingVisualizationDialog(QDialog):
         extension = os.path.splitext(file_name)[-1].lower()
         if not extension:
             file_name += '.png'
-        self.ui.MplWidget.canvas.figure.savefig(file_name)
+        self.canvas.figure.savefig(file_name)

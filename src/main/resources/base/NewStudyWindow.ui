@@ -1053,6 +1053,18 @@
          </property>
         </widget>
        </item>
+       <item row="6" column="0" rowspan="3">
+        <widget class="Line" name="line_3">
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+          </font>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+        </widget>
+       </item>
        <item row="1" column="0" rowspan="2" colspan="2">
         <widget class="QListWidget" name="step0_selected_files_list">
          <property name="sizePolicy">
@@ -1072,18 +1084,6 @@
            <pointsize>14</pointsize>
            <italic>true</italic>
           </font>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="0" rowspan="3">
-        <widget class="Line" name="line_3">
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
          </property>
         </widget>
        </item>
@@ -1342,27 +1342,6 @@
          </item>
         </layout>
        </item>
-       <item row="5" column="0">
-        <widget class="MplWidget" name="MplWidget" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>400</width>
-           <height>300</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-        </widget>
-       </item>
        <item row="4" column="0">
         <widget class="QLineEdit" name="figure_title_lineedit">
          <property name="enabled">
@@ -1381,20 +1360,15 @@
          </property>
         </widget>
        </item>
+       <item row="5" column="0">
+        <layout class="QVBoxLayout" name="Figure_Layout"/>
+       </item>
       </layout>
      </widget>
     </widget>
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>MplWidget</class>
-   <extends>QWidget</extends>
-   <header>customwidgets.mplwidget</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
  <buttongroups>

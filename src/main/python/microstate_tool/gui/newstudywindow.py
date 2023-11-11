@@ -5,8 +5,10 @@ import numpy as np
 import mne
 from PyQt5 import uic
 from PyQt5.QtWidgets import (
-    QFileDialog, QDialog, QMessageBox, QVBoxLayout, QWidget
+    QFileDialog, QDialog, QMessageBox, QVBoxLayout, QWidget, QSizePolicy
 )
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
 from functions.gui_utils.CheckableComboBox import CheckableComboBox
 from functions.gui_utils.set_widgets_status import set_widgets_status
 from functions.data_utils.data_io import DataIO
@@ -34,6 +36,10 @@ class NewStudyWindow(QDialog):
     def init_ui_components(self):
         self.step0_ch2rm_combobox = CheckableComboBox()
         self.CheckableComboBox_Layout.addWidget(self.step0_ch2rm_combobox)
+        self.figure = Figure()
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.ui.Figure_Layout.addWidget(self.canvas)
 
     def setup_connections(self):
         self.ui.step0_import_epoched_radio.clicked.connect(self.newstudy_controller)
@@ -92,10 +98,7 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_button.setEnabled(True)
             if self.ui.step0_selected_files_list.count() == 0:
                 self.data_found = False
-                self.ui.MplWidget.canvas.axes.clear()
-                self.ui.MplWidget.canvas.draw()
-                self.ui.MplWidget.canvas.axes.clear()
-                self.ui.MplWidget.canvas.draw()
+                self.canvas.draw()
             else:
                 self.data_found = True
 
@@ -309,8 +312,7 @@ class NewStudyWindow(QDialog):
 
     def clear_files(self):
         self.ui.step0_selected_files_list.clear()
-        self.ui.MplWidget.canvas.figure.clear()
-        self.ui.MplWidget.canvas.axes.clear()
+        self.canvas.figure.clear()
         self.newstudy_controller()
 
     def preprocess_data(self):
@@ -383,8 +385,7 @@ class NewStudyWindow(QDialog):
         self.ui.close()
 
     def plot_montage(self):
-        self.ui.MplWidget.canvas.figure.clear()
-        self.ui.MplWidget.canvas.axes.clear()
+        self.canvas.figure.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
         if not np.isnan(EEG.info['chs'][0]['loc'][0]):
@@ -404,9 +405,9 @@ class NewStudyWindow(QDialog):
         fig, _ = EEG.plot_sensors(kind='select', show_names=show_names, show=False)
         #fig = montage.plot(show_names=show_names)
 
-        self.ui.MplWidget.canvas.figure = fig
+        self.canvas.figure = fig
         self.ui.figure_title_lineedit.setText("EEG Montage")
-        self.ui.MplWidget.canvas.draw()
+        self.canvas.draw()
     
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
@@ -414,8 +415,7 @@ class NewStudyWindow(QDialog):
         EEG.plot()
 
     def plot_psd(self):
-        self.ui.MplWidget.canvas.figure.clear()
-        self.ui.MplWidget.canvas.axes.clear()
+        self.canvas.figure.clear()
         # self.ui.MplWidget.canvas.draw()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
@@ -431,7 +431,7 @@ class NewStudyWindow(QDialog):
         fmax_plot = int(self.ui.rawdata_range_psd_max.text())
         fig = EEG.compute_psd(fmin=fmin_plot, fmax=fmax_plot).plot(show=False)
         #mne.viz.plot_raw_psd(EEG, fmin=fmin_plot, fmax=fmax_plot, ax=ax)
-        self.ui.MplWidget.canvas.figure = fig
+        self.canvas.figure = fig
         self.ui.figure_title_lineedit.setText("Power Spectral Density (PSD) using Multitapers")
-        self.ui.MplWidget.canvas.draw()
+        self.canvas.draw()
 

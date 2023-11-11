@@ -264,25 +264,7 @@
         </widget>
        </item>
        <item>
-        <widget class="MplWidget" name="MplWidget" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>400</width>
-           <height>300</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-        </widget>
+        <layout class="QVBoxLayout" name="Figure_Layout"/>
        </item>
        <item>
         <widget class="QPushButton" name="export_backfitting_image_button">
@@ -303,14 +285,6 @@
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>MplWidget</class>
-   <extends>QWidget</extends>
-   <header>customwidgets.mplwidget</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>
