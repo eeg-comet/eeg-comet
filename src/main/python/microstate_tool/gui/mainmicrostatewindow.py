@@ -25,6 +25,7 @@ class LogWindow(QWidget):
         layout = QVBoxLayout()
         self.label = QLabel("Application Log")
         self.textArea = QTextEdit()
+        self.textArea.setReadOnly(True)
         layout.addWidget(self.label)
         layout.addWidget(self.textArea)
         self.setLayout(layout)
