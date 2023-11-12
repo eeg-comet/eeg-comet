@@ -367,7 +367,7 @@ class MicrostateBackfitter:
 
             for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
                 if self.datatype == 'epoched':
-                    trial_data = eeg[idx].get_data()
+                    trial_data = np.squeeze(eeg[idx].get_data())
                     trial_times = eeg[idx].times * 1000
                 else:
                     trial_data = eeg_data
@@ -416,7 +416,7 @@ class MicrostateBackfitter:
 
                 labeled_segmentation = self.label_segments(segmentation)
 
-                similarity_metric = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
+                similarity_metric = self.goodness_fit_segmentation(trial_data, labeled_segmentation)
                 segmentation_fit = segmentation_fit + similarity_metric
 
                 # Call the export_segmentation method
