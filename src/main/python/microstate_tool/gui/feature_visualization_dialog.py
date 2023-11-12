@@ -70,7 +70,7 @@ class FeatureVisualizationDialog(QDialog):
     def reset_groups(self):
         """Clears all file lists and resets the plot."""
         self.clear_all_lists()
-        self.clear_plot()
+        self.canvas.figure.clear()
 
     def show_static_violin_all(self):
         """Displays violin plots of all static features."""
@@ -113,10 +113,6 @@ class FeatureVisualizationDialog(QDialog):
         self.ui.group_a_files_list.clear()
         self.ui.group_b_files_list.clear()
         self.populate_all_files_list()
-
-    def clear_plot(self):
-        """Clears the current plot."""
-        self.canvas.draw()
 
     def populate_all_files_list(self):
         """Populates the all_files_list with EEG file names."""

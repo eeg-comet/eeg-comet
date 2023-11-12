@@ -3,7 +3,7 @@ import webbrowser
 import pickle
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QLabel, QWidget, QTextEdit, QVBoxLayout
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
 from datetime import datetime
 
 from gui.newstudywindow import NewStudyWindow
@@ -22,6 +22,7 @@ from COMET import COMET
 class LogWindow(QWidget):
     def __init__(self):
         super().__init__()
+
         layout = QVBoxLayout()
         self.label = QLabel("Application Log")
         self.textArea = QTextEdit()
@@ -29,23 +30,29 @@ class LogWindow(QWidget):
         layout.addWidget(self.label)
         layout.addWidget(self.textArea)
         self.setLayout(layout)
-    #   Potentially connect to the "prints" within the functions
 
     def append_log(self, log, parent_window=None):
-        current_time = datetime.now().strftime("%I:%M:%S %p")
-        self.textArea.append(f"[{current_time}]: {log}\n")
+        current_date = datetime.now().strftime("%d/%m/%y")
+        current_time = datetime.now().strftime("%I:%M %p")
+        self.textArea.append(f"[{current_date} {current_time}]: {log}\n")
         if parent_window:
             parent_window.comet_tbx.log_text = self.textArea.toPlainText()
 
     def replace_log(self, import_log):
         self.textArea.setText(import_log)
 
+    def show_hide_log_window(self):
+        if self.isVisible():
+            self.setVisible(False)
+        else:
+            self.setVisible(True)
+
 class MainMicrostateWindow(QMainWindow):
     def __init__(self, context, parent=None):
         super(MainMicrostateWindow, self).__init__(parent)
 
         self.comet_tbx = COMET()
-        self.log = LogWindow()
+        self.log_window = LogWindow()
         self.context = context
 
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
@@ -58,10 +65,9 @@ class MainMicrostateWindow(QMainWindow):
         self.init_ui_components()
         self.setup_connections()
 
-        self.log.show()
-
-        current_date = datetime.now().strftime("%d-%m-%y")
-        self.log.append_log(f"It's {current_date}, Welcome to EEG-COMET!")
+        self.log_window_open = True
+        self.log_window.show()
+        self.log_window.append_log("Welcome to EEG-COMET!")
 
     def init_dialogs(self):
         self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, tbx=self.comet_tbx)
@@ -106,7 +112,9 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step0_new_study_button.clicked.connect(self.open_new_study_dialog)
         self.ui.step0_load_study_action.triggered.connect(self.load_study)
         self.ui.step0_load_study_button.clicked.connect(self.load_study)
-        self.ui.step0_reopen_log_window.triggered.connect(self.log.show)
+
+        self.ui.step0_show_hide_log_window_button.clicked.connect(self.log_window.show_hide_log_window)
+        self.ui.step0_reopen_log_window.triggered.connect(self.log_window.show_hide_log_window)
 
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_auto_k_radio.clicked.connect(self.mainwindow_controller)
@@ -165,12 +173,11 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.NewStudyWindow.showMaximized()
         self.mainwindow_controller()
 
-
     def load_study_helper(self):
         self.save_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
         tbx_object = os.path.join(self.save_folder, 'comet_tbx_object.pkl')
         if not os.path.exists(tbx_object):
-            self.log.append_log('Failed to load the study!')
+            self.log_window.append_log('Failed to load the study!')
             QMessageBox.information(self, "Load error",
                                     "The selected folder does not contain a valid study!",
                                     QMessageBox.Ok)
@@ -179,10 +186,11 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx = pickle.load(input_tbx)
 
         if self.comet_tbx.log_text:
-            self.log.replace_log(self.comet_tbx.log_text)
+            self.log_window.replace_log(self.comet_tbx.log_text)
         else:
             self.comet_tbx.log_text = ""
-        self.log.append_log(f"Loaded Study: {self.comet_tbx.study_name}")
+        self.log_window.append_log(f"Loaded Study: {self.comet_tbx.study_name}")
+
 
     def load_study(self, from_new_study=False):
         if from_new_study:
@@ -639,13 +647,12 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.clustering_option = self.ui.step2_other_options_combobox.currentText()
             self.comet_tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
-            self.log.append_log(f"Extracting {self.comet_tbx.number_of_maps} microstate maps using {self.comet_tbx.clustering_method} clustering algorithm...", self)
+            self.log_window.append_log(f"Extracting {self.comet_tbx.number_of_maps} microstate maps using {self.comet_tbx.clustering_method} clustering algorithm...", self)
+            self.log_window.append_log(f"Completed clustering", self)
             self.comet_tbx.do_clustering()
-            self.log.append_log(f"Completed clustering", self)
             self.label_maps()
             self.comet_tbx.done_clustering = True
             self.comet_tbx.save_tbx()
-
             self.mainwindow_controller()
 
     def do_backfitting(self):
@@ -699,9 +706,9 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.filter_segments_option = ''
                 self.comet_tbx.remove_segments_less_than = []
 
-            self.log.append_log(f"Started to backfit microstates to data...", self)
+            self.log_window.append_log(f"Started to backfit microstates to data...", self)
             self.comet_tbx.do_backfitting()
-            self.log.append_log(f"Completed backfitting", self)
+            self.log_window.append_log(f"Completed backfitting", self)
             self.comet_tbx.save_tbx()
             self.mainwindow_controller()
 
@@ -803,9 +810,9 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.feature_mode.append('dynamic')
 
             self.comet_tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
-            self.log.append_log(f"Started to extract {self.comet_tbx.feature_list} features in {self.comet_tbx.feature_mode} mode...", self)
+            self.log_window.append_log(f"Started to extract {self.comet_tbx.feature_list} features in {self.comet_tbx.feature_mode} mode...", self)
             self.comet_tbx.extract_features()
-            self.log.append_log(f"Completed feature extraction.", self)
+            self.log_window.append_log(f"Completed feature extraction.", self)
             self.comet_tbx.save_tbx()
             self.comet_tbx.done_extracting_features = True
 
@@ -893,4 +900,5 @@ class MainMicrostateWindow(QMainWindow):
                                      QMessageBox.Yes |
                                      QMessageBox.No)
         if reply == QMessageBox.Yes:
+            self.log_window.close()
             self.close()

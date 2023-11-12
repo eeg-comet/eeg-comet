@@ -39,44 +39,13 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="1" column="0">
-     <widget class="QLabel" name="comet_label">
+    <item row="3" column="0">
+     <widget class="QPushButton" name="step0_new_study_button">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>20</pointsize>
-        <weight>75</weight>
-        <italic>false</italic>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>EEG-COMET 
-Comprehensive Microstate Extraction Toolbox</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
-    </item>
-    <item row="8" column="0">
-     <widget class="QPushButton" name="step0_exit_button">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>16777215</height>
-       </size>
       </property>
       <property name="font">
        <font>
@@ -89,7 +58,7 @@ Comprehensive Microstate Extraction Toolbox</string>
        <cursorShape>PointingHandCursor</cursorShape>
       </property>
       <property name="text">
-       <string>Exit</string>
+       <string>New Study</string>
       </property>
      </widget>
     </item>
@@ -113,29 +82,6 @@ Comprehensive Microstate Extraction Toolbox</string>
       </property>
       <property name="text">
        <string>Load Study</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="0">
-     <widget class="QPushButton" name="step0_new_study_button">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>14</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="cursor">
-       <cursorShape>PointingHandCursor</cursorShape>
-      </property>
-      <property name="text">
-       <string>New Study</string>
       </property>
      </widget>
     </item>
@@ -179,7 +125,61 @@ Comprehensive Microstate Extraction Toolbox</string>
       </property>
      </widget>
     </item>
-    <item row="7" column="0">
+    <item row="9" column="0">
+     <widget class="QPushButton" name="step0_exit_button">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>14</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="cursor">
+       <cursorShape>PointingHandCursor</cursorShape>
+      </property>
+      <property name="text">
+       <string>Exit</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QLabel" name="comet_label">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>20</pointsize>
+        <weight>75</weight>
+        <italic>false</italic>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>EEG-COMET 
+Comprehensive Microstate Extraction Toolbox</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item row="8" column="0">
      <widget class="QSplitter" name="splitter_2">
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
@@ -225,12 +225,12 @@ Comprehensive Microstate Extraction Toolbox</string>
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>1257</width>
-          <height>1999</height>
+          <width>1260</width>
+          <height>1597</height>
          </rect>
         </property>
-        <layout class="QVBoxLayout" name="verticalLayout_5">
-         <item>
+        <layout class="QGridLayout" name="gridLayout_2">
+         <item row="0" column="0">
           <layout class="QGridLayout" name="MainWindow_GridLayout">
            <property name="sizeConstraint">
             <enum>QLayout::SetMinAndMaxSize</enum>
@@ -2197,6 +2197,25 @@ Comprehensive Microstate Extraction Toolbox</string>
       </widget>
      </widget>
     </item>
+    <item row="6" column="0">
+     <widget class="QPushButton" name="step0_show_hide_log_window_button">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Show/Hide Log Window</string>
+      </property>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -2205,7 +2224,7 @@ Comprehensive Microstate Extraction Toolbox</string>
      <x>0</x>
      <y>0</y>
      <width>1290</width>
-     <height>24</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -2320,18 +2339,23 @@ Comprehensive Microstate Extraction Toolbox</string>
   </action>
   <action name="step0_reopen_log_window">
    <property name="text">
-    <string>Re-open Log Window</string>
+    <string>Show/Hide Log Window</string>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>12</pointsize>
+    </font>
    </property>
   </action>
  </widget>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_4"/>
  </buttongroups>
 </ui>
