@@ -3,6 +3,7 @@ import webbrowser
 import pickle
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QLabel, QWidget, QTextEdit, QVBoxLayout
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from datetime import datetime
 
@@ -22,9 +23,9 @@ from COMET import COMET
 class LogWindow(QWidget):
     def __init__(self):
         super().__init__()
-
+        self.setWindowTitle("EEG-COMET Log")
         layout = QVBoxLayout()
-        self.label = QLabel("Application Log")
+        self.label = QLabel("EEG-COMET Log")
         self.textArea = QTextEdit()
         self.textArea.setReadOnly(True)
         layout.addWidget(self.label)
@@ -91,6 +92,23 @@ class MainMicrostateWindow(QMainWindow):
     def init_ui_components(self):
         set_widgets_status(self.scrollArea, mode='hide')
 
+        eeg_comet_logo_path = os.path.join(os.getcwd(), 'eeg_comet_logo.png')
+        self.ui.eeg_comet_logo = QLabel(self)
+        pixmap = QPixmap(eeg_comet_logo_path)
+        self.ui.eeg_comet_logo.setPixmap(pixmap)
+        self.ui.eeg_comet_logo.setAlignment(Qt.AlignCenter)
+        self.ui.Logo_Layout.addWidget(self.ui.eeg_comet_logo)
+
+        # Hide Buttons
+        set_widgets_status([self.ui.step2_clustering_button,
+                            self.ui.step3_label_maps_button,
+                            self.ui.step3_backfit_button,
+                            self.ui.step3_backfit_visualization_button,
+                            self.ui.step4_extractfeatures_button,
+                            self.ui.step4_visualizefeatures_button,
+                            self.ui.step5_compute_source_microstate_correlation_button,
+                            self.ui.step5_visualize_sources_button], mode='hide')
+
         self.ui.step4_features2extract_combobox = CheckableComboBox()
         self.CheckableComboBox_Layout.addWidget(self.ui.step4_features2extract_combobox)
         list_features = [
@@ -115,6 +133,11 @@ class MainMicrostateWindow(QMainWindow):
 
         self.ui.step0_show_hide_log_window_button.clicked.connect(self.log_window.show_hide_log_window)
         self.ui.step0_reopen_log_window.triggered.connect(self.log_window.show_hide_log_window)
+
+        self.ui.step0_show_clustering_radio.clicked.connect(self.mainwindow_controller)
+        self.ui.step0_show_backfitting_radio.clicked.connect(self.mainwindow_controller)
+        self.ui.step0_show_featureextraction_radio.clicked.connect(self.mainwindow_controller)
+        self.ui.step0_show_sourclocalization_radio.clicked.connect(self.mainwindow_controller)
 
         self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
         self.ui.step2_auto_k_radio.clicked.connect(self.mainwindow_controller)
@@ -235,7 +258,6 @@ class MainMicrostateWindow(QMainWindow):
     def mainwindow_controller(self):
 
         after_preprocessing_widgets = [
-            self.ui.step2_clustering_title_label,
             self.ui.step2_clustermethod_combo_label,
             self.ui.step2_clustermethod_combobox,
             self.ui.step2_advanced_checkbox,
@@ -298,12 +320,12 @@ class MainMicrostateWindow(QMainWindow):
 
         after_clustering_widgets = [
             self.ui.step3_label_maps_button,
-            self.ui.step3_backfit_title_label,
             self.ui.step3_backfit_all_radio,
             self.ui.step3_backfit_peaks_radio,
             self.ui.step3_filter_segments_checkbox,
             self.ui.step3_identify_short_checkbox,
-            self.ui.step3_backfit_button
+            self.ui.step3_backfit_button,
+            self.ui.step3_backfit_visualization_button
         ]
 
         filter_segments_widgets = [
@@ -330,7 +352,6 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         feature_extraction_widgets = [
-            self.ui.step4_features_title_label,
             self.ui.step4_featurestoextract_label,
             self.ui.step4_features2extract_combobox,
             self.ui.step4_duration_of_window_input,
@@ -340,11 +361,12 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_dynamic_features_checkbox,
             self.ui.step4_extractfeatures_button,
             self.ui.step4_outputformats_label,
-            self.ui.step4_outputformats_combobox
+            self.ui.step4_outputformats_combobox,
+            self.ui.step4_visualizefeatures_button
             ]
 
         source_localization_widgets = [
-            self.ui.step5_source_localization_title_label,
+            self.ui.step5_anatomical_label,
             self.ui.step5_use_fsaverage_radio,
             self.ui.step5_use_individual_radio,
             self.ui.step5_inverse_method_label,
@@ -354,6 +376,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_spacing_label,
             self.ui.step5_spacing_combobox,
             self.ui.step5_estimate_sources_button,
+            self.ui.step5_source_microstate_correlation_label,
             self.ui.step5_compute_source_microstate_correlation_button
         ]
 
@@ -363,138 +386,194 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         if self.comet_tbx.done_preprocessing:
-            # Hide the logo
-            set_widgets_status(self.ui.eeg_comet_logo, mode='hide')
-            set_widgets_status(self.scrollArea, mode='show')
+            set_widgets_status(self.ui.step0_show_clustering_radio, mode='enable')
+            if self.ui.step0_show_clustering_radio.isChecked():
 
-            self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
-            self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
-            set_widgets_status(after_preprocessing_widgets, mode='enable')
-            if self.ui.step2_auto_k_radio.isChecked():
-                k_log = 'will be automatically determined.'
-                set_widgets_status(user_k_widgets, mode='disable')
-                set_widgets_status(user_k_widgets, mode='hide')
-                set_widgets_status(auto_k_widgets, mode='enable')
-                set_widgets_status(auto_k_widgets, mode='show')
+                # Show/Hide Widgets
+                set_widgets_status(after_preprocessing_widgets, mode='show')
+                set_widgets_status(after_preprocessing_widgets, mode='enable')
 
-                kmin_value = int(self.ui.step2_auto_range_kmin_spinbox.value())
-                kmax_value = int(self.ui.step2_auto_range_kmax_spinbox.value())
-                if kmax_value <= kmin_value:
-                    self.ui.step2_auto_range_kmax_spinbox.setValue(kmin_value + 1)
+                widgets_to_rm = (
+                        after_clustering_widgets +
+                        filter_segments_widgets +
+                        smooth_segments_widgets +
+                        feature_extraction_widgets +
+                        source_localization_widgets +
+                        tess_widgets
+                )
+                set_widgets_status(widgets_to_rm, mode='hide')
+                set_widgets_status(widgets_to_rm, mode='disable')
 
-                auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
-                if auto_k_method == 'Gap Statistic':
-                    step2_auto_target_parameter_text = 'Random datasets:'
-                elif auto_k_method == 'Cross Validation':
-                    step2_auto_target_parameter_text = 'Folds:'
-                elif auto_k_method in ['Elbow - Global Explained Variance', 'Elbow - Residual Variance']:
-                    step2_auto_target_parameter_text = 'Threshold (%):'
+                # Show/Hide Buttons
+                set_widgets_status([self.ui.step2_clustering_button, self.ui.step3_label_maps_button], mode='show')
+                set_widgets_status([self.ui.step3_backfit_button,
+                                    self.ui.step3_backfit_visualization_button,
+                                    self.ui.step4_extractfeatures_button,
+                                    self.ui.step4_visualizefeatures_button,
+                                    self.ui.step5_compute_source_microstate_correlation_button,
+                                    self.ui.step5_visualize_sources_button], mode='hide')
 
-                if auto_k_method == 'Silhouette Method':
-                    step2_auto_target_parameter_text = ''
-                #    set_widgets_status(after_preprocessing_widgets, mode='hide')
-                self.ui.step2_auto_target_parameter_label.setText(step2_auto_target_parameter_text)
+                # Hide the logo
+                set_widgets_status(self.ui.eeg_comet_logo, mode='hide')
+                set_widgets_status(self.scrollArea, mode='show')
 
-            if self.ui.step2_user_k_radio.isChecked():
-                k_log = 'is user-predefined.'
-                set_widgets_status(user_k_widgets, mode='enable')
-                set_widgets_status(user_k_widgets, mode='show')
-                set_widgets_status(auto_k_widgets, mode='disable')
-                set_widgets_status(auto_k_widgets, mode='hide')
+                self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
+                self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
+                if self.ui.step2_auto_k_radio.isChecked():
+                    self.k_log = 'will be automatically determined.'
+                    set_widgets_status(user_k_widgets, mode='disable')
+                    set_widgets_status(user_k_widgets, mode='hide')
+                    set_widgets_status(auto_k_widgets, mode='enable')
+                    set_widgets_status(auto_k_widgets, mode='show')
 
-            if self.ui.step2_advanced_checkbox.isChecked():
-                set_widgets_status(advanced_widgets, mode='enable')
-                set_widgets_status(advanced_widgets, mode='show')
+                    kmin_value = int(self.ui.step2_auto_range_kmin_spinbox.value())
+                    kmax_value = int(self.ui.step2_auto_range_kmax_spinbox.value())
+                    if kmax_value <= kmin_value:
+                        self.ui.step2_auto_range_kmax_spinbox.setValue(kmin_value + 1)
 
-                if self.ui.step2_use_peaks_radio.isChecked():
-                    cluster_data_log = 'the local peaks of the global field power.'
-                    set_widgets_status(peaks2use_widgets, mode='enable')
-                    set_widgets_status(peaks2use_widgets, mode='show')
-                    set_widgets_status(rand2use_widgets, mode='disable')
-                    set_widgets_status(rand2use_widgets, mode='hide')
-                elif self.ui.step2_use_percent_radio.isChecked():
-                    cluster_data_log = 'a randomly selected subset of the data.'
-                    set_widgets_status(rand2use_widgets, mode='enable')
-                    set_widgets_status(rand2use_widgets, mode='show')
-                    set_widgets_status(peaks2use_widgets, mode='disable')
-                    set_widgets_status(peaks2use_widgets, mode='hide')
+                    auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
+                    if auto_k_method == 'Gap Statistic':
+                        step2_auto_target_parameter_text = 'Random datasets:'
+                    elif auto_k_method == 'Cross Validation':
+                        step2_auto_target_parameter_text = 'Folds:'
+                    elif auto_k_method in ['Elbow - Global Explained Variance', 'Elbow - Residual Variance']:
+                        step2_auto_target_parameter_text = 'Threshold (%):'
 
-            else:
-                set_widgets_status(advanced_widgets, mode='disable')
-                set_widgets_status(advanced_widgets, mode='hide')
+                    if auto_k_method == 'Silhouette Method':
+                        step2_auto_target_parameter_text = ''
+                    #    set_widgets_status(after_preprocessing_widgets, mode='hide')
+                    self.ui.step2_auto_target_parameter_label.setText(step2_auto_target_parameter_text)
 
-            self.comet_tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
-            if self.comet_tbx.clustering_method in ["K-Means Clustering", 'PCA + K-Means Clustering', 'Autoencoder + K-Means Clustering']:
-                self.ui.step2_other_label.setText("Similarity metric:")
-                options = ['Cosine Similarity', 'Spatial Correlation']
-                self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
+                if self.ui.step2_user_k_radio.isChecked():
+                    self.k_log = 'is user-predefined.'
+                    set_widgets_status(user_k_widgets, mode='enable')
+                    set_widgets_status(user_k_widgets, mode='show')
+                    set_widgets_status(auto_k_widgets, mode='disable')
+                    set_widgets_status(auto_k_widgets, mode='hide')
 
-            elif self.comet_tbx.clustering_method == "Agglomerative Hierarchical Clustering":
-                self.ui.step2_other_label.setText("Type of link between clusters:")
-                options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
-                self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
+                if self.ui.step2_advanced_checkbox.isChecked():
+                    set_widgets_status(advanced_widgets, mode='enable')
+                    set_widgets_status(advanced_widgets, mode='show')
 
-            elif self.comet_tbx.clustering_method == "X-Means Clustering":
-                self.ui.step2_other_label.setText("X-means splitting criterion:")
-                options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
-                self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Bayesian Information Criterion')
+                    if self.ui.step2_use_peaks_radio.isChecked():
+                        self.cluster_data_log = 'the local peaks of the global field power.'
+                        set_widgets_status(peaks2use_widgets, mode='enable')
+                        set_widgets_status(peaks2use_widgets, mode='show')
+                        set_widgets_status(rand2use_widgets, mode='disable')
+                        set_widgets_status(rand2use_widgets, mode='hide')
+                    elif self.ui.step2_use_percent_radio.isChecked():
+                        self.cluster_data_log = 'a randomly selected subset of the data.'
+                        set_widgets_status(rand2use_widgets, mode='enable')
+                        set_widgets_status(rand2use_widgets, mode='show')
+                        set_widgets_status(peaks2use_widgets, mode='disable')
+                        set_widgets_status(peaks2use_widgets, mode='hide')
 
-            else:
-                self.ui.step2_other_label.setText("Other options:")
-                self.reset_option_box(self.ui.step2_other_options_combobox)
+                else:
+                    set_widgets_status(advanced_widgets, mode='disable')
+                    set_widgets_status(advanced_widgets, mode='hide')
 
-            # Update the clustering log
-            #self.step2_clustering_log_textedit.clear()
-            #self.step2_clustering_log_textedit.appendPlainText(
-            #    f"EEG microstates will be identified using {self.comet_tbx.clustering_method} clustering algorithm")
-            #self.step2_clustering_log_textedit.appendPlainText(f"The number of maps to extract {k_log}")
-            #self.step2_clustering_log_textedit.appendPlainText(f"Clustering will be performed on {cluster_data_log}")
+                self.comet_tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
+                if self.comet_tbx.clustering_method in ["K-Means Clustering", 'PCA + K-Means Clustering', 'Autoencoder + K-Means Clustering']:
+                    self.ui.step2_other_label.setText("Similarity metric:")
+                    options = ['Cosine Similarity', 'Spatial Correlation']
+                    self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
+
+                elif self.comet_tbx.clustering_method == "Agglomerative Hierarchical Clustering":
+                    self.ui.step2_other_label.setText("Type of link between clusters:")
+                    options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
+                    self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
+
+                elif self.comet_tbx.clustering_method == "X-Means Clustering":
+                    self.ui.step2_other_label.setText("X-means splitting criterion:")
+                    options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
+                    self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Bayesian Information Criterion')
+
+                else:
+                    set_widgets_status([self.ui.step2_other_options_combobox,
+                                        self.ui.step2_other_label], mode='hide')
 
         else:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
+            set_widgets_status(after_preprocessing_widgets, mode='hide')
             set_widgets_status(after_preprocessing_widgets, mode='disable')
+            # Show/Hide Buttons
+            set_widgets_status([self.ui.step2_clustering_button, self.ui.step3_label_maps_button], mode='hide')
+
+            set_widgets_status(self.ui.step0_show_backfitting_radio, mode='disable')
+            set_widgets_status(self.ui.step0_show_featureextraction_radio, mode='disable')
+            set_widgets_status(self.ui.step0_show_sourclocalization_radio, mode='disable')
 
         if self.comet_tbx.done_clustering:
-            self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
-            set_widgets_status(after_clustering_widgets, mode='enable')
+            set_widgets_status(self.ui.step0_show_backfitting_radio, mode='enable')
 
-            outputformat = self.ui.step4_outputformats_combobox.currentText()
-            opening_parenthesis = outputformat.find("(")
-            closing_parenthesis = outputformat.find(")")
-            if opening_parenthesis != -1 and closing_parenthesis != -1:
-                self.comet_tbx.export_format = outputformat[opening_parenthesis + 1: closing_parenthesis]
+            if self.ui.step0_show_backfitting_radio.isChecked():
+                self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
 
-            if self.ui.step3_backfit_peaks_radio.isChecked():
-                self.ui.step3_filter_segments_checkbox.setChecked(False)
-                set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
-            else:
-                set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='enable')
+                set_widgets_status(after_clustering_widgets, mode='show')
+                set_widgets_status(after_clustering_widgets, mode='enable')
 
-            if self.ui.step3_filter_segments_checkbox.isChecked():
-                set_widgets_status(filter_segments_widgets, mode='enable')
-                set_widgets_status(filter_segments_widgets, mode='show')
-                filter_segments_method = self.ui.step3_filter_segments_method_combobox.currentText()
-                if filter_segments_method == "Smooth segments":
-                    set_widgets_status(smooth_segments_widgets, mode='enable')
-                    set_widgets_status(smooth_segments_widgets, mode='show')
+                widgets_to_rm = (
+                        after_preprocessing_widgets +
+                        user_k_widgets +
+                        auto_k_widgets +
+                        advanced_widgets +
+                        feature_extraction_widgets +
+                        source_localization_widgets +
+                        tess_widgets
+                )
+                set_widgets_status(widgets_to_rm, mode='hide')
+                set_widgets_status(widgets_to_rm, mode='disable')
+
+                # Show/Hide Buttons
+                set_widgets_status([self.ui.step3_backfit_button,
+                                    self.ui.step3_backfit_visualization_button], mode='show')
+                set_widgets_status([self.ui.step2_clustering_button,
+                                    self.ui.step3_label_maps_button,
+                                    self.ui.step4_extractfeatures_button,
+                                    self.ui.step4_visualizefeatures_button,
+                                    self.ui.step5_compute_source_microstate_correlation_button,
+                                    self.ui.step5_visualize_sources_button], mode='hide')
+
+                outputformat = self.ui.step4_outputformats_combobox.currentText()
+                opening_parenthesis = outputformat.find("(")
+                closing_parenthesis = outputformat.find(")")
+                if opening_parenthesis != -1 and closing_parenthesis != -1:
+                    self.comet_tbx.export_format = outputformat[opening_parenthesis + 1: closing_parenthesis]
+
+                if self.ui.step3_backfit_peaks_radio.isChecked():
+                    self.ui.step3_filter_segments_checkbox.setChecked(False)
+                    set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='hide')
+                    set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
                 else:
+                    set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='show')
+                    set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='enable')
+
+                if self.ui.step3_filter_segments_checkbox.isChecked():
+                    set_widgets_status(filter_segments_widgets, mode='enable')
+                    set_widgets_status(filter_segments_widgets, mode='show')
+                    filter_segments_method = self.ui.step3_filter_segments_method_combobox.currentText()
+                    if filter_segments_method == "Smooth segments":
+                        set_widgets_status(smooth_segments_widgets, mode='enable')
+                        set_widgets_status(smooth_segments_widgets, mode='show')
+                    else:
+                        set_widgets_status(smooth_segments_widgets, mode='disable')
+                        set_widgets_status(smooth_segments_widgets, mode='hide')
+
+                    if not self.ui.step3_identify_short_checkbox.isChecked():
+                        set_widgets_status(identify_short_widgets, mode='enable')
+                        set_widgets_status(identify_short_widgets, mode='show')
+                    else:
+                        set_widgets_status(identify_short_widgets, mode='disable')
+                        set_widgets_status(identify_short_widgets, mode='hide')
+                        if filter_segments_method == "Smooth segments":
+                            set_widgets_status(smooth_segments_widgets, mode='disable')
+                            set_widgets_status(smooth_segments_widgets, mode='hide')
+                else:
+                    set_widgets_status(filter_segments_widgets, mode='disable')
+                    set_widgets_status(filter_segments_widgets, mode='hide')
                     set_widgets_status(smooth_segments_widgets, mode='disable')
                     set_widgets_status(smooth_segments_widgets, mode='hide')
 
-                if not self.ui.step3_identify_short_checkbox.isChecked():
-                    set_widgets_status(identify_short_widgets, mode='enable')
-                    set_widgets_status(identify_short_widgets, mode='show')
-                else:
-                    set_widgets_status(identify_short_widgets, mode='disable')
-                    set_widgets_status(identify_short_widgets, mode='hide')
-                    if filter_segments_method == "Smooth segments":
-                        set_widgets_status(smooth_segments_widgets, mode='disable')
-                        set_widgets_status(smooth_segments_widgets, mode='hide')
-            else:
-                set_widgets_status(filter_segments_widgets, mode='disable')
-                set_widgets_status(filter_segments_widgets, mode='hide')
-                set_widgets_status(smooth_segments_widgets, mode='disable')
-                set_widgets_status(smooth_segments_widgets, mode='hide')
 
         else:
             self.comet_tbx.done_labeling_microstates = False
@@ -505,6 +584,8 @@ class MainMicrostateWindow(QMainWindow):
 
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
             # set ALL disabled
+            set_widgets_status(self.ui.step0_show_featureextraction_radio, mode='disable')
+            set_widgets_status(self.ui.step0_show_sourclocalization_radio, mode='disable')
             set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
             set_widgets_status(after_clustering_widgets, mode='disable')
             set_widgets_status(filter_segments_widgets, mode='disable')
@@ -520,15 +601,71 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.comet_tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
+            set_widgets_status(self.ui.step0_show_featureextraction_radio, mode='enable')
+            set_widgets_status(self.ui.step0_show_sourclocalization_radio, mode='enable')
             self.ui.step3_backfit_visualization_button.setEnabled(True)
-            set_widgets_status(feature_extraction_widgets, mode='enable')
-            set_widgets_status(source_localization_widgets, mode='enable')
-            if self.ui.step5_use_tess_radio.isChecked():
-                set_widgets_status(tess_widgets, mode='enable')
-                set_widgets_status(tess_widgets, mode='show')
-            else:
-                set_widgets_status(tess_widgets, mode='disable')
-                set_widgets_status(tess_widgets, mode='hide')
+
+            if self.ui.step0_show_featureextraction_radio.isChecked():
+                set_widgets_status(feature_extraction_widgets, mode='show')
+                set_widgets_status(feature_extraction_widgets, mode='enable')
+
+                widgets_to_rm = (
+                        after_preprocessing_widgets +
+                        after_clustering_widgets +
+                        user_k_widgets +
+                        auto_k_widgets +
+                        advanced_widgets +
+                        filter_segments_widgets +
+                        smooth_segments_widgets +
+                        source_localization_widgets +
+                        tess_widgets
+                )
+                set_widgets_status(widgets_to_rm, mode='hide')
+                set_widgets_status(widgets_to_rm, mode='disable')
+
+                # Show/Hide Buttons
+                set_widgets_status([self.ui.step4_extractfeatures_button,
+                                    self.ui.step4_visualizefeatures_button], mode='show')
+                set_widgets_status([self.ui.step2_clustering_button,
+                                    self.ui.step3_label_maps_button,
+                                    self.ui.step3_backfit_button,
+                                    self.ui.step3_backfit_visualization_button,
+                                    self.ui.step5_compute_source_microstate_correlation_button,
+                                    self.ui.step5_visualize_sources_button], mode='hide')
+
+            if self.ui.step0_show_sourclocalization_radio.isChecked():
+                set_widgets_status(source_localization_widgets, mode='show')
+                set_widgets_status(source_localization_widgets, mode='enable')
+
+                widgets_to_rm = (
+                        after_preprocessing_widgets +
+                        after_clustering_widgets +
+                        user_k_widgets +
+                        auto_k_widgets +
+                        advanced_widgets +
+                        filter_segments_widgets +
+                        smooth_segments_widgets +
+                        feature_extraction_widgets
+                )
+                set_widgets_status(widgets_to_rm, mode='hide')
+                set_widgets_status(widgets_to_rm, mode='disable')
+
+                # Show/Hide Buttons
+                set_widgets_status([self.ui.step5_compute_source_microstate_correlation_button,
+                                    self.ui.step5_visualize_sources_button], mode='show')
+                set_widgets_status([self.ui.step2_clustering_button,
+                                    self.ui.step3_label_maps_button,
+                                    self.ui.step3_backfit_button,
+                                    self.ui.step3_backfit_visualization_button,
+                                    self.ui.step4_extractfeatures_button,
+                                    self.ui.step4_visualizefeatures_button], mode='hide')
+
+                if self.ui.step5_use_tess_radio.isChecked():
+                    set_widgets_status(tess_widgets, mode='enable')
+                    set_widgets_status(tess_widgets, mode='show')
+                else:
+                    set_widgets_status(tess_widgets, mode='disable')
+                    set_widgets_status(tess_widgets, mode='hide')
 
         else:
             self.comet_tbx.done_extracting_features = False
@@ -647,8 +784,11 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.clustering_option = self.ui.step2_other_options_combobox.currentText()
             self.comet_tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
-            self.log_window.append_log(f"Extracting {self.comet_tbx.number_of_maps} microstate maps using {self.comet_tbx.clustering_method} clustering algorithm...", self)
-            self.log_window.append_log(f"Completed clustering", self)
+            self.log_window.append_log(
+                f"EEG microstates will be identified using {self.comet_tbx.clustering_method} clustering algorithm")
+            self.log_window.append_log(f"The number of maps to extract {self.k_log}")
+            self.log_window.append_log(f"Clustering will be performed on {self.cluster_data_log}")
+
             self.comet_tbx.do_clustering()
             self.label_maps()
             self.comet_tbx.done_clustering = True
