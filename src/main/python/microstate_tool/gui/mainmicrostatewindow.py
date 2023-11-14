@@ -508,6 +508,7 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.comet_tbx.done_clustering:
             set_widgets_status(self.ui.step0_show_backfitting_radio, mode='enable')
+            set_widgets_status(self.ui.step3_label_maps_button, mode='enable')
 
             if self.ui.step0_show_backfitting_radio.isChecked():
                 self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
@@ -635,6 +636,14 @@ class MainMicrostateWindow(QMainWindow):
                                     self.ui.step3_backfit_visualization_button,
                                     self.ui.step5_compute_source_microstate_correlation_button,
                                     self.ui.step5_visualize_sources_button], mode='hide')
+
+                if self.comet_tbx.done_extracting_features:
+                    self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
+                    self.ui.step4_visualizefeatures_button.setEnabled(True)
+                else:
+                    self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
+                    self.ui.step4_visualizefeatures_button.setDisabled(True)
+
             else:
                 set_widgets_status(feature_extraction_widgets, mode='hide')
                 set_widgets_status(feature_extraction_widgets, mode='disable')
@@ -666,6 +675,21 @@ class MainMicrostateWindow(QMainWindow):
                                     self.ui.step4_extractfeatures_button,
                                     self.ui.step4_visualizefeatures_button], mode='hide')
 
+                if self.comet_tbx.done_source_localization:
+                    self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
+                    self.ui.step5_visualize_sources_button.setEnabled(True)
+                else:
+                    self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
+                    self.ui.step5_visualize_sources_button.setDisabled(True)
+
+                if self.comet_tbx.done_source_microstate_correlation:
+                    self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet(
+                        "background-color: lightgreen")
+                    self.ui.step5_visualize_sources_button.setEnabled(True)
+                else:
+                    self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet("background-color: none")
+                    self.ui.step5_visualize_sources_button.setDisabled(True)
+
                 if self.ui.step5_use_tess_radio.isChecked():
                     set_widgets_status(tess_widgets, mode='enable')
                     set_widgets_status(tess_widgets, mode='show')
@@ -686,26 +710,7 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status((feature_extraction_widgets +
                                 source_localization_widgets), mode='hide')
 
-        if self.comet_tbx.done_extracting_features:
-            self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
-            self.ui.step4_visualizefeatures_button.setEnabled(True)
-        else:
-            self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
-            self.ui.step4_visualizefeatures_button.setDisabled(True)
 
-        if self.comet_tbx.done_source_localization:
-            self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
-            self.ui.step5_visualize_sources_button.setEnabled(True)
-        else:
-            self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
-            self.ui.step5_visualize_sources_button.setDisabled(True)
-
-        if self.comet_tbx.done_source_microstate_correlation:
-            self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet("background-color: lightgreen")
-            self.ui.step5_visualize_sources_button.setEnabled(True)
-        else:
-            self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet("background-color: none")
-            self.ui.step5_visualize_sources_button.setDisabled(True)
 
     def visualize_elbow(self):
         self.ElbowVisualizationDialog.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
