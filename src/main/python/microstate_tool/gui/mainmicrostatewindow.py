@@ -76,7 +76,6 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.ElbowVisualizationDialog = ElbowVisualizationDialog(self.context)
         self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
         self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(self.context, tbx=self.comet_tbx)
-        self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context)
 
     def init_flags(self):
         self.comet_tbx.done_preprocessing = False
@@ -1030,6 +1029,7 @@ class MainMicrostateWindow(QMainWindow):
 
     def visualize_source_localized_microstates(self):
         # TODO
+        self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context, tbx=self.comet_tbx)
         self.SourceVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.SourceVisualizationDialog.showMaximized()
         #visualize_sources(self.comet_tbx.localized_sources_path, self.comet_tbx.spacing)

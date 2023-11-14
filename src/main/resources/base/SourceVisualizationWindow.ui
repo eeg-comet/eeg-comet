@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1220</width>
-    <height>950</height>
+    <width>1277</width>
+    <height>849</height>
    </rect>
   </property>
   <property name="font">
@@ -37,48 +37,14 @@
        </font>
       </property>
       <layout class="QGridLayout" name="gridLayout_3">
-       <item row="4" column="0">
-        <widget class="QPushButton" name="plot_reconstruction_button">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
+       <item row="1" column="0">
+        <widget class="QPushButton" name="load_stc_button">
          <property name="text">
-          <string>(Disabled) Plot the results of anatomical reconstruction</string>
+          <string>1. Click to Load Source Time Series</string>
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="filename_label">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Filenames</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="2" rowspan="7">
+       <item row="0" column="2" rowspan="7">
         <widget class="Line" name="line">
          <property name="font">
           <font>
@@ -90,7 +56,75 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="0">
+       <item row="4" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout">
+           <item>
+            <widget class="QLabel" name="label">
+             <property name="maximumSize">
+              <size>
+               <width>142</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>2. Choose Metric:</string>
+             </property>
+            </widget>
+           </item>
+           <item alignment="Qt::AlignLeft">
+            <widget class="QComboBox" name="microstates_list_combobox">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+              </font>
+             </property>
+             <item>
+              <property name="text">
+               <string>TESS - Filtered Z-Scores</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>TESS - Raw Z-Scores</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>AVG - Filtered Z-Scores</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>AVG - Raw Z-Scores</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QPushButton" name="plot_sources_button">
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
+           <property name="text">
+            <string>3. Visualize Source-Microstate Correlation</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="2" column="0">
         <widget class="QListWidget" name="subjects_list">
          <property name="sizePolicy">
           <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
@@ -102,70 +136,6 @@
           <font>
            <pointsize>14</pointsize>
            <italic>true</italic>
-          </font>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0">
-        <widget class="QPushButton" name="subjects_dir_button">
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Choose 'stc' folder within 'project_localized_sources'</string>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="0">
-        <layout class="QHBoxLayout" name="horizontalLayout_5">
-         <item>
-          <widget class="QPushButton" name="plot_sources_button">
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="text">
-            <string>Plot the average sources</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QComboBox" name="microstates_list_combobox">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item row="5" column="0">
-        <widget class="QPushButton" name="plot_alignment_button">
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>(Disabled) Plot head, sensor, and source space alignment</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLineEdit" name="subjects_dir_lineedit">
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
           </font>
          </property>
         </widget>
