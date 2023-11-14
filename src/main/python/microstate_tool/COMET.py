@@ -479,6 +479,12 @@ class COMET:
     def source_microstate_correlation(self, method='tess'):
         print("Correlating sources and microstates ...")
 
+        try:
+            print(self.anatomy_subjects_dir)
+        except AttributeError:
+            fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
+            self.anatomy_subjects_dir = os.path.dirname(fs_dir)
+
         source_localizer = SourceLocalizer(self.anatomy_subjects_dir,
                                            self.localized_sources_path,
                                            self.preprocessed_data_path,

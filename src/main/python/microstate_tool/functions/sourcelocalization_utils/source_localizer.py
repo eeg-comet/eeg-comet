@@ -31,6 +31,8 @@ class SourceLocalizer:
         self.spacing = spacing
         self.inv_method = inv_method
         self.microstate_maps = microstate_maps
+        self.tess_path = None
+        self.avg_sources_path = None
         self.nperm = nperm
         self.data_io = DataIO()
 
@@ -235,6 +237,12 @@ class SourceLocalizer:
         if not os.path.exists(self.tess_path):
             os.makedirs(self.tess_path)
 
+        if eeg_data.shape[0] > eeg_data.shape[1]:
+            eeg_data = eeg_data.T
+
+        if self.microstate_maps.shape[0] != eeg_data.shape[0]:
+            self.microstate_maps = self.microstate_maps.T
+
         t_coeff = self.first_regression(eeg_data, self.microstate_maps)
         beta_coeff = self.second_regression(t_coeff, stc_data)
         # Permutation of beta over t to determine significance
@@ -292,7 +300,7 @@ class SourceLocalizer:
             print(f"\nLoading Source Time Courses: {eeg_name}")
             stc_subject_path = os.path.join(self.stc_path, eeg_name)
             stc_file = self.stc_read(stc_subject_path)
-            stc_data = stc_file.data.T
+            stc_data = stc_file[0].data.T
 
             eeg = self.data_io.load_eegs(eeg_path, self.extension, self.datatype)
             eeg_data = eeg.get_data()
