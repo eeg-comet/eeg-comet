@@ -230,8 +230,8 @@ Comprehensive Microstate Extraction Toolbox</string>
         <property name="geometry">
          <rect>
           <x>0</x>
-          <y>-198</y>
-          <width>1221</width>
+          <y>-360</y>
+          <width>1225</width>
           <height>1186</height>
          </rect>
         </property>
@@ -1894,7 +1894,7 @@ Comprehensive Microstate Extraction Toolbox</string>
        <bool>false</bool>
       </property>
       <property name="sizePolicy">
-       <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
@@ -1920,7 +1920,7 @@ Comprehensive Microstate Extraction Toolbox</string>
        <bool>false</bool>
       </property>
       <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
@@ -1946,7 +1946,7 @@ Comprehensive Microstate Extraction Toolbox</string>
        <bool>false</bool>
       </property>
       <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
@@ -1968,6 +1968,12 @@ Comprehensive Microstate Extraction Toolbox</string>
      <widget class="QPushButton" name="step5_compute_source_microstate_correlation_button">
       <property name="enabled">
        <bool>false</bool>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
       </property>
       <property name="font">
        <font>
@@ -1999,7 +2005,7 @@ Comprehensive Microstate Extraction Toolbox</string>
        <bool>false</bool>
       </property>
       <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
@@ -2037,7 +2043,7 @@ Comprehensive Microstate Extraction Toolbox</string>
        <bool>false</bool>
       </property>
       <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
@@ -2062,6 +2068,12 @@ Comprehensive Microstate Extraction Toolbox</string>
       <property name="enabled">
        <bool>false</bool>
       </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <property name="font">
        <font>
         <pointsize>14</pointsize>
@@ -2083,7 +2095,7 @@ Comprehensive Microstate Extraction Toolbox</string>
        <bool>false</bool>
       </property>
       <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
@@ -2119,6 +2131,12 @@ Comprehensive Microstate Extraction Toolbox</string>
      <widget class="QPushButton" name="step5_estimate_sources_button">
       <property name="enabled">
        <bool>false</bool>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
       </property>
       <property name="font">
        <font>
@@ -2279,12 +2297,12 @@ Comprehensive Microstate Extraction Toolbox</string>
  <resources/>
  <connections/>
  <buttongroups>
+  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_7"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

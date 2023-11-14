@@ -1435,7 +1435,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="Figure_Layout">
        <item>
         <widget class="QLineEdit" name="figure_title_lineedit">
@@ -1473,8 +1473,8 @@
   <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_6"/>
  </buttongroups>
 </ui>

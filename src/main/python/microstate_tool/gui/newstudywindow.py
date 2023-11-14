@@ -94,20 +94,6 @@ class NewStudyWindow(QDialog):
             self.ui.step0_template_montage_combobox.setEnabled(True)
             self.ui.step0_chanloc_path_lineedit.setDisabled(True)
 
-        if self.ui.step0_input_path_lineedit:
-            self.input_folder_found = True
-        else:
-            self.input_folder_found = False
-
-        if self.input_folder_found:
-
-            self.ui.step0_import_raw_button.setEnabled(True)
-            if self.ui.step0_selected_files_list.count() == 0:
-                self.data_found = False
-                self.canvas.draw()
-            else:
-                self.data_found = True
-
         else:
             self.ui.step0_import_raw_button.setDisabled(True)
 
@@ -145,8 +131,7 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_pattern_lineedit,
             self.ui.step0_chanloc_path_lineedit,
             self.ui.step0_template_montage_combobox,
-            self.ui.step0_import_log_lineedit,
-            self.ui.step0_import_raw_button
+            self.ui.step0_import_log_lineedit
         ]
 
         preprocessing_widgets = [
@@ -160,7 +145,7 @@ class NewStudyWindow(QDialog):
         self.ui.step0_ch2rm_missing_radio
         ]
 
-        preprocessing_sub_widgets = [
+        filter_sub_widgets = [
         self.ui.step0_filter_method_label,
         self.ui.step0_fir_filtermethod_radio,
         self.ui.step0_iir_filtermethod_radio,
@@ -172,7 +157,7 @@ class NewStudyWindow(QDialog):
         self.ui.step0_filt_hz2
         ]
 
-        downsample_sub_options = [
+        downsample_sub_widgets = [
         self.ui.step0_downsamp_freq_label,
         self.ui.step0_downsamp_freq_input,
         self.ui.step0_downsamp_hz
@@ -181,77 +166,85 @@ class NewStudyWindow(QDialog):
         if self.ui.step0_import_data_radio.isChecked():
             widgets_to_rm = (
                     preprocessing_widgets +
-                    preprocessing_sub_widgets +
-                    downsample_sub_options
+                    filter_sub_widgets +
+                    downsample_sub_widgets
             )
 
             set_widgets_status(import_data_widgets, mode='enable')
             set_widgets_status(import_data_widgets, mode='show')
+            set_widgets_status(self.ui.step0_import_raw_button, mode='show')
             set_widgets_status(widgets_to_rm, mode='disable')
             set_widgets_status(widgets_to_rm, mode='hide')
+
+            if (self.ui.step0_study_name_lineedit.text()
+                    and self.ui.step0_input_path_lineedit
+                    and self.ui.step0_save_path_lineedit.text()
+                    ):
+
+                set_widgets_status(self.ui.step0_import_raw_button, mode='enable')
+
+                self.ui.step0_remove_file_button.setEnabled(True)
+                self.ui.step0_clear_files_button.setEnabled(True)
+
+                # Enable Preprocessing Options
+                set_widgets_status(preprocessing_widgets, mode='enable')
+
+                if self.ui.step0_ch2rm_radio.isChecked():
+                    self.ui.step0_ch2rm_combobox.setEnabled(True)
+                else:
+                    self.ui.step0_ch2rm_combobox.setDisabled(True)
+
+            else:
+                # Disable Next Steps
+                self.ui.step0_remove_file_button.setDisabled(True)
+                self.ui.step0_clear_files_button.setDisabled(True)
+                # Enable Plot Options
+                set_widgets_status(plot_widgets, mode='disable')
+                # Enable Preprocessing Options
+                set_widgets_status(preprocessing_widgets, mode='disable')
+
+        if not self.ui.step0_selected_files_list.count() == 0:
+            set_widgets_status(self.ui.step0_preprocess_radio, mode='enable')
+            # Enable Plot Options
+            if self.ui.step0_selected_files_list.currentItem():
+                set_widgets_status(plot_widgets, mode='enable')
+        else:
+            set_widgets_status(self.ui.step0_preprocess_radio, mode='disable')
 
         if self.ui.step0_preprocess_radio.isChecked():
             widgets_to_show = (
                     preprocessing_widgets +
-                    preprocessing_sub_widgets +
-                    downsample_sub_options
+                    filter_sub_widgets +
+                    downsample_sub_widgets
             )
 
-            set_widgets_status(widgets_to_show, mode='enable')
             set_widgets_status(widgets_to_show, mode='show')
+            set_widgets_status(self.ui.step0_import_raw_button, mode='disable')
+            set_widgets_status(self.ui.step0_import_raw_button, mode='hide')
             set_widgets_status(import_data_widgets, mode='disable')
             set_widgets_status(import_data_widgets, mode='hide')
 
-        if self.data_found and self.ui.step0_study_name_lineedit.text() and self.ui.step0_save_path_lineedit.text():
-            self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
-            self.ui.step0_remove_file_button.setEnabled(True)
-            self.ui.step0_clear_files_button.setEnabled(True)
-
-            # Enable Plot Options
-            if self.ui.step0_selected_files_list.currentItem():
-                set_widgets_status(plot_widgets, mode='enable')
-            # Enable Preprocessing Options
-            set_widgets_status(preprocessing_widgets, mode='enable')
-
-            if self.ui.step0_ch2rm_radio.isChecked():
-                self.ui.step0_ch2rm_combobox.setEnabled(True)
-            else:
-                self.ui.step0_ch2rm_combobox.setDisabled(True)
-
             if self.ui.step0_no_option_checkbox.isChecked():
                 self.ui.step0_filter_option_checkbox.setChecked(False)
-                self.ui.step0_filter_option_checkbox.setDisabled(True)
-                self.ui.step0_lowcut_freq_input.setDisabled(True)
-                self.ui.step0_highcut_freq_input.setDisabled(True)
-                self.ui.step0_fir_filtermethod_radio.setDisabled(True)
-                self.ui.step0_iir_filtermethod_radio.setDisabled(True)
                 self.ui.step0_downsamp_option_checkbox.setChecked(False)
-                self.ui.step0_downsamp_option_checkbox.setDisabled(True)
-                self.ui.step0_downsamp_freq_input.setDisabled(True)
+                set_widgets_status([self.ui.step0_filter_option_checkbox,
+                                    self.ui.step0_downsamp_option_checkbox], mode='disable')
+                set_widgets_status((filter_sub_widgets + downsample_sub_widgets), mode='disable')
             else:
                 self.ui.step0_filter_option_checkbox.setEnabled(True)
                 self.ui.step0_downsamp_option_checkbox.setEnabled(True)
                 if self.ui.step0_filter_option_checkbox.isChecked():
                     self.filter_data = True
-                    set_widgets_status(preprocessing_sub_widgets, mode='enable')
+                    set_widgets_status(filter_sub_widgets, mode='enable')
                 else:
                     self.filter_data = False
-                    set_widgets_status(preprocessing_sub_widgets, mode='disable')
+                    set_widgets_status(filter_sub_widgets, mode='disable')
                 if self.ui.step0_downsamp_option_checkbox.isChecked():
                     self.ui.downsample_data = True
-                    set_widgets_status(downsample_sub_options, mode='enable')
+                    set_widgets_status(downsample_sub_widgets, mode='enable')
                 else:
                     self.downsample_data = False
-                    set_widgets_status(downsample_sub_options, mode='disable')
-        else:
-            # Disable Next Steps
-            self.ui.step0_import_raw_button.setStyleSheet("background-color: light gray")
-            self.ui.step0_remove_file_button.setDisabled(True)
-            self.ui.step0_clear_files_button.setDisabled(True)
-            # Enable Plot Options
-            set_widgets_status(plot_widgets, mode='disable')
-            # Enable Preprocessing Options
-            set_widgets_status(preprocessing_widgets, mode='disable')
+                    set_widgets_status(downsample_sub_widgets, mode='disable')
 
 
     def choose_input(self):
@@ -338,23 +331,28 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def new_study_save_path(self):
-        save_parent_directory = QFileDialog.getExistingDirectory(self, "Select a parent folder to create a new study folder within.")
-        folder_name = self.ui.step0_study_name_lineedit.text()
-        if os.path.exists(save_parent_directory):
-            if folder_name:
-                save_directory = os.path.join(save_parent_directory, folder_name)
-            else:
-                save_directory = os.path.join(save_parent_directory, "new_study")
-                self.ui.step0_study_name_lineedit.setText("new_study")
-            os.makedirs(save_directory)
-        else:
+        save_parent_directory = QFileDialog.getExistingDirectory(self,
+                                                                 "Select a parent folder to create a new study folder within.")
+        self.study_name = self.ui.step0_study_name_lineedit.text()
+
+        if not os.path.exists(save_parent_directory):
             print("Unable to find selected directory")
             return
 
-        self.study_name = self.ui.step0_study_name_lineedit.text()
-        self.save_dir = save_directory
-        self.ui.step0_save_path_lineedit.setText(save_directory)
-        self.use_raw_data = True
+        if not self.study_name:
+            self.study_name = "EEG_COMET_NEW_STUDY"
+            self.ui.step0_study_name_lineedit.setText(self.study_name)
+
+        save_directory = os.path.join(save_parent_directory, self.study_name)
+
+        if os.path.exists(save_directory):
+            QMessageBox.information(self, "A folder with the same study name already exists!",
+                                    "Please choose another directory or rename your study.",
+                                    QMessageBox.Ok)
+        else:
+            self.save_dir = save_directory
+            self.ui.step0_save_path_lineedit.setText(self.save_dir)
+
         self.newstudy_controller()
 
     def remove_file(self):
@@ -371,6 +369,7 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def preprocess_data(self):
+        os.makedirs(self.save_dir)
         self.preprocessed_data_path = os.path.join(self.save_dir, self.study_name+'_preprocessed_data')
 
         if self.ui.step0_no_option_checkbox.isChecked():
@@ -436,6 +435,16 @@ class NewStudyWindow(QDialog):
 
         if self.main_window:
             self.main_window.tbx = self.tbx
+
+            self.main_window.log_window.append_log(f"Preprocessed {len(list_eegs)} {self.get_data_type()} Data with {self.get_extension()} extension.")
+            self.main_window.log_window.append_log(f"Channels Removed from Data: {self.ch2rm}")
+            if self.filter_data:
+                self.main_window.log_window.append_log(
+                    f"Bandpass Filtered Data Using: {self.filter_method.upper()} Filter Within {self.lowcut_freq}Hz and {self.highcut_freq}Hz"
+                )
+            if self.downsample_data:
+                self.main_window.log_window.append_log(f"Downsampled Data to: {self.sample_rate}Hz")
+
             self.main_window.load_study(from_new_study=True)
         self.ui.close()
 

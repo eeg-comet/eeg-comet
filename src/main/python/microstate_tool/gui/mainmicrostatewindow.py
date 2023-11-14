@@ -33,9 +33,12 @@ class LogWindow(QWidget):
         self.setLayout(layout)
 
     def append_log(self, log, parent_window=None):
-        current_date = datetime.now().strftime("%d/%m/%y")
-        current_time = datetime.now().strftime("%I:%M %p")
-        self.textArea.append(f"[{current_date} {current_time}]: {log}\n")
+        self.current_date = datetime.now().strftime("%d/%m/%y")
+        self.current_time = datetime.now().strftime("%I:%M %p")
+
+        log_text = f"[{self.current_date} {self.current_time}]: {log}\n"
+        self.textArea.append(log_text)
+
         if parent_window:
             parent_window.comet_tbx.log_text = self.textArea.toPlainText()
 
@@ -105,6 +108,7 @@ class MainMicrostateWindow(QMainWindow):
                             self.ui.step3_backfit_visualization_button,
                             self.ui.step4_extractfeatures_button,
                             self.ui.step4_visualizefeatures_button,
+                            self.ui.step5_estimate_sources_button,
                             self.ui.step5_compute_source_microstate_correlation_button,
                             self.ui.step5_visualize_sources_button], mode='hide')
 
@@ -631,6 +635,9 @@ class MainMicrostateWindow(QMainWindow):
                                     self.ui.step3_backfit_visualization_button,
                                     self.ui.step5_compute_source_microstate_correlation_button,
                                     self.ui.step5_visualize_sources_button], mode='hide')
+            else:
+                set_widgets_status(feature_extraction_widgets, mode='hide')
+                set_widgets_status(feature_extraction_widgets, mode='disable')
 
             if self.ui.step0_show_sourclocalization_radio.isChecked():
                 set_widgets_status(source_localization_widgets, mode='show')
@@ -666,12 +673,18 @@ class MainMicrostateWindow(QMainWindow):
                     set_widgets_status(tess_widgets, mode='disable')
                     set_widgets_status(tess_widgets, mode='hide')
 
+            else:
+                set_widgets_status(source_localization_widgets, mode='hide')
+                set_widgets_status(source_localization_widgets, mode='disable')
+
         else:
             self.comet_tbx.done_extracting_features = False
             self.ui.step3_backfit_button.setStyleSheet("background-color: none")
             self.ui.step3_backfit_visualization_button.setDisabled(True)
-            set_widgets_status(feature_extraction_widgets, mode='disable')
-            set_widgets_status(source_localization_widgets, mode='disable')
+            set_widgets_status((feature_extraction_widgets +
+                                source_localization_widgets), mode='disable')
+            set_widgets_status((feature_extraction_widgets +
+                                source_localization_widgets), mode='hide')
 
         if self.comet_tbx.done_extracting_features:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
