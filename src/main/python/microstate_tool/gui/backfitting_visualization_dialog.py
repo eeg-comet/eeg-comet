@@ -24,7 +24,7 @@ class BackfittingVisualizationDialog(QDialog):
 
     def _initialize_ui(self):
         self.ui.setWindowTitle("Visualization of the localized sources")
-        self.figure = Figure()
+        self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.ui.Figure_Layout.addWidget(self.canvas)

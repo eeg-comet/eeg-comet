@@ -32,16 +32,19 @@ class NewStudyWindow(QDialog):
         self.init_ui_components()
         self.setup_connections()
         self.tbx.channel_location_dir = ""
+        self.newstudy_controller()
 
     def init_ui_components(self):
         self.step0_ch2rm_combobox = CheckableComboBox()
         self.CheckableComboBox_Layout.addWidget(self.step0_ch2rm_combobox)
-        self.figure = Figure()
+        self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.ui.Figure_Layout.addWidget(self.canvas)
 
     def setup_connections(self):
+        self.ui.step0_import_data_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_preprocess_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_import_epoched_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_import_raw_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
@@ -63,6 +66,9 @@ class NewStudyWindow(QDialog):
         self.ui.step0_clear_files_button.clicked.connect(self.clear_files)
         self.ui.step0_selected_files_list.itemClicked.connect(self.update_channel_names)
         self.ui.show_montage_button.clicked.connect(self.plot_montage)
+        self.ui.rawdata_show_channel_names_checkbox.clicked.connect(self.plot_montage)
+        self.ui.step0_ch2rm_combobox.activated.connect(self.plot_montage)
+
         self.ui.show_psd_button.clicked.connect(self.plot_psd)
         self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
 
@@ -70,7 +76,7 @@ class NewStudyWindow(QDialog):
     def newstudy_controller(self):
 
         if self.ui.step0_load_all_radio.isChecked():
-            self.ui.step0_import_pattern_lineedit.setText(f"Load all {self.get_data_type()} EEG data with {self.get_extension()} extension.")
+            self.ui.step0_import_log_lineedit.setText(f"Load all {self.get_data_type()} EEG data with {self.get_extension()} extension.")
             self.ui.step0_import_pattern_lineedit.setDisabled(True)
         else:
             self.ui.step0_import_pattern_lineedit.clear()
@@ -105,7 +111,7 @@ class NewStudyWindow(QDialog):
         else:
             self.ui.step0_import_raw_button.setDisabled(True)
 
-        plot_options = [
+        plot_widgets = [
         self.ui.rawdata_plot_button,
         self.ui.show_montage_button,
         self.ui.show_psd_button,
@@ -119,7 +125,31 @@ class NewStudyWindow(QDialog):
         self.ui.rawdata_range_hz2
         ]
 
-        preprocessing_options = [
+        import_data_widgets = [
+            self.ui.step0_study_name_label,
+            self.ui.step0_input_path_button,
+            self.ui.step0_save_path_button,
+            self.ui.step0_import_format_label,
+            self.ui.step0_import_type_label,
+            self.ui.step0_import_pattern_label,
+            self.ui.step0_load_montage_radio,
+            self.ui.step0_use_template_montage_radio,
+            self.ui.step0_study_name_lineedit,
+            self.ui.step0_input_path_lineedit,
+            self.ui.step0_save_path_lineedit,
+            self.ui.step0_import_format_combobox,
+            self.ui.step0_import_raw_radio,
+            self.ui.step0_import_epoched_radio,
+            self.ui.step0_load_all_radio,
+            self.ui.step0_load_pattern_radio,
+            self.ui.step0_import_pattern_lineedit,
+            self.ui.step0_chanloc_path_lineedit,
+            self.ui.step0_template_montage_combobox,
+            self.ui.step0_import_log_lineedit,
+            self.ui.step0_import_raw_button
+        ]
+
+        preprocessing_widgets = [
         self.ui.step0_no_option_checkbox,
         self.ui.step0_filter_option_checkbox,
         self.ui.step0_downsamp_option_checkbox,
@@ -130,7 +160,7 @@ class NewStudyWindow(QDialog):
         self.ui.step0_ch2rm_missing_radio
         ]
 
-        preprocessing_sub_options = [
+        preprocessing_sub_widgets = [
         self.ui.step0_filter_method_label,
         self.ui.step0_fir_filtermethod_radio,
         self.ui.step0_iir_filtermethod_radio,
@@ -147,6 +177,31 @@ class NewStudyWindow(QDialog):
         self.ui.step0_downsamp_freq_input,
         self.ui.step0_downsamp_hz
         ]
+
+        if self.ui.step0_import_data_radio.isChecked():
+            widgets_to_rm = (
+                    preprocessing_widgets +
+                    preprocessing_sub_widgets +
+                    downsample_sub_options
+            )
+
+            set_widgets_status(import_data_widgets, mode='enable')
+            set_widgets_status(import_data_widgets, mode='show')
+            set_widgets_status(widgets_to_rm, mode='disable')
+            set_widgets_status(widgets_to_rm, mode='hide')
+
+        if self.ui.step0_preprocess_radio.isChecked():
+            widgets_to_show = (
+                    preprocessing_widgets +
+                    preprocessing_sub_widgets +
+                    downsample_sub_options
+            )
+
+            set_widgets_status(widgets_to_show, mode='enable')
+            set_widgets_status(widgets_to_show, mode='show')
+            set_widgets_status(import_data_widgets, mode='disable')
+            set_widgets_status(import_data_widgets, mode='hide')
+
         if self.data_found and self.ui.step0_study_name_lineedit.text() and self.ui.step0_save_path_lineedit.text():
             self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
             self.ui.step0_remove_file_button.setEnabled(True)
@@ -154,9 +209,9 @@ class NewStudyWindow(QDialog):
 
             # Enable Plot Options
             if self.ui.step0_selected_files_list.currentItem():
-                set_widgets_status(plot_options, mode='enable')
+                set_widgets_status(plot_widgets, mode='enable')
             # Enable Preprocessing Options
-            set_widgets_status(preprocessing_options, mode='enable')
+            set_widgets_status(preprocessing_widgets, mode='enable')
 
             if self.ui.step0_ch2rm_radio.isChecked():
                 self.ui.step0_ch2rm_combobox.setEnabled(True)
@@ -178,10 +233,10 @@ class NewStudyWindow(QDialog):
                 self.ui.step0_downsamp_option_checkbox.setEnabled(True)
                 if self.ui.step0_filter_option_checkbox.isChecked():
                     self.filter_data = True
-                    set_widgets_status(preprocessing_sub_options, mode='enable')
+                    set_widgets_status(preprocessing_sub_widgets, mode='enable')
                 else:
                     self.filter_data = False
-                    set_widgets_status(preprocessing_sub_options, mode='disable')
+                    set_widgets_status(preprocessing_sub_widgets, mode='disable')
                 if self.ui.step0_downsamp_option_checkbox.isChecked():
                     self.ui.downsample_data = True
                     set_widgets_status(downsample_sub_options, mode='enable')
@@ -194,9 +249,9 @@ class NewStudyWindow(QDialog):
             self.ui.step0_remove_file_button.setDisabled(True)
             self.ui.step0_clear_files_button.setDisabled(True)
             # Enable Plot Options
-            set_widgets_status(plot_options, mode='disable')
+            set_widgets_status(plot_widgets, mode='disable')
             # Enable Preprocessing Options
-            set_widgets_status(preprocessing_options, mode='disable')
+            set_widgets_status(preprocessing_widgets, mode='disable')
 
 
     def choose_input(self):
@@ -405,10 +460,10 @@ class NewStudyWindow(QDialog):
         fig, _ = EEG.plot_sensors(kind='select', show_names=show_names, show=False)
         #fig = montage.plot(show_names=show_names)
 
-        self.canvas.figure = fig
         self.ui.figure_title_lineedit.setText("EEG Montage")
+        self.canvas.figure = fig
         self.canvas.draw()
-    
+
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir)

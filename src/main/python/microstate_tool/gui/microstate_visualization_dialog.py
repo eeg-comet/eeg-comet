@@ -44,7 +44,7 @@ class MicrostateVisualizationDialog(QDialog):
 
     def create_figure_and_canvas(self):
         """Create matplotlib figure and canvas"""
-        self.figure = Figure()
+        self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.Microstate_Layout.addWidget(self.canvas)

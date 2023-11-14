@@ -17,7 +17,7 @@ class FeatureVisualizationDialog(QDialog):
         self.tbx = tbx
         self.ui = self.load_ui(context)
 
-        self.figure = Figure()
+        self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.ui.Figure_Layout.addWidget(self.canvas)
