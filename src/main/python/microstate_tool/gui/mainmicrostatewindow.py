@@ -102,7 +102,8 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.Logo_Layout.addWidget(self.ui.eeg_comet_logo)
 
         # Hide Buttons
-        set_widgets_status([self.ui.step2_clustering_button,
+        set_widgets_status([self.ui.step2_numberofmaps_elbow_button,
+                            self.ui.step2_clustering_button,
                             self.ui.step3_label_maps_button,
                             self.ui.step3_backfit_button,
                             self.ui.step3_backfit_visualization_button,
