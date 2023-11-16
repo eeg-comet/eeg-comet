@@ -986,6 +986,7 @@ class MainMicrostateWindow(QMainWindow):
 
         self.FeatureVisualizationDialog.extracted_features_path = self.comet_tbx.extracted_features_path
         self.FeatureVisualizationDialog.export_format = self.comet_tbx.export_format
+        self.FeatureVisualizationDialog.feature_combo.clear()
         self.FeatureVisualizationDialog.feature_combo.addItems([i for i in self.comet_tbx.feature_list])
         self.FeatureVisualizationDialog.list_eegs = self.comet_tbx.list_eegs
         self.FeatureVisualizationDialog.reset_groups()
