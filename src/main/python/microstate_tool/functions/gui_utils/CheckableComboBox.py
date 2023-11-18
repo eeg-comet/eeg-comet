@@ -11,6 +11,7 @@ class CheckableComboBox(QComboBox):
             size = super().sizeHint(option, index)
             size.setHeight(40)
             return size
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Make the combo editable to set a custom text, but readonly
@@ -33,10 +34,12 @@ class CheckableComboBox(QComboBox):
         font = self.font()
         font.setPointSize(12)
         self.setFont(font)
+
     def resizeEvent(self, event):
         # Recompute text to elide as needed
         self.updateText()
         super().resizeEvent(event)
+
     def eventFilter(self, object, event):
         if object == self.lineEdit():
             if event.type() == QEvent.MouseButtonRelease:
@@ -57,20 +60,24 @@ class CheckableComboBox(QComboBox):
                     item.setCheckState(Qt.Checked)
                 return True
         return False
+
     def showPopup(self):
         super().showPopup()
         # When the popup is displayed, a click on the lineedit should close it
         self.closeOnLineEditClick = True
+
     def hidePopup(self):
         super().hidePopup()
         # Used to prevent immediate reopening when clicking on the lineEdit
         self.startTimer(100)
         # Refresh the display text when closing
         self.updateText()
+
     def timerEvent(self, event):
         # After timeout, kill timer, and reenable click on line edit
         self.killTimer(event.timerId())
         self.closeOnLineEditClick = False
+
     def updateText(self):
         texts = []
         for i in range(self.model().rowCount()):
@@ -81,6 +88,7 @@ class CheckableComboBox(QComboBox):
         metrics = QFontMetrics(self.lineEdit().font())
         elidedText = metrics.elidedText(text, Qt.ElideRight, self.lineEdit().width())
         self.lineEdit().setText(elidedText)
+
     def addItem(self, text, data=None):
         item = QStandardItem()
         item.setText(text)
@@ -91,6 +99,7 @@ class CheckableComboBox(QComboBox):
         item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
         item.setData(Qt.Unchecked, Qt.CheckStateRole)
         self.model().appendRow(item)
+
     def addItems(self, texts, datalist=None):
         for i, text in enumerate(texts):
             try:
@@ -98,6 +107,13 @@ class CheckableComboBox(QComboBox):
             except (TypeError, IndexError):
                 data = None
             self.addItem(text, data)
+
+    def deselectAllItems(self):
+        model = self.model()
+        for i in range(model.rowCount()):
+            item = model.item(i)
+            item.setCheckState(Qt.Unchecked)
+
     def currentData(self):
         # Return the list of selected items data
         res = []

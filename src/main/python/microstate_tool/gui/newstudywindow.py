@@ -26,8 +26,6 @@ class NewStudyWindow(QDialog):
         self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
 
         self.done_preprocessing = False
-        self.use_custom_chan_loc = True
-        self.use_template_chan_loc = False
 
         self.init_ui_components()
         self.setup_connections()
@@ -35,8 +33,10 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def init_ui_components(self):
-        self.step0_ch2rm_combobox = CheckableComboBox()
-        self.CheckableComboBox_Layout.addWidget(self.step0_ch2rm_combobox)
+        self.ui.step0_ch2rm_combobox = CheckableComboBox()
+        self.CheckableComboBox_Layout.addWidget(self.ui.step0_ch2rm_combobox)
+        builtin_montages = mne.channels.get_builtin_montages()
+        self.ui.step0_template_montage_combobox.addItems(builtin_montages)
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
@@ -49,6 +49,7 @@ class NewStudyWindow(QDialog):
         self.ui.step0_import_raw_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_pattern_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_use_template_montage_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_no_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_filter_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_downsamp_option_checkbox.clicked.connect(self.newstudy_controller)
@@ -58,8 +59,8 @@ class NewStudyWindow(QDialog):
 
         self.ui.step0_input_path_button.clicked.connect(self.choose_input)
         self.ui.step0_import_raw_button.clicked.connect(self.load_raw)
-        self.ui.step0_load_montage_radio.clicked.connect(self.load_channel_location)
-        self.ui.step0_use_template_montage_radio.clicked.connect(self.load_template_montage)
+        self.ui.step0_load_montage_radio.clicked.connect(self.load_custom_montage)
+        self.ui.step0_template_montage_combobox.activated.connect(self.load_template_montage)
         self.ui.step0_save_path_button.clicked.connect(self.new_study_save_path)
         self.ui.step0_preprocess_data_button.clicked.connect(self.preprocess_data)
         self.ui.step0_remove_file_button.clicked.connect(self.remove_file)
@@ -130,7 +131,6 @@ class NewStudyWindow(QDialog):
             self.ui.step0_load_pattern_radio,
             self.ui.step0_import_pattern_lineedit,
             self.ui.step0_chanloc_path_lineedit,
-            self.ui.step0_template_montage_combobox,
             self.ui.step0_import_log_lineedit
         ]
 
@@ -139,7 +139,6 @@ class NewStudyWindow(QDialog):
         self.ui.step0_filter_option_checkbox,
         self.ui.step0_downsamp_option_checkbox,
         self.ui.step0_preprocess_data_button,
-        self.ui.step0_ch2rm_label,
         self.ui.step0_ch2rm_radio,
         self.ui.step0_ch2rm_combobox,
         self.ui.step0_ch2rm_missing_radio
@@ -173,6 +172,7 @@ class NewStudyWindow(QDialog):
             set_widgets_status(import_data_widgets, mode='enable')
             set_widgets_status(import_data_widgets, mode='show')
             set_widgets_status(self.ui.step0_import_raw_button, mode='show')
+            set_widgets_status(self.ui.step0_template_montage_combobox, mode='show')
             set_widgets_status(widgets_to_rm, mode='disable')
             set_widgets_status(widgets_to_rm, mode='hide')
 
@@ -182,29 +182,28 @@ class NewStudyWindow(QDialog):
                     ):
 
                 set_widgets_status(self.ui.step0_import_raw_button, mode='enable')
-
                 self.ui.step0_remove_file_button.setEnabled(True)
                 self.ui.step0_clear_files_button.setEnabled(True)
-
                 # Enable Preprocessing Options
                 set_widgets_status(preprocessing_widgets, mode='enable')
-
-                if self.ui.step0_ch2rm_radio.isChecked():
-                    self.ui.step0_ch2rm_combobox.setEnabled(True)
-                else:
-                    self.ui.step0_ch2rm_combobox.setDisabled(True)
 
             else:
                 # Disable Next Steps
                 self.ui.step0_remove_file_button.setDisabled(True)
                 self.ui.step0_clear_files_button.setDisabled(True)
-                # Enable Plot Options
+                # Disable Plot Options
                 set_widgets_status(plot_widgets, mode='disable')
-                # Enable Preprocessing Options
+                # Disable Preprocessing Options
                 set_widgets_status(preprocessing_widgets, mode='disable')
 
         if not self.ui.step0_selected_files_list.count() == 0:
             set_widgets_status(self.ui.step0_preprocess_radio, mode='enable')
+
+            if self.ui.step0_use_template_montage_radio.isChecked():
+                set_widgets_status(self.ui.step0_template_montage_combobox, mode='enable')
+            else:
+                set_widgets_status(self.ui.step0_template_montage_combobox, mode='disable')
+
             # Enable Plot Options
             if self.ui.step0_selected_files_list.currentItem():
                 set_widgets_status(plot_widgets, mode='enable')
@@ -223,6 +222,16 @@ class NewStudyWindow(QDialog):
             set_widgets_status(self.ui.step0_import_raw_button, mode='hide')
             set_widgets_status(import_data_widgets, mode='disable')
             set_widgets_status(import_data_widgets, mode='hide')
+            set_widgets_status(self.ui.step0_template_montage_combobox, mode='disable')
+            set_widgets_status(self.ui.step0_template_montage_combobox, mode='hide')
+
+            if self.ui.step0_ch2rm_radio.isChecked():
+                self.ui.step0_ch2rm_combobox.setEnabled(True)
+            else:
+                self.ui.step0_ch2rm_combobox.setDisabled(True)
+
+            if self.ui.step0_ch2rm_missing_radio.isChecked():
+                self.ui.step0_ch2rm_combobox.deselectAllItems()
 
             if self.ui.step0_no_option_checkbox.isChecked():
                 self.ui.step0_filter_option_checkbox.setChecked(False)
@@ -246,30 +255,20 @@ class NewStudyWindow(QDialog):
                     self.downsample_data = False
                     set_widgets_status(downsample_sub_widgets, mode='disable')
 
-
     def choose_input(self):
         fname = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
         self.input_folder = fname
         self.ui.step0_input_path_lineedit.setText(fname)
         self.newstudy_controller()
 
-    def load_template_montage(self):
-        # TODO: fix bug
-        builtin_montages = mne.channels.get_builtin_montages()
-        self.ui.step0_template_montage_combobox.addItems(builtin_montages)
-        self.use_template_chan_loc = True
-        self.tbx.channel_location_dir = self.ui.step0_template_montage_combobox.currentText()
-        self.tbx.load_channel_location()
-        self.newstudy_controller()
 
-    def load_channel_location(self):
-        # TODO: fix bug
+    def load_custom_montage(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Select the file containing the channel locations")
         if os.path.isfile(fname):
-            self.tbx.channel_location_dir = fname
-            try:
-                self.tbx.load_channel_location()
-            except AssertionError:
+            chan_loc_extension = os.path.basename(fname).split('.')[-1]
+            valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
+                                         'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
+            if chan_loc_extension not in valid_chan_loc_extensions:
                 QMessageBox.information(self, "Load error",
                                         "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
                                         "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
@@ -277,11 +276,11 @@ class NewStudyWindow(QDialog):
                                         QMessageBox.Ok)
                 self.tbx.channel_location_dir = ''
             else:
-                self.use_custom_chan_loc = True
-                self.tbx.load_channel_location()
+                self.tbx.channel_location_dir = fname
                 self.ui.step0_chanloc_path_lineedit.setText(fname)
 
-        self.newstudy_controller()
+    def load_template_montage(self):
+        self.tbx.channel_location_dir = self.ui.step0_template_montage_combobox.currentText()
 
     def get_extension(self):
         selected_extension = self.ui.step0_import_format_combobox.currentText()
@@ -452,26 +451,28 @@ class NewStudyWindow(QDialog):
         self.canvas.figure.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
-        if not np.isnan(EEG.info['chs'][0]['loc'][0]):
-            montage = EEG.get_montage()
+        if EEG.info['dig'] is None:
+            QMessageBox.information(self, "Load error",
+                                    "Unable to retrieve channel locations."
+                                    "Please ensure they are imported before proceeding.",
+                                    QMessageBox.Ok)
         else:
-            montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
-            EEG.set_montage(montage, match_case=False, on_missing='warn')
-        if self.ui.rawdata_show_channel_names_checkbox.isChecked():
-            show_names = True
-        else:
-            show_names = False
+            #montage = EEG.get_montage()
+            if self.ui.rawdata_show_channel_names_checkbox.isChecked():
+                show_names = True
+            else:
+                show_names = False
 
-        if self.ui.step0_ch2rm_combobox.currentData():
-            self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
-            EEG.info["bads"].extend(self.ch2rm)
+            if self.ui.step0_ch2rm_combobox.currentData():
+                self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
+                EEG.info["bads"].extend(self.ch2rm)
 
-        fig, _ = EEG.plot_sensors(kind='select', show_names=show_names, show=False)
-        #fig = montage.plot(show_names=show_names)
+            fig, _ = EEG.plot_sensors(kind='select', show_names=show_names, show=False)
+            #fig = montage.plot(show_names=show_names)
 
-        self.ui.figure_title_lineedit.setText("EEG Montage")
-        self.canvas.figure = fig
-        self.canvas.draw()
+            self.ui.figure_title_lineedit.setText("EEG Montage")
+            self.canvas.figure = fig
+            self.canvas.draw()
 
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
