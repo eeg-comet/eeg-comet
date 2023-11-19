@@ -24,6 +24,7 @@ class LogWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("EEG-COMET Log")
+        self.resize(600, 300)
         layout = QVBoxLayout()
         self.label = QLabel("EEG-COMET Log")
         self.textArea = QTextEdit()
@@ -74,7 +75,7 @@ class MainMicrostateWindow(QMainWindow):
         self.log_window.append_log("Welcome to EEG-COMET!")
 
     def init_dialogs(self):
-        self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, tbx=self.comet_tbx)
+        self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, comet_tbx=self.comet_tbx)
         # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.comet_tbx)
         self.ui.ElbowVisualizationDialog = ElbowVisualizationDialog(self.context)
         self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
@@ -212,7 +213,7 @@ class MainMicrostateWindow(QMainWindow):
         with open(tbx_object, 'rb') as input_tbx:
             self.comet_tbx = pickle.load(input_tbx)
 
-        if self.comet_tbx.log_text:
+        if hasattr(self.comet_tbx, 'log_text'):
             self.log_window.replace_log(self.comet_tbx.log_text)
         else:
             self.comet_tbx.log_text = ""
@@ -449,7 +450,6 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step2_auto_target_parameter_label.setText(step2_auto_target_parameter_text)
 
                 if self.ui.step2_user_k_radio.isChecked():
-                    self.k_log = 'is user-predefined.'
                     set_widgets_status(user_k_widgets, mode='enable')
                     set_widgets_status(user_k_widgets, mode='show')
                     set_widgets_status(auto_k_widgets, mode='disable')
@@ -460,13 +460,11 @@ class MainMicrostateWindow(QMainWindow):
                     set_widgets_status(advanced_widgets, mode='show')
 
                     if self.ui.step2_use_peaks_radio.isChecked():
-                        self.cluster_data_log = 'the local peaks of the global field power.'
                         set_widgets_status(peaks2use_widgets, mode='enable')
                         set_widgets_status(peaks2use_widgets, mode='show')
                         set_widgets_status(rand2use_widgets, mode='disable')
                         set_widgets_status(rand2use_widgets, mode='hide')
                     elif self.ui.step2_use_percent_radio.isChecked():
-                        self.cluster_data_log = 'a randomly selected subset of the data.'
                         set_widgets_status(rand2use_widgets, mode='enable')
                         set_widgets_status(rand2use_widgets, mode='show')
                         set_widgets_status(peaks2use_widgets, mode='disable')
@@ -691,12 +689,12 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet("background-color: none")
                     self.ui.step5_visualize_sources_button.setDisabled(True)
 
-                if self.ui.step5_use_tess_radio.isChecked():
-                    set_widgets_status(tess_widgets, mode='enable')
-                    set_widgets_status(tess_widgets, mode='show')
-                else:
+                if not self.ui.step5_use_tess_radio.isChecked():
                     set_widgets_status(tess_widgets, mode='disable')
                     set_widgets_status(tess_widgets, mode='hide')
+                else:
+                    set_widgets_status(tess_widgets, mode='enable')
+                    set_widgets_status(tess_widgets, mode='show')
 
             else:
                 set_widgets_status(source_localization_widgets, mode='hide')
@@ -780,6 +778,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
                 self.comet_tbx.number_of_maps = 'auto'
             elif self.ui.step2_user_k_radio.isChecked():
+                k_log = 'is user-predefined.'
                 self.comet_tbx.choose_number_of_maps = "user"
                 self.comet_tbx.stopping_mode = ''
                 self.comet_tbx.stopping_parameter = ''
@@ -795,7 +794,9 @@ class MainMicrostateWindow(QMainWindow):
 
             if self.ui.step2_use_percent_radio.isChecked():
                 self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
+                self.cluster_data_log = f"{self.comet_tbx.use_percentages}% randomly selected time-points of the data."
             else:
+                self.cluster_data_log = 'the local peaks of the global field power.'
                 self.comet_tbx.use_percentages = None
             self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
             self.comet_tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
@@ -803,8 +804,8 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
 
             self.log_window.append_log(
-                f"EEG microstates will be identified using {self.comet_tbx.clustering_method} clustering algorithm")
-            self.log_window.append_log(f"The number of maps to extract {self.k_log}")
+                f"Clustering algorithm: {self.comet_tbx.clustering_method}")
+            self.log_window.append_log(f"The number of maps to extract {k_log}")
             self.log_window.append_log(f"Clustering will be performed on {self.cluster_data_log}")
 
             self.comet_tbx.do_clustering()
@@ -1019,7 +1020,6 @@ class MainMicrostateWindow(QMainWindow):
 
             inverse_method = self.ui.step5_inverse_method_combobox.currentText()
             self.comet_tbx.inverse_method = inverse_method[inverse_method.find("(") + 1:inverse_method.find(")")]
-            self.comet_tbx.nperm = int(self.ui.step5_permutations_input.text())
             spacing = self.ui.step5_spacing_combobox.currentText()
             self.comet_tbx.spacing = spacing[spacing.find("(") + 1:spacing.find(")")].lower()
 
@@ -1039,11 +1039,11 @@ class MainMicrostateWindow(QMainWindow):
             self.do_source_microstate_correlation_from_scratch = True
 
         if self.do_source_microstate_correlation_from_scratch:
-            self.comet_tbx.done_source_microstate_correlation = False
-            self.mainwindow_controller()
             # TODO: Add missing options here
+            self.comet_tbx.nperm = int(self.ui.step5_permutations_input.text())
 
             self.comet_tbx.source_microstate_correlation()
+            self.comet_tbx.done_source_microstate_correlation = True
             self.comet_tbx.save_tbx()
             self.mainwindow_controller()
 

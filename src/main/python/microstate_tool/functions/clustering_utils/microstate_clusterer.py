@@ -18,7 +18,7 @@ from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, 
 from keras.layers import Conv1D, Flatten, Dense, Reshape, Input
 from keras.models import Model
 from sklearn.decomposition import PCA
-
+from gui.progress_dialog import ProgressDialog
 
 class MicrostateClusterer:
 
@@ -240,6 +240,11 @@ class MicrostateClusterer:
             n_states: Optimal number of clusters (microstate maps)
         """
 
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Clustering ...")
+        progress_dialog.show()
+
         def metric_function(point1, point2):
             return self.calculate_spatial_similarity(clustering_option, point1, point2)
 
@@ -311,8 +316,10 @@ class MicrostateClusterer:
             else:
                 raise ValueError("Failed to match method")
 
+
             best_gev = 0
             for init in range(self.n_inits):
+                progress_dialog.set_label_text(f"Clustering {int(n_states)} Microstate Maps\nInitialization #{init + 1} of {self.n_inits}")
                 print('\nClustering #', str(init + 1), 'of', str(self.n_inits))
 
                 if method == 'K-Means Clustering':
@@ -344,6 +351,8 @@ class MicrostateClusterer:
 
                 GEV_R = self.compute_gev(np.transpose(maps2use), np.array(centroids))
 
+                progress_dialog.update_progress(init + 1, self.n_inits)
+                progress_dialog.set_line_edit_text(f"Global Explained Variance: {GEV_R}")
                 print('Found', str(int(n_states)), 'Microstate Maps')
                 print('GEV:', str(GEV_R))
                 if GEV_R > best_gev:
@@ -352,6 +361,7 @@ class MicrostateClusterer:
                     best_residual = residual
 
             print('\nBest GEV:', str(best_gev))
+            progress_dialog.close()
 
         return best_maps, best_gev, best_residual, n_states
 

@@ -4,9 +4,9 @@ from PyQt5 import uic, QtGui, QtCore
 from PyQt5.QtWidgets import (QDialog, QLabel, QPushButton, QLineEdit,
                              QLCDNumber, QMessageBox, QFileDialog, QVBoxLayout,
                              QHBoxLayout, QSizePolicy)
+from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-
 from functions.clustering_utils.microstate_visualizer import show_microstate
 
 class MicrostateVisualizationDialog(QDialog):
@@ -20,6 +20,8 @@ class MicrostateVisualizationDialog(QDialog):
         """Setup UI components"""
         self.ui = uic.loadUi(context.get_resource("MicrostateVisualizationWindow.ui"), self)
         self.ui.setWindowTitle("Visualization of the identified microstates")
+        # Set window flags to include the maximize button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
 
     def init_attributes(self, main_window, tbx):
         """Initialize dialog attributes"""

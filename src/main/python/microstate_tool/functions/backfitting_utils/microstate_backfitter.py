@@ -7,6 +7,7 @@ from collections import Counter
 from itertools import groupby
 from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
+from gui.progress_dialog import ProgressDialog
 
 class MicrostateBackfitter:
     def __init__(self, study_name, preprocessed_data_path, microstate_maps, backfit_to,
@@ -354,15 +355,22 @@ class MicrostateBackfitter:
             print(
                 f"\nSmoothing segments.")
 
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Backfitting ...")
+        progress_dialog.show()
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True)
 
         segmentation_fit = 0
-        for eeg_path in list_eeg_path:
+        for eeg_idx, eeg_path in enumerate(list_eeg_path):
             eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
             eeg_data = eeg.get_data()
             eeg_times = eeg.times * 1000
             filename = os.path.split(eeg_path)[1].split('.')[0]
+
+            progress_dialog.set_label_text("Backfitting microstates to data: ")
+            progress_dialog.set_line_edit_text(f"{filename}")
             progress_bar.set_description(f"Backfitting microstates to data: {filename}")
 
             for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
@@ -429,7 +437,9 @@ class MicrostateBackfitter:
                     self.save_path, trial_filename, labeled_segmentation, trial_times, self.export_format
                 )
 
+            progress_dialog.update_progress(eeg_idx + 1, len(list_eeg_path))
             progress_bar.update(1)
 
+        progress_dialog.close()
         progress_bar.close()
         #print(segmentation_fit / len(list_eeg_path))

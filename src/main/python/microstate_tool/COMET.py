@@ -18,6 +18,7 @@ from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitt
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
 from functions.sourcelocalization_utils.source_localizer import SourceLocalizer
 
+from gui.progress_dialog import ProgressDialog
 
 class COMET:
     def __init__(self, config=None, auto_save=True):
@@ -141,9 +142,16 @@ class COMET:
         length_all_data = []
         data_io = DataIO()
 
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Preprocessing ...")
+        progress_dialog.set_label_text("Preprocessing data: ")
+        progress_dialog.show()
+        # Create a tqdm progress bar
         progress_bar = tqdm(total=len(self.list_eegs), ncols=100, position=0, leave=True)
 
-        for filename in self.list_eegs_path:
+        for filename_idx, filename in enumerate(self.list_eegs_path):
+            progress_dialog.set_line_edit_text(f"{self.list_eegs[self.list_eegs_path.index(filename)]}")
             progress_bar.set_description(f"Preprocessing file: {self.list_eegs[self.list_eegs_path.index(filename)]}")
             # Create an instance of the DataPreprocessor class
             preprocessor = DataPreprocessor()
@@ -161,6 +169,7 @@ class COMET:
                 self.sample_rate,
                 self.ch2rm
             )
+            progress_dialog.update_progress(filename_idx + 1, len(self.list_eegs))
             progress_bar.update(1)
 
             self.eeg_info = eeg.info
@@ -184,6 +193,7 @@ class COMET:
             # save EEG object
             data_io.export_eegs(eeg, save_path, self.extension, self.datatype)
 
+        progress_dialog.close()
         progress_bar.close()
 
         self.done_preprocessing = True
@@ -198,13 +208,15 @@ class COMET:
         else:
             self.min_distance_size = []
 
-        avaliable_methods = ['Modified K-Means Clustering',
-                             'K-Means Clustering',
-                             'PCA + K-Means Clustering',
-                             'Autoencoder + K-Means Clustering',
-                             'X-Means Clustering',
-                             'Agglomerative Hierarchical Clustering',
-                             ]
+        avaliable_methods = [
+            'Modified K-Means Clustering',
+            'K-Means Clustering',
+            'PCA + K-Means Clustering',
+            'Autoencoder + K-Means Clustering',
+            'X-Means Clustering',
+            'Agglomerative Hierarchical Clustering',
+            ]
+
         assert self.clustering_method in avaliable_methods, "clustering_method not supported"
         microstate_clusterer = MicrostateClusterer(self.number_of_repeats, self.max_iterations,
                                                    self.clustering_tolerance)
@@ -360,6 +372,11 @@ class COMET:
             self.export_format
         )
 
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Extracting Features ...")
+        progress_dialog.show()
+
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(segmentation_list_path), ncols=100, position=0, leave=True)
 
@@ -412,8 +429,12 @@ class COMET:
                 else:
                     dynamic_features_dfs = pd.concat([dynamic_features_dfs, output_features], ignore_index=True)
 
+            progress_dialog.set_label_text("Extracting features: ")
+            progress_dialog.set_line_edit_text(f"{filename}")
+            progress_dialog.update_progress(s + 1, len(segmentation_list_path))
             progress_bar.update(1)
 
+        progress_dialog.close()
         progress_bar.close()
 
         feature_io = FeatureIO()

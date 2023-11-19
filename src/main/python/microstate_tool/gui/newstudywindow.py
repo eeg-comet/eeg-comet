@@ -1,5 +1,5 @@
+
 import os.path
-import shutil
 import re
 import numpy as np
 import mne
@@ -15,21 +15,16 @@ from functions.data_utils.data_io import DataIO
 
 
 class NewStudyWindow(QDialog):
-    def __init__(self, context, parent=None, main_window=None, tbx=None):
+    def __init__(self, context, parent=None, main_window=None, comet_tbx=None):
         super().__init__(parent)
-
         self.main_window = main_window
-        self.tbx = tbx
-
-        basepath = os.path.dirname(__file__)
+        self.comet_tbx = comet_tbx
         self.ui = uic.loadUi(context.get_resource("NewStudyWindow.ui"), self)
         self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
-
         self.done_preprocessing = False
-
         self.init_ui_components()
         self.setup_connections()
-        self.tbx.channel_location_dir = ""
+        self.comet_tbx.channel_location_dir = ""
         self.newstudy_controller()
 
     def init_ui_components(self):
@@ -274,13 +269,13 @@ class NewStudyWindow(QDialog):
                                         "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
                                         "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)",
                                         QMessageBox.Ok)
-                self.tbx.channel_location_dir = ''
+                self.comet_tbx.channel_location_dir = ''
             else:
-                self.tbx.channel_location_dir = fname
+                self.comet_tbx.channel_location_dir = fname
                 self.ui.step0_chanloc_path_lineedit.setText(fname)
 
     def load_template_montage(self):
-        self.tbx.channel_location_dir = self.ui.step0_template_montage_combobox.currentText()
+        self.comet_tbx.channel_location_dir = self.ui.step0_template_montage_combobox.currentText()
 
     def get_extension(self):
         selected_extension = self.ui.step0_import_format_combobox.currentText()
@@ -302,15 +297,15 @@ class NewStudyWindow(QDialog):
     def update_channel_names(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
         data_io = DataIO()
-        EEG = data_io.load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
+        EEG = data_io.load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
         if not np.isnan(EEG.info['chs'][0]['loc'][0]):
             montage = EEG.get_montage()
             channel_names = montage.ch_names
         elif self.ui.step0_load_montage_radio.isChecked() and os.path.isfile(self.ui.step0_chanloc_path_lineedit):
-            montage = mne.channels.read_custom_montage(self.tbx.channel_location_dir)
+            montage = mne.channels.read_custom_montage(self.comet_tbx.channel_location_dir)
             channel_names = montage.ch_names
         elif self.ui.step0_use_template_montage_radio.isChecked():
-            montage = mne.channels.make_standard_montage(self.tbx.channel_location_dir)
+            montage = mne.channels.make_standard_montage(self.comet_tbx.channel_location_dir)
             channel_names = montage.ch_names
         self.ui.step0_ch2rm_combobox.addItems(channel_names)
 
@@ -318,15 +313,15 @@ class NewStudyWindow(QDialog):
     def load_raw(self):
         self.ui.step0_selected_files_list.clear()
 
-        self.tbx.load_all_files = self.ui.step0_load_all_radio.isChecked()
-        self.tbx.pattern_content = self.ui.step0_import_pattern_lineedit.text()
-        self.tbx.input_folder = self.input_folder
-        self.tbx.extension = self.get_extension()
-        self.tbx.datatype = self.get_data_type()
-        self.tbx.load_raw()
-        for i in range(len(self.tbx.list_eegs_path)):
-            self.ui.step0_selected_files_list.addItem(str(self.tbx.list_eegs_path[i]))
-        self.ui.step0_import_log_lineedit.setText(f"{str(len(self.tbx.list_eegs_path))} EEG data were detected.")
+        self.comet_tbx.load_all_files = self.ui.step0_load_all_radio.isChecked()
+        self.comet_tbx.pattern_content = self.ui.step0_import_pattern_lineedit.text()
+        self.comet_tbx.input_folder = self.input_folder
+        self.comet_tbx.extension = self.get_extension()
+        self.comet_tbx.datatype = self.get_data_type()
+        self.comet_tbx.load_raw()
+        for i in range(len(self.comet_tbx.list_eegs_path)):
+            self.ui.step0_selected_files_list.addItem(str(self.comet_tbx.list_eegs_path[i]))
+        self.ui.step0_import_log_lineedit.setText(f"{str(len(self.comet_tbx.list_eegs_path))} EEG data were detected.")
         self.newstudy_controller()
 
     def new_study_save_path(self):
@@ -409,31 +404,31 @@ class NewStudyWindow(QDialog):
         elif self.ui.step0_ch2rm_missing_radio.isChecked():
             self.ch2rm = 'missing'
 
-        self.tbx.preprocessed_data_path = self.preprocessed_data_path
-        self.tbx.filter_data = self.filter_data
-        self.tbx.filter_method = self.filter_method
-        self.tbx.lowcut_freq = self.lowcut_freq
-        self.tbx.highcut_freq = self.highcut_freq
-        self.tbx.downsample_data = self.downsample_data
-        self.tbx.sample_rate = self.sample_rate
-        self.tbx.ch2rm = self.ch2rm
-        self.tbx.save_dir = self.save_dir
-        self.tbx.study_name = self.ui.step0_study_name_lineedit.text()
-        self.tbx.eeg_info_path = os.path.join(self.tbx.save_dir, "eeg_info.pkl")
+        self.comet_tbx.preprocessed_data_path = self.preprocessed_data_path
+        self.comet_tbx.filter_data = self.filter_data
+        self.comet_tbx.filter_method = self.filter_method
+        self.comet_tbx.lowcut_freq = self.lowcut_freq
+        self.comet_tbx.highcut_freq = self.highcut_freq
+        self.comet_tbx.downsample_data = self.downsample_data
+        self.comet_tbx.sample_rate = self.sample_rate
+        self.comet_tbx.ch2rm = self.ch2rm
+        self.comet_tbx.save_dir = self.save_dir
+        self.comet_tbx.study_name = self.ui.step0_study_name_lineedit.text()
+        self.comet_tbx.eeg_info_path = os.path.join(self.comet_tbx.save_dir, "eeg_info.pkl")
 
         list_eegs = []
-        for eegpath in self.tbx.list_eegs:
+        for eegpath in self.comet_tbx.list_eegs:
             eegfilename = os.path.basename(eegpath)
             eegfilename = os.path.splitext(eegfilename)[0]
             list_eegs = np.append(list_eegs, eegfilename)
         list_eegs = ','.join(map(str, list_eegs))
 
-        self.tbx.do_preprocessing()
+        self.comet_tbx.do_preprocessing()
         self.done_preprocessing = True
-        self.tbx.save_tbx()
+        self.comet_tbx.save_tbx()
 
         if self.main_window:
-            self.main_window.tbx = self.tbx
+            self.main_window.tbx = self.comet_tbx
 
             self.main_window.log_window.append_log(f"Preprocessed {len(list_eegs)} {self.get_data_type()} Data with {self.get_extension()} extension.")
             self.main_window.log_window.append_log(f"Channels Removed from Data: {self.ch2rm}")
@@ -450,7 +445,7 @@ class NewStudyWindow(QDialog):
     def plot_montage(self):
         self.canvas.figure.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
+        EEG = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
         if EEG.info['dig'] is None:
             QMessageBox.information(self, "Load error",
                                     "Unable to retrieve channel locations."
@@ -476,14 +471,14 @@ class NewStudyWindow(QDialog):
 
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir)
+        EEG = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
         EEG.plot()
 
     def plot_psd(self):
         self.canvas.figure.clear()
         # self.ui.MplWidget.canvas.draw()
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = DataIO().load_eegs(filename, self.tbx.extension, self.tbx.datatype, self.tbx.channel_location_dir, [])
+        EEG = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())

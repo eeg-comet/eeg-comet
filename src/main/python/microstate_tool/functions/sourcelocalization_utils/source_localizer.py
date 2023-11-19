@@ -229,7 +229,7 @@ class SourceLocalizer:
         """Perform the second regression to get beta coefficients."""
         return np.linalg.solve(t_coeff.T @ t_coeff, t_coeff.T @ stc_data)
 
-    def run_tess(self, stc_data, eeg_data, nperm=2000):
+    def run_tess(self, stc_data, eeg_data, nperm):
         """Run the TESS algorithm."""
         # TESS Algorithm
         # https://linkinghub.elsevier.com/retrieve/pii/S1053-8119(14)00243-2
