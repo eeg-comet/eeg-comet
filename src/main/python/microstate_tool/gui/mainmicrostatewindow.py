@@ -232,8 +232,9 @@ class MainMicrostateWindow(QMainWindow):
                                                             self.comet_tbx.study_name + '_segmentation')
             self.comet_tbx.localized_sources_path = os.path.join(self.comet_tbx.save_dir,
                                                                  self.comet_tbx.study_name + '_localized_sources')
-            self.comet_tbx.stc_path = os.path.join(self.comet_tbx.localized_sources_path,
-                                                   self.comet_tbx.study_name + '_stc_data.npy')
+            self.comet_tbx.tess_path = os.path.join(self.comet_tbx.localized_sources_path, "tess_sources")
+            self.comet_tbx.avg_sources_path = os.path.join(self.comet_tbx.localized_sources_path, "avg_sources")
+
         else:
             if self.comet_tbx.done_preprocessing:
                 ret = QMessageBox.question(self, 'MessageBox', f"The {self.comet_tbx.study_name} is already loaded,"
@@ -1049,10 +1050,10 @@ class MainMicrostateWindow(QMainWindow):
 
     def visualize_source_localized_microstates(self):
         # TODO
-        self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context, tbx=self.comet_tbx)
+        self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context, comet_tbx=self.comet_tbx)
+        #self.SourceVisualizationDialog.tess_path = os.path.join(self.comet_tbx.localized_sources_path, "tess_sources")
         self.SourceVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.SourceVisualizationDialog.showMaximized()
-        #visualize_sources(self.comet_tbx.localized_sources_path, self.comet_tbx.spacing)
 
     def exit_msg(self, event):
         reply = QMessageBox.question(self, "Quit",
