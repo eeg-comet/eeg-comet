@@ -1038,6 +1038,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.inverse_method = inverse_method[inverse_method.find("(") + 1:inverse_method.find(")")]
             spacing = self.ui.step5_spacing_combobox.currentText()
             self.comet_tbx.spacing = spacing[spacing.find("(") + 1:spacing.find(")")].lower()
+            self.comet_tbx.nperm = int(self.ui.step5_permutations_input.text())
 
             self.comet_tbx.source_localize_microstates()
             self.comet_tbx.save_tbx()
