@@ -66,6 +66,13 @@ class BackfittingVisualizationDialog(QDialog):
         if self.datatype == 'epoched':
             set_widgets_status(epoched_data_widgets, mode='enable')
             set_widgets_status(epoched_data_widgets, mode='show')
+
+            # Get the list of files in the folder
+            selected_file_name = self.ui.eeg_filenames_combobox.currentText()
+            files = os.listdir(self.segmentation_path)
+            # Count the files that start with the specified prefix
+            num_trials = sum(1 for file in files if file.startswith(selected_file_name))
+            self.ui.num_trials_spinbox.setRange(0, num_trials - 1)
         else:
             set_widgets_status(epoched_data_widgets, mode='disable')
             set_widgets_status(epoched_data_widgets, mode='hide')
@@ -102,7 +109,11 @@ class BackfittingVisualizationDialog(QDialog):
         data_to_use = self._get_data_to_use(eeg_data)
 
         segmentation_io = SegmentationIO()
-        segmentation_path = os.path.join(self.segmentation_path, f"{selected_file_name}{self.export_format}")
+        if self.datatype == "epoched":
+            segmentation_filename = f"{selected_file_name}_{self.ui.num_trials_spinbox.value()}{self.export_format}"
+        else:
+            segmentation_filename = f"{selected_file_name}{self.export_format}"
+        segmentation_path = os.path.join(self.segmentation_path, segmentation_filename)
         segmentation_data = segmentation_io.load_segmentation(segmentation_path, import_format=self.export_format)
 
         return data_to_use, eeg_times, segmentation_data
