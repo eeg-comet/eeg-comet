@@ -268,7 +268,14 @@ class FeatureExtractor:
         total_transitions = 0
 
         for i in range(len(self.segment) - 1):
-            transition_label = f"{self.segment[i]}_{self.segment[i + 1]}"
+            current_element = self.segment[i]
+            next_element = self.segment[i + 1]
+
+            # Skip self-transitions
+            if current_element == next_element:
+                continue
+
+            transition_label = f"{current_element}_{next_element}"
             transitions[transition_label] += 1
             total_transitions += 1
 
