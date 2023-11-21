@@ -6,6 +6,7 @@ to EEG data according to specified parameters.
 
 """
 
+import mne
 import numpy as np
 import collections
 
@@ -50,6 +51,11 @@ class DataPreprocessor:
         if downsample_true:
             if sfreq != fs:
                 eeg = eeg.resample(fs, verbose=verbose)
+
+        # Add average reference projection
+        eeg.set_eeg_reference('average', projection=True, verbose=verbose)
+        # Apply the added projection
+        eeg.apply_proj(verbose=verbose)
 
         # Combine epoched data
         if datatype == "epoched":

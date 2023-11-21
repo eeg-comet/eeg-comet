@@ -3,7 +3,7 @@ import webbrowser
 import pickle
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QLabel, QWidget, QTextEdit, QVBoxLayout
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt
 from datetime import datetime
 
@@ -24,12 +24,13 @@ class LogWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("EEG-COMET Log")
-        self.resize(600, 300)
+        self.resize(500, 300)
         layout = QVBoxLayout()
-        self.label = QLabel("EEG-COMET Log")
         self.textArea = QTextEdit()
         self.textArea.setReadOnly(True)
-        layout.addWidget(self.label)
+        font = QFont()
+        font.setPointSize(10)
+        self.textArea.setFont(font)
         layout.addWidget(self.textArea)
         self.setLayout(layout)
 
@@ -312,6 +313,11 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_user_numberofrepeats_input
         ]
 
+        pca_widgets = [
+            self.ui.step2_npca_label,
+            self.ui.step2_npca_input
+        ]
+
         peaks2use_widgets = [
             self.ui.step2_kernel_size_label,
             self.step2_kernel_size_input,
@@ -471,14 +477,21 @@ class MainMicrostateWindow(QMainWindow):
                         set_widgets_status(peaks2use_widgets, mode='hide')
 
                 else:
-                    set_widgets_status(advanced_widgets, mode='disable')
-                    set_widgets_status(advanced_widgets, mode='hide')
+                    set_widgets_status((advanced_widgets + pca_widgets), mode='disable')
+                    set_widgets_status((advanced_widgets + pca_widgets), mode='hide')
 
                 self.comet_tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
                 if self.comet_tbx.clustering_method in ["K-Means Clustering", 'PCA + K-Means Clustering', 'Autoencoder + K-Means Clustering']:
                     self.ui.step2_other_label.setText("Similarity metric:")
                     options = ['Cosine Similarity', 'Spatial Correlation']
                     self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
+
+                    if self.comet_tbx.clustering_method == 'PCA + K-Means Clustering':
+                        set_widgets_status(pca_widgets, mode='enable')
+                        set_widgets_status(pca_widgets, mode='show')
+                    else:
+                        set_widgets_status(pca_widgets, mode='disable')
+                        set_widgets_status(pca_widgets, mode='hide')
 
                 elif self.comet_tbx.clustering_method == "Agglomerative Hierarchical Clustering":
                     self.ui.step2_other_label.setText("Type of link between clusters:")
@@ -791,13 +804,15 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.initializer = "Random"
             elif self.ui.step2_kmeans_initializer_radio.isChecked():
                 self.comet_tbx.initializer = "K-Means++"
+
             self.comet_tbx.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
+            self.comet_tbx.n_pca = int(self.ui.step2_npca_input.text())
 
             if self.ui.step2_use_percent_radio.isChecked():
                 self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
-                self.cluster_data_log = f"{self.comet_tbx.use_percentages}% randomly selected time-points of the data."
+                cluster_data_log = f"{self.comet_tbx.use_percentages}% randomly selected time-points of the data."
             else:
-                self.cluster_data_log = 'the local peaks of the global field power.'
+                cluster_data_log = 'the local peaks of the global field power.'
                 self.comet_tbx.use_percentages = None
             self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
             self.comet_tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
@@ -807,7 +822,7 @@ class MainMicrostateWindow(QMainWindow):
             self.log_window.append_log(
                 f"Clustering algorithm: {self.comet_tbx.clustering_method}")
             self.log_window.append_log(f"The number of maps to extract {k_log}")
-            self.log_window.append_log(f"Clustering will be performed on {self.cluster_data_log}")
+            self.log_window.append_log(f"Clustering will be performed on {cluster_data_log}")
 
             self.comet_tbx.do_clustering()
             self.label_maps()

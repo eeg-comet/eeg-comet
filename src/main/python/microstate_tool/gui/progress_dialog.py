@@ -13,7 +13,7 @@ class ProgressDialog(QDialog):
         self.setWindowModality(Qt.ApplicationModal)
 
         # Set the initial size of the window
-        self.resize(600, 200)
+        self.resize(800, 300)
 
         # Create widgets
         self.progress_label = QLabel("Progress:")

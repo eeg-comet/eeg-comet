@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1088</width>
-    <height>727</height>
+    <height>839</height>
    </rect>
   </property>
   <property name="font">
@@ -25,10 +25,13 @@
      <item row="5" column="0">
       <widget class="QPushButton" name="auto_labeling_button">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
        </property>
        <property name="text">
         <string>Automatically label maps</string>
@@ -38,10 +41,13 @@
      <item row="5" column="1">
       <widget class="QPushButton" name="manual_labeling_button">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
        </property>
        <property name="text">
         <string>Use manual labels</string>
@@ -50,39 +56,26 @@
      </item>
      <item row="2" column="0" colspan="2">
       <layout class="QGridLayout" name="gridLayout_3">
-       <item row="0" column="0" colspan="2">
-        <widget class="QLabel" name="settings_label">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Microstate visualization settings</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="1">
-        <widget class="QCheckBox" name="reverse_polarity_checkbox">
+       <item row="1" column="1">
+        <widget class="QComboBox" name="microstates_combobox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
-         </property>
-         <property name="text">
-          <string>Reverse polarity</string>
          </property>
         </widget>
        </item>
        <item row="2" column="1">
         <widget class="QSpinBox" name="num_contours_spinbox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
+         </property>
+         <property name="buttonSymbols">
+          <enum>QAbstractSpinBox::PlusMinus</enum>
          </property>
          <property name="minimum">
           <number>0</number>
@@ -95,25 +88,46 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="1">
-        <widget class="QComboBox" name="microstates_combobox">
+       <item row="4" column="1">
+        <widget class="QCheckBox" name="reverse_polarity_checkbox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
+         <property name="text">
+          <string>Reverse polarity</string>
+         </property>
         </widget>
        </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="microstate_index_label">
+       <item row="0" column="0" colspan="2">
+        <widget class="QLabel" name="settings_label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
          <property name="text">
-          <string>Microstate index</string>
+          <string>Microstate visualization settings</string>
          </property>
         </widget>
        </item>
        <item row="2" column="0">
         <widget class="QLabel" name="num_contours_label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="text">
           <string>Number of contours</string>
          </property>
@@ -122,7 +136,7 @@
        <item row="5" column="1">
         <widget class="QCheckBox" name="show_sensors_checkbox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -132,10 +146,23 @@
          </property>
         </widget>
        </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="microstate_index_label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Microstate index</string>
+         </property>
+        </widget>
+       </item>
        <item row="3" column="1">
         <widget class="QComboBox" name="colormap_combobox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -162,8 +189,30 @@
          </item>
         </widget>
        </item>
+       <item row="6" column="0" colspan="2">
+        <widget class="QPushButton" name="apply_all_button">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="cursor">
+          <cursorShape>PointingHandCursor</cursorShape>
+         </property>
+         <property name="text">
+          <string>Apply to all</string>
+         </property>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QLabel" name="colormap_label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="text">
           <string>Colormap</string>
          </property>
@@ -171,28 +220,21 @@
        </item>
        <item row="4" column="0" rowspan="2">
         <widget class="QLabel" name="other_options_label">
-         <property name="text">
-          <string>Other options:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="0" colspan="2">
-        <widget class="QPushButton" name="apply_all_button">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
          <property name="text">
-          <string>Apply to all</string>
+          <string>Other options:</string>
          </property>
         </widget>
        </item>
       </layout>
      </item>
      <item row="3" column="0" colspan="2">
-      <layout class="QVBoxLayout" name="Microstate_Layout">
+      <layout class="QVBoxLayout" name="Microstate_Vertical_Layout">
        <item>
         <widget class="QLabel" name="microstate_label">
          <property name="sizePolicy">
@@ -217,6 +259,9 @@
         </widget>
        </item>
        <item>
+        <layout class="QVBoxLayout" name="Microstate_Layout"/>
+       </item>
+       <item>
         <layout class="QHBoxLayout" name="Microstates_Labels_Layout"/>
        </item>
       </layout>
@@ -224,10 +269,13 @@
      <item row="4" column="0" colspan="2">
       <widget class="QPushButton" name="export_microstates_image_button">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
        </property>
        <property name="text">
         <string>Export as image</string>

@@ -12,7 +12,7 @@ from tqdm import tqdm
 from scipy import spatial
 from sklearn.model_selection import KFold
 from pyclustering.cluster import kmeans, xmeans, agglomerative, elbow, silhouette
-from pyclustering.cluster.agglomerative import agglomerative, type_link
+from pyclustering.cluster.agglomerative import type_link
 from pyclustering.utils.metric import distance_metric, type_metric
 from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
 from keras.layers import Conv1D, Flatten, Dense, Reshape, Input
@@ -216,7 +216,7 @@ class MicrostateClusterer:
         return reduced_data
 
     def clustering_func(self, preprocessed_data_path, extension, datatype,
-                        n_channels, method, n_states, initializer, use_percentages,
+                        n_pca, method, n_states, initializer, use_percentages,
                         min_dist, clustering_option, optimizer_mode='gev', parameter_value=5, kmin=2, kmax=10):
         """
         Performs clustering on preprocessed data to find microstate maps.
@@ -224,7 +224,7 @@ class MicrostateClusterer:
         Parameters:
             preprocessed_data_path: Path to the preprocessed data.
             hdf_concatenated_data_path: Path to the HDF concatenated data
-            n_channels: Number of channels in the data
+            n_pca: Number of principal components for the PCA method
             method: Clustering method to use
             n_states: Number of microstate maps
             initializer: Initialization method
@@ -322,7 +322,7 @@ class MicrostateClusterer:
                 progress_dialog.set_label_text(f"Clustering {int(n_states)} Microstate Maps\nInitialization #{init + 1} of {self.n_inits}")
                 print('\nClustering #', str(init + 1), 'of', str(self.n_inits))
 
-                if method == 'K-Means Clustering':
+                if method in ['K-Means Clustering', 'X-Means Clustering']:
                     clustering_instance.process()
                     residual = clustering_instance.get_total_wce()
                     centroids = clustering_instance.get_centers()
@@ -489,13 +489,23 @@ class ClusterOptimizer:
         print("Identifying the optimal number of clusters using the silhouette method")
         k_values = range(self.kmin, self.kmax + 1)
         sil_values = []
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Finding Optimal K ...")
+        progress_dialog.set_label_text("Silhouette Method")
+        progress_dialog.show()
+        # Create a tqdm progress bar
         progress_bar = tqdm(total=len(k_values), ncols=100, position=0, leave=True)
 
         for k in k_values:
             sil_value = self._calculate_silhouette(self.data, k)
             sil_values.append(sil_value)
+
+            progress_dialog.set_line_edit_text(f"Silhouette Value for K={k}: {sil_value}")
+            progress_dialog.update_progress(k + 1, len(k_values))
             progress_bar.update(1)
 
+        progress_dialog.close()
         progress_bar.close()
         optimal_clusters = np.argmax(sil_values) + self.kmin
         print(f"Optimal clusters: {optimal_clusters}")
@@ -511,6 +521,11 @@ class ClusterOptimizer:
         # Initialize SSD
         elbow_vector = []
 
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Finding Optimal K ...")
+        progress_dialog.set_label_text(f"Elbow Method with %{threshold} Threshold")
+        progress_dialog.show()
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(k_values), ncols=100, position=0, leave=True)
 
@@ -534,11 +549,19 @@ class ClusterOptimizer:
                 res_values.append(init_result['residual'])
 
             if metric == 'gev':
+                metric_log = 'Global Explained Variance'
+                metric_value = np.mean(gev_values)
                 elbow_vector.append(np.mean(gev_values))
             elif metric == 'res':
+                metric_log = 'Residual'
+                metric_value = np.mean(res_values)
                 elbow_vector.append(np.mean(res_values))
 
+            progress_dialog.set_line_edit_text(f"{metric_log} for K={k}: {metric_value}")
+            progress_dialog.update_progress(i + 1, len(k_values))
             progress_bar.update(1)
+
+        progress_dialog.close()
         progress_bar.close()
 
         if metric == 'all':
@@ -577,17 +600,27 @@ class ClusterOptimizer:
         ssd_real = np.zeros(len(k_values))
         ssd_random = np.zeros((len(k_values), n_random_datasets))
 
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Finding Optimal K ...")
+        progress_dialog.set_label_text(f"Gap Statistic Method with {n_random_datasets}-Random Datasets")
+        progress_dialog.show()
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(k_values) * (1 + n_random_datasets), ncols=100, position=0, leave=True)
 
         for i, k in enumerate(k_values):
             ssd_real[i] = self._calculate_ssd_ignoring_polarity(self.data, k)
+            progress_dialog.set_line_edit_text(
+                f"Sum of Squared Distances for Real Dataset with K={k}: {ssd_real[i]}")
+            progress_dialog.update_progress(i + 1, len(k_values))
             progress_bar.update(1)
 
         for j in range(n_random_datasets):
             random_data = np.random.rand(*self.data.shape)  # Generate random data with the same shape as your data
             for i, k in enumerate(k_values):
                 ssd_random[i, j] = self._calculate_ssd_ignoring_polarity(random_data, k)
+                progress_dialog.set_line_edit_text(f"Sum of Squared Distances for Random Dataset {j} and K={k}: {ssd_random[i, j]}")
+                progress_dialog.update_progress(i + 1, len(k_values) * (1 + n_random_datasets))
                 progress_bar.update(1)
 
         # Calculate the expected SSD for random data
@@ -600,6 +633,7 @@ class ClusterOptimizer:
         optimal_clusters = np.argmax(gap) + 1
 
         # Close the progress bar
+        progress_dialog.close()
         progress_bar.close()
 
         print(f"\nOptimal clusters: {optimal_clusters}")
@@ -615,7 +649,12 @@ class ClusterOptimizer:
         # Calculate the total number of updates
         total_updates = len(k_values) * n_splits
 
-        # Create a tqdm progress bar for k_values * n_splits
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Finding Optimal K ...")
+        progress_dialog.set_label_text(f"{n_splits}-Fold Cross-Validation Method")
+        progress_dialog.show()
+        # Create a tqdm progress bar
         combined_progress = tqdm(total=total_updates, desc="Progress", ncols=100, position=0, leave=True)
 
         for k in k_values:

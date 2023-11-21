@@ -216,15 +216,17 @@ class COMET:
             'X-Means Clustering',
             'Agglomerative Hierarchical Clustering',
             ]
-
         assert self.clustering_method in avaliable_methods, "clustering_method not supported"
-        microstate_clusterer = MicrostateClusterer(self.number_of_repeats, self.max_iterations,
-                                                   self.clustering_tolerance)
+
+        microstate_clusterer = MicrostateClusterer(self.number_of_repeats,
+                                                   self.max_iterations,
+                                                   self.clustering_tolerance
+                                                   )
         best_maps, gev, _, n_states = microstate_clusterer.clustering_func(
             self.preprocessed_data_path,
             self.extension,
             self.datatype,
-            self.n_chan,
+            self.n_pca,
             self.clustering_method,
             self.number_of_maps,
             self.initializer,
