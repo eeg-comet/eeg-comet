@@ -131,14 +131,12 @@ class DataIO:
             eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
     
         # Drop channels
-        if any(chan2rm) and not all(elem == '' for elem in chan2rm):
+        channel_names = eeg.info['ch_names']
+        if any(chan2rm) and not all(elem == '' for elem in chan2rm) and chan2rm in channel_names:
             eeg = eeg.drop_channels(chan2rm)
 
-        # Add average reference projection
-        eeg.set_eeg_reference('average', projection=True, verbose=verbose)
-    
-        # Apply the added projection
-        eeg.apply_proj(verbose=verbose)
+        #if 'TRIGGER' in channel_names:
+        #    eeg = eeg.drop_channels('TRIGGER')
     
         return eeg
     
