@@ -395,12 +395,28 @@ class COMET:
                                                      mode='static')
                 if 'GEV' in self.feature_list:
                     data_io = DataIO()
-                    eeg_path = os.path.join(self.preprocessed_data_path, f"{filename}{self.extension}")
-                    eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
-                    eeg_data = data_io.get_eeg_data(eeg, self.datatype)
-                    output_features = feature_extractor.extract_microstate_features(filename, self.feature_list,
-                                                                                    eeg_data,
-                                                                                    self.best_maps, self.micro_labels)
+                    if self.datatype == 'epoched':
+                        underscore_index = filename.rfind('_')
+                        eeg_filename = filename[:underscore_index]
+                        trial_number = filename[underscore_index+1:]
+                        eeg_path = os.path.join(self.preprocessed_data_path, f"{eeg_filename}{self.extension}")
+                        eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                        trial_data = np.squeeze(eeg[int(trial_number)].get_data())
+                        output_features = feature_extractor.extract_microstate_features(filename,
+                                                                                        self.feature_list,
+                                                                                        trial_data,
+                                                                                        self.best_maps,
+                                                                                        self.micro_labels)
+
+                    else:
+                        eeg_path = os.path.join(self.preprocessed_data_path, f"{filename}{self.extension}")
+                        eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                        eeg_data = data_io.get_eeg_data(eeg, self.datatype)
+                        output_features = feature_extractor.extract_microstate_features(filename,
+                                                                                        self.feature_list,
+                                                                                        eeg_data,
+                                                                                        self.best_maps,
+                                                                                        self.micro_labels)
                 else:
                     output_features = feature_extractor.extract_microstate_features(filename, self.feature_list)
                 if s == 0:

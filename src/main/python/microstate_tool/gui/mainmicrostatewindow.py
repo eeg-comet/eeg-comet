@@ -426,7 +426,6 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
                 self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
                 if self.ui.step2_auto_k_radio.isChecked():
-                    self.k_log = 'will be automatically determined.'
                     set_widgets_status(user_k_widgets, mode='disable')
                     set_widgets_status(user_k_widgets, mode='hide')
                     set_widgets_status(auto_k_widgets, mode='enable')
@@ -759,6 +758,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.smoothing_distance = ''
                 # self.min_distance_size = []
             if self.ui.step2_auto_k_radio.isChecked():
+                k_log = 'will be automatically determined.'
                 self.comet_tbx.choose_number_of_maps = "auto"
 
                 self.comet_tbx.kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
