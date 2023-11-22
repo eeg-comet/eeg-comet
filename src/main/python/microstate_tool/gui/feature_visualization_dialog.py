@@ -129,7 +129,12 @@ class FeatureVisualizationDialog(QDialog):
         plot_data.columns = ['Filename', 'Feature', feature]
 
         self.clear_and_set_fonts(ax)
-        sns.violinplot(x='Feature', y=feature, data=plot_data, kind="violin", ax=ax)
+
+        # Use a color palette for the violins based on the number of features
+        num_features = len(filter_cols)
+        color_palette = sns.color_palette("Set1", num_features)
+
+        sns.violinplot(x='Feature', y=feature, data=plot_data, ax=ax, palette=color_palette)
         self.canvas.draw()
 
     def plot_line(self, features_df, feature):
