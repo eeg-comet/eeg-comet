@@ -29,6 +29,7 @@ def run_application():
     Run the MicrostateTools application.
     """
     # Instantiate ApplicationContext
+    print('Running EEG-COMET application...')
     appctxt = ApplicationContext()
 
     # Check if QApplication instance already exists
