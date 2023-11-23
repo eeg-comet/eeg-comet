@@ -2,11 +2,5 @@
     "app_name": "microstate_tool",
     "author": "Amin Kabir and Raaj Chatterjee",
     "main_module": "src/main/python/microstate_tool/main.py",
-    "version": "0.0.0",
-    "hidden_imports": ["scipy.special.cython_special", "sklearn.utils._cython_blas",
-        "sklearn.neighbors._typedefs", "sklearn.neighbors._quad_tree", "sklearn.tree",
-        "sklearn.utils._weight_vector", "sklearn.tree._utils"],
-    "extra_pyinstaller_args": [
-        "--exclude-module", "tkinter"
-    ]
+    "version": "0.0.0"
 }

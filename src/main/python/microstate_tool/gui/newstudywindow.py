@@ -1,169 +1,254 @@
-import os.path
-import numpy as np
-import h5py
-from PyQt5 import uic
-import shutil
-from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox
 
-from functions.utils.load_save_eeg_info import save_eeg_info
-from functions.utils.load_save_config import initialize_config, load_config, save_config
-from functions.utils import find_data, load_data, export_h5
-from functions import preprocess
+import os.path
+import re
+import numpy as np
+import mne
+from PyQt5 import uic
+from PyQt5.QtWidgets import (
+    QFileDialog, QDialog, QMessageBox, QVBoxLayout, QWidget, QSizePolicy
+)
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+from functions.gui_utils.CheckableComboBox import CheckableComboBox
+from functions.gui_utils.set_widgets_status import set_widgets_status
+from functions.data_utils.data_io import DataIO
+
 
 class NewStudyWindow(QDialog):
-
-    def __init__(self, context, parent=None):
-        super(NewStudyWindow, self).__init__(parent)
-        
-        # load the ui
-        basepath = os.path.dirname(__file__)
+    def __init__(self, context, parent=None, main_window=None, comet_tbx=None):
+        super().__init__(parent)
+        self.main_window = main_window
+        self.comet_tbx = comet_tbx
         self.ui = uic.loadUi(context.get_resource("NewStudyWindow.ui"), self)
-        
-        self.ui.setWindowTitle("New Study - Import Raw Data and Preprocess")
+        self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
         self.done_preprocessing = False
+        self.init_ui_components()
+        self.setup_connections()
+        self.comet_tbx.channel_location_dir = ""
+        self.newstudy_controller()
 
+    def init_ui_components(self):
+        self.ui.step0_ch2rm_combobox = CheckableComboBox()
+        self.CheckableComboBox_Layout.addWidget(self.ui.step0_ch2rm_combobox)
+        builtin_montages = mne.channels.get_builtin_montages()
+        self.ui.step0_template_montage_combobox.addItems(builtin_montages)
+        self.figure = Figure(tight_layout=True)
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.ui.Figure_Layout.addWidget(self.canvas)
+
+    def setup_connections(self):
+        self.ui.step0_import_data_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_preprocess_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_import_epoched_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_import_raw_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_all_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_load_pattern_radio.clicked.connect(self.newstudy_controller)
-
-        self.ui.step0_input_path_button.clicked.connect(self.choose_input)
-        self.ui.step0_import_raw_button.clicked.connect(self.load_raw)
-
-        self.ui.step0_save_path_button.clicked.connect(self.new_study_save_path)
-
+        self.ui.step0_use_template_montage_radio.clicked.connect(self.newstudy_controller)
         self.ui.step0_no_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_filter_option_checkbox.clicked.connect(self.newstudy_controller)
         self.ui.step0_downsamp_option_checkbox.clicked.connect(self.newstudy_controller)
+        self.ui.step0_ch2rm_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_ch2rm_missing_radio.clicked.connect(self.newstudy_controller)
+        self.ui.step0_selected_files_list.itemClicked.connect(self.newstudy_controller)
+
+        self.ui.step0_input_path_button.clicked.connect(self.choose_input)
+        self.ui.step0_import_raw_button.clicked.connect(self.load_raw)
+        self.ui.step0_load_montage_radio.clicked.connect(self.load_custom_montage)
+        self.ui.step0_template_montage_combobox.activated.connect(self.load_template_montage)
+        self.ui.step0_save_path_button.clicked.connect(self.new_study_save_path)
         self.ui.step0_preprocess_data_button.clicked.connect(self.preprocess_data)
-
-
-        self.ui.step0_selected_files_list.itemClicked.connect(self.plot_CHANNELS)
-        self.ui.step0_selected_files_list.itemClicked.connect(self.plot_PSD)
-        self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
         self.ui.step0_remove_file_button.clicked.connect(self.remove_file)
         self.ui.step0_clear_files_button.clicked.connect(self.clear_files)
+        self.ui.step0_selected_files_list.itemClicked.connect(self.update_channel_names)
+        self.ui.show_montage_button.clicked.connect(self.plot_montage)
+        self.ui.rawdata_show_channel_names_checkbox.clicked.connect(self.plot_montage)
+        self.ui.step0_ch2rm_combobox.activated.connect(self.plot_montage)
+
+        self.ui.show_psd_button.clicked.connect(self.plot_psd)
+        self.ui.rawdata_plot_button.clicked.connect(self.plot_EEG)
 
 
     def newstudy_controller(self):
+
+        if self.ui.step0_load_all_radio.isChecked():
+            self.ui.step0_import_log_lineedit.setText(f"Load all {self.get_data_type()} EEG data with {self.get_extension()} extension.")
+            self.ui.step0_import_pattern_lineedit.setDisabled(True)
+        else:
+            self.ui.step0_import_pattern_lineedit.clear()
+            self.ui.step0_import_pattern_lineedit.setEnabled(True)
+
         if self.ui.step0_load_pattern_radio.isChecked():
             self.ui.step0_import_pattern_lineedit.setEnabled(True)
         else:
             self.ui.step0_import_pattern_lineedit.setDisabled(True)
 
-        if self.ui.step0_input_path_lineedit:
-            self.input_folder_found = True
-        else:
-            self.input_folder_found = True
-
-        if self.input_folder_found:
-            self.ui.step0_import_raw_button.setEnabled(True)
-            if self.ui.step0_selected_files_list.count() == 0:
-                self.data_found = False
-                self.ui.MplWidget_chan.canvas.axes.clear()
-                self.ui.MplWidget_chan.canvas.draw()
-                self.ui.MplWidget_psd.canvas.axes.clear()
-                self.ui.MplWidget_psd.canvas.draw()
-            else:
-                self.data_found = True
-
+        if self.ui.step0_load_montage_radio.isChecked():
+            self.ui.step0_template_montage_combobox.setDisabled(True)
+            self.ui.step0_chanloc_path_lineedit.setEnabled(True)
+        elif self.ui.step0_use_template_montage_radio.isChecked():
+            self.ui.step0_template_montage_combobox.setEnabled(True)
+            self.ui.step0_chanloc_path_lineedit.setDisabled(True)
 
         else:
             self.ui.step0_import_raw_button.setDisabled(True)
 
-        if self.data_found and self.ui.step0_study_name_lineedit.text() and self.ui.step0_save_path_lineedit.text():
-            self.ui.step0_import_raw_button.setStyleSheet("background-color: lightgreen")
-            self.ui.step0_remove_file_button.setEnabled(True)
-            self.ui.step0_clear_files_button.setEnabled(True)
+        plot_widgets = [
+        self.ui.rawdata_plot_button,
+        self.ui.show_montage_button,
+        self.ui.show_psd_button,
+        self.ui.rawdata_show_channel_names_checkbox,
+        self.ui.rawdata_range_psd_label,
+        self.ui.rawdata_range_psd_min_label,
+        self.ui.rawdata_range_psd_max_label,
+        self.ui.rawdata_range_psd_min,
+        self.ui.rawdata_range_psd_max,
+        self.ui.rawdata_range_hz1,
+        self.ui.rawdata_range_hz2
+        ]
+
+        import_data_widgets = [
+            self.ui.step0_study_name_label,
+            self.ui.step0_input_path_button,
+            self.ui.step0_save_path_button,
+            self.ui.step0_import_format_label,
+            self.ui.step0_import_type_label,
+            self.ui.step0_import_pattern_label,
+            self.ui.step0_load_montage_radio,
+            self.ui.step0_use_template_montage_radio,
+            self.ui.step0_study_name_lineedit,
+            self.ui.step0_input_path_lineedit,
+            self.ui.step0_save_path_lineedit,
+            self.ui.step0_import_format_combobox,
+            self.ui.step0_import_raw_radio,
+            self.ui.step0_import_epoched_radio,
+            self.ui.step0_load_all_radio,
+            self.ui.step0_load_pattern_radio,
+            self.ui.step0_import_pattern_lineedit,
+            self.ui.step0_chanloc_path_lineedit,
+            self.ui.step0_import_log_lineedit
+        ]
+
+        preprocessing_widgets = [
+        self.ui.step0_no_option_checkbox,
+        self.ui.step0_filter_option_checkbox,
+        self.ui.step0_downsamp_option_checkbox,
+        self.ui.step0_preprocess_data_button,
+        self.ui.step0_ch2rm_radio,
+        self.ui.step0_ch2rm_combobox,
+        self.ui.step0_ch2rm_missing_radio
+        ]
+
+        filter_sub_widgets = [
+        self.ui.step0_filter_method_label,
+        self.ui.step0_fir_filtermethod_radio,
+        self.ui.step0_iir_filtermethod_radio,
+        self.ui.step0_lowcut_freq_label,
+        self.ui.step0_lowcut_freq_input,
+        self.ui.step0_filt_hz1,
+        self.ui.step0_highcut_freq_label,
+        self.ui.step0_highcut_freq_input,
+        self.ui.step0_filt_hz2
+        ]
+
+        downsample_sub_widgets = [
+        self.ui.step0_downsamp_freq_label,
+        self.ui.step0_downsamp_freq_input,
+        self.ui.step0_downsamp_hz
+        ]
+
+        if self.ui.step0_import_data_radio.isChecked():
+            widgets_to_rm = (
+                    preprocessing_widgets +
+                    filter_sub_widgets +
+                    downsample_sub_widgets
+            )
+
+            set_widgets_status(import_data_widgets, mode='enable')
+            set_widgets_status(import_data_widgets, mode='show')
+            set_widgets_status(self.ui.step0_import_raw_button, mode='show')
+            set_widgets_status(self.ui.step0_template_montage_combobox, mode='show')
+            set_widgets_status(widgets_to_rm, mode='disable')
+            set_widgets_status(widgets_to_rm, mode='hide')
+
+            if (self.ui.step0_study_name_lineedit.text()
+                    and self.ui.step0_input_path_lineedit
+                    and self.ui.step0_save_path_lineedit.text()
+                    ):
+
+                set_widgets_status(self.ui.step0_import_raw_button, mode='enable')
+                self.ui.step0_remove_file_button.setEnabled(True)
+                self.ui.step0_clear_files_button.setEnabled(True)
+                # Enable Preprocessing Options
+                set_widgets_status(preprocessing_widgets, mode='enable')
+
+            else:
+                # Disable Next Steps
+                self.ui.step0_remove_file_button.setDisabled(True)
+                self.ui.step0_clear_files_button.setDisabled(True)
+                # Disable Plot Options
+                set_widgets_status(plot_widgets, mode='disable')
+                # Disable Preprocessing Options
+                set_widgets_status(preprocessing_widgets, mode='disable')
+
+        if not self.ui.step0_selected_files_list.count() == 0:
+            set_widgets_status(self.ui.step0_preprocess_radio, mode='enable')
+
+            if self.ui.step0_use_template_montage_radio.isChecked():
+                set_widgets_status(self.ui.step0_template_montage_combobox, mode='enable')
+            else:
+                set_widgets_status(self.ui.step0_template_montage_combobox, mode='disable')
+
             # Enable Plot Options
-            self.ui.rawdata_plot_button.setEnabled(True)
-            self.ui.rawdata_show_channel_names_checkbox.setEnabled(True)
-            self.ui.rawdata_range_psd_label.setEnabled(True)
-            self.ui.rawdata_range_psd_min_label.setEnabled(True)
-            self.ui.rawdata_range_psd_max_label.setEnabled(True)
-            self.ui.rawdata_range_psd_min.setEnabled(True)
-            self.ui.rawdata_range_psd_max.setEnabled(True)
-            self.ui.rawdata_range_hz1.setEnabled(True)
-            self.ui.rawdata_range_hz2.setEnabled(True)
-            # Enable Preprocessing Options
-            self.ui.step0_no_option_checkbox.setEnabled(True)
-            self.ui.step0_filter_option_checkbox.setEnabled(True)
-            self.ui.step0_downsamp_option_checkbox.setEnabled(True)
-            self.ui.step0_preprocess_data_button.setEnabled(True)
-            self.ui.step0_ch2rm_label.setEnabled(True)
-            self.ui.step0_ch2rm_radio.setEnabled(True)
-            self.ui.step0_ch2rm_missing_radio.setEnabled(True)
-            self.ui.step0_ch2rm_input.setEnabled(True)
+            if self.ui.step0_selected_files_list.currentItem():
+                set_widgets_status(plot_widgets, mode='enable')
+        else:
+            set_widgets_status(self.ui.step0_preprocess_radio, mode='disable')
+
+        if self.ui.step0_preprocess_radio.isChecked():
+            widgets_to_show = (
+                    preprocessing_widgets +
+                    filter_sub_widgets +
+                    downsample_sub_widgets
+            )
+
+            set_widgets_status(widgets_to_show, mode='show')
+            set_widgets_status(self.ui.step0_import_raw_button, mode='disable')
+            set_widgets_status(self.ui.step0_import_raw_button, mode='hide')
+            set_widgets_status(import_data_widgets, mode='disable')
+            set_widgets_status(import_data_widgets, mode='hide')
+            set_widgets_status(self.ui.step0_template_montage_combobox, mode='disable')
+            set_widgets_status(self.ui.step0_template_montage_combobox, mode='hide')
+
+            if self.ui.step0_ch2rm_radio.isChecked():
+                self.ui.step0_ch2rm_combobox.setEnabled(True)
+            else:
+                self.ui.step0_ch2rm_combobox.setDisabled(True)
+
+            if self.ui.step0_ch2rm_missing_radio.isChecked():
+                self.ui.step0_ch2rm_combobox.deselectAllItems()
 
             if self.ui.step0_no_option_checkbox.isChecked():
-                self.ui.step0_preprocessing_progress.setEnabled(True)
-
                 self.ui.step0_filter_option_checkbox.setChecked(False)
-                self.ui.step0_filter_option_checkbox.setDisabled(True)
-                self.ui.step0_lowcut_freq_input.setDisabled(True)
-                self.ui.step0_highcut_freq_input.setDisabled(True)
-                self.ui.step0_fir_filtermethod_radio.setDisabled(True)
-                self.ui.step0_iir_filtermethod_radio.setDisabled(True)
                 self.ui.step0_downsamp_option_checkbox.setChecked(False)
-                self.ui.step0_downsamp_option_checkbox.setDisabled(True)
-                self.ui.step0_downsamp_freq_input.setDisabled(True)
+                set_widgets_status([self.ui.step0_filter_option_checkbox,
+                                    self.ui.step0_downsamp_option_checkbox], mode='disable')
+                set_widgets_status((filter_sub_widgets + downsample_sub_widgets), mode='disable')
             else:
                 self.ui.step0_filter_option_checkbox.setEnabled(True)
                 self.ui.step0_downsamp_option_checkbox.setEnabled(True)
                 if self.ui.step0_filter_option_checkbox.isChecked():
-                    self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.filter_data = True
-                    self.ui.step0_filter_method_label.setEnabled(True)
-                    self.ui.step0_fir_filtermethod_radio.setEnabled(True)
-                    self.ui.step0_iir_filtermethod_radio.setEnabled(True)
-                    self.ui.step0_lowcut_freq_label.setEnabled(True)
-                    self.ui.step0_lowcut_freq_input.setEnabled(True)
-                    self.ui.step0_filt_hz1.setEnabled(True)
-                    self.ui.step0_highcut_freq_label.setEnabled(True)
-                    self.ui.step0_highcut_freq_input.setEnabled(True)
-                    self.ui.step0_filt_hz2.setEnabled(True)
+                    set_widgets_status(filter_sub_widgets, mode='enable')
                 else:
                     self.filter_data = False
-                    self.ui.step0_filter_method_label.setDisabled(True)
-                    self.ui.step0_fir_filtermethod_radio.setDisabled(True)
-                    self.ui.step0_iir_filtermethod_radio.setDisabled(True)
-                    self.ui.step0_lowcut_freq_label.setDisabled(True)
-                    self.ui.step0_lowcut_freq_input.setDisabled(True)
-                    self.ui.step0_filt_hz1.setDisabled(True)
-                    self.ui.step0_highcut_freq_label.setDisabled(True)
-                    self.ui.step0_highcut_freq_input.setDisabled(True)
-                    self.ui.step0_filt_hz2.setDisabled(True)
+                    set_widgets_status(filter_sub_widgets, mode='disable')
                 if self.ui.step0_downsamp_option_checkbox.isChecked():
-                    self.ui.step0_preprocessing_progress.setEnabled(True)
                     self.ui.downsample_data = True
-                    self.ui.step0_downsamp_freq_label.setEnabled(True)
-                    self.ui.step0_downsamp_freq_input.setEnabled(True)
-                    self.ui.step0_downsamp_hz.setEnabled(True)
+                    set_widgets_status(downsample_sub_widgets, mode='enable')
                 else:
                     self.downsample_data = False
-                    self.ui.step0_downsamp_freq_label.setDisabled(True)
-                    self.ui.step0_downsamp_freq_input.setDisabled(True)
-                    self.ui.step0_downsamp_hz.setDisabled(True)
-        else:
-            # Disable Next Steps
-            self.ui.step0_import_raw_button.setStyleSheet("background-color: light gray")
-            self.ui.step0_remove_file_button.setDisabled(True)
-            self.ui.step0_clear_files_button.setDisabled(True)
-            self.ui.rawdata_plot_button.setDisabled(True)
-            self.ui.rawdata_show_channel_names_checkbox.setDisabled(True)
-            self.ui.rawdata_range_psd_label.setDisabled(True)
-            self.ui.rawdata_range_psd_min_label.setDisabled(True)
-            self.ui.rawdata_range_psd_max_label.setDisabled(True)
-            self.ui.rawdata_range_psd_min.setDisabled(True)
-            self.ui.rawdata_range_psd_max.setDisabled(True)
-            self.ui.rawdata_range_hz1.setDisabled(True)
-            self.ui.rawdata_range_hz2.setDisabled(True)
-            self.ui.step0_no_option_checkbox.setDisabled(True)
-            self.ui.step0_filter_option_checkbox.setDisabled(True)
-            self.ui.step0_downsamp_option_checkbox.setDisabled(True)
-            self.ui.step0_preprocess_data_button.setDisabled(True)
-            self.ui.step0_ch2rm_label.setDisabled(True)
-            self.ui.step0_ch2rm_radio.setDisabled(True)
-            self.ui.step0_ch2rm_missing_radio.setDisabled(True)
-            self.ui.step0_ch2rm_input.setDisabled(True)
+                    set_widgets_status(downsample_sub_widgets, mode='disable')
 
     def choose_input(self):
         fname = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
@@ -171,103 +256,115 @@ class NewStudyWindow(QDialog):
         self.ui.step0_input_path_lineedit.setText(fname)
         self.newstudy_controller()
 
+
+    def load_custom_montage(self):
+        fname, _ = QFileDialog.getOpenFileName(self, "Select the file containing the channel locations")
+        if os.path.isfile(fname):
+            chan_loc_extension = os.path.basename(fname).split('.')[-1]
+            valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
+                                         'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
+            if chan_loc_extension not in valid_chan_loc_extensions:
+                QMessageBox.information(self, "Load error",
+                                        "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
+                                        "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
+                                        "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)",
+                                        QMessageBox.Ok)
+                self.comet_tbx.channel_location_dir = ''
+            else:
+                self.comet_tbx.channel_location_dir = fname
+                self.ui.step0_chanloc_path_lineedit.setText(fname)
+
+    def load_template_montage(self):
+        self.comet_tbx.channel_location_dir = self.ui.step0_template_montage_combobox.currentText()
+
     def get_extension(self):
         selected_extension = self.ui.step0_import_format_combobox.currentText()
-        if selected_extension == "BrainVision (.vhdr, .vmrk, .eeg)":
-            extension = ".vhdr"
-        elif selected_extension == "European data format (.edf)":
-            extension = ".edf"
-        elif selected_extension == "BioSemi data format (.bdf)":
-            extension = ".bdf"
-        elif selected_extension == "General data format (.gdf)":
-            extension = ".gdf"
-        elif selected_extension == "Neuroscan CNT (.cnt)":
-            extension = ".cnt"
-        elif selected_extension == "EGI simple binary (.egi)":
-            extension = ".egi"
-        elif selected_extension == "EGI MFF (.mff)":
-            extension = ".mff"
-        elif selected_extension == "EEGLAB files (.set, .fdt)":
-            extension = ".set"
-        elif selected_extension == "Nicolet (.data)":
-            extension = ".data"
-        elif selected_extension == "eXimia EEG data (.nxe)":
-            extension = ".nxe"
-        elif selected_extension == "Persyst EEG data (.lay, .dat)":
-            extension = ".lay"
-        elif selected_extension == "Nihon Kohden EEG data (.eeg, .21e, .pnt, .log)":
-            extension = ".eeg"
+        extension = selected_extension.split('(')[1]
+        extension = re.split(', | .', extension)[0]
+        if extension.endswith(')'):
+            extension = extension[:-1]
         return extension
 
     def get_data_type(self):
-        if self.ui.step0_import_continuous_radio.isChecked():
-            data_type = "continuous"
+        if self.ui.step0_import_raw_radio.isChecked():
+            data_type = "raw"
         elif self.ui.step0_import_epoched_radio.isChecked():
             data_type = "epoched"
+        else:
+            raise ValueError("Failed to match data_type")
         return data_type
+
+    def update_channel_names(self):
+        filename = self.ui.step0_selected_files_list.currentItem().text()
+        data_io = DataIO()
+        EEG = data_io.load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
+        if not np.isnan(EEG.info['chs'][0]['loc'][0]):
+            montage = EEG.get_montage()
+            channel_names = montage.ch_names
+        elif self.ui.step0_load_montage_radio.isChecked() and os.path.isfile(self.ui.step0_chanloc_path_lineedit):
+            montage = mne.channels.read_custom_montage(self.comet_tbx.channel_location_dir)
+            channel_names = montage.ch_names
+        elif self.ui.step0_use_template_montage_radio.isChecked():
+            montage = mne.channels.make_standard_montage(self.comet_tbx.channel_location_dir)
+            channel_names = montage.ch_names
+        self.ui.step0_ch2rm_combobox.addItems(channel_names)
+
 
     def load_raw(self):
         self.ui.step0_selected_files_list.clear()
-        if self.ui.step0_load_all_radio.isChecked():
-            self.pattern = '*'
-        if self.ui.step0_load_pattern_radio.isChecked():
-            self.pattern = '*'+self.ui.step0_import_pattern_lineedit.text()+'*'
-        self.extension = self.get_extension()
-        self.data_type = self.get_data_type()
-        self.list_eegs = find_data.find_data(self.input_folder, self.extension, self.pattern)
-        for i in range(len(self.list_eegs)):
-            self.ui.step0_selected_files_list.addItem(str(self.list_eegs[i]))
-        # self.ui.foldername_preprocessed_data = os.path.join(self.ui.input_folder, 'output')
+
+        self.comet_tbx.load_all_files = self.ui.step0_load_all_radio.isChecked()
+        self.comet_tbx.pattern_content = self.ui.step0_import_pattern_lineedit.text()
+        self.comet_tbx.input_folder = self.input_folder
+        self.comet_tbx.extension = self.get_extension()
+        self.comet_tbx.datatype = self.get_data_type()
+        self.comet_tbx.load_raw()
+        for i in range(len(self.comet_tbx.list_eegs_path)):
+            self.ui.step0_selected_files_list.addItem(str(self.comet_tbx.list_eegs_path[i]))
+        self.ui.step0_import_log_lineedit.setText(f"{str(len(self.comet_tbx.list_eegs_path))} EEG data were detected.")
         self.newstudy_controller()
 
     def new_study_save_path(self):
-        #step0_study_name_linedit.text()
-        path = QFileDialog.getExistingDirectory(self, "Select the folder to save results")
-        folder_name = self.ui.step0_study_name_lineedit.text()
-        save_directory = os.path.join(path, folder_name)
-        if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
-        else:
-            reply = QMessageBox.question(self, "Study exists!",
-                                         "Do you want to overwrite an existing study?",
-                                         QMessageBox.Yes |
-                                         QMessageBox.No)
-            if reply == QMessageBox.Yes:
-                shutil.rmtree(save_directory)
-                os.makedirs(save_directory)
-            else:
-                folder_name = folder_name+'_new'
-                self.ui.step0_study_name_lineedit.setText(folder_name)
-                save_directory = os.path.join(path, folder_name)
-
+        save_parent_directory = QFileDialog.getExistingDirectory(self,
+                                                                 "Select a parent folder to create a new study folder within.")
         self.study_name = self.ui.step0_study_name_lineedit.text()
-        self.save_dir = save_directory
-        self.ui.step0_save_path_lineedit.setText(save_directory)
-        self.use_raw_data = True
-        self.newstudy_controller()
 
+        if not os.path.exists(save_parent_directory):
+            print("Unable to find selected directory")
+            return
+
+        if not self.study_name:
+            self.study_name = "EEG_COMET_NEW_STUDY"
+            self.ui.step0_study_name_lineedit.setText(self.study_name)
+
+        save_directory = os.path.join(save_parent_directory, self.study_name)
+
+        if os.path.exists(save_directory):
+            QMessageBox.information(self, "A folder with the same study name already exists!",
+                                    "Please choose another directory or rename your study.",
+                                    QMessageBox.Ok)
+        else:
+            self.save_dir = save_directory
+            self.ui.step0_save_path_lineedit.setText(self.save_dir)
+
+        self.newstudy_controller()
 
     def remove_file(self):
         listItems = self.step0_selected_files_list.selectedItems()
         if not listItems: return
         for item in listItems:
+            # To remove items from the list, use takeItem() .
             self.step0_selected_files_list.takeItem(self.step0_selected_files_list.row(item))
         self.newstudy_controller()
 
     def clear_files(self):
         self.ui.step0_selected_files_list.clear()
+        self.canvas.figure.clear()
         self.newstudy_controller()
 
     def preprocess_data(self):
-
-        # Initialize config
-        config_file = os.path.join(self.save_dir, 'log.ini')
-        config = load_config(config_file)
-        initialize_config(config_file, config)
-
-        self.save_preprocessed_path = os.path.join(self.save_dir, 'preprocessed_data')
-        if not os.path.exists(self.save_preprocessed_path):
-            os.makedirs(self.save_preprocessed_path)
+        os.makedirs(self.save_dir)
+        self.preprocessed_data_path = os.path.join(self.save_dir, self.study_name+'_preprocessed_data')
 
         if self.ui.step0_no_option_checkbox.isChecked():
             self.filter_data = False
@@ -303,157 +400,85 @@ class NewStudyWindow(QDialog):
             self.sample_rate = ''
 
         if self.ui.step0_ch2rm_radio.isChecked():
-            self.ch2rm = self.ui.step0_ch2rm_input.text()
-            print(self.ch2rm)
+            self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
         elif self.ui.step0_ch2rm_missing_radio.isChecked():
             self.ch2rm = 'missing'
 
-        print("preprocessing data ...")
+        self.comet_tbx.preprocessed_data_path = self.preprocessed_data_path
+        self.comet_tbx.filter_data = self.filter_data
+        self.comet_tbx.filter_method = self.filter_method
+        self.comet_tbx.lowcut_freq = self.lowcut_freq
+        self.comet_tbx.highcut_freq = self.highcut_freq
+        self.comet_tbx.downsample_data = self.downsample_data
+        self.comet_tbx.sample_rate = self.sample_rate
+        self.comet_tbx.ch2rm = self.ch2rm
+        self.comet_tbx.save_dir = self.save_dir
+        self.comet_tbx.study_name = self.ui.step0_study_name_lineedit.text()
+        self.comet_tbx.eeg_info_path = os.path.join(self.comet_tbx.save_dir, "eeg_info.pkl")
 
-        # Write "study info" to config
-        config['study info']['study_name'] = self.ui.step0_study_name_lineedit.text()
-        config['study info']['input_folder'] = self.ui.step0_input_path_lineedit.text()
-        config['study info']['input_data_extension'] = self.extension
-        config['study info']['input_data_type'] = self.data_type
-        config['study info']['input_name_pattern'] = self.pattern
         list_eegs = []
-        for eegpath in self.list_eegs:
+        for eegpath in self.comet_tbx.list_eegs:
             eegfilename = os.path.basename(eegpath)
             eegfilename = os.path.splitext(eegfilename)[0]
             list_eegs = np.append(list_eegs, eegfilename)
         list_eegs = ','.join(map(str, list_eegs))
-        config['study info']['input_filenames'] = list_eegs
-        config['study info']['save_folder'] = self.save_dir
-        save_config(config_file, config)
 
-        length_all_data = []
+        self.comet_tbx.do_preprocessing()
+        self.done_preprocessing = True
+        self.comet_tbx.save_tbx()
 
-        counter = 1
-        for filename in self.list_eegs:
-            self.progress, preprocessed_data, length_data, eeg_info, channels2remove = preprocess.preprocess_eegs(filename,
-                                                                            self.list_eegs,
-                                                                            self.extension,
-                                                                            self.data_type,
-                                                                            self.filter_data,
-                                                                            self.filter_method,
-                                                                            self.lowcut_freq,
-                                                                            self.highcut_freq,
-                                                                            self.downsample_data,
-                                                                            self.sample_rate,
-                                                                            self.ch2rm)
+        if self.main_window:
+            self.main_window.tbx = self.comet_tbx
 
-            # Save EEG info
-            eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
-            save_eeg_info(eeg_info_path, eeg_info)
+            self.main_window.log_window.append_log(f"Preprocessed {len(list_eegs)} {self.get_data_type()} Data with {self.get_extension()} extension.")
+            self.main_window.log_window.append_log(f"Channels Removed from Data: {self.ch2rm}")
+            if self.filter_data:
+                self.main_window.log_window.append_log(
+                    f"Bandpass Filtered Data Using: {self.filter_method.upper()} Filter Within {self.lowcut_freq}Hz and {self.highcut_freq}Hz"
+                )
+            if self.downsample_data:
+                self.main_window.log_window.append_log(f"Downsampled Data to: {self.sample_rate}Hz")
 
-            self.ch_names, ch_location = list(eeg_info['ch_names']), eeg_info['chs']
-            self.n_chan = len(self.ch_names)
-            name = os.path.basename(filename)
-            name = os.path.splitext(name)[0]
-            save_path = os.path.join(self.save_preprocessed_path, name + ".hdf")
-            hf = h5py.File(save_path, "w")
-            dataset = hf.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
-            # add metadata
-            dataset.attrs['data_length'] = preprocessed_data.shape[1]
-            dataset.attrs['eeg_format'] = self.extension
-            dataset.attrs['data_type'] = self.data_type
-            dataset.attrs['nchan'] = self.n_chan
-            dataset.attrs['ch_names'] = self.ch_names
-            dataset.attrs['ch_removed'] = self.ch2rm
-            dataset.attrs['sample_rate'] = self.sample_rate
-            dataset.attrs['filter_method'] = self.filter_method
-            dataset.attrs['lowcut_freq'] = self.lowcut_freq
-            dataset.attrs['highcut_freq'] = self.highcut_freq
-            hf.close()
-            # export_h5.export_h5(preprocessed_data, filename, self.ch_names, self.extension, self.data_type,
-            #                    self.filter_method, self.lowcut_freq, self.highcut_freq,
-            #                    self.sample_rate, self.ch2rm, self.save_preprocessed_path)
+            self.main_window.load_study(from_new_study=True)
+        self.ui.close()
 
-            if counter == 1:
-                filenames = filename
-                catdata = preprocessed_data
-            else:
-                filenames = np.append(filenames, filename)
-                catdata = np.append(catdata, preprocessed_data, axis=1)
-            counter += 1
-
-            # Save concat data
-            '''
-            hf = h5py.File(os.path.join(self.save_preprocessed_path, self.study_name + '_data.hdf'), 'w')
-            group = hf.create_group(self.study_name)
-            print('\nConcatenating EEG Data ... ', filename)
-            group.create_dataset(name, data=preprocessed_data, compression="gzip", compression_opts=9)
-            # add metadata
-            hf.attrs['data_length'] = preprocessed_data.shape[1]
-            hf.attrs['eeg_format'] = self.extension
-            hf.attrs['data_type'] = self.data_type
-            hf.attrs['nchan'] = self.n_chan
-            hf.attrs['ch_names'] = self.ch_names
-            hf.attrs['ch_removed'] = self.ch2rm
-            hf.attrs['sample_rate'] = self.sample_rate
-            hf.attrs['filter_method'] = self.filter_method
-            hf.attrs['lowcut_freq'] = self.lowcut_freq
-            hf.attrs['highcut_freq'] = self.highcut_freq
-            hf.close()
-            '''
-
-            length_all_data = np.append(length_all_data, int(length_data))
-            print("Progress:", self.progress, "%")
-
-            self.ui.step0_preprocessing_progress.setValue(int(self.progress))
-            if self.progress == 100:
-                self.done_preprocessing = True
-                print("\nSaving the concatenated data ...")
-                # Save catdata
-                catdata_filename = os.path.join(self.save_dir, self.study_name + "_concatenated_data.hdf")
-                catf = h5py.File(catdata_filename, "w")
-                catf.create_dataset(self.study_name, data=catdata, compression="gzip", compression_opts=9)
-                catf.close()
-
-                # Write logs to config
-                config.set('progress', 'done_preprocessing', str(self.done_preprocessing))
-                # Write "preprocessing settings" to config
-                config['preprocessing settings']['filter_data'] = str(self.filter_data)
-                config['preprocessing settings']['filter_method'] = str(self.filter_method)
-                config['preprocessing settings']['lowcut_freq'] = str(self.lowcut_freq)
-                config['preprocessing settings']['highcut_freq'] = str(self.highcut_freq)
-                config['preprocessing settings']['downsample_data'] = str(self.downsample_data)
-                config['preprocessing settings']['sample_rate'] = str(self.sample_rate)
-                channels2remove = ','.join(map(str, channels2remove))
-                config['preprocessing settings']['channels2remove'] = channels2remove
-                # Write "preprocessing results" to config
-                length_data_str = ','.join(map(str, length_all_data))
-                config['preprocessing results']['length_data'] = length_data_str
-                ch_names = ','.join(map(str, self.ch_names))
-                config['preprocessing results']['n_chan'] = str(self.n_chan)
-                config['preprocessing results']['ch_names'] = ch_names
-                save_config(config_file, config)
-
-                self.ui.close()
-
-    def plot_CHANNELS(self):
+    def plot_montage(self):
+        self.canvas.figure.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
-        if self.ui.rawdata_show_channel_names_checkbox.isChecked():
-            show_names = True
+        EEG = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
+        if EEG.info['dig'] is None:
+            QMessageBox.information(self, "Load error",
+                                    "Unable to retrieve channel locations."
+                                    "Please ensure they are imported before proceeding.",
+                                    QMessageBox.Ok)
         else:
-            show_names = False
-        ax = self.ui.MplWidget_chan.canvas.axes
-        ax.clear()
-        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                     ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(18)
-        EEG.plot_sensors(ch_type='eeg', show_names=show_names, axes=ax)
-        self.ui.MplWidget_chan.canvas.draw()
-    
+            #montage = EEG.get_montage()
+            if self.ui.rawdata_show_channel_names_checkbox.isChecked():
+                show_names = True
+            else:
+                show_names = False
+
+            if self.ui.step0_ch2rm_combobox.currentData():
+                self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
+                EEG.info["bads"].extend(self.ch2rm)
+
+            fig, _ = EEG.plot_sensors(kind='select', show_names=show_names, show=False)
+            #fig = montage.plot(show_names=show_names)
+
+            self.ui.figure_title_lineedit.setText("EEG Montage")
+            self.canvas.figure = fig
+            self.canvas.draw()
+
     def plot_EEG(self):
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
+        EEG = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
         EEG.plot()
 
-    def plot_PSD(self):
+    def plot_psd(self):
+        self.canvas.figure.clear()
+        # self.ui.MplWidget.canvas.draw()
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        EEG = load_data.load_eegs(filename, self.extension, self.data_type, [])
+        EEG = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())
@@ -464,10 +489,9 @@ class NewStudyWindow(QDialog):
             EEG = EEG.filter(l_freq=lowcut, h_freq=highcut, method=filter_method, n_jobs=-1)
         fmin_plot = int(self.ui.rawdata_range_psd_min.text())
         fmax_plot = int(self.ui.rawdata_range_psd_max.text())
-        ax = self.ui.MplWidget_psd.canvas.axes
-        ax.clear()
-        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                     ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(18)
-        EEG.plot_psd(fmin=fmin_plot, fmax=fmax_plot, ax=ax)
-        self.ui.MplWidget_psd.canvas.draw()
+        fig = EEG.compute_psd(fmin=fmin_plot, fmax=fmax_plot).plot(show=False)
+        #mne.viz.plot_raw_psd(EEG, fmin=fmin_plot, fmax=fmax_plot, ax=ax)
+        self.canvas.figure = fig
+        self.ui.figure_title_lineedit.setText("Power Spectral Density (PSD) using Multitapers")
+        self.canvas.draw()
+

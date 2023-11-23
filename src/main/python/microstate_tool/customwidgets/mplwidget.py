@@ -1,6 +1,7 @@
-from PyQt5.QtWidgets import*
+from PyQt5.QtWidgets import *
 
-from matplotlib.backends.backend_qt5agg import FigureCanvas
+# Haven't tested this import yet
+from matplotlib.backends.backend_qt5agg import FigureCanvasQT as FigureCanvas
 
 from matplotlib.figure import Figure
 
