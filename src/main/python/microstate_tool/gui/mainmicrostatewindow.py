@@ -180,7 +180,8 @@ class MainMicrostateWindow(QMainWindow):
         webbrowser.open('https://github.com/eBrainLab/EEG-COMET')
 
     def report_issues(self):
-        webbrowser.open('https://github.com/eBrainLab/EEG-COMET/issues/new')
+        # webbrowser.open('https://github.com/eBrainLab/EEG-COMET/issues/new')
+        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/issues/new')
 
     def update_toolbox(self):
         ret = QMessageBox.question(self, 'MessageBox', "Download toolbox?",
