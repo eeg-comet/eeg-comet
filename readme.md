@@ -11,13 +11,16 @@ https://packaging.python.org/guides/installing-using-pip-and-virtual-environment
 
 Minimum requirement: Python 3.9
 
-Windows: (amin)
+Windows Installation (Ensure Python is properly installed):
+```python -m venv venv```
+```venv\Scripts\activate```
+```pip install -r requirements.txt```
+Windows Run Toolbox:
+```  python src\main\python\microstate_tool\main.py ```
 
 Mac installation:
 ```python3 -m venv venv```
 ```source venv/bin/activate```
 ```pip install -r requirements.txt```
-
-
-To run the main toolbox GUI, simply run the following command
+Mac Run Toolbox
 ```  python src/main/python/microstate_tool/main.py ```
