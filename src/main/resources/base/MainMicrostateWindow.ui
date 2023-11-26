@@ -315,8 +315,8 @@ Comprehensive Microstate Extraction Toolbox</string>
          <property name="geometry">
           <rect>
            <x>0</x>
-           <y>-240</y>
-           <width>888</width>
+           <y>-883</y>
+           <width>884</width>
            <height>1217</height>
           </rect>
          </property>
@@ -861,7 +861,7 @@ Comprehensive Microstate Extraction Toolbox</string>
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Averaged characteristics over the full span of EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Static features</string>
+             <string>Average Full-Span Features</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -1604,7 +1604,7 @@ Comprehensive Microstate Extraction Toolbox</string>
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Windowed characteristics over sliding windows across the EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
-               <string>Dynamic features</string>
+               <string>Sliding Window Features</string>
               </property>
              </widget>
             </item>
@@ -2510,12 +2510,12 @@ Comprehensive Microstate Extraction Toolbox</string>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_5"/>
   <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup_7"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_7"/>
  </buttongroups>
 </ui>

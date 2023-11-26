@@ -12,6 +12,7 @@ import mne
 from scipy import stats
 from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
+from gui.progress_dialog import ProgressDialog
 
 
 class SourceLocalizer:
@@ -186,9 +187,17 @@ class SourceLocalizer:
 
     def run_source_localization(self):
         """Perform source localization for multiple EEG files."""
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Source Localization ...")
+        progress_dialog.set_label_text(
+            f"Running source localization using {self.inv_method} method")
+        progress_dialog.show()
+
         list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
         for idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_name)):
             print(f"Source Localizing {eeg_name} ({idx + 1}/{len(list_eeg_path)})")
+            progress_dialog.set_line_edit_text(f"{eeg_name}")
             stc_subject_path = os.path.join(self.stc_path, list_eeg_name[idx])
             if not os.path.exists(stc_subject_path):
                 os.makedirs(stc_subject_path)
@@ -204,8 +213,11 @@ class SourceLocalizer:
                 stc_file = self.compute_stc(src, bem, trans, eeg, eeg_info)
                 # Morph to fsaverage
                 src_morph = mne.read_source_spaces(src)
-                morph = mne.compute_source_morph(src_morph, subject_from=subject, subject_to='fsaverage',
-                                                 subjects_dir=self.individual_subjects_dir, spacing=self.spacing[-1])
+                morph = mne.compute_source_morph(src_morph,
+                                                 subject_from=subject,
+                                                 subject_to='fsaverage',
+                                                 subjects_dir=self.individual_subjects_dir,
+                                                 spacing=self.spacing[-1])
                 morph.save(os.path.join(self.individual_subjects_dir, subject, subject + '-morph.h5'), overwrite=True)
                 stc_file = morph.apply(stc_file)
             else:
@@ -214,8 +226,10 @@ class SourceLocalizer:
                 self.export_src_bem_trans('fsaverage', src, bem, trans)
                 stc_file = self.compute_stc(src, bem, trans, eeg, eeg_info)
 
+            progress_dialog.update_progress(idx + 1, len(list_eeg_path))
             print(f"\nExporting Source Time Courses: {eeg_name}")
             self.stc_write(stc_subject_path, stc_file)
+        progress_dialog.close()
 
     def find_t_coeff(self, sample, maps):
         """Find T coefficients."""
@@ -295,9 +309,18 @@ class SourceLocalizer:
     def identify_microstates_sources(self, source_method):
         """Identify microstate source localization for multiple EEG files."""
 
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Localizing Microstates ...")
+        progress_dialog.set_label_text(
+            f"Identifying microstate sources with the {source_method} method")
+        progress_dialog.show()
+
         list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
         for idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_name)):
             print(f"\nLoading Source Time Courses: {eeg_name}")
+            progress_dialog.set_line_edit_text(f"{eeg_name}")
+
             stc_subject_path = os.path.join(self.stc_path, eeg_name)
             stc_file = self.stc_read(stc_subject_path)
             stc_data = stc_file[0].data.T
@@ -332,3 +355,7 @@ class SourceLocalizer:
                 for m, array_data in all_sources_dict.items():
                     filename = os.path.join(avg_subject_path, f"{list_eeg_name[idx]}_{m}.npy")
                     np.save(filename, array_data)
+
+            progress_dialog.update_progress(idx + 1, len(list_eeg_path))
+        progress_dialog.close()
+

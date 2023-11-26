@@ -850,12 +850,12 @@ class MainMicrostateWindow(QMainWindow):
             
             if self.ui.step3_backfit_all_radio.isChecked():
                 self.comet_tbx.backfit_to = 'all'
+                if self.ui.step3_identify_short_checkbox.isChecked():
+                    self.comet_tbx.identify_short_window = True
+                else:
+                    self.comet_tbx.identify_short_window = False
             elif self.ui.step3_backfit_peaks_radio.isChecked():
                 self.comet_tbx.backfit_to = 'peaks'
-
-            if self.ui.step3_identify_short_checkbox.isChecked():
-                self.comet_tbx.identify_short_window = True
-            else:
                 self.comet_tbx.identify_short_window = False
 
             self.comet_tbx.epsilon = ''

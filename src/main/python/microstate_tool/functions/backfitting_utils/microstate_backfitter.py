@@ -297,12 +297,19 @@ class MicrostateBackfitter:
         list_eeg_path, list_eeg_names = data_io.find_data(self.preprocessed_data_path, self.extension, "*")
 
         if self.identify_short_window:
+            # Create an instance of the progress dialog
+            progress_dialog = ProgressDialog()
+            progress_dialog.set_window_title("Filtering Segments ...")
+            progress_dialog.set_label_text("Identifying the optimal window length for removal")
+            progress_dialog.show()
+
             rm_max_len = 50
             len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
             similarity_scores = np.empty((len(list_eeg_path), len(len_win2rm_list)))
             progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True,
                                 desc="Identifying the optimal window length for removal")
-            for eeg_path in list_eeg_path:
+            for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_names)):
+                progress_dialog.set_line_edit_text(f"{eeg_name}")
                 eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                 eeg_data = eeg.get_data()
                 idx_eeg = list_eeg_path.index(eeg_path)
@@ -320,8 +327,10 @@ class MicrostateBackfitter:
                     labeled_segmentation = self.label_segments(np.array(segmentation))
                     similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
 
+                progress_dialog.update_progress(eeg_idx + 1, len(list_eeg_path))
                 progress_bar.update(1)
 
+            progress_dialog.close()
             progress_bar.close()
             similarity_scores = np.array(similarity_scores)
 
@@ -358,6 +367,7 @@ class MicrostateBackfitter:
         # Create an instance of the progress dialog
         progress_dialog = ProgressDialog()
         progress_dialog.set_window_title("Backfitting ...")
+        progress_dialog.set_label_text("Backfitting microstates to data: ")
         progress_dialog.show()
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True)
@@ -369,7 +379,6 @@ class MicrostateBackfitter:
             eeg_times = eeg.times * 1000
             filename = os.path.split(eeg_path)[1].split('.')[0]
 
-            progress_dialog.set_label_text("Backfitting microstates to data: ")
             progress_dialog.set_line_edit_text(f"{filename}")
             progress_bar.set_description(f"Backfitting microstates to data: {filename}")
 
