@@ -214,9 +214,8 @@ class MicrostateClusterer:
 
         return reduced_data
 
-    def clustering_func(self, preprocessed_data_path, extension, datatype,
-                        n_pca, method, n_states, initializer, use_percentages,
-                        min_dist, clustering_option, optimizer_mode='gev', parameter_value=5, kmin=2, kmax=10):
+    def clustering_func(self, preprocessed_data_path, extension, datatype, n_pca, method, n_states, initializer,
+                        use_percentages, min_dist, clustering_option):
         """
         Performs clustering on preprocessed data to find microstate maps.
 
@@ -253,25 +252,6 @@ class MicrostateClusterer:
                                                       use_percentages,
                                                       min_dist
                                                       )
-        """
-        if n_states == 'auto':
-            from functions.clustering_utils.clusterer_optimizer import ClustererOptimizer
-            self.clusterer_optimizer = ClustererOptimizer(maps2use,
-                                                          min_dist,
-                                                          self.number_of_repeats,
-                                                          kmin,
-                                                          kmax,
-                                                          preprocessed_data_path,
-                                                          extension,
-                                                          datatype,
-                                                          self.clustering_tolerance,
-                                                          self.max_iterations
-                                                          )
-            self.optimal_k, self.k_values, self.target_values = self.clusterer_optimizer.find_optimal_k(optimizer_mode,
-                                                                                                        parameter_value)
-            n_states = self.optimal_k
-            print(f'result: n_states = {n_states}')
-        """
 
         if method == 'Modified K-Means Clustering':
             modified_kmeans_results = self.run_modified_kmeans(
