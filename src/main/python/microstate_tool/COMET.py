@@ -11,11 +11,13 @@ import matplotlib.pyplot as plt
 
 from functions.data_utils.data_io import DataIO
 from functions.data_utils.data_preprocessor import DataPreprocessor
+from functions.data_utils.extract_peaks_maps import generate_maps_and_peaks
 from functions.features_utils.feature_extractor import FeatureExtractor
 from functions.features_utils.feature_io import FeatureIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
+from functions.clustering_utils.clusterer_optimizer import ClustererOptimizer
 from functions.sourcelocalization_utils.source_localizer import SourceLocalizer
 
 from gui.progress_dialog import ProgressDialog
@@ -222,7 +224,31 @@ class COMET:
                                                    self.max_iterations,
                                                    self.clustering_tolerance
                                                    )
-        best_maps, gev, _, n_states = microstate_clusterer.clustering_func(
+
+        if self.number_of_maps == 'auto':
+            self.maps2use, self.peaks2use = generate_maps_and_peaks(self.preprocessed_data_path,
+                                                                    self.extension,
+                                                                    self.datatype,
+                                                                    self.use_percentages,
+                                                                    self.min_distance_size
+                                                                    )
+            self.clusterer_optimizer = ClustererOptimizer(self.maps2use,
+                                                          self.min_distance_size,
+                                                          self.number_of_repeats,
+                                                          self.kmin,
+                                                          self.kmax,
+                                                          self.preprocessed_data_path,
+                                                          self.extension,
+                                                          self.datatype,
+                                                          self.clustering_tolerance,
+                                                          self.max_iterations
+                                                          )
+
+            self.optimal_k, self.k_values, self.target_values = self.clusterer_optimizer.find_optimal_k(self.stopping_mode, self.stopping_parameter)
+            self.number_of_maps = self.optimal_k
+            print(f'result: n_states = {self.number_of_maps}')
+
+        best_maps, gev, _ = microstate_clusterer.clustering_func(
             self.preprocessed_data_path,
             self.extension,
             self.datatype,
@@ -232,15 +258,10 @@ class COMET:
             self.initializer,
             self.use_percentages,
             self.min_distance_size,
-            self.clustering_option,
-            self.stopping_mode,
-            self.stopping_parameter,
-            self.kmin,
-            self.kmax
+            self.clustering_option
         )
         # microstate_maps = best_maps
         self.best_maps = np.array(best_maps)
-        self.n_states = n_states
 
         # Save Maps
         maps_df = pd.DataFrame(self.best_maps.T, index=self.ch_names)

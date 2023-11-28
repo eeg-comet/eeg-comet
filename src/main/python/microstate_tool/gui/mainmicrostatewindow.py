@@ -9,7 +9,7 @@ from datetime import datetime
 
 from gui.newstudywindow import NewStudyWindow
 from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
-from gui.elbow_visualization_dialog import ElbowVisualizationDialog
+from gui.optimizer_visualization_dialog import OptimizerVisualizationDialog
 from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
 from gui.feature_visualization_dialog import FeatureVisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
@@ -78,7 +78,7 @@ class MainMicrostateWindow(QMainWindow):
     def init_dialogs(self):
         self.ui.NewStudyWindow = NewStudyWindow(self.context, main_window=self, comet_tbx=self.comet_tbx)
         # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context, main_window=self, tbx=self.comet_tbx)
-        self.ui.ElbowVisualizationDialog = ElbowVisualizationDialog(self.context)
+        self.ui.OptimizerVisualizationDialog = OptimizerVisualizationDialog(self.context)
         self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(self.context)
         self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(self.context, tbx=self.comet_tbx)
 
@@ -264,7 +264,7 @@ class MainMicrostateWindow(QMainWindow):
             box.setCurrentText(current)
 
     def mainwindow_controller(self):
-
+        # Control the visibility and enable/disable state of UI widgets based on conditions
         after_preprocessing_widgets = [
             self.ui.step2_clustermethod_combo_label,
             self.ui.step2_clustermethod_combobox,
@@ -726,21 +726,33 @@ class MainMicrostateWindow(QMainWindow):
 
 
     def visualize_elbow(self):
-        self.ElbowVisualizationDialog.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
-        self.ElbowVisualizationDialog.extension = self.comet_tbx.extension
-        self.ElbowVisualizationDialog.datatype = self.comet_tbx.datatype
+        if self.comet_tbx.done_clustering and self.comet_tbx.choose_number_of_maps == "auto":
+            setattr(self.OptimizerVisualizationDialog, f'optimizer_{self.comet_tbx.stopping_mode}_done', True)
+            self.OptimizerVisualizationDialog.optimizer_results = {}
+            self.OptimizerVisualizationDialog.optimizer_results[self.comet_tbx.stopping_mode] = {
+                'optimal_k': self.comet_tbx.optimal_k,
+                'k_values': self.comet_tbx.k_values,
+                'target_values': self.comet_tbx.target_values
+            }
+        else:
+            # Initialize a dictionary to store results for each mode
+            self.OptimizerVisualizationDialog.optimizer_results = {}
+
+        self.OptimizerVisualizationDialog.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
+        self.OptimizerVisualizationDialog.extension = self.comet_tbx.extension
+        self.OptimizerVisualizationDialog.datatype = self.comet_tbx.datatype
         if self.ui.step2_use_percent_radio.isChecked():
             self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
         else:
             self.comet_tbx.use_percentages = None
-        self.ElbowVisualizationDialog.use_percentages = self.comet_tbx.use_percentages
-        self.ElbowVisualizationDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.comet_tbx.sample_rate))
-        self.ElbowVisualizationDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-        self.ElbowVisualizationDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+        self.OptimizerVisualizationDialog.use_percentages = self.comet_tbx.use_percentages
+        self.OptimizerVisualizationDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text())/(1000/self.comet_tbx.sample_rate))
+        self.OptimizerVisualizationDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+        self.OptimizerVisualizationDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
         self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
-        self.ElbowVisualizationDialog.max_iterations = self.comet_tbx.max_iterations
-        self.ElbowVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.ElbowVisualizationDialog.showMaximized()
+        self.OptimizerVisualizationDialog.max_iterations = self.comet_tbx.max_iterations
+        self.OptimizerVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.OptimizerVisualizationDialog.showMaximized()
 
     def do_clustering(self):
 
@@ -826,8 +838,9 @@ class MainMicrostateWindow(QMainWindow):
             self.log_window.append_log(f"Clustering will be performed on {cluster_data_log}")
 
             self.comet_tbx.do_clustering()
-            self.label_maps()
             self.comet_tbx.done_clustering = True
+            self.comet_tbx.save_tbx()
+            self.label_maps()
             self.comet_tbx.save_tbx()
             self.mainwindow_controller()
 
