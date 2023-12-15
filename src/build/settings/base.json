@@ -1,6 +1,0 @@
-{
-    "app_name": "microstate_tool",
-    "author": "Amin Kabir and Raaj Chatterjee",
-    "main_module": "src/main/python/microstate_tool/main.py",
-    "version": "0.0.0"
-}

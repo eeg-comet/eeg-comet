@@ -140,8 +140,8 @@ class DataIO:
         # Apply the added projection
         eeg.apply_proj(verbose=verbose)
         
-        #if 'TRIGGER' in channel_names:
-        #    eeg = eeg.drop_channels('TRIGGER')
+        if 'TRIGGER' in channel_names:
+            eeg = eeg.drop_channels('TRIGGER')
     
         return eeg
     
