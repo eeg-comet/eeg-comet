@@ -46,8 +46,6 @@ def run_application():
     exit_code = app.exec_()
 
     # Cleanup or perform any necessary actions
-    # ...
-
     sys.exit(exit_code)
 
 
