@@ -16,6 +16,7 @@ from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, 
 from keras.layers import Conv1D, Flatten, Dense, Reshape, Input
 from keras.models import Model
 from sklearn.decomposition import PCA
+from joblib import Parallel, delayed
 from gui.progress_dialog import ProgressDialog
 
 
@@ -31,14 +32,12 @@ class MicrostateClusterer:
 
     def corr_vectors(self, A, B, axis=0):
         """Computes the Pearson correlation between two matrices A and B along a specified axis."""
-        if A.shape != B.shape:
-            raise ValueError("Both matrices A and B must have the same shape.")
 
         # Center and normalize matrices
         An = A - np.mean(A, axis=axis, keepdims=True)
-        An /= np.linalg.norm(An, axis=axis, keepdims=True)
+        An /= np.linalg.norm(An, axis=axis, ord=2, keepdims=True)
         Bn = B - np.mean(B, axis=axis, keepdims=True)
-        Bn /= np.linalg.norm(Bn, axis=axis, keepdims=True)
+        Bn /= np.linalg.norm(Bn, axis=axis, ord=2, keepdims=True)
 
         return np.sum(An * Bn, axis=axis)
 
@@ -150,6 +149,110 @@ class MicrostateClusterer:
         if verbose:
             print(f'\nBest GEV: {best_gev}')
         return modified_kmeans_results
+
+
+
+    def run_aahc(self, preprocessed_data_path, extension, datatype, maps2use, n_states, n_maps2use=1000, verbose=True):
+        """Performs AAHC clustering on data with a specified number of microstate maps."""
+
+
+        def select_random_maps_subset(maps2use, n_maps2use):
+            # Generate random indices to select maps
+            random_indices = np.random.choice(maps2use.shape[1], size=n_maps2use, replace=False)
+            # Use the random indices to select maps
+            selected_maps = maps2use[:, random_indices]
+            return selected_maps
+
+        def process_reassignment(cluster_index_to_reassign, Ci, cluster_data, maps):
+            cluster_data_subset = cluster_data[cluster_index_to_reassign, :]
+            mapsn = maps - np.mean(maps, axis=1, keepdims=True)
+            mapsn /= np.linalg.norm(mapsn, axis=1, ord=2, keepdims=True)
+            cluster_data_subsetn = cluster_data_subset - np.mean(cluster_data_subset, axis=0, keepdims=True)
+            cluster_data_subsetn /= np.linalg.norm(cluster_data_subsetn, axis=0, ord=2, keepdims=True)
+            map_corr = np.sum(mapsn * cluster_data_subset, axis=1)
+            new_assignment = np.argmax(np.abs(map_corr), axis=0)
+            Ci[new_assignment].append(cluster_index_to_reassign)
+
+        def process_cluster(cluster_index, Ci, cluster_data, maps):
+            data_indices = Ci[cluster_index]
+            cluster_data_subset = cluster_data[data_indices, :]
+            covariance_matrix = np.dot(cluster_data_subset.T, cluster_data_subset)
+            eigenvalues, eigenvectors = np.linalg.eig(covariance_matrix)
+            principal_component = eigenvectors[:, np.argmax(np.abs(eigenvalues))]
+            principal_component = np.real(principal_component)
+            reconstructed_data = principal_component / np.sqrt(np.sum(principal_component ** 2))
+
+            # Calculate residual (difference between original and reconstructed data)
+            residual = cluster_data_subset - np.dot(reconstructed_data, cluster_data_subset.T).T
+            maps[cluster_index, :] = principal_component / np.sqrt(np.sum(principal_component ** 2))
+
+            return residual
+
+        # Initial setup
+        # Number of parallel workers (adjust as needed)
+        n_jobs = -1  # Use all available cores
+        all_data, _ = generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
+        n_channels, n_samples = all_data.shape
+        # Get GFP peaks
+        gfp = all_data.std(axis=0)
+        gfp2 = np.sum(gfp ** 2)
+        # Initial number of clusters and Store original GFP peaks and indices
+        maps2use = select_random_maps_subset(maps2use, n_maps2use)
+        maps = np.transpose(maps2use)
+        n_maps = maps.shape[0]
+        batch_size = int(n_maps/10)
+        cluster_data = maps
+        print(f"Initial number of clusters: {n_maps:d}\n")
+
+        # Cluster indices w.r.t. original size, normalized GFP peak data
+        Ci = [[k] for k in range(n_maps)]
+
+        # Main loop: atomize + agglomerate
+        while (n_maps > n_states):
+            print(f"\r\r\t\tAAHC > n: {n_maps:d} => {n_maps - 1:d}", end="")
+
+            # Correlations of the data sequence with each cluster
+            # Assuming you initialize 'segmentation' somewhere before the loop
+            segmentation = np.zeros(n_samples, dtype=int)
+            # Memory-efficient normalization
+            maps_norm = np.linalg.norm(maps, axis=1, ord=2, keepdims=True)
+            maps /= maps_norm
+            # Process data in batches for activation
+            activation = np.zeros((n_maps, n_samples))
+            for i in range(0, n_samples, batch_size):
+                data_batch = all_data[:, i:i + batch_size]
+                activation[:, i:i + batch_size] = maps.dot(data_batch)
+
+            # GEV (global explained variance) of cluster k
+            gev = np.zeros(n_maps)
+            for state in range(n_maps):
+                idx = (segmentation == state)
+                map_corr = self.corr_vectors(all_data[:, idx], maps[segmentation[idx]].T)
+                gev[state] = np.sum((gfp[idx] * map_corr) ** 2) / gfp2
+            # Merge cluster with the minimum GEV
+            imin = np.argmin(gev)
+
+            # N => N-1
+            maps = np.vstack((maps[:imin, :], maps[imin + 1:, :]))
+            Ci, reC = Ci[:imin] + Ci[imin + 1:], Ci[imin]
+
+            re_cluster = []  # indices of updated clusters
+            # Parallelize the loop
+            Parallel(n_jobs=n_jobs)(delayed(process_reassignment)(cluster_index_to_reassign, Ci, cluster_data, maps) for
+                                    cluster_index_to_reassign in reC)
+            n_maps = len(Ci)
+
+            # Update clusters
+            re_cluster = list(set(re_cluster))  # unique list of updated clusters
+
+            # Parallelize the loop
+            residuals = Parallel(n_jobs=n_jobs)(
+                delayed(process_cluster)(cluster_index, Ci, cluster_data, maps) for cluster_index in re_cluster)
+
+        best_gev = self.compute_gev(all_data, maps)
+        print(f'\nBest GEV: {best_gev}')
+        return maps, np.sum(residuals), best_gev
+
 
     def create_eeg_autoencoder(self, input_shape, encoding_dim):
         """Creates an autoencoder model for EEG data compression and reconstruction."""
@@ -267,6 +370,14 @@ class MicrostateClusterer:
             best_gev = modified_kmeans_results['best']['gev']
             best_residual = modified_kmeans_results['best']['residual']
 
+        elif method == 'Agglomerative Hierarchical Clustering':
+            best_maps, best_residual, best_gev = self.run_aahc(
+                preprocessed_data_path, extension, datatype,
+                maps2use=maps2use,
+                n_states=n_states,
+                n_maps2use=50 # edit
+            )
+
         else:
 
             initial_centers = initialize_cluster_centers(maps2use, n_states, initializer)
@@ -274,26 +385,34 @@ class MicrostateClusterer:
 
             if method == 'K-Means Clustering':
                 metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
-                clustering_instance = kmeans.kmeans(maps2use, initial_centers,
-                                             tolerance=self.clustering_tolerance, itermax=self.max_iterations,
-                                             metric=metric)
+                clustering_instance = kmeans.kmeans(maps2use,
+                                                    initial_centers,
+                                                    tolerance=self.clustering_tolerance,
+                                                    itermax=self.max_iterations,
+                                                    metric=metric
+                                                    )
 
             elif method == 'PCA + K-Means Clustering':
                 encoded_features = self.extract_features_with_pca(maps2use, pca_components=n_pca)
                 initial_centers = initialize_cluster_centers(np.transpose(encoded_features), n_states, initializer)
                 metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
-                #metric = distance_metric(type_metric.EUCLIDEAN)
-                clustering_instance = kmeans.kmeans(encoded_features, initial_centers,
-                                                    tolerance=self.clustering_tolerance, itermax=self.max_iterations,
-                                                    metric=metric)
+                clustering_instance = kmeans.kmeans(encoded_features,
+                                                    initial_centers,
+                                                    tolerance=self.clustering_tolerance,
+                                                    itermax=self.max_iterations,
+                                                    metric=metric
+                                                    )
 
             elif method == 'Autoencoder + K-Means Clustering':
                 encoded_features, autoencoder = self.extract_features_with_autoencoder(maps2use, encoding_dim=10)
                 initial_centers = initialize_cluster_centers(np.transpose(encoded_features), n_states, initializer)
                 metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
-                clustering_instance = kmeans.kmeans(encoded_features, initial_centers,
-                                                    tolerance=self.clustering_tolerance, itermax=self.max_iterations,
-                                                    metric=metric)
+                clustering_instance = kmeans.kmeans(encoded_features,
+                                                    initial_centers,
+                                                    tolerance=self.clustering_tolerance,
+                                                    itermax=self.max_iterations,
+                                                    metric=metric
+                                                    )
 
             elif method == 'X-Means Clustering':
                 if clustering_option == 'Bayesian Information Criterion':
@@ -302,13 +421,12 @@ class MicrostateClusterer:
                     CRITERION = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH
                 else:
                     raise ValueError("Failed to match metric")
-                clustering_instance = xmeans.xmeans(maps2use, initial_centers, n_states,
-                                     tolerance=self.clustering_tolerance, criterion=CRITERION)
-
-            elif method == 'Agglomerative Hierarchical Clustering':
-                encoded_features = self.extract_features_with_pca(maps2use, pca_components=n_pca)
-                clustering_instance = agglomerative.agglomerative(encoded_features, n_states,
-                                                                  agglomerative.type_link.SINGLE_LINK, ccore=True)
+                clustering_instance = xmeans.xmeans(maps2use,
+                                                    initial_centers,
+                                                    n_states,
+                                                    tolerance=self.clustering_tolerance,
+                                                    criterion=CRITERION
+                                                    )
 
             else:
                 raise ValueError("Failed to match method")
@@ -334,17 +452,6 @@ class MicrostateClusterer:
                     centroids = self.find_original_centroids(maps2use, cluster_labels_flat, n_states)
                     # Calculate residuals
                     residual = 0#self.calculate_residuals(maps2use, autoencoder)
-                elif method == 'Agglomerative Hierarchical Clustering':
-                    clustering_instance.process()
-                    cluster_labels = clustering_instance.get_clusters(maps2use)
-                    residual = 0#clustering_instance.get_total_wce()
-                    # Flatten the cluster labels
-                    cluster_labels_flat = np.zeros(len(maps2use))
-                    for cluster_id, cluster in enumerate(cluster_labels):
-                        cluster_labels_flat[cluster] = cluster_id
-                    # Find original centroids
-                    centroids = self.find_original_centroids(maps2use, cluster_labels_flat, n_states)
-
 
                 GEV_R = self.compute_gev(np.transpose(maps2use), np.array(centroids))
 

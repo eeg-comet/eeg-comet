@@ -347,19 +347,21 @@ class MicrostateBackfitter:
                 optimal_indices.append(inflection_point)
 
             remove_segments_less_than = int(np.median(optimal_indices))
-            print("Optimal length to remove:", remove_segments_less_than * (1000 / self.sample_rate))
 
         else:
             remove_segments_less_than = self.remove_segments_less_than
 
+        remove_segments_less_than_ms = remove_segments_less_than * (1000 / self.sample_rate)
+        print("Optimal length to remove:", remove_segments_less_than_ms)
+
         if self.filter_segments_option == 'remove':
-            print(f"\nRemoving segments with less than {remove_segments_less_than} ms in duration.")
+            print(f"\nRemoving segments with less than {remove_segments_less_than_ms}ms in duration.")
         elif self.filter_segments_option == 'replace_high':
             print(
-                f"\nReplacing segments with less than {remove_segments_less_than} by the nearby microstate with higher occurrence.")
+                f"\nReplacing segments with less than {remove_segments_less_than_ms}ms by the nearby microstate with higher occurrence.")
         elif self.filter_segments_option == 'replace_half':
             print(
-                f"\nReplacing segments with less than {remove_segments_less_than} by half by the previous and half by the next dominant microstate.")
+                f"\nReplacing segments with less than {remove_segments_less_than_ms}ms by half by the previous and half by the next dominant microstate.")
         elif self.filter_segments_option == 'smooth':
             print(
                 f"\nSmoothing segments.")
@@ -388,6 +390,13 @@ class MicrostateBackfitter:
                     trial_times = eeg[idx].times * 1000
                 else:
                     trial_data = eeg_data
+                    window_size = 5
+                    # Smooth Data
+                    weights = np.repeat(1.0, window_size) / window_size
+                    trial_data = np.apply_along_axis(lambda x: np.convolve(x, weights, mode='same'), axis=1,
+                                                        arr=trial_data)
+
+
                     trial_times = eeg_times
 
                 if self.backfit_to == 'all':
