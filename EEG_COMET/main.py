@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 from gui.mainmicrostatewindow import MainMicrostateWindow
 
+
 class CustomApplicationContext:
     """
     Custom application context for EEG-COMET.
@@ -21,6 +22,7 @@ class CustomApplicationContext:
         Get the full path of a resource file.
         """
         return os.path.join(self.base_path, "ui", path)
+
 
 def run_application():
     """
@@ -47,6 +49,7 @@ def run_application():
     # ...
 
     sys.exit(exit_code)
+
 
 if __name__ == '__main__':
     run_application()
