@@ -23,8 +23,12 @@ from COMET import COMET
 class LogWindow(QWidget):
     def __init__(self):
         super().__init__()
+
+        # Set up the log window
         self.setWindowTitle("EEG-COMET Log")
         self.resize(500, 300)
+
+        # Create and configure the layout
         layout = QVBoxLayout()
         self.textArea = QTextEdit()
         self.textArea.setReadOnly(True)
@@ -35,23 +39,31 @@ class LogWindow(QWidget):
         self.setLayout(layout)
 
     def append_log(self, log, parent_window=None):
-        self.current_date = datetime.now().strftime("%d/%m/%y")
-        self.current_time = datetime.now().strftime("%I:%M %p")
+        # Get the current date and time
+        current_date = datetime.now().strftime("%d/%m/%y")
+        current_time = datetime.now().strftime("%I:%M %p")
 
-        log_text = f"[{self.current_date} {self.current_time}]: {log}\n"
+        # Format the log entry with date and time
+        log_text = f"[{current_date} {current_time}]: {log}\n"
+
+        # Append the log entry to the text area
         self.textArea.append(log_text)
 
+        # If a parent window is provided, update its log_text attribute
         if parent_window:
             parent_window.comet_tbx.log_text = self.textArea.toPlainText()
 
     def replace_log(self, import_log):
+        # Replace the current log with the imported log
         self.textArea.setText(import_log)
 
     def show_hide_log_window(self):
+        # Toggle the visibility of the log window
         if self.isVisible():
             self.setVisible(False)
         else:
             self.setVisible(True)
+
 
 class MainMicrostateWindow(QMainWindow):
     def __init__(self, context, parent=None):
