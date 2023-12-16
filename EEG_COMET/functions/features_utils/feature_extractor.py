@@ -14,13 +14,6 @@ class FeatureExtractor:
     def __init__(self, segment, sampling_rate, window_size, mode='static'):
         """
         Initialize the FeatureExtractor class.
-
-        Args:
-            segment (list): A list containing elements to analyze.
-            sampling_rate (int): The sampling rate of the segment in Hz.
-            window_size (int): The size of the non-overlapping windows in seconds.
-            mode (str): The mode for calculation. 'static' returns average values over all windows,
-                        'dynamic' returns values for each window.
         """
         self.segment = segment
         self.sampling_rate = sampling_rate
@@ -31,24 +24,12 @@ class FeatureExtractor:
     def _calculate_window_index(self, i):
         """
         Calculate the window index for a given position.
-
-        Args:
-            i (int): Position in the segment.
-
-        Returns:
-            int: Window index.
         """
         return i // (self.sampling_rate * self.window_size)
 
     def _remove_consecutive_duplicates(self, str_array):
         """
         Remove consecutive duplicate characters from a string.
-
-        Args:
-            str_array (str or list): The string or list of strings to remove duplicates from.
-
-        Returns:
-            new_str_array: The new string with consecutive duplicates removed.
         """
         if isinstance(str_array, list):
             str_array = "".join(str_array)
@@ -66,27 +47,12 @@ class FeatureExtractor:
     def _initialize_empty_window_data(self):
         """
         Create a dictionary with zero values for all elements in the segment.
-
-        Returns:
-            dict: Dictionary with elements as keys and zero values.
         """
         return {element: 0 for element in set(self.segment)}
 
     def global_explained_variance(self, eeg_data, microstate_maps, microstate_labels=None):
         """
         Compute Global Explained Variance (GEV) for a given EEG data and microstate maps.
-
-        Parameters:
-        eeg_data: np.array, shape (n_channels, n_timepoints)
-            The EEG data matrix.
-        microstate_maps: np.array, shape (n_maps, n_channels)
-            The microstate topography used for computation.
-        microstate_labels: list of strings, optional
-            Labels for each microstate map.
-
-        Returns:
-        gev: float or list of float or dict
-            The Global Explained Variance.
         """
         if microstate_labels and len(microstate_labels) != microstate_maps.shape[0]:
             raise ValueError("Length of microstate_labels must match the number of microstate maps.")
@@ -127,11 +93,6 @@ class FeatureExtractor:
     def microstate_coverage(self):
         """
         Calculate the coverage percentage of each element within windows.
-
-        Returns:
-            dict or list of dict: Depending on the mode, returns either the average coverage
-                                  per element over all windows (mode='static'), or the dynamic
-                                  coverage of each element per window (mode='dynamic').
         """
         window_element_coverage = [self._initialize_empty_window_data() for _ in range(self.num_windows)]
 
@@ -163,11 +124,6 @@ class FeatureExtractor:
     def microstate_occurrence(self):
         """
         Compute the number of times an element changes from another element within non-overlapping windows.
-
-        Returns:
-            dict or list of dict: Depending on the mode, returns either the average count
-                                  per symbol over all windows (mode='static'), or the dynamic
-                                  count of changes per window (mode='dynamic').
         """
         window_change_counts = [self._initialize_empty_window_data() for _ in range(self.num_windows)]
         total_element_counts = Counter()
@@ -194,11 +150,6 @@ class FeatureExtractor:
     def microstate_duration(self):
         """
         Compute the average duration of each element uninterrupted in the data.
-
-        Returns:
-            dict or list of dict: Depending on the mode, returns either the average duration
-                                  per symbol over all windows (mode='static'), or the dynamic
-                                  duration per window (mode='dynamic').
         """
         if self.mode == 'static':
             durations = {}
@@ -254,41 +205,28 @@ class FeatureExtractor:
 
         return average_durations
 
-
     def compute_transition_probabilities(self):
         """
         Compute the transition probabilities for a given segment.
-
-        Returns:
-        transition_prob: dict
-            The transition probabilities.
         """
 
         transitions = defaultdict(int)
         total_transitions = 0
-
         for i in range(len(self.segment) - 1):
             current_element = self.segment[i]
             next_element = self.segment[i + 1]
-
             # Skip self-transitions
             if current_element == next_element:
                 continue
-
             transition_label = f"{current_element}_{next_element}"
             transitions[transition_label] += 1
             total_transitions += 1
-
         probabilities = {pair: count / total_transitions for pair, count in transitions.items()}
         return probabilities
 
     def lempel_ziv_complexity(self):
         """
         Calculate Lempel-Ziv complexity using the LZ76 algorithm and a sliding window implementation.
-
-        Returns:
-        dict: Dictionary containing either the average complexity over all windows (mode='static'),
-              or a list of complexities for each window (mode='dynamic').
         """
 
         window_size_samples = int(self.sampling_rate * self.window_size)
@@ -314,12 +252,6 @@ class FeatureExtractor:
     def _calculate_single_window_complexity(self, segment):
         """
         Calculate Lempel-Ziv complexity for a single window using the LZ76 algorithm.
-
-        Args:
-            segment (list): Input sequence of symbols.
-
-        Returns:
-            float: Lempel-Ziv complexity of the input sequence.
         """
         i, k, l = 0, 1, 1
         c, k_max = 1, 1
@@ -347,7 +279,8 @@ class FeatureExtractor:
                     k = 1
         return c / len(segment)
 
-    def extract_microstate_features(self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None):
+    def extract_microstate_features(
+            self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None):
         """
         Extracts a set of microstate features from EEG data segments, given a list of feature identifiers.
         The function operates in two modes: 'static' and 'dynamic'.
@@ -357,18 +290,6 @@ class FeatureExtractor:
 
         Note: The 'TP' (Transition Probability) feature is only supported in 'static' mode.
               If 'TP' is requested in 'dynamic' mode, it will be ignored.
-
-        Args:
-            filename (str): Name of the file being analyzed.
-            feature_list (list): List of feature identifiers to extract.
-                                 Possible values include 'COV', 'OCC', 'DUR', 'GEV', and 'TP'.
-            eeg_data (array, optional): Raw EEG data. Required if 'GEV' is among the features to be extracted.
-            microstate_maps (array, optional): Microstate maps. Required if 'GEV' is among the features to be extracted.
-            microstate_labels (array, optional): Microstate labels. Required if 'GEV' is among the features to be extracted.
-
-        Returns:
-            pd.DataFrame: Extracted features organized based on the chosen mode ('static' or 'dynamic').
-                          The DataFrame will have different columns depending on the mode.
         """
 
         features_dict = []
@@ -421,9 +342,10 @@ class FeatureExtractor:
         output_features_df = pd.DataFrame(output_features_data, columns=columns)
 
         if self.mode == 'static':
-            output_features_df = output_features_df.pivot_table(index='Filename', columns='Feature', values='Value').reset_index()
+            output_features_df = output_features_df.pivot_table(
+                index='Filename', columns='Feature', values='Value').reset_index()
         elif self.mode == 'dynamic':
-            output_features_df = output_features_df.pivot_table(index=["Filename", "Window_index"], columns="Feature", values="Value").reset_index()
+            output_features_df = output_features_df.pivot_table(
+                index=["Filename", "Window_index"], columns="Feature", values="Value").reset_index()
 
         return output_features_df
-
