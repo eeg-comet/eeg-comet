@@ -6,17 +6,17 @@ to EEG data according to specified parameters.
 
 """
 
-import mne
 import numpy as np
 import collections
-
 from functions.data_utils.data_io import DataIO
+
 
 class DataPreprocessor:
     def __init__(self):
         pass
 
-    def preprocess_eegs(self, eegfile, list_eegs, eeg_format, datatype, channel_location_dir,
+    @staticmethod
+    def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, channel_location_dir,
                         filter_true, filtermethod, lowcut, highcut, downsample_true, fs, chan2rm):
 
         verbose = 'ERROR'
@@ -44,7 +44,8 @@ class DataPreprocessor:
 
         # Apply filtering
         if filter_true:
-            eeg = eeg.filter(l_freq=lowcut, h_freq=highcut, method=filtermethod, phase='zero', n_jobs=-1, verbose=verbose)
+            eeg = eeg.filter(
+                l_freq=lowcut, h_freq=highcut, method=filtermethod, phase='zero', n_jobs=-1, verbose=verbose)
 
         # Apply downsampling
         sfreq = eeg.info['sfreq']
@@ -57,20 +58,11 @@ class DataPreprocessor:
         # Apply the added projection
         eeg.apply_proj(verbose=verbose)
 
-        # Combine epoched data
-        if datatype == "epoched":
-            for index in range(eeg.__len__()):
-                if index == 0:
-                    eeg_data = np.squeeze(eeg[0].get_data())
-                else:
-                    epoch = np.squeeze(eeg[index].get_data())
-                    eeg_data = np.append(eeg_data, epoch, axis=1)
-        else:
-            eeg_data = eeg.get_data()
+        # Get the raw data or combine epoched data
+        eeg_data = DataIO.get_eeg_data(eeg, datatype)
 
         # Get data length and EEG info
         length_data = eeg_data.shape[1]
         eeg_info = eeg.info
 
         return eeg, eeg_data, length_data, eeg_info, channels2remove
-
