@@ -1,7 +1,6 @@
 """
-This script defines a class that facilitates the visualization of various features_utils extracted from sequences of symbols.
-It utilizes the FeatureIO class to load exported features_utils and provides methods to visualize these features_utils using
-group bar charts and heatmaps.
+This script defines a class that facilitates the visualization of various microstate features.
+
 """
 
 import numpy as np
@@ -9,20 +8,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from functions.features_utils.feature_io import FeatureIO
 
+
 class FeatureVisualizer:
     def __init__(self):
         pass
 
-    def visualize_features(self, feature_path, feature_name, window_index=0, mode='static'):
+    @staticmethod
+    def visualize_features(feature_path, feature_name, window_index=0, mode='static'):
         """
         Visualize specified features_utils using group bar charts.
-
-        Args:
-            feature_path (str): Path to the directory containing exported feature files.
-            feature_name (str): Name of the feature to visualize.
-            window_index (int or None): Index of the window to visualize. If None, visualizes all windows.
-            mode (str): The mode for calculation. 'static' visualizes average features_utils,
-                        'dynamic' visualizes features_utils for each window.
         """
         # Create a FeatureIO instance with the provided feature_path
         feature_io = FeatureIO(feature_path)
@@ -45,14 +39,10 @@ class FeatureVisualizer:
         plt.tight_layout()
         plt.show()
 
-    def visualize_transition_probability(self, feature_path=None, mode='static'):
+    @staticmethod
+    def visualize_transition_probability(feature_path=None, mode='static'):
         """
         Visualize transition probability as a heatmap.
-
-        Args:
-            mode (str): The mode for calculation. 'static' visualizes average transition probability,
-                        'dynamic' visualizes transition probability for each window.
-            feature_path (str or None): Path to the directory containing exported feature files.
         """
         # Create a FeatureIO instance with the provided feature_path
         feature_io = FeatureIO(feature_path)
@@ -107,4 +97,3 @@ class FeatureVisualizer:
             plt.yticks(range(num_symbols), symbols)
             plt.colorbar(cax)
             plt.show()
-
