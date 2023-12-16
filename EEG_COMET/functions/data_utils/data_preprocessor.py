@@ -1,4 +1,3 @@
-
 """
 This script defines a class called DataPreprocessor for preprocessing EEG data.
 The class provides a method preprocess_eegs that applies filtering, downsampling, and channel removal
