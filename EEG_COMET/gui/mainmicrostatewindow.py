@@ -2,7 +2,7 @@ import os.path
 import webbrowser
 import pickle
 from PyQt5 import uic, QtCore
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QWidget, QTextEdit, QVBoxLayout
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QComboBox, QSpinBox, QMessageBox, QWidget, QTextEdit, QVBoxLayout
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt
 from datetime import datetime
@@ -13,10 +13,8 @@ from gui.optimizer_visualization_dialog import OptimizerVisualizationDialog
 from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
 from gui.feature_visualization_dialog import FeatureVisualizationDialog
 from gui.sourcevisualizationdialog import SourceVisualizationDialog
-
 from functions.gui_utils.CheckableComboBox import CheckableComboBox
 from functions.gui_utils.set_widgets_status import set_widgets_status
-
 from COMET import COMET
 
 
@@ -211,52 +209,64 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step4_features2extract_combobox.addItems(list_features)
 
     def setup_connections(self):
-        # Menu actions
-        self.ui.open_github_action.triggered.connect(self.open_github)
-        self.ui.report_issues_action.triggered.connect(self.report_issues)
-        self.ui.update_action.triggered.connect(self.update_toolbox)
-        # Buttons and actions related to opening or loading studies
-        self.ui.step0_new_study_action.triggered.connect(self.open_new_study_dialog)
-        self.ui.step0_new_study_button.clicked.connect(self.open_new_study_dialog)
-        self.ui.step0_load_study_action.triggered.connect(self.load_study)
-        self.ui.step0_load_study_button.clicked.connect(self.load_study)
-        # Log window related connections
-        self.ui.step0_show_hide_log_window_button.clicked.connect(self.log_window.show_hide_log_window)
-        self.ui.step0_reopen_log_window.triggered.connect(self.log_window.show_hide_log_window)
         # Controlling the visibility and state of various UI components based on user interactions
-        self.ui.step0_show_clustering_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step0_show_backfitting_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step0_show_featureextraction_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step0_show_sourclocalization_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_clustermethod_combobox.activated.connect(self.mainwindow_controller)
-        self.ui.step2_auto_k_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_auto_k_method_combobox.activated.connect(self.mainwindow_controller)
-        self.ui.step2_auto_range_kmin_spinbox.valueChanged.connect(self.mainwindow_controller)
-        self.ui.step2_auto_range_kmax_spinbox.valueChanged.connect(self.mainwindow_controller)
-        self.ui.step2_user_k_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_advanced_checkbox.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_use_percent_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step2_use_peaks_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step3_backfit_all_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step3_backfit_peaks_radio.clicked.connect(self.mainwindow_controller)
-        self.ui.step3_filter_segments_checkbox.clicked.connect(self.mainwindow_controller)
-        self.ui.step3_filter_segments_method_combobox.activated.connect(self.mainwindow_controller)
-        self.ui.step3_identify_short_checkbox.clicked.connect(self.mainwindow_controller)
-        self.ui.step5_use_tess_radio.clicked.connect(self.mainwindow_controller)
+        control_items = [
+            self.ui.step0_show_clustering_radio,
+            self.ui.step0_show_backfitting_radio,
+            self.ui.step0_show_featureextraction_radio,
+            self.ui.step0_show_sourclocalization_radio,
+            self.ui.step2_auto_k_radio,
+            self.ui.step2_user_k_radio,
+            self.ui.step2_advanced_checkbox,
+            self.ui.step2_use_percent_radio,
+            self.ui.step2_use_peaks_radio,
+            self.ui.step2_clustermethod_combobox,
+            self.ui.step2_auto_k_method_combobox,
+            self.ui.step2_auto_range_kmin_spinbox,
+            self.ui.step2_auto_range_kmax_spinbox,
+            self.ui.step3_backfit_all_radio,
+            self.ui.step3_backfit_peaks_radio,
+            self.ui.step3_filter_segments_checkbox,
+            self.ui.step3_identify_short_checkbox,
+            self.ui.step3_filter_segments_method_combobox,
+            self.ui.step5_use_tess_radio
+        ]
+        for item in control_items:
+            if isinstance(item, QComboBox):
+                item.activated.connect(self.mainwindow_controller)
+            elif isinstance(item, QSpinBox):
+                item.valueChanged.connect(self.mainwindow_controller)
+            else:
+                item.clicked.connect(self.mainwindow_controller)
         # Button connections for performing specific tasks
-        self.ui.step2_numberofmaps_elbow_button.clicked.connect(self.visualize_elbow)
-        self.ui.step2_clustering_button.clicked.connect(self.do_clustering)
-        self.ui.step3_label_maps_button.clicked.connect(self.label_maps)
-        self.ui.step3_backfit_button.clicked.connect(self.do_backfitting)
-        self.ui.step4_extractfeatures_button.clicked.connect(self.extract_features)
-        self.ui.step4_visualizefeatures_button.clicked.connect(self.visualize_microstate_features)
-        self.ui.step3_backfit_visualization_button.clicked.connect(self.visualize_microstate_segmentation)
-        self.ui.step5_estimate_sources_button.clicked.connect(self.source_localize_microstates)
-        self.ui.step5_compute_source_microstate_correlation_button.clicked.connect(self.source_microstates_correlation)
-        # Need to create function: source_microstates_correlation
-        self.ui.step5_visualize_sources_button.clicked.connect(self.visualize_source_localized_microstates)
-        # Exit button connection
-        self.ui.step0_exit_button.clicked.connect(self.exit_msg)
+        click_actions = [
+            (self.ui.step0_show_hide_log_window_button, self.log_window.show_hide_log_window),
+            (self.ui.step0_load_study_button, self.load_study),
+            (self.ui.step0_new_study_button, self.open_new_study_dialog),
+            (self.ui.step2_numberofmaps_elbow_button, self.visualize_elbow),
+            (self.ui.step2_clustering_button, self.do_clustering),
+            (self.ui.step3_label_maps_button, self.label_maps),
+            (self.ui.step3_backfit_button, self.do_backfitting),
+            (self.ui.step4_extractfeatures_button, self.extract_features),
+            (self.ui.step4_visualizefeatures_button, self.visualize_microstate_features),
+            (self.ui.step3_backfit_visualization_button, self.visualize_microstate_segmentation),
+            (self.ui.step5_estimate_sources_button, self.source_localize_microstates),
+            (self.ui.step5_compute_source_microstate_correlation_button, self.source_microstates_correlation),
+            (self.ui.step5_visualize_sources_button, self.visualize_source_localized_microstates),
+            (self.ui.step0_exit_button, self.exit_msg)
+        ]
+        trigger_actions = [
+            (self.ui.open_github_action, self.open_github),
+            (self.ui.report_issues_action, self.report_issues),
+            (self.ui.update_action, self.update_toolbox),
+            (self.ui.step0_new_study_action, self.open_new_study_dialog),
+            (self.ui.step0_load_study_action, self.load_study),
+            (self.ui.step0_reopen_log_window, self.log_window.show_hide_log_window)
+        ]
+        for button, action in click_actions:
+            button.clicked.connect(action)
+        for item, action in trigger_actions:
+            item.triggered.connect(action)
 
     def open_new_study_dialog(self):
         # Clear study name and reset processing flags
