@@ -1,5 +1,14 @@
 """
 EEG-COMET Main Application
+
+Authors:
+    - Amin Kabir
+    - Raaj Chatterjee
+    - Faranak Farzan
+
+Organization:
+    SFU eBrain Lab
+    Website: www.ebrainlab.ca
 """
 
 import sys
