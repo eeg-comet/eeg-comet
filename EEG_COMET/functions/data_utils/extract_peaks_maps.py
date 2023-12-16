@@ -1,14 +1,7 @@
 """
-Last Modified: April 18th, 2023
 Description: This script provides functions for extracting GFP (Global Field Power) peaks,
 and generating microstate maps for clustering_utils.
 
-Authors:
-    Amin Kabir
-    Raaj Chatterjee
-    Faranak Farzan
-
-Organization: SFU eBrain Lab, www.ebrainlab.ca
 """
 
 import numpy as np
@@ -20,14 +13,6 @@ from functions.data_utils.data_io import DataIO
 def initialize_cluster_centers(maps2use, n_states, initializer):
     """
     Initialize cluster centers for k-means clustering algorithm.
-
-    Args:
-        maps2use (2D numpy array): Microstate maps for clustering.
-        n_states (int): Number of states for clustering.
-        initializer (str): Cluster initialization method ('Random' or 'K-Means++').
-
-    Returns:
-        initial_centers (2D numpy array): Initial cluster centers.
     """
 
     # Initialize with random states
@@ -61,15 +46,6 @@ def initialize_cluster_centers(maps2use, n_states, initializer):
 def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None):
     """
     Extract GFP peaks and maps at peaks from EEG data.
-
-    Args:
-        data (numpy array): 2D array of EEG data (channels x samples).
-        use_percentages (int or None, optional): If provided, randomly select the specified percentage of time points. Default is None.
-        min_dist (int or None, optional): Minimum distance between peaks.
-
-    Returns:
-        maps (numpy array): 2D array of GFP maps at peaks (peaks x channels).
-        peaks (numpy array or None): 1D array of GFP peak indices in the EEG data, or None if `use_percentages` is provided.
     """
     # Global Field Potential (GFP)
     gfp = np.std(data, axis=0)
@@ -91,19 +67,7 @@ def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None):
 def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percentages=None, min_dist=None):
     """
     Generate GFP maps and peak indices from preprocessed EEG data.
-
-    Args:
-        preprocessed_folder (str): Path to the folder containing preprocessed EEG data files.
-        extension (str): File extension of the EEG data files.
-        datatype (str): Data type of the EEG data (e.g., 'float32').
-        use_percentages (int or None): If provided, specify the percentage of time points to use for clustering_utils.
-        min_dist (int or None): Minimum distance between peaks.
-
-    Returns:
-        maps2use (numpy array): Concatenated GFP maps at peaks (peaks x channels).
-        peaks2use (numpy array): Concatenated indices of GFP peaks in the EEG data.
     """
-    #print('Generating Maps and Peaks...')
 
     data_io = DataIO()
     all_preprocessed_paths, _ = data_io.find_data(preprocessed_folder, extension)
@@ -123,4 +87,3 @@ def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percen
         counter = counter + 1
 
     return maps2use, peaks2use
-
