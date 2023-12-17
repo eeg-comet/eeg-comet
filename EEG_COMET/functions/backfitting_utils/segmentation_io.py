@@ -13,6 +13,7 @@ import pickle
 import h5py
 import json
 
+
 class SegmentationIO:
     def __init__(self):
         pass
@@ -21,16 +22,6 @@ class SegmentationIO:
     def export_segmentation(output_folder, filename, segmentation_array, time_array, export_format='.csv'):
         """
         Export segmentation data along with time array to a file in the specified format.
-
-        Args:
-            output_folder (str): Folder path to export the file.
-            filename (str): Name of the file to export (without extension).
-            segmentation_array (np.ndarray): Numpy array of strings containing segmentation data.
-            time_array (np.ndarray): Numpy array of time values.
-            export_format (str): Format for exporting ('.csv', '.pkl', '.hdf', or '.json').
-
-        Returns:
-            bool: True if export is successful, False otherwise.
         """
         valid_formats = ['.csv', '.pkl', '.hdf', '.json']
         if export_format not in valid_formats:
@@ -62,13 +53,6 @@ class SegmentationIO:
     def load_segmentation(filename, import_format='.csv'):
         """
         Load segmentation data from a file.
-
-        Args:
-            filename (str): Name of the file to load (including extension).
-            import_format (str): Format of the imported file ('.csv', '.pkl', '.hdf', or '.json').
-
-        Returns:
-            np.ndarray or None: Loaded segmentation data or None if loading fails.
         """
         valid_formats = ['.csv', '.pkl', '.hdf', '.json']
         if import_format not in valid_formats:
@@ -90,4 +74,3 @@ class SegmentationIO:
         except Exception as e:
             print(f"Import error: {e}")
             return None
-
