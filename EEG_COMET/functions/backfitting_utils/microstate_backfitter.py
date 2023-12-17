@@ -9,6 +9,7 @@ from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 from gui.progress_dialog import ProgressDialog
 
+
 class MicrostateBackfitter:
     def __init__(self, study_name, preprocessed_data_path, microstate_maps, backfit_to,
                  filter_segments, filter_segments_option, identify_short_window, remove_segments_less_than,
@@ -30,7 +31,8 @@ class MicrostateBackfitter:
         self.smooth_param = smooth_param
         self.export_format = export_format
 
-    def fill_with_neighbors_with_higher_count(self, segmentation):
+    @staticmethod
+    def fill_with_neighbors_with_higher_count(segmentation):
         """
         Fill the groups of -1 values in the array with the neighbor that has a higher count.
         """
@@ -77,8 +79,8 @@ class MicrostateBackfitter:
 
         return filled_segmentation
 
-
-    def fill_with_neighbors_half(self, segmentation):
+    @staticmethod
+    def fill_with_neighbors_half(segmentation):
         """
         Fill the groups of -1 values in the array by evenly distributing the neighboring values.
         """
@@ -117,8 +119,8 @@ class MicrostateBackfitter:
 
         return filled_segmentation
 
-
-    def segmentation_smooth(self, data, microstate_maps, n_states, epsilon=1e-6, b=3, lamb=5):
+    @staticmethod
+    def segmentation_smooth(data, microstate_maps, n_states, epsilon=1e-6, b=3, lamb=5):
         '''
         data: V
         microstate_maps: Gamma (T-like symbol)
@@ -159,13 +161,14 @@ class MicrostateBackfitter:
 
             # STEP 5 in TABLE 2
             windows = np.lib.stride_tricks.sliding_window_view(raw_segmentation, 2 * b + 1)
-            N_bkt = np.zeros((windows.shape[0], n_states))
+            n_bkt = np.zeros((windows.shape[0], n_states))
             for i, window in enumerate(windows):
                 cnt = Counter(window)
-                N_bkt[i] = [cnt[x] for x in range(n_states)]
+                n_bkt[i] = [cnt[x] for x in range(n_states)]
             raw_segmentation[b:n_samples - b] = np.argmin(
-                (np.sum(data ** 2, axis=0) - (np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2))[b:n_samples - b] / (
-                            2 * e2 * (n_channels - 1)) - (lamb * N_bkt).T, axis=0)
+                (np.sum(data ** 2, axis=0) -
+                 (np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2))[b:n_samples - b] / (
+                            2 * e2 * (n_channels - 1)) - (lamb * n_bkt).T, axis=0)
 
             # STEP 6 in TABLE 2
             segmentation = raw_segmentation  # .copy()
@@ -183,7 +186,6 @@ class MicrostateBackfitter:
         #print('Finishes after', str(iteration), 'Iterations.')
 
         return segmentation
-
 
     def substitude_maps_with_duration(self, segmentation, segments_less_than, option, data, microstate_maps, n_states,
                                       smooth_param=[1e-6, 3, 5]):
@@ -253,7 +255,8 @@ class MicrostateBackfitter:
             similarity_mean = similarity_mean + similarity.mean()
         return similarity_mean / len(self.microstate_labels)
 
-    def mark_short_segments(self, segmentation, min_occurrence):
+    @staticmethod
+    def mark_short_segments(segmentation, min_occurrence):
         if len(segmentation) == 0:
             return segmentation
 
@@ -281,7 +284,8 @@ class MicrostateBackfitter:
 
         return new_segmentation
 
-    def find_optimal_index(self, values, threshold=0.001):
+    @staticmethod
+    def find_optimal_index(values, threshold=0.001):
         for i in range(1, len(values)):
             rate_of_change = values[i] - values[i - 1]
             if rate_of_change < threshold:
@@ -325,7 +329,8 @@ class MicrostateBackfitter:
                     idx_win2rm = len_win2rm_list.index(len_win2rm)
                     segmentation = self.mark_short_segments(segmentation, idx_win2rm)
                     labeled_segmentation = self.label_segments(np.array(segmentation))
-                    similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
+                    similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data,
+                                                                                            labeled_segmentation)
 
                 progress_dialog.update_progress(eeg_idx + 1, len(list_eeg_path))
                 progress_bar.update(1)
@@ -358,10 +363,12 @@ class MicrostateBackfitter:
             print(f"\nRemoving segments with less than {remove_segments_less_than_ms}ms in duration.")
         elif self.filter_segments_option == 'replace_high':
             print(
-                f"\nReplacing segments with less than {remove_segments_less_than_ms}ms by the nearby microstate with higher occurrence.")
+                f"\nReplacing segments with less than {remove_segments_less_than_ms}ms"
+                f"by the nearby microstate with higher occurrence.")
         elif self.filter_segments_option == 'replace_half':
             print(
-                f"\nReplacing segments with less than {remove_segments_less_than_ms}ms by half by the previous and half by the next dominant microstate.")
+                f"\nReplacing segments with less than {remove_segments_less_than_ms}ms"
+                f"by half by the previous and half by the next dominant microstate.")
         elif self.filter_segments_option == 'smooth':
             print(
                 f"\nSmoothing segments.")
@@ -396,7 +403,6 @@ class MicrostateBackfitter:
                     trial_data = np.apply_along_axis(lambda x: np.convolve(x, weights, mode='same'), axis=1,
                                                         arr=trial_data)
 
-
                     trial_times = eeg_times
 
                 if self.backfit_to == 'all':
@@ -415,7 +421,9 @@ class MicrostateBackfitter:
                                                                           trial_data,
                                                                           self.microstate_maps,
                                                                           len(self.microstate_labels),
-                                                                          [self.smooth_param[0], remove_segments_less_than,self.smooth_param[2]])
+                                                                          [self.smooth_param[0],
+                                                                           remove_segments_less_than,
+                                                                           self.smooth_param[2]])
 
                 elif self.backfit_to == 'peaks':
                     gfp = np.std(eeg_data, axis=0)
