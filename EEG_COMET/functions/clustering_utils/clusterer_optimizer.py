@@ -10,7 +10,8 @@ from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
 
 
 class ClustererOptimizer:
-    def __init__(self, maps2use, min_dist, n_inits, kmin, kmax, preprocessed_data_path, extension, datatype, tolerance=None, max_iter=None):
+    def __init__(self, maps2use, min_dist, n_inits, kmin, kmax, preprocessed_data_path, extension, datatype,
+                 tolerance=None, max_iter=None):
         self.maps2use = maps2use
         self.min_dist = min_dist
         self.tolerance = tolerance
@@ -28,7 +29,9 @@ class ClustererOptimizer:
                                                use_percentages=100)
 
     def find_elbow_with_plot(self, ax):
-        """Find the elbow point with plots to visualize the clustering metrics."""
+        """
+        Find the elbow point with plots to visualize the clustering metrics.
+        """
         target_values = self.find_optimal_k_elbow('all')
 
         df = pd.DataFrame({
@@ -37,9 +40,10 @@ class ClustererOptimizer:
         })
         self._plot(df, ax)
 
-
     def find_optimal_k(self, optimizer_mode='cv', parameter_value=5):
-        """Find the elbow point without generating plots."""
+        """
+        Find the elbow point without generating plots.
+        """
         if optimizer_mode == 'gs':
             return self.find_optimal_k_gap_statistic(int(parameter_value))
 
@@ -114,7 +118,8 @@ class ClustererOptimizer:
                 if cluster_i == cluster_j:
                     a_i += np.dot(data_i, data_j) / (np.linalg.norm(data_i) * np.linalg.norm(data_j))
                 else:
-                    similarity = np.dot(data_i, maps[cluster_j, :]) / (np.linalg.norm(data_i) * np.linalg.norm(maps[cluster_j, :]))
+                    similarity = np.dot(data_i, maps[cluster_j, :]) /\
+                                 (np.linalg.norm(data_i) * np.linalg.norm(maps[cluster_j, :]))
                     if similarity < b_i:
                         b_i = similarity
 
@@ -226,7 +231,8 @@ class ClustererOptimizer:
 
     def find_optimal_k_gap_statistic(self, n_random_datasets=5):
         print(
-            f"\nIdentifying the optimal number of clusters using the gap statistic method with {n_random_datasets}-random datasets")
+            f"\nIdentifying the optimal number of clusters using the gap statistic method"
+            f"with {n_random_datasets}-random datasets")
 
         # Number of clusters to consider
         self.k_values_gap_statistic = range(self.kmin, self.kmax + 1)
@@ -255,7 +261,8 @@ class ClustererOptimizer:
             random_data = np.random.rand(*self.data.shape)  # Generate random data with the same shape as your data
             for i, k in enumerate(self.k_values_gap_statistic):
                 ssd_random[i, j] = self._calculate_ssd_ignoring_polarity(random_data, k)
-                progress_dialog.set_line_edit_text(f"Sum of Squared Distances for Random Dataset {j} and K={k}: {ssd_random[i, j]}")
+                progress_dialog.set_line_edit_text(
+                    f"Sum of Squared Distances for Random Dataset {j} and K={k}: {ssd_random[i, j]}")
                 progress_dialog.update_progress(i + 1, len(self.k_values_gap_statistic) * (1 + n_random_datasets))
                 progress_bar.update(1)
 
@@ -349,8 +356,11 @@ class ClustererOptimizer:
         print(f"\nOptimal clusters: {self.optimal_k_cross_validation}")
         return self.optimal_k_cross_validation, self.k_values_cross_validation, self.target_cross_validation
 
-    def _plot(self, df, ax1, ax2, ax3):
-        """Generate line plots for the calculated metrics to visualize the elbow point."""
+    @staticmethod
+    def _plot(df, ax1, ax2, ax3):
+        """
+        Generate line plots for the calculated metrics to visualize the elbow point.
+        """
         # Visualize the result
         res_fig = sns.lineplot(data=df, x="K", y="Residual",
                                linewidth=5, marker="o", markersize=16, dashes=False, ax=ax1)
@@ -393,4 +403,3 @@ class ClustererOptimizer:
         ticks_loc = ax3.get_yticks().tolist()
         ax3.set_yticks(ax3.get_yticks().tolist())
         ax3.set_yticklabels([ylabel_format.format(x) for x in ticks_loc], size=14)
-
