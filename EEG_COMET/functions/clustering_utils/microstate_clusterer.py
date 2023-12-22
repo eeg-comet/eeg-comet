@@ -70,7 +70,7 @@ class MicrostateClusterer:
             dist = spatial.distance.correlation(point1, point2)
         else:
             raise ValueError("Failed to match metric")
-        return 1 - dist
+        return 1 - abs(dist)
 
     @staticmethod
     def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6, verbose=True):
