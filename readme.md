@@ -19,7 +19,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 Windows Run Toolbox:
-```python src\main\python\microstate_tool\main.py```
+```python EEG_COMET\main.py```
 
 Mac installation:
 ```
@@ -28,6 +28,6 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 Mac Run Toolbox
-```  python src/main/python/microstate_tool/main.py```
+```  python EEG_COMET/main.py```
 
 ## Using Conda:

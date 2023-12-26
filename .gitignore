@@ -1,11 +1,6 @@
 target/
 venv/
 test_data/output/
-src/main/python/microstate_tool/functions/features_utils/z_scores.npy
-src/main/python/microstate_tool/functions/features_utils/source_time_series.npy
-src/main/python/microstate_tool/functions/features_utils/eeg_info.pkl
-src/main/python/microstate_tool/functions/features_utils/test_study.h5
-src/main/python/microstate_tool/functions/features_utils/microstate_maps.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

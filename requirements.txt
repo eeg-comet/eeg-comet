@@ -19,4 +19,3 @@ seaborn==0.13.0
 tensorflow==2.14.0
 tqdm==4.66.1
 urllib3==1.26.6
-https://pub-3876d3e3689245a0979f73241b8cbca6.r2.dev/fbs-1.1.3-py3-none-any.whl
