@@ -1117,9 +1117,9 @@ class MainMicrostateWindow(QMainWindow):
             # Define feature extraction modes
             self.comet_tbx.feature_mode = []
             if self.ui.step4_static_features_checkbox.isChecked():
-                self.comet_tbx.feature_mode.append('static')
+                self.comet_tbx.feature_mode.append("static")
             if self.ui.step4_dynamic_features_checkbox.isChecked():
-                self.comet_tbx.feature_mode.append('dynamic')
+                self.comet_tbx.feature_mode.append("dynamic")
             # Set window size for dynamic features
             self.comet_tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
             # Log and perform feature extraction
@@ -1145,6 +1145,7 @@ class MainMicrostateWindow(QMainWindow):
         # Set relevant paths and parameters for visualization
         self.FeatureVisualizationDialog.extracted_features_path = self.comet_tbx.extracted_features_path
         self.FeatureVisualizationDialog.export_format = self.comet_tbx.export_format
+        self.FeatureVisualizationDialog.feature_mode = self.comet_tbx.feature_mode
         self.FeatureVisualizationDialog.feature_combo.clear()
         self.FeatureVisualizationDialog.feature_combo.addItems([i for i in self.comet_tbx.feature_list])
         self.FeatureVisualizationDialog.list_eegs = self.comet_tbx.list_eegs
