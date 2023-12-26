@@ -63,9 +63,12 @@ class SourceLocalizer:
         """
         Export source space, BEM, and coregistration transformations.
         """
-        mne.write_source_spaces(os.path.join(self.subjects_dir, subject, f'{subject}-{self.spacing}-src.fif'), src, overwrite=True)
-        mne.write_bem_solution(os.path.join(self.subjects_dir, subject, f'{subject}-bem.fif'), bem, overwrite=True)
-        mne.write_trans(os.path.join(self.subjects_dir, subject, f'{subject}-trans.fif'), trans, overwrite=True)
+        mne.write_source_spaces(os.path.join(self.subjects_dir, subject, f'{subject}-{self.spacing}-src.fif'),
+                                src, overwrite=True)
+        mne.write_bem_solution(os.path.join(self.subjects_dir, subject, f'{subject}-bem.fif'),
+                               bem, overwrite=True)
+        mne.write_trans(os.path.join(self.subjects_dir, subject, f'{subject}-trans.fif'),
+                        trans, overwrite=True)
 
     def load_average_mri(self, eeg_info):
         """
@@ -140,7 +143,8 @@ class SourceLocalizer:
         # Compute distances between digitization points and MRI surface in millimeters
         dists = coreg.compute_dig_mri_distances() * 1e3
         print(
-            f"Distance between HSP and MRI (mean/min/max): {np.mean(dists):.2f} mm / {np.min(dists):.2f} mm / {np.max(dists):.2f} mm")
+            f"Distance between HSP and MRI (mean/min/max): "
+            f"{np.mean(dists):.2f} mm / {np.min(dists):.2f} mm / {np.max(dists):.2f} mm")
 
         # Save the transformation matrix to a file
         trans_file = os.path.join(self.subjects_dir, subject, 'mri', 'transforms', f'{subject}-trans.fif')
@@ -151,7 +155,7 @@ class SourceLocalizer:
                                             subjects_dir=self.subjects_dir,
                                             pos=10.0,  # Distance of sources from the inner skull surface
                                             mri='T1.mgz',  # T1-weighted MRI file
-                                            mindist=5.0)  # Minimum distance (in mm) between sources and inner skull surface
+                                            mindist=5.0)  # Minimum distance between sources and inner skull surface
 
         # Make BEM surfaces and save to a file
         bem_surfaces = mne.make_bem_model(subject=subject, subjects_dir=self.subjects_dir, ico=self.spacing[-1])
