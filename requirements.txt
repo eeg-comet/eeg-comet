@@ -2,6 +2,7 @@ eeglabio==0.0.2.post4
 h5py==3.10.0
 h5io==0.1.9
 keras==2.14.0
+laura==0.0.2
 matplotlib==3.8.0
 mne==1.5.1
 numpy==1.26.1

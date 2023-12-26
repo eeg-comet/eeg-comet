@@ -10,6 +10,7 @@ import os
 import numpy as np
 import mne
 from scipy import stats
+from laura import make_laura
 from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 from gui.progress_dialog import ProgressDialog
@@ -38,7 +39,9 @@ class SourceLocalizer:
         self.data_io = DataIO()
 
     def stc_write(self, stc_data_subject_path, stc_file):
-        """Write source time series to disk."""
+        """
+        Write source time series to disk.
+        """
         if self.datatype == "epoched":
             for idx, stc in enumerate(stc_file):
                 filename = f'stc_{idx}'
@@ -49,19 +52,25 @@ class SourceLocalizer:
             stc_file.save(filepath, ftype='h5', overwrite=True)
 
     def stc_read(self, stc_data_subject_path):
-        """Read source time series from disk."""
+        """
+        Read source time series from disk.
+        """
         stc_list, _ = self.data_io.find_data(stc_data_subject_path, '.h5', pattern='*')
         stc_file = [mne.read_source_estimate(stc_path) for stc_path in stc_list]
         return stc_file
 
     def export_src_bem_trans(self, subject, src, bem, trans):
-        """Export source space, BEM, and coregistration transformations."""
+        """
+        Export source space, BEM, and coregistration transformations.
+        """
         mne.write_source_spaces(os.path.join(self.subjects_dir, subject, f'{subject}-{self.spacing}-src.fif'), src, overwrite=True)
         mne.write_bem_solution(os.path.join(self.subjects_dir, subject, f'{subject}-bem.fif'), bem, overwrite=True)
         mne.write_trans(os.path.join(self.subjects_dir, subject, f'{subject}-trans.fif'), trans, overwrite=True)
 
     def load_average_mri(self, eeg_info):
-        """Load the standard fsaverage MRI subject and create corresponding BEM and coregistration transformations."""
+        """
+        Load the standard fsaverage MRI subject and create corresponding BEM and coregistration transformations.
+        """
         # Print information about using the standard template MRI subject -fsaverage-
         print('\nUsing the standard template MRI subject -fsaverage-')
         print('\nWarning, patient-specific MRI is more accurate!')
@@ -108,9 +117,10 @@ class SourceLocalizer:
 
         return src, bem, trans
 
-
     def individual_mri(self, subject, raw_info):
-        """Perform individual MRI coregistration for a specific subject."""
+        """
+        Perform individual MRI coregistration for a specific subject.
+        """
         print(f"\nUsing the individual MRI subject: {subject}")
         print('\nThis may take some time to compute ...')
         # Get MNI fiducials for the subject
@@ -154,39 +164,66 @@ class SourceLocalizer:
 
         return src, bem, trans
 
+    @staticmethod
+    def apply_laura(eeg, inverse_operator, forward, verbose=0):
+        """
+        The LAURA inverse solution as instance of mne.SourceEstimate
+        """
+        # Extract necessary parameters
+        vertices = [forward["src"][0]['vertno'], forward["src"][1]['vertno']]
+        # calculate source
+        eeg_data = eeg.get_data()
+        y_hat = np.array(np.matmul(inverse_operator, eeg_data))
+        stc = mne.SourceEstimate(y_hat, vertices, tmin=eeg.times.min(), tstep=1 / eeg.info["sfreq"],
+                                 subject=forward["src"]._subject, verbose=verbose)
+        return stc
 
-    def compute_stc(self, src, bem, trans, raw, raw_info):
-        """Extract the forward solution and apply minimum-norm inverse to obtain the source time series."""
+    def compute_stc(self, src, bem, trans, raw_eeg, raw_info):
+        """
+        Extract the forward solution and apply minimum-norm inverse to obtain the source time series.
+        """
         print('\nPerforming source localization ...')
         # Calculate the forward solution using the specified parameters
-        fwd = mne.make_forward_solution(raw_info, trans, src,
-                                        bem, eeg=True, mindist=5.0, n_jobs=-1)
+        fwd = mne.make_forward_solution(raw_info, trans, src, bem, eeg=True, mindist=5.0, n_jobs=-1)
         # Compute noise covariance from the raw data
-        if self.datatype == 'raw':
-            noise_cov = mne.compute_raw_covariance(raw, method='auto', verbose=True, n_jobs=-1)
-        elif self.datatype == 'epoched':
-            noise_cov = mne.compute_covariance(raw, method='auto', verbose=True, n_jobs=-1)
+        if self.datatype == 'epoched':
+            noise_cov = mne.compute_covariance(raw_eeg, method='auto', verbose=True, n_jobs=-1)
+        else:
+            noise_cov = mne.compute_raw_covariance(raw_eeg, method='auto', verbose=True, n_jobs=-1)
         # Regularize noise covariance to avoid singularity issues
-        noise_cov = mne.cov.regularize(noise_cov, raw_info,
-                                       mag=0.1, grad=0.1, eeg=0.1, proj=True)
-        # Create the inverse operator
-        inverse_operator = mne.minimum_norm.make_inverse_operator(raw_info, fwd, noise_cov)
-        # Set the regularization parameter for the inverse solution based on the signal-to-noise ratio (snr)
-        snr = 3.
-        lambda2 = 1. / snr ** 2
+        noise_cov = mne.cov.regularize(noise_cov, raw_info, mag=0.1, grad=0.1, eeg=0.1, proj=True)
         # Apply minimum-norm inverse to obtain the source time series
-        if self.datatype == 'raw':
-            # Process raw data
-            stc_file = mne.minimum_norm.apply_inverse_raw(raw, inverse_operator, lambda2,
-                                                     method=self.inv_method, pick_ori=None, verbose=True)
-        elif self.datatype == 'epoched':
-            # Process epoched data
-            stc_file = mne.minimum_norm.apply_inverse_epochs(raw, inverse_operator, lambda2,
-                                                        method=self.inv_method, pick_ori=None, verbose=True)
+
+        if self.inv_method == 'LAURA':
+            # Fix dipole orientations in the forward solution
+            fwd = mne.convert_forward_solution(fwd, force_fixed=True, verbose=True)
+            # Make inverse operator
+            inverse_operator = make_laura(fwd, noise_cov=noise_cov, verbose=True)
+            # Invert data using the inverse operator
+            stc_file = self.apply_laura(raw_eeg, inverse_operator, fwd)
+
+        else:
+            # Create the inverse operator
+            inverse_operator = mne.minimum_norm.make_inverse_operator(raw_info, fwd, noise_cov)
+            # Set the regularization parameter for the inverse solution based on the signal-to-noise ratio (snr)
+            snr = 3.
+            lambda2 = 1. / snr ** 2
+
+            if self.datatype == 'epoched':
+                # Process epoched data
+                stc_file = mne.minimum_norm.apply_inverse_epochs(raw_eeg, inverse_operator, lambda2,
+                                                                 method=self.inv_method, pick_ori=None, verbose=True)
+            else:
+                # Process raw data
+                stc_file = mne.minimum_norm.apply_inverse_raw(raw_eeg, inverse_operator, lambda2,
+                                                              method=self.inv_method, pick_ori=None, verbose=True)
+
         return stc_file
 
     def run_source_localization(self):
-        """Perform source localization for multiple EEG files."""
+        """
+        Perform source localization for multiple EEG files.
+        """
         # Create an instance of the progress dialog
         progress_dialog = ProgressDialog()
         progress_dialog.set_window_title("Source Localization ...")
@@ -231,20 +268,30 @@ class SourceLocalizer:
             self.stc_write(stc_subject_path, stc_file)
         progress_dialog.close()
 
-    def find_t_coeff(self, sample, maps):
-        """Find T coefficients."""
+    @staticmethod
+    def find_t_coeff(sample, maps):
+        """
+        Find T coefficients.
+        """
         return np.linalg.lstsq(maps, sample, rcond=None)[0]
 
     def first_regression(self, sensor_time_series, maps):
-        """Perform the first regression to extract T coefficients."""
+        """
+        Perform the first regression to extract T coefficients.
+        """
         return np.apply_along_axis(self.find_t_coeff, 0, sensor_time_series, maps).transpose()
 
-    def second_regression(self, t_coeff, stc_data):
-        """Perform the second regression to get beta coefficients."""
+    @staticmethod
+    def second_regression(t_coeff, stc_data):
+        """
+        Perform the second regression to get beta coefficients.
+        """
         return np.linalg.solve(t_coeff.T @ t_coeff, t_coeff.T @ stc_data)
 
     def run_tess(self, stc_data, eeg_data, nperm):
-        """Run the TESS algorithm."""
+        """
+        Run the TESS algorithm.
+        """
         # TESS Algorithm
         # https://linkinghub.elsevier.com/retrieve/pii/S1053-8119(14)00243-2
         self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
@@ -280,7 +327,9 @@ class SourceLocalizer:
         return p_values, z_scores, filtered_z_scores
 
     def avg_sources(self, labelled_data_path, stc_data):
-        """Averages the source data over times matched with each microstate segment."""
+        """
+        Averages the source data over times matched with each microstate segment.
+        """
 
         self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
         if not os.path.exists(self.avg_sources_path):
@@ -307,7 +356,9 @@ class SourceLocalizer:
             return all_sources_dict
 
     def identify_microstates_sources(self, source_method):
-        """Identify microstate source localization for multiple EEG files."""
+        """
+        Identify microstate source localization for multiple EEG files.
+        """
 
         # Create an instance of the progress dialog
         progress_dialog = ProgressDialog()
@@ -358,4 +409,3 @@ class SourceLocalizer:
 
             progress_dialog.update_progress(idx + 1, len(list_eeg_path))
         progress_dialog.close()
-
