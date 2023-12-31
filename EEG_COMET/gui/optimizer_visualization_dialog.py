@@ -5,8 +5,9 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QSizePolicy
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from functions.data_utils.extract_peaks_maps import generate_maps_and_peaks
+from functions.data_utils.data_initializer import DataInitializer
 from functions.clustering_utils.clusterer_optimizer import ClustererOptimizer
+
 
 class OptimizerVisualizationDialog(QDialog):
     def __init__(self, context, parent=None):
@@ -32,14 +33,15 @@ class OptimizerVisualizationDialog(QDialog):
             'Cross Validation': 'Folds:',
             'Elbow - Global Explained Variance': 'Threshold (%):',
             'Elbow - Residual Variance': 'Threshold (%):',
-            'Silhouette Method': ''
+            'Silhouette Method': '',
+            'Calinski-Harabasz Method': '',
+            'Davies-Bouldin Method': ''
         }
         self.ui.optimizer_stop_condition_label.setText(stop_conditions.get(optimizer_method, ''))
 
-
     def show_optimizer(self, mode, threshold=5):
         if not hasattr(self, f'optimizer_{mode}_done'):
-            self.maps2use, self.peaks2use = generate_maps_and_peaks(
+            self.maps2use, self.peaks2use = DataInitializer().generate_maps_and_peaks(
                 self.preprocessed_data_path,
                 self.extension,
                 self.datatype,
@@ -73,7 +75,6 @@ class OptimizerVisualizationDialog(QDialog):
         else:
             self.plot_optimizer_chart(mode)
 
-
     def plot_optimizer_chart(self, mode):
         self.canvas.figure.clear()
         ax = self.canvas.figure.gca()
@@ -82,24 +83,20 @@ class OptimizerVisualizationDialog(QDialog):
         font_size = 14
         ax.set_xlabel('Number of Clusters (K)', fontsize=font_size)
         ax.set_ylabel(self.get_metric_text(mode), fontsize=font_size)
-        ax.set_title(f'{self.get_method_text(mode)} Method', fontsize=font_size)
+        ax.set_title(f'{self.get_metric_text(mode)} Method', fontsize=font_size)
         ax.grid(True)
         ax.tick_params(axis='both', labelsize=font_size)
         ax.axvline(x=self.optimizer_results[mode]['optimal_k'], color='r', linestyle='--', label='Optimal K')
         self.canvas.draw()
 
-
     def get_metric_text(self, mode):
-        metrics = {'gev': 'Global Explained Variance', 'res': 'Residual Variance', 'cv': 'Cross Validation',
-                   'gs': 'Gap Statistic'}
+        metrics = {'gev': 'Elbow - Global Explained Variance',
+                   'res': 'Elbow - Residual Variance',
+                   'cv': 'Cross Validation',
+                   'gs': 'Gap Statistic',
+                   'ch': 'Calinski-Harabasz',
+                   'db': 'Davies-Bouldin'}
         return metrics.get(mode, '')
-
-
-    def get_method_text(self, mode):
-        methods = {'gev': 'Elbow - Global Explained Variance', 'res': 'Elbow - Residual Variance', 'cv': 'Cross Validation',
-                   'gs': 'Gap Statistic'}
-        return methods.get(mode, '')
-
 
     def plot_optimizer(self):
         optimizer_method = self.ui.optimizer_combobox.currentText()
@@ -114,4 +111,7 @@ class OptimizerVisualizationDialog(QDialog):
             self.show_optimizer('res', threshold)
         elif optimizer_method == 'Silhouette Method':
             self.show_optimizer('sil', threshold)
-
+        elif optimizer_method == 'Calinski-Harabasz Method':
+            self.show_optimizer('ch', threshold)
+        elif optimizer_method == 'Davies-Bouldin Method':
+            self.show_optimizer('db', threshold)

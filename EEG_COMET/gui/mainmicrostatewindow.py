@@ -180,7 +180,8 @@ class MainMicrostateWindow(QMainWindow):
              self.ui.step0_show_sourclocalization_radio], mode='hide')
 
         set_widgets_status(
-            [self.ui.step2_numberofmaps_elbow_button,
+            [self.ui.step0_auto_pilot_button,
+             self.ui.step2_numberofmaps_elbow_button,
              self.ui.step2_clustering_button,
              self.ui.step3_label_maps_button,
              self.ui.step3_backfit_button,
@@ -241,6 +242,7 @@ class MainMicrostateWindow(QMainWindow):
         # Button connections for performing specific tasks
         click_actions = [
             (self.ui.step0_show_hide_log_window_button, self.log_window.show_hide_log_window),
+            (self.ui.step0_auto_pilot_button, self.run_autopilot),
             (self.ui.step0_load_study_button, self.load_study),
             (self.ui.step0_new_study_button, self.open_new_study_dialog),
             (self.ui.step2_numberofmaps_elbow_button, self.visualize_elbow),
@@ -291,7 +293,6 @@ class MainMicrostateWindow(QMainWindow):
         tbx_object_path = os.path.join(self.save_folder, 'comet_tbx_object.pkl')
         # Handle the case where loading the study fails
         if not os.path.exists(tbx_object_path):
-            self.log_window.append_log('Failed to load the study!')
             QMessageBox.information(self, "Load error",
                                     "The selected folder does not contain a valid study!",
                                     QMessageBox.Ok)
@@ -309,15 +310,15 @@ class MainMicrostateWindow(QMainWindow):
     def load_study(self, from_new_study=False):
         if from_new_study:
             # Define global directories based on the study information
-            self.comet_tbx.preprocessed_data_path = os.path.join(self.comet_tbx.save_dir,
-                                                                 f"{self.comet_tbx.study_name}_preprocessed_data")
-            self.comet_tbx.extracted_features_path = os.path.join(self.comet_tbx.save_dir,
-                                                                  f"{self.comet_tbx.study_name}_extracted_features")
+            self.comet_tbx.preprocessed_data_path = os.path.join(
+                self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_preprocessed_data")
+            self.comet_tbx.extracted_features_path = os.path.join(
+                self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_extracted_features")
             self.comet_tbx.microstate_maps_path = os.path.join(self.comet_tbx.save_dir, 'microstate_maps.csv')
-            self.comet_tbx.segmentation_path = os.path.join(self.comet_tbx.save_dir,
-                                                            f"{self.comet_tbx.study_name}_segmentation")
-            self.comet_tbx.localized_sources_path = os.path.join(self.comet_tbx.save_dir,
-                                                                 f"{self.comet_tbx.study_name}_localized_sources")
+            self.comet_tbx.segmentation_path = os.path.join(
+                self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_segmentation")
+            self.comet_tbx.localized_sources_path = os.path.join(
+                self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_localized_sources")
             self.comet_tbx.tess_path = os.path.join(self.comet_tbx.localized_sources_path, "tess_sources")
             self.comet_tbx.avg_sources_path = os.path.join(self.comet_tbx.localized_sources_path, "avg_sources")
         else:
@@ -350,6 +351,7 @@ class MainMicrostateWindow(QMainWindow):
         Control the visibility and enable/disable state of UI widgets based on conditions
         """
         after_preprocessing_widgets = [
+            self.ui.step0_auto_pilot_button,
             self.ui.step2_clustermethod_combo_label,
             self.ui.step2_clustermethod_combobox,
             self.ui.step2_advanced_checkbox,
@@ -541,9 +543,10 @@ class MainMicrostateWindow(QMainWindow):
                         step2_auto_target_parameter_text = 'Folds:'
                     elif auto_k_method in ['Elbow - Global Explained Variance', 'Elbow - Residual Variance']:
                         step2_auto_target_parameter_text = 'Threshold (%):'
-
-                    if auto_k_method == 'Silhouette Method':
+                    else:
                         step2_auto_target_parameter_text = ''
+                        set_widgets_status([self.ui.step2_auto_target_parameter_label,
+                                            self.ui.step2_stopping_threshold_input], mode='hide')
                     #    set_widgets_status(after_preprocessing_widgets, mode='hide')
                     self.ui.step2_auto_target_parameter_label.setText(step2_auto_target_parameter_text)
 
@@ -618,6 +621,7 @@ class MainMicrostateWindow(QMainWindow):
 
                 widgets_to_rm = (
                         after_preprocessing_widgets +
+                        pca_widgets +
                         user_k_widgets +
                         auto_k_widgets +
                         advanced_widgets +
@@ -849,6 +853,12 @@ class MainMicrostateWindow(QMainWindow):
         self.OptimizerVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.OptimizerVisualizationDialog.showMaximized()
 
+    def run_autopilot(self):
+        """
+
+        """
+        self.comet_tbx.do_autopilot()
+
     def do_clustering(self):
         """
         Initiates the clustering process based on user-specified parameters and performs clustering on EEG data.
@@ -896,6 +906,10 @@ class MainMicrostateWindow(QMainWindow):
                     self.comet_tbx.stopping_mode = 'res'
                 elif auto_k_method == 'Silhouette Method':
                     self.comet_tbx.stopping_mode = 'sil'
+                elif auto_k_method == 'Calinski-Harabasz Method':
+                    self.comet_tbx.stopping_mode = 'ch'
+                elif auto_k_method == 'Davies-Bouldin Method':
+                    self.comet_tbx.stopping_mode = 'db'
                 self.comet_tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
                 self.comet_tbx.number_of_maps = 'auto'
             elif self.ui.step2_user_k_radio.isChecked():
@@ -922,6 +936,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
             self.comet_tbx.clustering_option = self.ui.step2_other_options_combobox.currentText()
             self.comet_tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+            self.comet_tbx.microstate_maps_path = os.path.join(self.comet_tbx.save_dir, 'microstate_maps.csv')
 
             self.log_window.append_log(
                 f"Clustering algorithm: {self.comet_tbx.clustering_method}")
@@ -932,6 +947,7 @@ class MainMicrostateWindow(QMainWindow):
             # Update flags and save the state
             self.comet_tbx.done_clustering = True
             self.comet_tbx.save_tbx()
+            self.log_window.append_log(f"GEV: {self.comet_tbx.gev}")
             # Label the maps and save the state
             self.label_maps()
             self.comet_tbx.save_tbx()
@@ -1024,10 +1040,11 @@ class MainMicrostateWindow(QMainWindow):
         if self.show_labelling_window:
             if just_show_labels:
                 # Show microstate labels without relabeling
-                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(self.context,
-                                                                                      main_window=self,
-                                                                                      tbx=self.comet_tbx
-                                                                                      )
+                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
+                    self.context,
+                    main_window=self,
+                    tbx=self.comet_tbx
+                )
                 self.ui.MicrostateVisualizationDialog.save_dir = self.comet_tbx.save_dir
                 self.ui.MicrostateVisualizationDialog.n_states = self.comet_tbx.best_maps.shape[0]
                 self.ui.MicrostateVisualizationDialog.microstate_maps = self.comet_tbx.best_maps

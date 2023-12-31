@@ -105,7 +105,6 @@ class MicrostateBackfitter:
                 # Determine the number of elements for each fill value
                 half_count = count // 2
                 half_count_prev = half_count if count % 2 == 0 else half_count + 1
-                half_count_next = half_count
 
                 # Fill the group with the previous and next values
                 for j in range(start, start + half_count_prev):
@@ -121,7 +120,7 @@ class MicrostateBackfitter:
 
     @staticmethod
     def segmentation_smooth(data, microstate_maps, n_states, epsilon=1e-6, b=3, lamb=5):
-        '''
+        """
         data: V
         microstate_maps: Gamma (T-like symbol)
         n_states: N_mu in paper
@@ -133,7 +132,7 @@ class MicrostateBackfitter:
         n_channels: N_s in paper
         n_samples: N_T
 
-        '''
+        """
 
         n_channels, n_samples = data.shape
         data_sum_sq = np.sum(data ** 2)
@@ -157,8 +156,6 @@ class MicrostateBackfitter:
         e2 = e1 / float(n_samples * (n_channels - 1))
 
         while residual > thresh:
-            #print(f'iteration: {iteration + 1} residual: {residual}, thresh: {thresh}')
-
             # STEP 5 in TABLE 2
             windows = np.lib.stride_tricks.sliding_window_view(raw_segmentation, 2 * b + 1)
             n_bkt = np.zeros((windows.shape[0], n_states))
@@ -183,7 +180,6 @@ class MicrostateBackfitter:
             prev_residual = sigma_mu
             thresh = epsilon * sigma_mu
             iteration += 1
-        #print('Finishes after', str(iteration), 'Iterations.')
 
         return segmentation
 
@@ -400,8 +396,8 @@ class MicrostateBackfitter:
                     window_size = 5
                     # Smooth Data
                     weights = np.repeat(1.0, window_size) / window_size
-                    trial_data = np.apply_along_axis(lambda x: np.convolve(x, weights, mode='same'), axis=1,
-                                                        arr=trial_data)
+                    trial_data = np.apply_along_axis(
+                        lambda x: np.convolve(x, weights, mode='same'), axis=1, arr=trial_data)
 
                     trial_times = eeg_times
 
@@ -468,4 +464,3 @@ class MicrostateBackfitter:
 
         progress_dialog.close()
         progress_bar.close()
-        #print(segmentation_fit / len(list_eeg_path))

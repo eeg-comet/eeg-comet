@@ -4,30 +4,29 @@ import pandas as pd
 from tqdm import tqdm
 import pickle
 import mne
-import cv2
-import io
-from keras.models import load_model
-import matplotlib.pyplot as plt
 
 from functions.data_utils.data_io import DataIO
 from functions.data_utils.data_preprocessor import DataPreprocessor
-from functions.data_utils.extract_peaks_maps import generate_maps_and_peaks
+from functions.data_utils.data_initializer import DataInitializer
 from functions.features_utils.feature_extractor import FeatureExtractor
 from functions.features_utils.feature_io import FeatureIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
+from functions.clustering_utils.autopilot_clusterer import AutopilotClusterer
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
 from functions.clustering_utils.clusterer_optimizer import ClustererOptimizer
+from functions.clustering_utils.microstate_labeler import MicrostateLabeler
 from functions.sourcelocalization_utils.source_localizer import SourceLocalizer
 
 from gui.progress_dialog import ProgressDialog
 
+
 class COMET:
     def __init__(self, config=None, auto_save=True):
-        '''
+        """
         config: should be a ConfigParser, use it to load configs
         auto_save: if True, the COMET will automatically save itself after each process
-        '''
+        """
         if config:
             self.load_config(config)
         self.done_preprocessing = False
@@ -50,7 +49,7 @@ class COMET:
 
         self.save_dir = os.path.join(self.output_folder, self.study_name)
         assert self.study_name != "", "study name cannot be empty"
-        self.preprocessed_data_path = os.path.join(self.save_dir, self.study_name + '_preprocessed_data')
+        self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
         self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
 
         # Load new study configs
@@ -106,15 +105,15 @@ class COMET:
         self.micro_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
         # Feature extraction configs
-        self.extracted_features_path = os.path.join(self.save_dir, 'extracted_features')
-        self.segmentation_path = os.path.join(self.save_dir, 'segmentations')
+        self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
+        self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
         self.export_format = config['extract_features']['export_format']
         self.feature_list = [x for x in config['extract_features']['feature_list'].split(',')]
         self.save_transitions_bool = True if 'TP' in self.feature_list else False
         self.window_size = config.getint('extract_features', 'window_size') if 'OCC' in self.feature_list else ''
 
         # Source localization configs
-        self.localized_sources_path = os.path.join(self.save_dir, 'localized_sources')
+        self.localized_sources_path = os.path.join(self.save_dir, f"{self.study_name}_localized_sources")
         self.inverse_method = config['source_localize_microstates']['inverse_method']
         self.nperm = config.getint('source_localize_microstates', 'nperm')
         self.spacing = config['source_localize_microstates']['spacing']
@@ -134,7 +133,6 @@ class COMET:
 
     # self.list_eegs = [os.path.basename(x).split('.')[0] for x in self.list_eegs_path]
     # assert self.list_eegs_path, 'eeg list is empty'
-
 
     def do_preprocessing(self):
 
@@ -202,6 +200,11 @@ class COMET:
         if self.auto_save:
             self.save_tbx()
 
+    def do_autopilot(self):
+
+        autopilot_clusterer = AutopilotClusterer(self.save_dir, self.study_name, self.extension, self.datatype)
+        autopilot_clusterer.run_autopilot()
+
     def do_clustering(self):
         print('\nClustering ...')
 
@@ -226,29 +229,32 @@ class COMET:
                                                    )
 
         if self.number_of_maps == 'auto':
-            self.maps2use, self.peaks2use = generate_maps_and_peaks(self.preprocessed_data_path,
-                                                                    self.extension,
-                                                                    self.datatype,
-                                                                    self.use_percentages,
-                                                                    self.min_distance_size
-                                                                    )
-            self.clusterer_optimizer = ClustererOptimizer(self.maps2use,
-                                                          self.min_distance_size,
-                                                          self.number_of_repeats,
-                                                          self.kmin,
-                                                          self.kmax,
-                                                          self.preprocessed_data_path,
-                                                          self.extension,
-                                                          self.datatype,
-                                                          self.clustering_tolerance,
-                                                          self.max_iterations
-                                                          )
+            self.maps2use, self.peaks2use = DataInitializer().generate_maps_and_peaks(
+                self.preprocessed_data_path,
+                self.extension,
+                self.datatype,
+                self.use_percentages,
+                self.min_distance_size
+            )
+            self.clusterer_optimizer = ClustererOptimizer(
+                self.maps2use,
+                self.min_distance_size,
+                self.number_of_repeats,
+                self.kmin,
+                self.kmax,
+                self.preprocessed_data_path,
+                self.extension,
+                self.datatype,
+                self.clustering_tolerance,
+                self.max_iterations
+            )
 
-            self.optimal_k, self.k_values, self.target_values = self.clusterer_optimizer.find_optimal_k(self.stopping_mode, self.stopping_parameter)
+            self.optimal_k, self.k_values, self.target_values = self.clusterer_optimizer.find_optimal_k(
+                self.stopping_mode, self.stopping_parameter)
             self.number_of_maps = self.optimal_k
             print(f'result: n_states = {self.number_of_maps}')
 
-        best_maps, gev, _ = microstate_clusterer.clustering_func(
+        self.best_maps, self.gev, _ = microstate_clusterer.clustering_func(
             self.preprocessed_data_path,
             self.extension,
             self.datatype,
@@ -258,16 +264,10 @@ class COMET:
             self.initializer,
             self.use_percentages,
             self.min_distance_size,
-            self.clustering_option
+            self.clustering_option,
+            self.eeg_info,
+            self.microstate_maps_path
         )
-        # microstate_maps = best_maps
-        self.best_maps = np.array(best_maps)
-
-        # Save Maps
-        maps_df = pd.DataFrame(self.best_maps.T, index=self.ch_names)
-        maps_df.to_csv(self.microstate_maps_path)
-
-        self.gev = gev
         print(f'Global Explained Variance: {self.gev}')
         self.done_clustering = True
         # return best_maps
@@ -275,89 +275,16 @@ class COMET:
             self.save_tbx()
 
     def do_labeling(self):
-        image_size = 448
-        images = []
-        for i in range(self.best_maps.shape[0]):
-            fig, ax = plt.subplots()
-            mne.viz.plot_topomap(self.best_maps[i, :], self.eeg_info, contours=10, sensors=False, axes=ax, show=False,
-                                 sphere='auto')
-            with io.BytesIO() as buf:
-                fig.savefig(buf, dpi=200, bbox_inches='tight')
-                buf.seek(0)
-                img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
-            image = cv2.imdecode(img_arr, 1)
-            image = cv2.resize(image, (image_size, image_size))
-            # cv2.imshow('1', image)
-            # cv2.waitKey(0)
-            image = np.expand_dims(image, axis=0)
-            images.append(image)
-        image = np.vstack(images)
-        print(image.shape)
 
-        # load model and do inference
-        maps = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F', 6: 'G'}
-        # model_path =
-        directory = os.getcwd()
-        directory = os.path.basename(directory)
-        print(directory)
-        # TODO: need to find a better way to distinguish the path
-        # currently just for start the toolbox app from different path(GUI and terminal version)
-        if directory == 'EEG-Microstate-Feature-Extraction':
-            model_path = './src/main/python/microstate_tool/models/model_v1.11.h5'
-        else:
-            model_path = './models/model_v1.11.h5'
-        model = load_model(model_path, compile=False)
-        output = model.predict(image)
-        label_result = self.get_labels(output, maps)
-
-        # show image for debugging
-        # for i in images:
-        # 	cv2.imshow(f'{i}', i.squeeze())
-        # 	cv2.waitKey(0)
-
-        micro_labels = []
-        additional_label = 'M'
-        assert self.n_states < 27, 'cannot label microstates more than 27: number of letters is not enough'
-        for i in range(self.n_states):
-            if i in label_result:
-                micro_labels.append(label_result[i])
-            else:
-                micro_labels.append(additional_label)
-                additional_label = chr(ord(additional_label) + 1)
-        # for other maps(>7), manually label them(leave them empty)
-
-        # self.micro_labels = self.micro_labels[:self.n_states]
-        self.micro_labels = micro_labels
+        self.microstate_labeler = MicrostateLabeler(self.best_maps, self.eeg_info, self.microstate_maps_path)
+        self.micro_labels = self.microstate_labeler.do_labeling()
         print(self.micro_labels)
         self.done_labeling_microstates = True
-
-    def get_labels(self, confidences, maps):
-        image_pool = set()
-        state_pool = set()
-        result = {}
-        print(confidences)
-        # print(confidences.argmax())
-        # confidences[0, 1] = 8.2
-        while True:
-            # get max value's coordinate
-            image = confidences.argmax() // confidences.shape[1]
-            state = confidences.argmax() % confidences.shape[1]
-            # print(image, state)
-            if image not in image_pool and state not in state_pool:
-                image_pool.add(image)
-                state_pool.add(state)
-                confidences[image, state] = np.NINF
-                result[image] = maps[state]
-            else:
-                confidences[image, state] = np.NINF
-            if len(result) == confidences.shape[0] or len(result) == 7:
-                break
-        print(result)
-        return result
 
     def do_backfitting(self):
         print('\nBackfitting ...')
 
+        self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
         if not os.path.exists(self.segmentation_path):
             os.makedirs(self.segmentation_path)
 
@@ -387,6 +314,7 @@ class COMET:
     def extract_features(self):
         print('\nExtracting Features ...')
 
+        self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
         if not os.path.exists(self.extracted_features_path):
             os.makedirs(self.extracted_features_path)
 
@@ -412,10 +340,11 @@ class COMET:
             segmentation_array = SegmentationIO().load_segmentation(segmentation_path, import_format='.csv')
 
             if 'static' in self.feature_mode:
-                feature_extractor = FeatureExtractor(segmentation_array,
-                                                     self.sample_rate,
-                                                     self.window_size,
-                                                     mode='static')
+                feature_extractor = FeatureExtractor(
+                    segmentation_array,
+                    self.sample_rate,
+                    self.window_size,
+                    mode='static')
                 if 'GEV' in self.feature_list:
                     data_io = DataIO()
                     if self.datatype == 'epoched':
@@ -425,21 +354,25 @@ class COMET:
                         eeg_path = os.path.join(self.preprocessed_data_path, f"{eeg_filename}{self.extension}")
                         eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                         trial_data = np.squeeze(eeg[int(trial_number)].get_data())
-                        output_features = feature_extractor.extract_microstate_features(filename,
-                                                                                        self.feature_list,
-                                                                                        trial_data,
-                                                                                        self.best_maps,
-                                                                                        self.micro_labels)
+                        output_features = feature_extractor.extract_microstate_features(
+                            filename,
+                            self.feature_list,
+                            trial_data,
+                            self.best_maps,
+                            self.micro_labels
+                        )
 
                     else:
                         eeg_path = os.path.join(self.preprocessed_data_path, f"{filename}{self.extension}")
                         eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                         eeg_data = data_io.get_eeg_data(eeg, self.datatype)
-                        output_features = feature_extractor.extract_microstate_features(filename,
-                                                                                        self.feature_list,
-                                                                                        eeg_data,
-                                                                                        self.best_maps,
-                                                                                        self.micro_labels)
+                        output_features = feature_extractor.extract_microstate_features(
+                            filename,
+                            self.feature_list,
+                            eeg_data,
+                            self.best_maps,
+                            self.micro_labels
+                        )
                 else:
                     output_features = feature_extractor.extract_microstate_features(filename, self.feature_list)
                 if s == 0:
@@ -448,19 +381,24 @@ class COMET:
                     static_features_dfs = pd.concat([static_features_dfs, output_features], ignore_index=True)
 
             if 'dynamic' in self.feature_mode:
-                feature_extractor = FeatureExtractor(segmentation_array,
-                                                     self.sample_rate,
-                                                     self.window_size,
-                                                     mode='dynamic')
+                feature_extractor = FeatureExtractor(
+                    segmentation_array,
+                    self.sample_rate,
+                    self.window_size,
+                    mode='dynamic'
+                )
 
                 if 'GEV' in self.feature_list:
                     data_io = DataIO()
                     eeg_path = os.path.join(self.preprocessed_data_path, f"{filename}{self.extension}")
                     eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                     eeg_data = data_io.get_eeg_data(eeg, self.datatype)
-                    output_features = feature_extractor.extract_microstate_features(filename, self.feature_list,
-                                                                                    eeg_data,
-                                                                                    self.best_maps, self.micro_labels)
+                    output_features = feature_extractor.extract_microstate_features(
+                        filename, self.feature_list,
+                        eeg_data,
+                        self.best_maps,
+                        self.micro_labels
+                    )
                 else:
                     output_features = feature_extractor.extract_microstate_features(filename, self.feature_list)
                 if s == 0:
@@ -505,17 +443,19 @@ class COMET:
         elif self.use_anatomy == "individual":
             self.anatomy_subjects_dir = self.individual_subjects_dir
 
-        source_localizer = SourceLocalizer(self.anatomy_subjects_dir,
-                                           self.localized_sources_path,
-                                           self.preprocessed_data_path,
-                                           self.segmentation_path,
-                                           self.use_anatomy,
-                                           self.extension,
-                                           self.datatype,
-                                           self.spacing,
-                                           self.inverse_method,
-                                           self.best_maps,
-                                           self.nperm)
+        source_localizer = SourceLocalizer(
+            self.anatomy_subjects_dir,
+            self.localized_sources_path,
+            self.preprocessed_data_path,
+            self.segmentation_path,
+            self.use_anatomy,
+            self.extension,
+            self.datatype,
+            self.spacing,
+            self.inverse_method,
+            self.best_maps,
+            self.nperm
+        )
         source_localizer.run_source_localization()
 
         self.done_source_localization = True
@@ -531,17 +471,19 @@ class COMET:
             fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
             self.anatomy_subjects_dir = os.path.dirname(fs_dir)
 
-        source_localizer = SourceLocalizer(self.anatomy_subjects_dir,
-                                           self.localized_sources_path,
-                                           self.preprocessed_data_path,
-                                           self.segmentation_path,
-                                           self.use_anatomy,
-                                           self.extension,
-                                           self.datatype,
-                                           self.spacing,
-                                           self.inverse_method,
-                                           self.best_maps,
-                                           self.nperm)
+        source_localizer = SourceLocalizer(
+            self.anatomy_subjects_dir,
+            self.localized_sources_path,
+            self.preprocessed_data_path,
+            self.segmentation_path,
+            self.use_anatomy,
+            self.extension,
+            self.datatype,
+            self.spacing,
+            self.inverse_method,
+            self.best_maps,
+            self.nperm
+        )
 
         source_localizer.identify_microstates_sources(method)
 

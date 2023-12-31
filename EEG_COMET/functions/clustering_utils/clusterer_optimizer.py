@@ -4,8 +4,9 @@ import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
 from sklearn.model_selection import KFold
+from sklearn.metrics import pairwise_distances
 from gui.progress_dialog import ProgressDialog
-from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
+from functions.data_utils.data_initializer import DataInitializer
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
 
 
@@ -23,10 +24,12 @@ class ClustererOptimizer:
         self.extension = extension
         self.datatype = datatype
         self.microstate_clusterer = MicrostateClusterer()
-        self.data, _ = generate_maps_and_peaks(self.preprocessed_data_path,
-                                               self.extension,
-                                               self.datatype,
-                                               use_percentages=100)
+        self.data, _ = DataInitializer().generate_maps_and_peaks(
+            self.preprocessed_data_path,
+            self.extension,
+            self.datatype,
+            use_percentages=100
+        )
 
     def find_elbow_with_plot(self, ax):
         """
@@ -56,10 +59,16 @@ class ClustererOptimizer:
         elif optimizer_mode == 'sil':
             return self.find_optimal_k_using_silhouette()
 
+        elif optimizer_mode == 'ch':
+            return self.find_optimal_k_using_calinski_harabasz()
+
+        elif optimizer_mode == 'db':
+            return self.find_optimal_k_using_davies_bouldin()
+
         else:
             raise ValueError("Invalid optimizer_mode.")
 
-    def _calculate_ssd_ignoring_polarity(self, data, n_clusters):
+    def export_segmentation(self, n_clusters, data):
         modified_kmeans_results = self.microstate_clusterer.run_modified_kmeans(
             preprocessed_data_path=self.preprocessed_data_path,
             extension=self.extension,
@@ -74,6 +83,11 @@ class ClustererOptimizer:
         )
         maps = modified_kmeans_results['best']['maps']
         segmentation = np.argmax(np.abs(maps.dot(data)), axis=0)
+        return maps, segmentation
+
+    def _calculate_ssd_ignoring_polarity(self, n_clusters, data):
+        maps, segmentation = self.export_segmentation(n_clusters, data)
+
         ssd = 0
         for cluster_idx in range(n_clusters):
             cluster_points = data[:, segmentation == cluster_idx]
@@ -81,22 +95,9 @@ class ClustererOptimizer:
             ssd += np.sum(np.sum((np.abs(cluster_points) - np.abs(cluster_center).reshape(-1, 1)) ** 2, axis=0))
         return ssd
 
-    def _calculate_silhouette(self, data, n_clusters):
+    def _calculate_silhouette_score(self, data, n_clusters):
         # Run your modified K-means clustering algorithm
-        modified_kmeans_results = self.microstate_clusterer.run_modified_kmeans(
-            preprocessed_data_path=self.preprocessed_data_path,
-            extension=self.extension,
-            datatype=self.datatype,
-            maps2use=self.maps2use,
-            n_states=n_clusters,
-            n_inits=self.n_inits,
-            initializer="Random",
-            max_iter=self.max_iter,
-            thresh=self.tolerance,
-            verbose=False
-        )
-        maps = modified_kmeans_results['best']['maps']
-        segmentation = np.argmax(np.abs(maps.dot(data)), axis=0)
+        maps, segmentation = self.export_segmentation(n_clusters, data)
 
         n_samples = data.shape[1]
         silhouette_values = np.zeros(n_samples)
@@ -132,29 +133,139 @@ class ClustererOptimizer:
 
     def find_optimal_k_using_silhouette(self):
         print("Identifying the optimal number of clusters using the silhouette method")
-        k_values = range(self.kmin, self.kmax + 1)
-        sil_values = []
+        self.k_values_silhouette = range(self.kmin, self.kmax + 1)
+        self.target_silhouette = []
         # Create an instance of the progress dialog
         progress_dialog = ProgressDialog()
         progress_dialog.set_window_title("Finding Optimal K ...")
         progress_dialog.set_label_text("Silhouette Method")
         progress_dialog.show()
         # Create a tqdm progress bar
-        progress_bar = tqdm(total=len(k_values), ncols=100, position=0, leave=True)
+        progress_bar = tqdm(total=len(self.k_values_silhouette), ncols=100, position=0, leave=True)
 
-        for k in k_values:
-            sil_value = self._calculate_silhouette(self.data, k)
-            sil_values.append(sil_value)
+        for index, k in enumerate(self.k_values_silhouette):
+            sil_value = self._calculate_silhouette_score(k, self.data)
+            self.target_silhouette.append(sil_value)
 
             progress_dialog.set_line_edit_text(f"Silhouette Value for K={k}: {sil_value}")
-            progress_dialog.update_progress(k + 1, len(k_values))
+            progress_dialog.update_progress(index + 1, len(self.k_values_silhouette))
             progress_bar.update(1)
 
         progress_dialog.close()
         progress_bar.close()
-        optimal_clusters = np.argmax(sil_values) + self.kmin
-        print(f"Optimal clusters: {optimal_clusters}")
-        return optimal_clusters
+        self.optimal_k_using_silhouette = np.argmax(self.target_silhouette) + self.kmin
+        print(f"\nOptimal clusters: {self.optimal_k_using_silhouette}")
+        return self.optimal_k_using_silhouette, self.k_values_silhouette, self.target_silhouette
+
+    def _calculate_calinski_harabasz_score(self, n_clusters, data):
+        """
+        Compute the Calinski-Harabasz score.
+        """
+        maps, segmentation = self.export_segmentation(n_clusters, data)
+        activation = maps.dot(data)
+        n_samples = data.shape[1]
+
+        extra_disp, intra_disp = 0.0, 0.0
+        mean_data = np.mean(data, axis=1)
+
+        for cluster_idx in range(n_clusters):
+            idx = (segmentation == cluster_idx)
+            cluster_points = data[:, idx]
+            activation_points = activation[cluster_idx, idx]
+            cluster_center = np.dot(cluster_points, activation_points)
+            cluster_center /= np.linalg.norm(cluster_center)
+            #cluster_center = np.mean(cluster_points, axis=1)
+
+            extra_disp += cluster_points.shape[1] * np.sum((np.abs(cluster_center) - np.abs(mean_data)) ** 2)
+            intra_disp += np.sum((np.abs(cluster_points) - np.abs(cluster_center)[:, np.newaxis]) ** 2)
+
+        return (
+            1.0
+            if intra_disp == 0.0
+            else (extra_disp * (n_samples - n_clusters) / (intra_disp * (n_clusters - 1.0)))
+        )
+
+    def find_optimal_k_using_calinski_harabasz(self):
+        print("Identifying the optimal number of clusters using the Calinski-Harabasz method")
+        self.k_values_calinski_harabasz = range(self.kmin, self.kmax + 1)
+        self.target_calinski_harabasz = []
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Finding Optimal K ...")
+        progress_dialog.set_label_text("Calinski-Harabasz Method")
+        progress_dialog.show()
+        # Create a tqdm progress bar
+        progress_bar = tqdm(total=len(self.k_values_calinski_harabasz), ncols=100, position=0, leave=True)
+
+        for index, k in enumerate(self.k_values_calinski_harabasz):
+            ch_value = self._calculate_calinski_harabasz_score(k, self.data)
+            self.target_calinski_harabasz.append(ch_value)
+
+            progress_dialog.set_line_edit_text(f"Calinski-Harabasz score for K={k}: {ch_value}")
+            progress_dialog.update_progress(index + 1, len(self.k_values_calinski_harabasz))
+            progress_bar.update(1)
+
+        progress_dialog.close()
+        progress_bar.close()
+        self.optimal_k_using_calinski_harabasz = np.argmax(self.target_calinski_harabasz) + self.kmin
+        print(f"\nOptimal clusters: {self.optimal_k_using_calinski_harabasz}")
+        return self.optimal_k_using_calinski_harabasz, self.k_values_calinski_harabasz, self.target_calinski_harabasz
+
+    def _calculate_davies_bouldin_score(self, n_clusters, data):
+        """
+        Compute the Davies-Bouldin score.
+        """
+        maps, segmentation = self.export_segmentation(n_clusters, data)
+        activation = maps.dot(data)
+
+        intra_dists = np.zeros(n_clusters)
+        centroids = np.zeros((n_clusters, data.shape[0]), dtype=float)
+
+        for cluster_idx in range(n_clusters):
+            idx = (segmentation == cluster_idx)
+            cluster_points = data[:, idx]
+            activation_points = activation[cluster_idx, idx]
+            cluster_center = np.dot(cluster_points, activation_points)
+            cluster_center /= np.linalg.norm(cluster_center)
+            centroids[cluster_idx, :] = cluster_center
+            intra_dists[cluster_idx] = np.average(np.abs(pairwise_distances(cluster_points.T, [cluster_center],
+                                                                            metric='cosine')))
+
+        centroid_distances = np.abs(pairwise_distances(centroids, metric='cosine'))
+
+        if np.allclose(intra_dists, 0) or np.allclose(centroid_distances, 0):
+            return 0.0
+
+        centroid_distances[centroid_distances == 0] = np.inf
+        combined_intra_dists = intra_dists[:, None] + intra_dists
+        scores = np.max(combined_intra_dists / centroid_distances, axis=1)
+        return np.mean(scores)
+
+    def find_optimal_k_using_davies_bouldin(self):
+        print("Identifying the optimal number of clusters using the Davies-Bouldin method")
+        self.k_values_davies_bouldin = range(self.kmin, self.kmax + 1)
+        self.target_davies_bouldin = []
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Finding Optimal K ...")
+        progress_dialog.set_label_text("Davies_Bouldin Method")
+        progress_dialog.show()
+        # Create a tqdm progress bar
+        progress_bar = tqdm(total=len(self.k_values_davies_bouldin), ncols=100, position=0, leave=True)
+
+        for index, k in enumerate(self.k_values_davies_bouldin):
+            db_value = self._calculate_davies_bouldin_score(k, self.data)
+            self.target_davies_bouldin.append(db_value)
+
+            progress_dialog.set_line_edit_text(f"Davies-Bouldin score for K={k}: {db_value}")
+            progress_dialog.update_progress(index + 1, len(self.k_values_davies_bouldin))
+            progress_bar.update(1)
+
+        progress_dialog.close()
+        progress_bar.close()
+        self.optimal_k_using_davies_bouldin = np.argmin(self.target_davies_bouldin) + self.kmin
+        print(f"\nOptimal clusters: {self.optimal_k_using_davies_bouldin}")
+        return self.optimal_k_using_davies_bouldin, self.k_values_davies_bouldin, self.target_davies_bouldin
 
     def find_optimal_k_elbow(self, metric, threshold=5):
         print(
@@ -174,7 +285,7 @@ class ClustererOptimizer:
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(self.k_values_elbow), ncols=100, position=0, leave=True)
 
-        for i, k in enumerate(self.k_values_elbow):
+        for index, k in enumerate(self.k_values_elbow):
             # Run your modified K-means clustering algorithm
             modified_kmeans_results = self.microstate_clusterer.run_modified_kmeans(
                 preprocessed_data_path=self.preprocessed_data_path,
@@ -203,7 +314,7 @@ class ClustererOptimizer:
                 self.target_elbow.append(np.mean(res_values))
 
             progress_dialog.set_line_edit_text(f"{metric_log} for K={k}: {metric_value:.3f}")
-            progress_dialog.update_progress(i + 1, len(self.k_values_elbow))
+            progress_dialog.update_progress(index + 1, len(self.k_values_elbow))
             progress_bar.update(1)
 
         progress_dialog.close()

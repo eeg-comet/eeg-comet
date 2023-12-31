@@ -6,16 +6,16 @@ Clustering Functions
 """
 
 import numpy as np
+import pandas as pd
 from scipy import spatial
 from pyclustering.cluster import kmeans, xmeans
 from pyclustering.utils.metric import distance_metric, type_metric
-from functions.data_utils.extract_peaks_maps import initialize_cluster_centers, generate_maps_and_peaks
 from keras.layers import Flatten, Dense, Reshape, Input
 from keras.models import Model
 from sklearn.decomposition import PCA
 from joblib import Parallel, delayed
 from gui.progress_dialog import ProgressDialog
-
+from functions.data_utils.data_initializer import DataInitializer
 
 class MicrostateClusterer:
 
@@ -107,13 +107,14 @@ class MicrostateClusterer:
         """
         Runs modified K-Means clustering with multiple initializations to find the best microstate maps.
         """
-        all_data, _ = generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
+        data_initializer = DataInitializer()
+        all_data, _ = data_initializer.generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
         best_residual, best_gev, best_maps = None, 0, None
         modified_kmeans_results = {}
         for init in range(n_inits):
             if verbose:
                 print(f'\nClustering #{init + 1} of {n_inits}')
-            initial_maps = initialize_cluster_centers(maps2use, n_states, initializer)
+            initial_maps = data_initializer.initialize_cluster_centers(maps2use, n_states, initializer)
             maps, residual = self.modified_kmeans(maps2use, initial_maps, n_states, max_iter, thresh, verbose=verbose)
             gev = self.compute_gev(all_data, maps)
             # Store the results for this initialization in the dictionary
@@ -174,7 +175,7 @@ class MicrostateClusterer:
         # Initial setup
         # Number of parallel workers (adjust as needed)
         n_jobs = -1  # Use all available cores
-        all_data, _ = generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
+        all_data, _ = DataInitializer().generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
         n_channels, n_samples = all_data.shape
         # Get GFP peaks
         gfp = all_data.std(axis=0)
@@ -288,7 +289,7 @@ class MicrostateClusterer:
         return reduced_data
 
     def clustering_func(self, preprocessed_data_path, extension, datatype, n_pca, method, n_states, initializer,
-                        use_percentages, min_dist, clustering_option):
+                        use_percentages, min_dist, clustering_option, eeg_info, microstate_maps_path):
         """
         Performs clustering on preprocessed data to find microstate maps.
         """
@@ -298,10 +299,11 @@ class MicrostateClusterer:
         progress_dialog.set_window_title("Clustering ...")
         progress_dialog.show()
 
+        data_initializer = DataInitializer()
         def metric_function(point1, point2):
             return self.calculate_spatial_similarity(clustering_option, point1, point2)
 
-        maps2use, peaks2use = generate_maps_and_peaks(preprocessed_data_path,
+        maps2use, peaks2use = data_initializer.generate_maps_and_peaks(preprocessed_data_path,
                                                       extension,
                                                       datatype,
                                                       use_percentages,
@@ -331,7 +333,7 @@ class MicrostateClusterer:
             )
 
         else:
-            initial_centers = initialize_cluster_centers(maps2use, n_states, initializer)
+            initial_centers = data_initializer.initialize_cluster_centers(maps2use, n_states, initializer)
             maps2use = np.transpose(maps2use)
 
             if method == 'K-Means Clustering':
@@ -345,7 +347,7 @@ class MicrostateClusterer:
 
             elif method == 'PCA + K-Means Clustering':
                 encoded_features = self.extract_features_with_pca(maps2use, pca_components=n_pca)
-                initial_centers = initialize_cluster_centers(np.transpose(encoded_features), n_states, initializer)
+                initial_centers = data_initializer.initialize_cluster_centers(np.transpose(encoded_features), n_states, initializer)
                 metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
                 clustering_instance = kmeans.kmeans(encoded_features,
                                                     initial_centers,
@@ -356,7 +358,7 @@ class MicrostateClusterer:
 
             elif method == 'Autoencoder + K-Means Clustering':
                 encoded_features, autoencoder = self.extract_features_with_autoencoder(maps2use, encoding_dim=10)
-                initial_centers = initialize_cluster_centers(np.transpose(encoded_features), n_states, initializer)
+                initial_centers = data_initializer.initialize_cluster_centers(np.transpose(encoded_features), n_states, initializer)
                 metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
                 clustering_instance = kmeans.kmeans(encoded_features,
                                                     initial_centers,
@@ -416,4 +418,8 @@ class MicrostateClusterer:
             print('\nBest GEV:', str(best_gev))
             progress_dialog.close()
 
+        # Save Best Maps
+        best_maps = np.array(best_maps)
+        maps_df = pd.DataFrame(best_maps.T, index=eeg_info['ch_names'])
+        maps_df.to_csv(microstate_maps_path)
         return best_maps, best_gev, best_residual

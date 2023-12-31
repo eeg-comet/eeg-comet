@@ -470,7 +470,7 @@ class NewStudyWindow(QDialog):
             eegfilename = os.path.basename(eegpath)
             eegfilename = os.path.splitext(eegfilename)[0]
             list_eegs = np.append(list_eegs, eegfilename)
-        list_eegs = ','.join(map(str, list_eegs))
+        #list_eegs = ','.join(map(str, list_eegs))
 
         self.comet_tbx.do_preprocessing()
         self.done_preprocessing = True
@@ -479,15 +479,17 @@ class NewStudyWindow(QDialog):
         if self.main_window:
             self.main_window.tbx = self.comet_tbx
 
+            self.main_window.log_window.append_log(f"Study name: {self.study_name}")
+            self.main_window.log_window.append_log(f"Input folder: {self.input_folder}")
             self.main_window.log_window.append_log(
-                f"Preprocessed {len(list_eegs)} {self.get_data_type()} Data with {self.get_extension()} extension.")
-            self.main_window.log_window.append_log(f"Channels Removed from Data: {self.ch2rm}")
+                f"Preprocessed {len(list_eegs)} {self.get_data_type()} EEG data with {self.get_extension()} extension.")
+            self.main_window.log_window.append_log(f"Channels removed from data: {self.ch2rm}")
             if self.filter_data:
                 self.main_window.log_window.append_log(
-                    f"Bandpass Filtered Data Using: {self.filter_method.upper()}"
-                    f"Filter Within {self.lowcut_freq}Hz and {self.highcut_freq}Hz")
+                    f"Bandpass filtered data using: {self.filter_method.upper()} "
+                    f"Filter within {self.lowcut_freq}Hz and {self.highcut_freq}Hz")
             if self.downsample_data:
-                self.main_window.log_window.append_log(f"Downsampled Data to: {self.sample_rate}Hz")
+                self.main_window.log_window.append_log(f"Downsampled data to: {self.sample_rate}Hz")
 
             self.main_window.load_study(from_new_study=True)
         self.ui.close()

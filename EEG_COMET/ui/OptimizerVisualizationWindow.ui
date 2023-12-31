@@ -59,6 +59,16 @@
        </item>
        <item>
         <property name="text">
+         <string>Calinski-Harabasz Method</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Davies-Bouldin Method</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
          <string>Cross Validation</string>
         </property>
        </item>

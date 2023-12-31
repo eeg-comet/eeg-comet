@@ -12,6 +12,7 @@ from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
 from functions.gui_utils.set_widgets_status import set_widgets_status
 
+
 class BackfittingVisualizationDialog(QDialog):
     def __init__(self, context, parent=None):
         super().__init__(parent)
@@ -85,7 +86,6 @@ class BackfittingVisualizationDialog(QDialog):
     def show_backfitting(self):
         # Handle the logic for displaying backfitting data
         selected_file_name = self.ui.eeg_filenames_combobox.currentText()
-        eeg_dir = os.path.join(self.preprocessed_data_path, f"{selected_file_name}{self.extension}")
 
         # Load EEG data and segmentation data
         eeg_data, eeg_times, segmentation_data = self._load_data_and_segmentation(selected_file_name)
@@ -153,7 +153,7 @@ class BackfittingVisualizationDialog(QDialog):
 
         # Generate the plot
         legend_elements, color_map = self._prepare_legend_and_colors(segmentation_to_use, colormap)
-        self._fill_plot(ax, times_to_use, data_to_use, segmentation_to_use, color_map, legend_elements)
+        self._fill_plot(ax, times_to_use, data_to_use, segmentation_to_use, color_map)
 
         ax.set_xlabel('Time (ms)', fontsize=fontsize)
         ax.set_ylabel('Potential (μV)', fontsize=fontsize)
@@ -163,16 +163,19 @@ class BackfittingVisualizationDialog(QDialog):
 
         self.canvas.draw()
 
-    def _prepare_legend_and_colors(self, segmentation_data, colormap):
+    @staticmethod
+    def _prepare_legend_and_colors(segmentation_data, colormap):
         # Prepare legend and colors for the plot
         unique_labels = sorted(set(segmentation_data))
         cm = plt.get_cmap(colormap)
         unique_colors = [cm(1. * i / len(unique_labels)) for i in range(len(unique_labels))]
         color_map = {label: color for label, color in zip(unique_labels, unique_colors)}
-        legend_elements = [Patch(facecolor=color, edgecolor='none', label=label) for label, color in zip(unique_labels, unique_colors)]
+        legend_elements = [Patch(facecolor=color, edgecolor='none', label=label) for
+                           label, color in zip(unique_labels, unique_colors)]
         return legend_elements, color_map
 
-    def _fill_plot(self, ax, times, data, segmentation, color_map, legend_elements):
+    @staticmethod
+    def _fill_plot(ax, times, data, segmentation, color_map):
         # Fill the plot with data and segmentation information
         prev_index = 0
         for idx, label in enumerate(segmentation[1:], start=1):

@@ -1,13 +1,12 @@
 
 import os.path
 from PyQt5 import uic, QtGui, QtCore
-from PyQt5.QtWidgets import (QDialog, QLabel, QPushButton, QLineEdit,
-                             QLCDNumber, QMessageBox, QFileDialog, QVBoxLayout,
-                             QHBoxLayout, QSizePolicy)
+from PyQt5.QtWidgets import QDialog, QLineEdit, QMessageBox, QFileDialog, QSizePolicy
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from functions.clustering_utils.microstate_visualizer import show_microstate
+
 
 class MicrostateVisualizationDialog(QDialog):
     def __init__(self, context, parent=None, main_window=None, tbx=None):
@@ -99,7 +98,6 @@ class MicrostateVisualizationDialog(QDialog):
                         polarity=polarity, sensors=sensors, contours=contours, cmap=cmap)
         self.canvas.draw()
 
-
     def export_microstates_image(self):
         """Export microstate images to file"""
         options = QFileDialog.Options()
@@ -158,4 +156,3 @@ class MicrostateVisualizationDialog(QDialog):
             QMessageBox.information(self, "Labeling Error",
                                     "Please add a label to each microstate",
                                     QMessageBox.Ok)
-
