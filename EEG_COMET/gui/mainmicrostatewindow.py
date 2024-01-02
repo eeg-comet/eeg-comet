@@ -192,23 +192,6 @@ class MainMicrostateWindow(QMainWindow):
              self.ui.step5_compute_source_microstate_correlation_button,
              self.ui.step5_visualize_sources_button], mode='hide')
 
-        # Create and configure a CheckableComboBox for selecting features
-        self.ui.step4_features2extract_combobox = CheckableComboBox()
-        self.CheckableComboBox_Layout.addWidget(self.ui.step4_features2extract_combobox)
-
-        # List of features for the combo box
-        list_features = [
-            "Microstate Coverage (COV)",
-            "Microstate Duration (DUR)",
-            "Microstate Occurrence (OCC)",
-            "Global Explained Variance (GEV)",
-            "Transition Probability (TP)",
-            "Microstate Complexity (LZC)"
-        ]
-
-        # Add features to the combo box
-        self.ui.step4_features2extract_combobox.addItems(list_features)
-
     def setup_connections(self):
         # Controlling the visibility and state of various UI components based on user interactions
         control_items = [
@@ -230,7 +213,16 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_filter_segments_checkbox,
             self.ui.step3_identify_short_checkbox,
             self.ui.step3_filter_segments_method_combobox,
-            self.ui.step5_use_tess_radio
+            self.ui.step4_feature_occ_checkbox,
+            self.ui.step4_feature_dur_checkbox,
+            self.ui.step4_feature_cov_checkbox,
+            self.ui.step4_feature_gev_checkbox,
+            self.ui.step4_feature_tp_checkbox,
+            self.ui.step4_feature_lzc_checkbox,
+            self.ui.step4_static_features_checkbox,
+            self.ui.step4_dynamic_features_checkbox,
+            self.ui.step5_use_tess_radio,
+            self.ui.step5_use_avg_radio
         ]
         for item in control_items:
             if isinstance(item, QComboBox):
@@ -351,6 +343,12 @@ class MainMicrostateWindow(QMainWindow):
         Control the visibility and enable/disable state of UI widgets based on conditions
         """
         after_preprocessing_widgets = [
+            self.ui.step2_spacer1,
+            self.ui.step2_line1,
+            self.ui.step2_line2,
+            self.ui.step2_line7,
+            self.ui.step2_line8,
+            self.ui.step2_number_maps_label,
             self.ui.step0_auto_pilot_button,
             self.ui.step2_clustermethod_combo_label,
             self.ui.step2_clustermethod_combobox,
@@ -378,6 +376,15 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         advanced_widgets = [
+            self.ui.step2_spacer2,
+            self.ui.step2_spacer3,
+            self.ui.step2_spacer4,
+            self.ui.step2_line3,
+            self.ui.step2_line4,
+            self.ui.step2_line5,
+            self.ui.step2_line9,
+            self.ui.step2_line10,
+            self.ui.step2_line11,
             self.ui.step2_other_label,
             self.ui.step2_other_options_combobox,
             self.ui.step2_initializer_label,
@@ -392,6 +399,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_percent_label,
             self.ui.step2_percent_combobox,
             self.ui.step2_percent_label_2,
+            self.ui.step2_convergence_label,
             self.ui.step2_maxiter_label,
             self.ui.step2_maxiter_input,
             self.ui.step2_stopcondition_label,
@@ -418,6 +426,12 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         after_clustering_widgets = [
+            self.ui.step3_spacer,
+            self.ui.step3_line1,
+            self.ui.step3_line2,
+            self.ui.step3_line3,
+            self.ui.step3_line4,
+            self.ui.step3_backfit_label,
             self.ui.step3_label_maps_button,
             self.ui.step3_backfit_all_radio,
             self.ui.step3_backfit_peaks_radio,
@@ -451,8 +465,19 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         feature_extraction_widgets = [
-            self.ui.step4_featurestoextract_label,
-            self.ui.step4_features2extract_combobox,
+            self.ui.step4_spacer,
+            self.ui.step4_line1,
+            self.ui.step4_line2,
+            self.ui.step4_line3,
+            self.ui.step4_line4,
+            self.ui.step4_features_extract_label,
+            self.ui.step4_features_type_label,
+            self.ui.step4_feature_occ_checkbox,
+            self.ui.step4_feature_dur_checkbox,
+            self.ui.step4_feature_cov_checkbox,
+            self.ui.step4_feature_gev_checkbox,
+            self.ui.step4_feature_tp_checkbox,
+            self.ui.step4_feature_lzc_checkbox,
             self.ui.step4_duration_of_window_input,
             self.ui.step4_duration_of_window_label,
             self.ui.step4_duration_of_window_label_2,
@@ -465,6 +490,15 @@ class MainMicrostateWindow(QMainWindow):
             ]
 
         source_localization_widgets = [
+            self.ui.step5_spacer1,
+            self.ui.step5_spacer2,
+            self.ui.step5_line1,
+            self.ui.step5_line2,
+            self.ui.step5_line3,
+            self.ui.step5_line4,
+            self.ui.step5_line5,
+            self.ui.step5_line6,
+            self.ui.step5_stc_label,
             self.ui.step5_anatomical_label,
             self.ui.step5_use_fsaverage_radio,
             self.ui.step5_use_individual_radio,
@@ -484,12 +518,16 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_permutations_input,
         ]
 
+        font_steps = QFont()
+        font_steps.setPointSize(16)
         if self.comet_tbx.done_preprocessing:
             set_widgets_status(self.ui.step0_show_clustering_radio, mode='enable')
             if self.ui.step0_show_clustering_radio.isChecked():
+                font_steps.setBold(True)
+                self.ui.step0_show_clustering_radio.setFont(font_steps)
 
                 # Show/Hide Widgets
-                set_widgets_status(after_preprocessing_widgets, mode='show')
+                set_widgets_status((after_preprocessing_widgets + user_k_widgets + auto_k_widgets), mode='show')
                 set_widgets_status(after_preprocessing_widgets, mode='enable')
 
                 widgets_to_rm = (
@@ -527,9 +565,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
                 if self.ui.step2_auto_k_radio.isChecked():
                     set_widgets_status(user_k_widgets, mode='disable')
-                    set_widgets_status(user_k_widgets, mode='hide')
                     set_widgets_status(auto_k_widgets, mode='enable')
-                    set_widgets_status(auto_k_widgets, mode='show')
 
                     kmin_value = int(self.ui.step2_auto_range_kmin_spinbox.value())
                     kmax_value = int(self.ui.step2_auto_range_kmax_spinbox.value())
@@ -552,62 +588,59 @@ class MainMicrostateWindow(QMainWindow):
 
                 if self.ui.step2_user_k_radio.isChecked():
                     set_widgets_status(user_k_widgets, mode='enable')
-                    set_widgets_status(user_k_widgets, mode='show')
                     set_widgets_status(auto_k_widgets, mode='disable')
-                    set_widgets_status(auto_k_widgets, mode='hide')
 
                 if self.ui.step2_advanced_checkbox.isChecked():
                     set_widgets_status(advanced_widgets, mode='enable')
                     set_widgets_status(advanced_widgets, mode='show')
                     if self.ui.step2_use_peaks_radio.isChecked():
                         set_widgets_status(peaks2use_widgets, mode='enable')
-                        set_widgets_status(peaks2use_widgets, mode='show')
                         set_widgets_status(rand2use_widgets, mode='disable')
-                        set_widgets_status(rand2use_widgets, mode='hide')
                     elif self.ui.step2_use_percent_radio.isChecked():
                         set_widgets_status(rand2use_widgets, mode='enable')
-                        set_widgets_status(rand2use_widgets, mode='show')
                         set_widgets_status(peaks2use_widgets, mode='disable')
-                        set_widgets_status(peaks2use_widgets, mode='hide')
+
+                    self.comet_tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
+                    if self.comet_tbx.clustering_method in ["K-Means Clustering",
+                                                            'PCA + K-Means Clustering',
+                                                            'Autoencoder + K-Means Clustering']:
+                        self.ui.step2_other_label.setText("Similarity metric:")
+                        options = ['Cosine Similarity', 'Spatial Correlation']
+                        self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
+                        if self.comet_tbx.clustering_method == 'PCA + K-Means Clustering':
+                            set_widgets_status(pca_widgets, mode='enable')
+                            set_widgets_status(pca_widgets, mode='show')
+                        else:
+                            set_widgets_status(pca_widgets, mode='disable')
+                            set_widgets_status(pca_widgets, mode='hide')
+                    elif self.comet_tbx.clustering_method == "X-Means Clustering":
+                        self.ui.step2_other_label.setText("X-means splitting criterion:")
+                        options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
+                        self.reset_option_box(self.ui.step2_other_options_combobox,
+                                              options, 'Bayesian Information Criterion')
+                    else:
+                        set_widgets_status([self.ui.step2_other_options_combobox,
+                                            self.ui.step2_other_label], mode='hide')
+
                 else:
                     set_widgets_status((advanced_widgets + pca_widgets), mode='disable')
                     set_widgets_status((advanced_widgets + pca_widgets), mode='hide')
+            else:
+                font_steps.setBold(False)
+                self.ui.step0_show_clustering_radio.setFont(font_steps)
 
-                self.comet_tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
-                if self.comet_tbx.clustering_method in ["K-Means Clustering",
-                                                        'PCA + K-Means Clustering',
-                                                        'Autoencoder + K-Means Clustering']:
-                    self.ui.step2_other_label.setText("Similarity metric:")
-                    options = ['Cosine Similarity', 'Spatial Correlation']
-                    self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
-                    if self.comet_tbx.clustering_method == 'PCA + K-Means Clustering':
-                        set_widgets_status(pca_widgets, mode='enable')
-                        set_widgets_status(pca_widgets, mode='show')
-                    else:
-                        set_widgets_status(pca_widgets, mode='disable')
-                        set_widgets_status(pca_widgets, mode='hide')
-                elif self.comet_tbx.clustering_method == "Agglomerative Hierarchical Clustering":
-                    self.ui.step2_other_label.setText("Type of link between clusters:")
-                    options = ['Single Link', 'Complete Link', 'Average Link', 'Centroid Link']
-                    self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Single Link')
-                elif self.comet_tbx.clustering_method == "X-Means Clustering":
-                    self.ui.step2_other_label.setText("X-means splitting criterion:")
-                    options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
-                    self.reset_option_box(self.ui.step2_other_options_combobox,
-                                          options, 'Bayesian Information Criterion')
-                else:
-                    set_widgets_status([self.ui.step2_other_options_combobox,
-                                        self.ui.step2_other_label], mode='hide')
         else:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
-            set_widgets_status(after_preprocessing_widgets, mode='hide')
+            set_widgets_status((after_preprocessing_widgets + user_k_widgets + auto_k_widgets), mode='hide')
             set_widgets_status(after_preprocessing_widgets, mode='disable')
             # Show/Hide Buttons
-            set_widgets_status([self.ui.step2_clustering_button, self.ui.step3_label_maps_button], mode='hide')
-
-            set_widgets_status(self.ui.step0_show_backfitting_radio, mode='disable')
-            set_widgets_status(self.ui.step0_show_featureextraction_radio, mode='disable')
-            set_widgets_status(self.ui.step0_show_sourclocalization_radio, mode='disable')
+            set_widgets_status([self.ui.step2_clustering_button,
+                                self.ui.step3_label_maps_button
+                                ], mode='hide')
+            set_widgets_status([self.ui.step0_show_backfitting_radio,
+                                self.ui.step0_show_featureextraction_radio,
+                                self.ui.step0_show_sourclocalization_radio
+                                ], mode='disable')
 
         if self.comet_tbx.done_clustering:
             set_widgets_status(self.ui.step0_show_backfitting_radio, mode='enable')
@@ -615,6 +648,9 @@ class MainMicrostateWindow(QMainWindow):
 
             if self.ui.step0_show_backfitting_radio.isChecked():
                 self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
+
+                font_steps.setBold(True)
+                self.ui.step0_show_backfitting_radio.setFont(font_steps)
 
                 set_widgets_status(after_clustering_widgets, mode='show')
                 set_widgets_status(after_clustering_widgets, mode='enable')
@@ -635,6 +671,9 @@ class MainMicrostateWindow(QMainWindow):
                 # Show/Hide Buttons
                 set_widgets_status([self.ui.step3_backfit_button,
                                     self.ui.step3_backfit_visualization_button], mode='show')
+                set_widgets_status(identify_short_widgets, mode='show')
+                set_widgets_status(filter_segments_widgets, mode='show')
+                set_widgets_status(smooth_segments_widgets, mode='show')
                 set_widgets_status([self.ui.step2_clustering_button,
                                     self.ui.step3_label_maps_button,
                                     self.ui.step4_extractfeatures_button,
@@ -650,37 +689,30 @@ class MainMicrostateWindow(QMainWindow):
 
                 if self.ui.step3_backfit_peaks_radio.isChecked():
                     self.ui.step3_filter_segments_checkbox.setChecked(False)
-                    set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='hide')
                     set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
                 else:
-                    set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='show')
                     set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='enable')
 
                 if self.ui.step3_filter_segments_checkbox.isChecked():
                     set_widgets_status(filter_segments_widgets, mode='enable')
-                    set_widgets_status(filter_segments_widgets, mode='show')
                     filter_segments_method = self.ui.step3_filter_segments_method_combobox.currentText()
                     if filter_segments_method == "Smooth segments":
                         set_widgets_status(smooth_segments_widgets, mode='enable')
-                        set_widgets_status(smooth_segments_widgets, mode='show')
                     else:
                         set_widgets_status(smooth_segments_widgets, mode='disable')
-                        set_widgets_status(smooth_segments_widgets, mode='hide')
 
                     if not self.ui.step3_identify_short_checkbox.isChecked():
                         set_widgets_status(identify_short_widgets, mode='enable')
-                        set_widgets_status(identify_short_widgets, mode='show')
                     else:
                         set_widgets_status(identify_short_widgets, mode='disable')
-                        set_widgets_status(identify_short_widgets, mode='hide')
                         if filter_segments_method == "Smooth segments":
                             set_widgets_status(smooth_segments_widgets, mode='disable')
-                            set_widgets_status(smooth_segments_widgets, mode='hide')
                 else:
                     set_widgets_status(filter_segments_widgets, mode='disable')
-                    set_widgets_status(filter_segments_widgets, mode='hide')
                     set_widgets_status(smooth_segments_widgets, mode='disable')
-                    set_widgets_status(smooth_segments_widgets, mode='hide')
+            else:
+                font_steps.setBold(False)
+                self.ui.step0_show_backfitting_radio.setFont(font_steps)
         else:
             # Reset next steps processing flags to False
             processing_flags = [
@@ -714,6 +746,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_backfit_visualization_button.setEnabled(True)
 
             if self.ui.step0_show_featureextraction_radio.isChecked():
+                font_steps.setBold(True)
+                self.ui.step0_show_featureextraction_radio.setFont(font_steps)
+
                 set_widgets_status(feature_extraction_widgets, mode='show')
                 set_widgets_status(feature_extraction_widgets, mode='enable')
 
@@ -741,6 +776,22 @@ class MainMicrostateWindow(QMainWindow):
                                     self.ui.step5_compute_source_microstate_correlation_button,
                                     self.ui.step5_visualize_sources_button], mode='hide')
 
+                feature_checkboxes1 = [
+                    self.ui.step4_feature_occ_checkbox,
+                    self.ui.step4_feature_dur_checkbox,
+                    self.ui.step4_feature_cov_checkbox,
+                    self.ui.step4_feature_gev_checkbox,
+                    self.ui.step4_feature_tp_checkbox,
+                    self.ui.step4_feature_lzc_checkbox,
+                ]
+                feature_checkboxes2 = [
+                    self.ui.step4_static_features_checkbox,
+                    self.ui.step4_dynamic_features_checkbox
+                ]
+                self.ui.step4_extractfeatures_button.setDisabled(
+                    not any(checkbox.isChecked() for checkbox in feature_checkboxes1) or
+                    not any(checkbox.isChecked() for checkbox in feature_checkboxes2))
+
                 if self.comet_tbx.done_extracting_features:
                     self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
                     self.ui.step4_visualizefeatures_button.setEnabled(True)
@@ -748,11 +799,15 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
                     self.ui.step4_visualizefeatures_button.setDisabled(True)
             else:
+                font_steps.setBold(False)
+                self.ui.step0_show_featureextraction_radio.setFont(font_steps)
                 set_widgets_status(feature_extraction_widgets, mode='hide')
                 set_widgets_status(feature_extraction_widgets, mode='disable')
 
             if self.ui.step0_show_sourclocalization_radio.isChecked():
-                set_widgets_status(source_localization_widgets, mode='show')
+                font_steps.setBold(True)
+                self.ui.step0_show_sourclocalization_radio.setFont(font_steps)
+                set_widgets_status((source_localization_widgets + tess_widgets), mode='show')
                 set_widgets_status(source_localization_widgets, mode='enable')
 
                 widgets_to_rm = (
@@ -795,11 +850,11 @@ class MainMicrostateWindow(QMainWindow):
 
                 if not self.ui.step5_use_tess_radio.isChecked():
                     set_widgets_status(tess_widgets, mode='disable')
-                    set_widgets_status(tess_widgets, mode='hide')
                 else:
                     set_widgets_status(tess_widgets, mode='enable')
-                    set_widgets_status(tess_widgets, mode='show')
             else:
+                font_steps.setBold(False)
+                self.ui.step0_show_sourclocalization_radio.setFont(font_steps)
                 set_widgets_status(source_localization_widgets, mode='hide')
                 set_widgets_status(source_localization_widgets, mode='disable')
         else:
@@ -952,6 +1007,7 @@ class MainMicrostateWindow(QMainWindow):
             self.label_maps()
             self.comet_tbx.save_tbx()
             # Update the main window
+            self.ui.step0_show_backfitting_radio.setChecked(True)
             self.mainwindow_controller()
 
     def do_backfitting(self):
@@ -1015,6 +1071,7 @@ class MainMicrostateWindow(QMainWindow):
             # Save the state
             self.comet_tbx.save_tbx()
             # Update the main window
+            self.ui.step0_show_featureextraction_radio.setChecked(True)
             self.mainwindow_controller()
 
     def label_maps(self):
@@ -1122,15 +1179,22 @@ class MainMicrostateWindow(QMainWindow):
             # Reset processing flags and update the main window
             self.comet_tbx.done_extracting_features = False
             self.mainwindow_controller()
+
             # Define features to extract based on user selection
             self.comet_tbx.feature_list = []
-            features2extract = self.ui.step4_features2extract_combobox.currentData()
-            for feature in features2extract:
-                opening_parenthesis = feature.find('(')
-                closing_parenthesis = feature.find(')')
-                if opening_parenthesis != -1 and closing_parenthesis != -1:
-                    extracted_feature = feature[opening_parenthesis + 1: closing_parenthesis]
-                    self.comet_tbx.feature_list.append(extracted_feature)
+            if self.ui.step4_feature_occ_checkbox.isChecked():
+                self.comet_tbx.feature_list.append("OCC")
+            if self.ui.step4_feature_dur_checkbox.isChecked():
+                self.comet_tbx.feature_list.append("DUR")
+            if self.ui.step4_feature_cov_checkbox.isChecked():
+                self.comet_tbx.feature_list.append("COV")
+            if self.ui.step4_feature_gev_checkbox.isChecked():
+                self.comet_tbx.feature_list.append("GEV")
+            if self.ui.step4_feature_tp_checkbox.isChecked():
+                self.comet_tbx.feature_list.append("TP")
+            if self.ui.step4_feature_lzc_checkbox.isChecked():
+                self.comet_tbx.feature_list.append("LZC")
+
             # Define feature extraction modes
             self.comet_tbx.feature_mode = []
             if self.ui.step4_static_features_checkbox.isChecked():

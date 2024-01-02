@@ -296,78 +296,79 @@ class MicrostateBackfitter:
         data_io = DataIO()
         list_eeg_path, list_eeg_names = data_io.find_data(self.preprocessed_data_path, self.extension, "*")
 
-        if self.identify_short_window:
-            # Create an instance of the progress dialog
-            progress_dialog = ProgressDialog()
-            progress_dialog.set_window_title("Filtering Segments ...")
-            progress_dialog.set_label_text("Identifying the optimal window length for removal")
-            progress_dialog.show()
+        if self.filter_segments:
+            if self.identify_short_window:
+                # Create an instance of the progress dialog
+                progress_dialog = ProgressDialog()
+                progress_dialog.set_window_title("Filtering Segments ...")
+                progress_dialog.set_label_text("Identifying the optimal window length for removal")
+                progress_dialog.show()
 
-            rm_max_len = 50
-            len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
-            similarity_scores = np.empty((len(list_eeg_path), len(len_win2rm_list)))
-            progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True,
-                                desc="Identifying the optimal window length for removal")
-            for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_names)):
-                progress_dialog.set_line_edit_text(f"{eeg_name}")
-                eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
-                eeg_data = eeg.get_data()
-                idx_eeg = list_eeg_path.index(eeg_path)
-                for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
-                    if self.datatype == 'epoched':
-                        trial_data = eeg[idx].get_data()
+                rm_max_len = 50
+                len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
+                similarity_scores = np.empty((len(list_eeg_path), len(len_win2rm_list)))
+                progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True,
+                                    desc="Identifying the optimal window length for removal")
+                for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_names)):
+                    progress_dialog.set_line_edit_text(f"{eeg_name}")
+                    eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                    eeg_data = eeg.get_data()
+                    idx_eeg = list_eeg_path.index(eeg_path)
+                    for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
+                        if self.datatype == 'epoched':
+                            trial_data = eeg[idx].get_data()
+                        else:
+                            trial_data = eeg_data
+                        correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
+                            np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
+                        segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+                    for len_win2rm in len_win2rm_list:
+                        idx_win2rm = len_win2rm_list.index(len_win2rm)
+                        segmentation = self.mark_short_segments(segmentation, idx_win2rm)
+                        labeled_segmentation = self.label_segments(np.array(segmentation))
+                        similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data,
+                                                                                                labeled_segmentation)
+
+                    progress_dialog.update_progress(eeg_idx + 1, len(list_eeg_path))
+                    progress_bar.update(1)
+
+                progress_dialog.close()
+                progress_bar.close()
+                similarity_scores = np.array(similarity_scores)
+
+                optimal_indices = []
+
+                # Loop through each row in the 2D array
+                for row in similarity_scores:
+                    derivative = np.diff(row)
+                    peaks, _ = find_peaks(derivative)
+                    if len(peaks) > 0:
+                        inflection_point = peaks[0] + 1
                     else:
-                        trial_data = eeg_data
-                    correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
-                        np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
-                    segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
-                for len_win2rm in len_win2rm_list:
-                    idx_win2rm = len_win2rm_list.index(len_win2rm)
-                    segmentation = self.mark_short_segments(segmentation, idx_win2rm)
-                    labeled_segmentation = self.label_segments(np.array(segmentation))
-                    similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data,
-                                                                                            labeled_segmentation)
+                        inflection_point = len(row)
+                    optimal_indices.append(inflection_point)
 
-                progress_dialog.update_progress(eeg_idx + 1, len(list_eeg_path))
-                progress_bar.update(1)
+                remove_segments_less_than = int(np.median(optimal_indices))
 
-            progress_dialog.close()
-            progress_bar.close()
-            similarity_scores = np.array(similarity_scores)
+            else:
+                remove_segments_less_than = self.remove_segments_less_than
 
-            optimal_indices = []
+            remove_segments_less_than_ms = remove_segments_less_than * (1000 / self.sample_rate)
+            print("Optimal length to remove:", remove_segments_less_than_ms)
 
-            # Loop through each row in the 2D array
-            for row in similarity_scores:
-                derivative = np.diff(row)
-                peaks, _ = find_peaks(derivative)
-                if len(peaks) > 0:
-                    inflection_point = peaks[0] + 1
-                else:
-                    inflection_point = len(row)
-                optimal_indices.append(inflection_point)
-
-            remove_segments_less_than = int(np.median(optimal_indices))
-
-        else:
-            remove_segments_less_than = self.remove_segments_less_than
-
-        remove_segments_less_than_ms = remove_segments_less_than * (1000 / self.sample_rate)
-        print("Optimal length to remove:", remove_segments_less_than_ms)
-
-        if self.filter_segments_option == 'remove':
-            print(f"\nRemoving segments with less than {remove_segments_less_than_ms}ms in duration.")
-        elif self.filter_segments_option == 'replace_high':
-            print(
-                f"\nReplacing segments with less than {remove_segments_less_than_ms}ms"
-                f"by the nearby microstate with higher occurrence.")
-        elif self.filter_segments_option == 'replace_half':
-            print(
-                f"\nReplacing segments with less than {remove_segments_less_than_ms}ms"
-                f"by half by the previous and half by the next dominant microstate.")
-        elif self.filter_segments_option == 'smooth':
-            print(
-                f"\nSmoothing segments.")
+            if self.filter_segments_option == 'remove':
+                print(f"\nRemoving segments with less than {remove_segments_less_than_ms}ms in duration.")
+            elif self.filter_segments_option == 'replace_high':
+                print(
+                    f"\nReplacing segments with less than {remove_segments_less_than_ms}ms"
+                    f"by the nearby microstate with higher occurrence.")
+            elif self.filter_segments_option == 'replace_half':
+                print(
+                    f"\nReplacing segments with less than {remove_segments_less_than_ms}ms"
+                    f"by half by the previous and half by the next dominant microstate.")
+            elif self.filter_segments_option == 'smooth':
+                print(
+                    f"\nSmoothing segments.")
 
         # Create an instance of the progress dialog
         progress_dialog = ProgressDialog()
