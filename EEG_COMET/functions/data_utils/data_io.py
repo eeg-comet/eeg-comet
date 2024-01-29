@@ -92,12 +92,15 @@ class DataIO:
                 eeg = mne.io.read_epochs_eeglab(filename, verbose=verbose)
     
         # Optional: Load channel locations if provided
-        if os.path.isfile(channel_location_dir):
-            montage = mne.channels.read_custom_montage(channel_location_dir)
-            eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
-        elif channel_location_dir in mne.channels.get_builtin_montages():
-            montage = mne.channels.make_standard_montage(channel_location_dir)
-            eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
+        try:
+            if os.path.isfile(channel_location_dir):
+                montage = mne.channels.read_custom_montage(channel_location_dir)
+                eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
+            elif channel_location_dir in mne.channels.get_builtin_montages():
+                montage = mne.channels.make_standard_montage(channel_location_dir)
+                eeg.set_montage(montage, match_case=False, on_missing='warn', verbose=verbose)
+        except Exception as e:
+            print('Invalid File, Try Loading Again. Details:' + e)
     
         # Drop channels
         channel_names = eeg.info['ch_names']
