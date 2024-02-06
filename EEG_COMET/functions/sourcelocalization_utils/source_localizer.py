@@ -63,12 +63,12 @@ class SourceLocalizer:
         """
         Export source space, BEM, and coregistration transformations.
         """
-        mne.write_source_spaces(os.path.join(self.subjects_dir, subject, f'{subject}-{self.spacing}-src.fif'),
-                                src, overwrite=True)
-        mne.write_bem_solution(os.path.join(self.subjects_dir, subject, f'{subject}-bem.fif'),
-                               bem, overwrite=True)
-        mne.write_trans(os.path.join(self.subjects_dir, subject, f'{subject}-trans.fif'),
-                        trans, overwrite=True)
+        mne.write_source_spaces(
+            os.path.join(self.subjects_dir, subject, f'{subject}-{self.spacing}-src.fif'), src, overwrite=True)
+        mne.write_bem_solution(
+            os.path.join(self.subjects_dir, subject, f'{subject}-bem.fif'), bem, overwrite=True)
+        mne.write_trans(
+            os.path.join(self.subjects_dir, subject, f'{subject}-trans.fif'), trans, overwrite=True)
 
     def load_average_mri(self, eeg_info):
         """
@@ -89,11 +89,13 @@ class SourceLocalizer:
 
         # Check if a different spacing is provided, then create a new source space
         if not self.spacing == 'ico5':
-            src = mne.setup_source_space(subject,
-                                         spacing=self.spacing,
-                                         subjects_dir=subjects_dir,
-                                         add_dist=False,
-                                         n_jobs=-1)
+            src = mne.setup_source_space(
+                subject,
+                spacing=self.spacing,
+                subjects_dir=subjects_dir,
+                add_dist=False,
+                n_jobs=-1
+            )
         else:
             # Use the default 'ico5' source space
             src_path = os.path.join(fs_dir, 'bem', 'fsaverage-ico-5-src.fif')
@@ -104,14 +106,16 @@ class SourceLocalizer:
         bem = mne.make_bem_solution(bem_model, solver='mne')
 
         # Get MNI fiducials for the subject
-        fiducials = mne.coreg.get_mni_fiducials(subject=subject,
-                                                subjects_dir=subjects_dir)
+        fiducials = mne.coreg.get_mni_fiducials(
+            subject=subject, subjects_dir=subjects_dir)
 
         # Perform coregistration based on fiducials and measurement info
-        coreg = mne.coreg.Coregistration(info=eeg_info,
-                                         subject=subject,
-                                         subjects_dir=subjects_dir,
-                                         fiducials=fiducials)
+        coreg = mne.coreg.Coregistration(
+            info=eeg_info,
+            subject=subject,
+            subjects_dir=subjects_dir,
+            fiducials=fiducials
+        )
         coreg.fit_icp(n_iterations=20, nasion_weight=10.0, verbose=True)
 
         # Omit head shape points that are too close to the MRI surface
@@ -127,14 +131,16 @@ class SourceLocalizer:
         print(f"\nUsing the individual MRI subject: {subject}")
         print('\nThis may take some time to compute ...')
         # Get MNI fiducials for the subject
-        fiducials = mne.coreg.get_mni_fiducials(subject=subject,
-                                                subjects_dir=self.subjects_dir)
+        fiducials = mne.coreg.get_mni_fiducials(
+            subject=subject, subjects_dir=self.subjects_dir)
 
         # Perform coregistration based on fiducials and measurement info
-        coreg = mne.coreg.Coregistration(info=raw_info,
-                                         subject=subject,
-                                         subjects_dir=self.subjects_dir,
-                                         fiducials=fiducials)
+        coreg = mne.coreg.Coregistration(
+            info=raw_info,
+            subject=subject,
+            subjects_dir=self.subjects_dir,
+            fiducials=fiducials
+        )
         coreg.fit_icp(n_iterations=20, nasion_weight=10.0, verbose=True)
 
         # Omit head shape points that are too close to the MRI surface
@@ -151,14 +157,17 @@ class SourceLocalizer:
         trans = coreg.trans
 
         # Set up the source space
-        src = mne.setup_volume_source_space(subject,
-                                            subjects_dir=self.subjects_dir,
-                                            pos=10.0,  # Distance of sources from the inner skull surface
-                                            mri='T1.mgz',  # T1-weighted MRI file
-                                            mindist=5.0)  # Minimum distance between sources and inner skull surface
+        src = mne.setup_volume_source_space(
+            subject,
+            subjects_dir=self.subjects_dir,
+            pos=10.0,
+            mri='T1.mgz',
+            mindist=5.0
+        )
 
         # Make BEM surfaces and save to a file
-        bem_surfaces = mne.make_bem_model(subject=subject, subjects_dir=self.subjects_dir, ico=self.spacing[-1])
+        bem_surfaces = mne.make_bem_model(
+            subject=subject, subjects_dir=self.subjects_dir, ico=self.spacing[-1])
 
         # bem_path = os.path.join(subjects_dir, subject, 'bem', f'{subject}-bem-sol.fif')
         # mne.write_bem_surfaces(bem_path, bem_surfaces, overwrite=True)
@@ -178,8 +187,9 @@ class SourceLocalizer:
         # calculate source
         eeg_data = eeg.get_data()
         y_hat = np.array(np.matmul(inverse_operator, eeg_data))
-        stc = mne.SourceEstimate(y_hat, vertices, tmin=eeg.times.min(), tstep=1 / eeg.info["sfreq"],
-                                 subject=forward["src"]._subject, verbose=verbose)
+        stc = mne.SourceEstimate(
+            y_hat, vertices, tmin=eeg.times.min(), tstep=1 / eeg.info["sfreq"],
+            subject=forward["src"]._subject, verbose=verbose)
         return stc
 
     def compute_stc(self, src, bem, trans, raw_eeg, raw_info):
@@ -188,21 +198,27 @@ class SourceLocalizer:
         """
         print('\nPerforming source localization ...')
         # Calculate the forward solution using the specified parameters
-        fwd = mne.make_forward_solution(raw_info, trans, src, bem, eeg=True, mindist=5.0, n_jobs=-1)
+        fwd = mne.make_forward_solution(
+            raw_info, trans, src, bem, eeg=True, mindist=5.0, n_jobs=-1)
         # Compute noise covariance from the raw data
         if self.datatype == 'epoched':
-            noise_cov = mne.compute_covariance(raw_eeg, method='auto', verbose=True, n_jobs=-1)
+            noise_cov = mne.compute_covariance(
+                raw_eeg, method='auto', verbose=True, n_jobs=-1)
         else:
-            noise_cov = mne.compute_raw_covariance(raw_eeg, method='auto', verbose=True, n_jobs=-1)
+            noise_cov = mne.compute_raw_covariance(
+                raw_eeg, method='auto', verbose=True, n_jobs=-1)
         # Regularize noise covariance to avoid singularity issues
-        noise_cov = mne.cov.regularize(noise_cov, raw_info, mag=0.1, grad=0.1, eeg=0.1, proj=True)
+        noise_cov = mne.cov.regularize(
+            noise_cov, raw_info, mag=0.1, grad=0.1, eeg=0.1, proj=True)
         # Apply minimum-norm inverse to obtain the source time series
 
         if self.inv_method == 'LAURA':
             # Fix dipole orientations in the forward solution
-            fwd = mne.convert_forward_solution(fwd, force_fixed=True, verbose=True)
+            fwd = mne.convert_forward_solution(
+                fwd, force_fixed=True, verbose=True)
             # Make inverse operator
-            inverse_operator = make_laura(fwd, noise_cov=noise_cov, verbose=True)
+            inverse_operator = make_laura(
+                fwd, noise_cov=noise_cov, verbose=True)
             # Invert data using the inverse operator
             stc_file = self.apply_laura(raw_eeg, inverse_operator, fwd)
 
@@ -215,12 +231,12 @@ class SourceLocalizer:
 
             if self.datatype == 'epoched':
                 # Process epoched data
-                stc_file = mne.minimum_norm.apply_inverse_epochs(raw_eeg, inverse_operator, lambda2,
-                                                                 method=self.inv_method, pick_ori=None, verbose=True)
+                stc_file = mne.minimum_norm.apply_inverse_epochs(
+                    raw_eeg, inverse_operator, lambda2, method=self.inv_method, pick_ori=None, verbose=True)
             else:
                 # Process raw data
-                stc_file = mne.minimum_norm.apply_inverse_raw(raw_eeg, inverse_operator, lambda2,
-                                                              method=self.inv_method, pick_ori=None, verbose=True)
+                stc_file = mne.minimum_norm.apply_inverse_raw(
+                    raw_eeg, inverse_operator, lambda2, method=self.inv_method, pick_ori=None, verbose=True)
 
         return stc_file
 
@@ -254,11 +270,13 @@ class SourceLocalizer:
                 stc_file = self.compute_stc(src, bem, trans, eeg, eeg_info)
                 # Morph to fsaverage
                 src_morph = mne.read_source_spaces(src)
-                morph = mne.compute_source_morph(src_morph,
-                                                 subject_from=subject,
-                                                 subject_to='fsaverage',
-                                                 subjects_dir=self.individual_subjects_dir,
-                                                 spacing=self.spacing[-1])
+                morph = mne.compute_source_morph(
+                    src_morph,
+                    subject_from=subject,
+                    subject_to='fsaverage',
+                    subjects_dir=self.individual_subjects_dir,
+                    spacing=self.spacing[-1]
+                )
                 morph.save(os.path.join(self.individual_subjects_dir, subject, subject + '-morph.h5'), overwrite=True)
                 stc_file = morph.apply(stc_file)
             else:

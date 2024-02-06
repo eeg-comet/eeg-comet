@@ -513,6 +513,15 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_compute_source_microstate_correlation_button
         ]
 
+        source_microstates_widgets = [
+            self.ui.step5_source_microstate_correlation_label,
+            self.ui.step5_use_tess_radio,
+            self.ui.step5_use_avg_radio,
+            self.ui.step5_permutations_label,
+            self.ui.step5_permutations_input,
+            self.ui.step5_compute_source_microstate_correlation_button,
+        ]
+
         tess_widgets = [
             self.ui.step5_permutations_label,
             self.ui.step5_permutations_input,
@@ -835,10 +844,14 @@ class MainMicrostateWindow(QMainWindow):
 
                 if self.comet_tbx.done_source_localization:
                     self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
-                    self.ui.step5_visualize_sources_button.setEnabled(True)
+                    set_widgets_status(source_microstates_widgets, mode='enable')
+                    if not self.ui.step5_use_tess_radio.isChecked():
+                        set_widgets_status(tess_widgets, mode='disable')
+                    else:
+                        set_widgets_status(tess_widgets, mode='enable')
                 else:
                     self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
-                    self.ui.step5_visualize_sources_button.setDisabled(True)
+                    set_widgets_status(source_microstates_widgets, mode='disable')
 
                 if self.comet_tbx.done_source_microstate_correlation:
                     self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet(
@@ -848,10 +861,6 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet("background-color: none")
                     self.ui.step5_visualize_sources_button.setDisabled(True)
 
-                if not self.ui.step5_use_tess_radio.isChecked():
-                    set_widgets_status(tess_widgets, mode='disable')
-                else:
-                    set_widgets_status(tess_widgets, mode='enable')
             else:
                 font_steps.setBold(False)
                 self.ui.step0_show_sourclocalization_radio.setFont(font_steps)
@@ -1249,6 +1258,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.do_source_localization_from_scratch = True
         else:
             self.do_source_localization_from_scratch = True
+
         # If source localization needs to be done from scratch
         if self.do_source_localization_from_scratch:
             # Reset next steps processing flags to False
