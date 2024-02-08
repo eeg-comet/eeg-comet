@@ -50,8 +50,8 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_raw_radio,
             self.ui.step0_load_all_radio,
             self.ui.step0_load_pattern_radio,
+            self.ui.step0_load_montage_radio,
             self.ui.step0_use_template_montage_radio,
-            self.ui.step0_no_option_checkbox,
             self.ui.step0_filter_option_checkbox,
             self.ui.step0_downsamp_option_checkbox,
             self.ui.step0_ch2rm_radio,
@@ -59,6 +59,8 @@ class NewStudyWindow(QDialog):
         ]
         for item in control_items:
             item.clicked.connect(self.newstudy_controller)
+        self.ui.step0_study_name_lineedit.textChanged.connect(self.newstudy_controller)
+        self.ui.step0_import_pattern_lineedit.textChanged.connect(self.newstudy_controller)
         self.ui.step0_selected_files_list.itemClicked.connect(self.newstudy_controller)
         self.ui.step0_selected_files_list.itemClicked.connect(self.update_channel_names)
         # Button connections for performing specific tasks
@@ -91,25 +93,12 @@ class NewStudyWindow(QDialog):
         if self.ui.step0_load_all_radio.isChecked():
             self.ui.step0_import_log_lineedit.setText(
                 f"Load all {self.get_data_type()} EEG data with {self.get_extension()} extension.")
-            self.ui.step0_import_pattern_lineedit.setDisabled(True)
-        else:
             self.ui.step0_import_pattern_lineedit.clear()
-            self.ui.step0_import_pattern_lineedit.setEnabled(True)
-
-        if self.ui.step0_load_pattern_radio.isChecked():
-            self.ui.step0_import_pattern_lineedit.setEnabled(True)
-        else:
-            self.ui.step0_import_pattern_lineedit.setDisabled(True)
-
-        if self.ui.step0_load_montage_radio.isChecked():
-            self.ui.step0_template_montage_combobox.setDisabled(True)
-            self.ui.step0_chanloc_path_lineedit.setEnabled(True)
-        elif self.ui.step0_use_template_montage_radio.isChecked():
-            self.ui.step0_template_montage_combobox.setEnabled(True)
-            self.ui.step0_chanloc_path_lineedit.setDisabled(True)
-
-        else:
-            self.ui.step0_import_raw_button.setDisabled(True)
+        if self.ui.step0_load_pattern_radio.isChecked() and self.ui.step0_import_pattern_lineedit.text().strip():
+            self.ui.step0_import_log_lineedit.setText(
+                f"Load {self.get_data_type()} EEG data with {self.get_extension()} extension with "
+                f"'{self.ui.step0_import_pattern_lineedit.text()}' in their names."
+            )
 
         plot_widgets = [
             self.ui.rawdata_plot_button,
@@ -126,35 +115,37 @@ class NewStudyWindow(QDialog):
         ]
 
         import_data_widgets = [
+            self.ui.step0_input_path_label,
             self.ui.step0_study_name_label,
             self.ui.step0_input_path_button,
-            self.ui.step0_save_path_button,
             self.ui.step0_import_format_label,
             self.ui.step0_import_type_label,
             self.ui.step0_import_pattern_label,
-            self.ui.step0_load_montage_radio,
-            self.ui.step0_use_template_montage_radio,
             self.ui.step0_study_name_lineedit,
             self.ui.step0_input_path_lineedit,
-            self.ui.step0_save_path_lineedit,
             self.ui.step0_import_format_combobox,
             self.ui.step0_import_raw_radio,
             self.ui.step0_import_epoched_radio,
             self.ui.step0_load_all_radio,
             self.ui.step0_load_pattern_radio,
-            self.ui.step0_import_pattern_lineedit,
-            self.ui.step0_chanloc_path_lineedit,
             self.ui.step0_import_log_lineedit
         ]
 
         preprocessing_widgets = [
-            self.ui.step0_no_option_checkbox,
+            self.ui.step0_montage_label,
+            self.ui.step0_load_montage_radio,
+            self.ui.step0_chanloc_path_lineedit,
+            self.ui.step0_use_template_montage_radio,
+            self.step0_template_montage_combobox,
             self.ui.step0_filter_option_checkbox,
             self.ui.step0_downsamp_option_checkbox,
-            self.ui.step0_preprocess_data_button,
+            self.ui.step0_ch2rm_label,
             self.ui.step0_ch2rm_radio,
             self.ui.step0_ch2rm_combobox,
-            self.ui.step0_ch2rm_missing_radio
+            self.ui.step0_ch2rm_missing_radio,
+            self.ui.step0_save_path_button,
+            self.ui.step0_save_path_lineedit,
+            self.ui.step0_preprocess_data_button
         ]
 
         filter_sub_widgets = [
@@ -181,17 +172,19 @@ class NewStudyWindow(QDialog):
                     filter_sub_widgets +
                     downsample_sub_widgets
             )
-
-            set_widgets_status(import_data_widgets, mode='enable')
             set_widgets_status(import_data_widgets, mode='show')
+            set_widgets_status(import_data_widgets, mode='enable')
             set_widgets_status(self.ui.step0_import_raw_button, mode='show')
-            set_widgets_status(self.ui.step0_template_montage_combobox, mode='show')
             set_widgets_status(widgets_to_rm, mode='disable')
             set_widgets_status(widgets_to_rm, mode='hide')
 
+            set_widgets_status(
+                self.ui.step0_import_pattern_lineedit,
+                'enable' if self.ui.step0_load_pattern_radio.isChecked()
+                else 'disable')
+
             if (self.ui.step0_study_name_lineedit.text()
-                    and self.ui.step0_input_path_lineedit
-                    and self.ui.step0_save_path_lineedit.text()):
+                    and self.ui.step0_input_path_lineedit):
 
                 set_widgets_status(self.ui.step0_import_raw_button, mode='enable')
                 self.ui.step0_remove_file_button.setEnabled(True)
@@ -211,11 +204,6 @@ class NewStudyWindow(QDialog):
         if not self.ui.step0_selected_files_list.count() == 0:
             set_widgets_status(self.ui.step0_preprocess_radio, mode='enable')
 
-            if self.ui.step0_use_template_montage_radio.isChecked():
-                set_widgets_status(self.ui.step0_template_montage_combobox, mode='enable')
-            else:
-                set_widgets_status(self.ui.step0_template_montage_combobox, mode='disable')
-
             # Enable Plot Options
             if self.ui.step0_selected_files_list.currentItem():
                 set_widgets_status(plot_widgets, mode='enable')
@@ -228,44 +216,48 @@ class NewStudyWindow(QDialog):
                     filter_sub_widgets +
                     downsample_sub_widgets
             )
-
             set_widgets_status(widgets_to_show, mode='show')
             set_widgets_status(self.ui.step0_import_raw_button, mode='disable')
             set_widgets_status(self.ui.step0_import_raw_button, mode='hide')
             set_widgets_status(import_data_widgets, mode='disable')
             set_widgets_status(import_data_widgets, mode='hide')
-            set_widgets_status(self.ui.step0_template_montage_combobox, mode='disable')
-            set_widgets_status(self.ui.step0_template_montage_combobox, mode='hide')
 
-            if self.ui.step0_ch2rm_radio.isChecked():
-                self.ui.step0_ch2rm_combobox.setEnabled(True)
-            else:
-                self.ui.step0_ch2rm_combobox.setDisabled(True)
+            set_widgets_status(
+                self.ui.step0_template_montage_combobox,
+                'enable' if self.ui.step0_use_template_montage_radio.isChecked()
+                else 'disable')
+
+            set_widgets_status(
+                self.ui.step0_chanloc_path_lineedit,
+                'enable' if self.ui.step0_load_montage_radio.isChecked()
+                else 'disable')
+
+            set_widgets_status(
+                self.ui.step0_ch2rm_combobox,
+                'enable' if self.ui.step0_ch2rm_radio.isChecked()
+                else 'disable')
 
             if self.ui.step0_ch2rm_missing_radio.isChecked():
                 self.ui.step0_ch2rm_combobox.deselectAllItems()
 
-            if self.ui.step0_no_option_checkbox.isChecked():
-                self.ui.step0_filter_option_checkbox.setChecked(False)
-                self.ui.step0_downsamp_option_checkbox.setChecked(False)
-                set_widgets_status([self.ui.step0_filter_option_checkbox,
-                                    self.ui.step0_downsamp_option_checkbox], mode='disable')
-                set_widgets_status((filter_sub_widgets + downsample_sub_widgets), mode='disable')
+            if self.ui.step0_filter_option_checkbox.isChecked():
+                self.filter_data = True
+                set_widgets_status(filter_sub_widgets, mode='enable')
             else:
-                self.ui.step0_filter_option_checkbox.setEnabled(True)
-                self.ui.step0_downsamp_option_checkbox.setEnabled(True)
-                if self.ui.step0_filter_option_checkbox.isChecked():
-                    self.filter_data = True
-                    set_widgets_status(filter_sub_widgets, mode='enable')
-                else:
-                    self.filter_data = False
-                    set_widgets_status(filter_sub_widgets, mode='disable')
-                if self.ui.step0_downsamp_option_checkbox.isChecked():
-                    self.ui.downsample_data = True
-                    set_widgets_status(downsample_sub_widgets, mode='enable')
-                else:
-                    self.downsample_data = False
-                    set_widgets_status(downsample_sub_widgets, mode='disable')
+                self.filter_data = False
+                self.lowcut_freq = ''
+                self.highcut_freq = ''
+                set_widgets_status(filter_sub_widgets, mode='disable')
+            if self.ui.step0_downsamp_option_checkbox.isChecked():
+                self.ui.downsample_data = True
+                set_widgets_status(downsample_sub_widgets, mode='enable')
+            else:
+                self.downsample_data = False
+                set_widgets_status(downsample_sub_widgets, mode='disable')
+
+            set_widgets_status(
+                self.ui.step0_preprocess_data_button, 'enable' if self.ui.step0_save_path_lineedit.text()
+                else 'disable')
 
     def choose_input(self):
         """
@@ -359,6 +351,8 @@ class NewStudyWindow(QDialog):
         for i in range(len(self.comet_tbx.list_eegs_path)):
             self.ui.step0_selected_files_list.addItem(str(self.comet_tbx.list_eegs_path[i]))
         self.ui.step0_import_log_lineedit.setText(f"{str(len(self.comet_tbx.list_eegs_path))} EEG data were detected.")
+        if len(self.comet_tbx.list_eegs_path) > 0:
+            self.ui.step0_preprocess_radio.setChecked(True)
         self.newstudy_controller()
 
     def new_study_save_path(self):
@@ -414,13 +408,6 @@ class NewStudyWindow(QDialog):
         """
         os.makedirs(self.save_dir)
         self.preprocessed_data_path = os.path.join(self.save_dir, self.study_name+'_preprocessed_data')
-
-        if self.ui.step0_no_option_checkbox.isChecked():
-            self.filter_data = False
-            self.lowcut_freq = ''
-            self.highcut_freq = ''
-            self.downsample_data = False
-            self.sample_rate = ''
 
         if self.ui.step0_filter_option_checkbox.isChecked():
             self.filter_data = True
