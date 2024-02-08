@@ -96,8 +96,8 @@ class NewStudyWindow(QDialog):
             self.ui.step0_import_pattern_lineedit.clear()
         if self.ui.step0_load_pattern_radio.isChecked() and self.ui.step0_import_pattern_lineedit.text().strip():
             self.ui.step0_import_log_lineedit.setText(
-                f"Load {self.get_data_type()} EEG data with {self.get_extension()} extension with "
-                f"'{self.ui.step0_import_pattern_lineedit.text()}' in their names."
+                f"Load {self.get_data_type()} EEG data with {self.get_extension()} extension that contain "
+                f"'{self.ui.step0_import_pattern_lineedit.text()}' in their filenames."
             )
 
         plot_widgets = [
