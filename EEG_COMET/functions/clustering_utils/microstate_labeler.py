@@ -38,7 +38,7 @@ class MicrostateLabeler:
 
         # Load model and do inference
         maps = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F', 6: 'G'}
-        model_path = './models/model_v1.11.h5'
+        model_path = './models/model_v1.22.h5'
         model = load_model(model_path, compile=False)
         output = model.predict(image)
         label_result = self.get_labels(output, maps)
