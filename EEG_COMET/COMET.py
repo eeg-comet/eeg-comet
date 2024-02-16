@@ -278,7 +278,6 @@ class COMET:
 
         self.microstate_labeler = MicrostateLabeler(self.best_maps, self.eeg_info, self.microstate_maps_path)
         self.micro_labels = self.microstate_labeler.do_labeling()
-        print(self.micro_labels)
         self.done_labeling_microstates = True
 
     def do_backfitting(self):

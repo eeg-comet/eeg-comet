@@ -32,19 +32,18 @@ class MicrostateLabeler:
             image = cv2.resize(image, (image_size, image_size))
             image = np.expand_dims(image, axis=0)
             images.append(image)
-
         image = np.vstack(images)
-        print(image.shape)
 
         # Load model and do inference
-        maps = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F', 6: 'G'}
+        num_classes = self.best_maps.shape[0]
+        maps = {i: chr(65 + i) for i in range(num_classes)}
         model_path = './models/model_v1.22.h5'
         model = load_model(model_path, compile=False)
         output = model.predict(image)
         label_result = self.get_labels(output, maps)
 
         micro_labels = []
-        additional_label = 'H'
+        additional_label = chr(65 + 7)
         assert self.n_states < 27, 'Cannot label more than 27 microstates: not enough letters'
 
         for i in range(self.n_states):
@@ -56,6 +55,7 @@ class MicrostateLabeler:
 
         self.micro_labels = micro_labels
         print(self.micro_labels)
+        print(f'Microstate Labels: {self.micro_labels}')
 
         # Save Best Maps
         maps_df = pd.DataFrame(self.best_maps.T, columns=micro_labels, index=self.eeg_info['ch_names'])
@@ -76,11 +76,19 @@ class MicrostateLabeler:
                 image_pool.add(image)
                 state_pool.add(state)
                 confidences[image, state] = np.NINF
-                result[image] = maps[state]
+                if state in maps:
+                    result[image] = maps[state]
+                else:
+                    while True:
+                        state = np.argsort(confidences[image])[::-1][0]  # Get next highest confidence
+                        if state in maps:
+                            result[image] = maps[state]
+                            break
+                        else:
+                            confidences[image, state] = np.NINF
             else:
                 confidences[image, state] = np.NINF
             if len(result) == confidences.shape[0] or len(result) == 7:
                 break
 
-        print(result)
         return result
