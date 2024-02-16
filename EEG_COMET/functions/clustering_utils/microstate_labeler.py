@@ -54,7 +54,6 @@ class MicrostateLabeler:
                 additional_label = chr(ord(additional_label) + 1)
 
         self.micro_labels = micro_labels
-        print(self.micro_labels)
         print(f'Microstate Labels: {self.micro_labels}')
 
         # Save Best Maps
