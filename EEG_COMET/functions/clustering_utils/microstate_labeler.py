@@ -102,23 +102,28 @@ class MicrostateLabeler:
 
     @staticmethod
     def get_labels(confidences, softmax_predictions, dictionary2use):
-        label_indices = [label_index for label_index in dictionary2use.keys()]
         result = {}
         probability = {}
 
-        for label_index in label_indices:
+        num_classes = len(dictionary2use)
+        label_indices = list(range(num_classes))
+        label_characters = [dictionary2use[i] if i < num_classes else chr(ord('H') + i - num_classes) for i in
+                            label_indices]
+
+        for label_index, label_char in zip(label_indices, label_characters):
             max_confidence = -np.inf
             max_image_index = -1
 
             for image_index in range(confidences.shape[0]):
                 if image_index not in result:
-                    confidence = confidences[image_index, label_index]
-                    if confidence > max_confidence:
-                        max_confidence = confidence
-                        max_image_index = image_index
+                    if label_index < confidences.shape[1]:  # Ensure label index is within bounds
+                        confidence = confidences[image_index, label_index]
+                        if confidence > max_confidence:
+                            max_confidence = confidence
+                            max_image_index = image_index
 
             if max_image_index != -1:
-                result[max_image_index] = dictionary2use[label_index]
+                result[max_image_index] = label_char
                 probability[max_image_index] = softmax_predictions[max_image_index, label_index]
 
         return result, probability
