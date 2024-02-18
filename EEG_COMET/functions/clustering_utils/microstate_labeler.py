@@ -16,6 +16,12 @@ class MicrostateLabeler:
         self.microstate_maps_path = microstate_maps_path
         self.micro_labels = []
 
+    @staticmethod
+    def softmax(x):
+        """Compute softmax values for each sets of scores in x."""
+        e_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
+        return e_x / e_x.sum(axis=-1, keepdims=True)
+
     def do_labeling(self):
         image_size = 448
         images = []
@@ -32,18 +38,21 @@ class MicrostateLabeler:
             image = cv2.resize(image, (image_size, image_size))
             image = np.expand_dims(image, axis=0)
             images.append(image)
-        image = np.vstack(images)
+        stacked_microstate_images = np.vstack(images)
 
         # Load model and do inference
         num_classes = self.best_maps.shape[0]
-        maps = {i: chr(65 + i) for i in range(num_classes)}
+        dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
         model_path = './models/model_v1.22.h5'
         model = load_model(model_path, compile=False)
-        output = model.predict(image)
-        label_result = self.get_labels(output, maps)
+        predictions = model.predict(stacked_microstate_images)
+        softmax_predictions = self.softmax(predictions) * 100
+        label_result, probability = self.get_labels(predictions, softmax_predictions, dictionary2use)
+        print(f'label_result: {label_result}')
+        print(f'probability: {probability}')
 
         micro_labels = []
-        additional_label = chr(65 + 7)
+        additional_label = chr(ord('A') + 7)
         assert self.n_states < 27, 'Cannot label more than 27 microstates: not enough letters'
 
         for i in range(self.n_states):
@@ -92,32 +101,24 @@ class MicrostateLabeler:
         return micro_labels
 
     @staticmethod
-    def get_labels(confidences, maps):
-        image_pool = set()
-        state_pool = set()
+    def get_labels(confidences, softmax_predictions, dictionary2use):
+        label_indices = [label_index for label_index in dictionary2use.keys()]
         result = {}
+        probability = {}
 
-        while True:
-            image = confidences.argmax() // confidences.shape[1]
-            state = confidences.argmax() % confidences.shape[1]
+        for label_index in label_indices:
+            max_confidence = -np.inf
+            max_image_index = -1
 
-            if image not in image_pool and state not in state_pool:
-                image_pool.add(image)
-                state_pool.add(state)
-                confidences[image, state] = np.NINF
-                if state in maps:
-                    result[image] = maps[state]
-                else:
-                    while True:
-                        state = np.argsort(confidences[image])[::-1][0]  # Get next highest confidence
-                        if state in maps:
-                            result[image] = maps[state]
-                            break
-                        else:
-                            confidences[image, state] = np.NINF
-            else:
-                confidences[image, state] = np.NINF
-            if len(result) == confidences.shape[0] or len(result) == 7:
-                break
+            for image_index in range(confidences.shape[0]):
+                if image_index not in result:
+                    confidence = confidences[image_index, label_index]
+                    if confidence > max_confidence:
+                        max_confidence = confidence
+                        max_image_index = image_index
 
-        return result
+            if max_image_index != -1:
+                result[max_image_index] = dictionary2use[label_index]
+                probability[max_image_index] = softmax_predictions[max_image_index, label_index]
+
+        return result, probability
