@@ -56,6 +56,36 @@ class MicrostateLabeler:
         self.micro_labels = micro_labels
         print(f'Microstate Labels: {self.micro_labels}')
 
+        ### TEMP
+        # Save microstates as image
+        # import os.path
+        # import random
+        # for step in range(15):
+        #     for i in range(self.best_maps.shape[0]):
+        #         filename_prefix = os.path.join(
+        #             'C:/Users/amin_/OneDrive - Simon Fraser University (1sfu)/TOOLBOX/TRAIN_MICROSTATE_LABELER/MICROSTATES_AS_IMAGE/NEW/' + self.micro_labels[i], self.micro_labels[i])
+        #         index = 400
+        #         while True:
+        #             filename = f"{filename_prefix}_{index}.png" if index > 1 else f"{filename_prefix}.png"
+        #             if not os.path.exists(filename):
+        #                 break
+        #             index += 1
+        #
+        #         fig, ax = plt.subplots()
+        #         random_contours = random.randint(0, 15)
+        #         random_polarity = random.choice([1, -1])
+        #         random_cmap = random.choice(['RdBu_r', 'coolwarm', 'bwr', 'seismic'])
+        #         random_sensors = random.choice([True, False])
+        #         random_interp = random.choice(['cubic', 'nearest', 'linear'])
+        #         random_sphere = random.choice([None, 'auto', 'eeglab'])
+        #         mne.viz.plot_topomap(random_polarity*self.best_maps[i, :], self.eeg_info,
+        #                              contours=random_contours, sensors=random_sensors, axes=ax,
+        #                              cmap=random_cmap, image_interp=random_interp, sphere=random_sphere, show=False)
+        #         plt.savefig(filename, dpi=200, bbox_inches='tight')
+
+        ### TEMP
+
+
         # Save Best Maps
         maps_df = pd.DataFrame(self.best_maps.T, columns=micro_labels, index=self.eeg_info['ch_names'])
         maps_df.to_csv(self.microstate_maps_path)
