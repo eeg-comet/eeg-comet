@@ -101,8 +101,7 @@ class COMET:
         self.epsilon = config.getfloat('do_backfitting', 'epsilon')
         self.b = config.getint('do_backfitting', 'b')
         self.lamb = config.getint('do_backfitting', 'lamb')
-        # TODO: use models to automatically label them
-        self.micro_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+        self.micro_labels = [chr(i) for i in range(ord('A'), ord('A') + self.choose_number_of_maps)]
 
         # Feature extraction configs
         self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")

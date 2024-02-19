@@ -58,6 +58,27 @@ class MicrostateClusterer:
         return np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
 
     @staticmethod
+    def microstates2csv(microstates, eeg_info, microstate_maps_path, headers=None):
+        """
+        Export microstate maps to a CSV file.
+        """
+        # Transpose the microstates array if needed
+        if microstates.shape[1] == len(eeg_info['ch_names']):
+            microstates = microstates.T
+
+        # Save Best Maps
+        microstates = np.array(microstates)
+        maps_df = pd.DataFrame(microstates, index=eeg_info['ch_names'])
+
+        if headers is not None:
+            maps_df.columns = headers
+        else:
+            headers = [f'{i + 1}' for i in range(microstates.shape[1])]
+            maps_df.columns = headers
+
+        maps_df.to_csv(microstate_maps_path)
+
+    @staticmethod
     def calculate_spatial_similarity(metric, point1, point2):
         """
         Computes similarity between two points using cosine similarity or spatial correlation.
@@ -419,7 +440,6 @@ class MicrostateClusterer:
             progress_dialog.close()
 
         # Save Best Maps
-        best_maps = np.array(best_maps)
-        maps_df = pd.DataFrame(best_maps.T, index=eeg_info['ch_names'])
-        maps_df.to_csv(microstate_maps_path)
+        self.microstates2csv(best_maps, eeg_info, microstate_maps_path)
+
         return best_maps, best_gev, best_residual

@@ -121,11 +121,11 @@ class MainMicrostateWindow(QMainWindow):
             comet_tbx=self.comet_tbx
         )
         # Create and initialize MicrostateVisualizationDialog
-        self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
-            self.context,
-            main_window=self,
-            tbx=self.comet_tbx
-        )
+        # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
+        #     self.context,
+        #     main_window=self,
+        #     tbx=self.comet_tbx
+        # )
         # Create and initialize OptimizerVisualizationDialog
         self.ui.OptimizerVisualizationDialog = OptimizerVisualizationDialog(
             self.context
@@ -239,7 +239,7 @@ class MainMicrostateWindow(QMainWindow):
             (self.ui.step0_new_study_button, self.open_new_study_dialog),
             (self.ui.step2_numberofmaps_elbow_button, self.visualize_elbow),
             (self.ui.step2_clustering_button, self.do_clustering),
-            (self.ui.step3_label_maps_button, self.label_maps),
+            (self.ui.step3_label_maps_button, self.visualize_microstates),
             (self.ui.step3_backfit_button, self.do_backfitting),
             (self.ui.step4_extractfeatures_button, self.extract_features),
             (self.ui.step4_visualizefeatures_button, self.visualize_microstate_features),
@@ -921,6 +921,7 @@ class MainMicrostateWindow(QMainWindow):
         """
 
         """
+        # TODO
         self.comet_tbx.do_autopilot()
 
     def do_clustering(self):
@@ -1013,7 +1014,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.save_tbx()
             self.log_window.append_log(f"GEV: {self.comet_tbx.gev}")
             # Label the maps and save the state
-            self.label_maps()
+            self.visualize_microstates()
             self.comet_tbx.save_tbx()
             # Update the main window
             self.ui.step0_show_backfitting_radio.setChecked(True)
@@ -1083,76 +1084,18 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step0_show_featureextraction_radio.setChecked(True)
             self.mainwindow_controller()
 
-    def label_maps(self):
+    def visualize_microstates(self):
         """
-        Label microstate maps.
+        Visualize microstate maps for labeling.
         """
-        just_show_labels = False
-        # Check if microstate labeling has already been done
-        if self.comet_tbx.done_labeling_microstates:
-            ret = QMessageBox.question(self, 'MessageBox', "Microstates have been labeled once,"
-                                                           " do you want to relabel microstates?",
-                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
-            self.show_labelling_window = False
-            if ret == QMessageBox.Yes:
-                self.show_labelling_window = True
-                just_show_labels = False
-            elif ret == QMessageBox.No:
-                self.show_labelling_window = True
-                just_show_labels = True
-        else:
-            self.show_labelling_window = True
-
-        if self.show_labelling_window:
-            if just_show_labels:
-                # Show microstate labels without relabeling
-                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
-                    self.context,
-                    main_window=self,
-                    tbx=self.comet_tbx
-                )
-                self.ui.MicrostateVisualizationDialog.save_dir = self.comet_tbx.save_dir
-                self.ui.MicrostateVisualizationDialog.n_states = self.comet_tbx.best_maps.shape[0]
-                self.ui.MicrostateVisualizationDialog.microstate_maps = self.comet_tbx.best_maps
-                self.ui.MicrostateVisualizationDialog.eeg_info = self.comet_tbx.eeg_info
-                self.ui.MicrostateVisualizationDialog.microstates_combobox.addItems(
-                    [str(i) for i in range(self.comet_tbx.best_maps.shape[0])])
-                self.ui.MicrostateVisualizationDialog.microstates_image_path = os.path.join(
-                    self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_microstates.png")
-                self.ui.MicrostateVisualizationDialog.set_layout(self.comet_tbx.micro_labels)
-                self.ui.MicrostateVisualizationDialog.plot_maps()
-                self.ui.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-                self.ui.MicrostateVisualizationDialog.showMaximized()
-                # Update the main window
-                self.mainwindow_controller()
-            else:
-                # Relabel microstates
-                self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
-                    self.context,
-                    main_window=self,
-                    tbx=self.comet_tbx
-                )
-                # Reset next steps processing flags to False
-                processing_flags = [
-                    'done_labeling_microstates', 'done_backfitting', 'done_extracting_features',
-                    'done_source_localization', 'done_source_microstate_correlation'
-                ]
-                self.reset_processing_flags(processing_flags)
-
-                self.MicrostateVisualizationDialog.save_dir = self.comet_tbx.save_dir
-                self.MicrostateVisualizationDialog.n_states = self.comet_tbx.best_maps.shape[0]
-                self.MicrostateVisualizationDialog.microstate_maps = self.comet_tbx.best_maps
-                self.MicrostateVisualizationDialog.eeg_info = self.comet_tbx.eeg_info
-                self.MicrostateVisualizationDialog.microstates_combobox.addItems(
-                    [str(i) for i in range(self.comet_tbx.best_maps.shape[0])])
-                self.MicrostateVisualizationDialog.microstates_image_path = os.path.join(
-                    self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_microstates.png")
-                self.MicrostateVisualizationDialog.set_layout()
-                self.MicrostateVisualizationDialog.plot_maps()
-                self.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-                self.MicrostateVisualizationDialog.showMaximized()
-                # Update the main window
-                self.mainwindow_controller()
+        self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
+            self.context,
+            main_window=self,
+            tbx=self.comet_tbx
+        )
+        self.ui.MicrostateVisualizationDialog.plot_maps()
+        self.ui.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.ui.MicrostateVisualizationDialog.showMaximized()
 
     def visualize_microstate_segmentation(self):
         """
