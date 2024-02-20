@@ -730,6 +730,7 @@ class MainMicrostateWindow(QMainWindow):
             ]
             self.reset_processing_flags(processing_flags)
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
+            self.comet_tbx.best_maps, self.comet_tbx.micro_labels = None, []
             # set ALL disabled
             set_widgets_status(self.ui.step0_show_featureextraction_radio, mode='disable')
             set_widgets_status(self.ui.step0_show_sourclocalization_radio, mode='disable')

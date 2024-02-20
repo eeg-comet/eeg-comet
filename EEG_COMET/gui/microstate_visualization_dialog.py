@@ -88,7 +88,7 @@ class MicrostateVisualizationDialog(QDialog):
             self.ui.colormap_label, self.ui.colormap_combobox,
             self.ui.other_options_label, self.ui.reverse_polarity_checkbox,
             self.ui.show_sensors_checkbox, self.ui.apply_all_button,
-            self.ui.reorder_microstates_button, self.ui.export_microstates_image_button
+            self.ui.reorder_microstates_button
         ]
         mode = 'show' if state == QtCore.Qt.Checked else 'hide'
         set_widgets_status(setting_widgets, mode)

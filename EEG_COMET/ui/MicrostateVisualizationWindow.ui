@@ -41,7 +41,7 @@
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QGridLayout" name="gridLayout_3">
        <item row="7" column="0" colspan="2">
         <widget class="QPushButton" name="reorder_microstates_button">
