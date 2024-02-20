@@ -16,6 +16,8 @@ from sklearn.decomposition import PCA
 from joblib import Parallel, delayed
 from gui.progress_dialog import ProgressDialog
 from functions.data_utils.data_initializer import DataInitializer
+from functions.clustering_utils.microstate_labeler import MicrostateLabeler
+
 
 class MicrostateClusterer:
 
@@ -24,8 +26,6 @@ class MicrostateClusterer:
         self.max_iterations = max_iter
         self.clustering_tolerance = tolerance
         self.best_maps = None
-        self.best_gev = 0
-        self.best_residual = None
 
     @staticmethod
     def corr_vectors(array1, array2, axis=0):
@@ -129,7 +129,9 @@ class MicrostateClusterer:
         Runs modified K-Means clustering with multiple initializations to find the best microstate maps.
         """
         data_initializer = DataInitializer()
-        all_data, _ = data_initializer.generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
+        all_data, _ = data_initializer.generate_maps_and_peaks(
+            preprocessed_data_path, extension, datatype, use_percentages=100
+        )
         best_residual, best_gev, best_maps = None, 0, None
         modified_kmeans_results = {}
         for init in range(n_inits):
@@ -170,7 +172,7 @@ class MicrostateClusterer:
             selected_maps = maps2use[:, random_indices]
             return selected_maps
 
-        def process_reassignment(cluster_index_to_reassign, Ci, cluster_data, maps):
+        def process_reassignment(cluster_index_to_reassign, c_i, cluster_data, maps):
             cluster_data_subset = cluster_data[cluster_index_to_reassign, :]
             mapsn = maps - np.mean(maps, axis=1, keepdims=True)
             mapsn /= np.linalg.norm(mapsn, axis=1, ord=2, keepdims=True)
@@ -178,10 +180,10 @@ class MicrostateClusterer:
             cluster_data_subsetn /= np.linalg.norm(cluster_data_subsetn, axis=0, ord=2, keepdims=True)
             map_corr = np.sum(mapsn * cluster_data_subset, axis=1)
             new_assignment = np.argmax(np.abs(map_corr), axis=0)
-            Ci[new_assignment].append(cluster_index_to_reassign)
+            c_i[new_assignment].append(cluster_index_to_reassign)
 
-        def process_cluster(cluster_index, Ci, cluster_data, maps):
-            data_indices = Ci[cluster_index]
+        def process_cluster(cluster_index, c_i, cluster_data, maps):
+            data_indices = c_i[cluster_index]
             cluster_data_subset = cluster_data[data_indices, :]
             covariance_matrix = np.dot(cluster_data_subset.T, cluster_data_subset)
             eigenvalues, eigenvectors = np.linalg.eig(covariance_matrix)
@@ -196,7 +198,9 @@ class MicrostateClusterer:
         # Initial setup
         # Number of parallel workers (adjust as needed)
         n_jobs = -1  # Use all available cores
-        all_data, _ = DataInitializer().generate_maps_and_peaks(preprocessed_data_path, extension, datatype, use_percentages=100)
+        all_data, _ = DataInitializer().generate_maps_and_peaks(
+            preprocessed_data_path, extension, datatype, use_percentages=100
+        )
         n_channels, n_samples = all_data.shape
         # Get GFP peaks
         gfp = all_data.std(axis=0)
@@ -209,9 +213,9 @@ class MicrostateClusterer:
         cluster_data = maps
         print(f"Initial number of clusters: {n_maps:d}\n")
         # Cluster indices w.r.t. original size, normalized GFP peak data
-        Ci = [[k] for k in range(n_maps)]
+        c_i = [[k] for k in range(n_maps)]
         # Main loop: atomize + agglomerate
-        while (n_maps > n_states):
+        while n_maps > n_states:
             if verbose:
                 print(f"\r\r\t\tAAHC > n: {n_maps:d} => {n_maps - 1:d}", end="")
             # Correlations of the data sequence with each cluster
@@ -235,17 +239,17 @@ class MicrostateClusterer:
             imin = np.argmin(gev)
             # N => N-1
             maps = np.vstack((maps[:imin, :], maps[imin + 1:, :]))
-            Ci, reC = Ci[:imin] + Ci[imin + 1:], Ci[imin]
+            c_i, re_c = c_i[:imin] + c_i[imin + 1:], c_i[imin]
             re_cluster = []  # indices of updated clusters
             # Parallelize the loop
-            Parallel(n_jobs=n_jobs)(delayed(process_reassignment)(cluster_index_to_reassign, Ci, cluster_data, maps) for
-                                    cluster_index_to_reassign in reC)
-            n_maps = len(Ci)
+            Parallel(n_jobs=n_jobs)(delayed(process_reassignment)(cluster_index_to_reassign, c_i, cluster_data, maps) for
+                                    cluster_index_to_reassign in re_c)
+            n_maps = len(c_i)
             # Update clusters
             re_cluster = list(set(re_cluster))  # unique list of updated clusters
             # Parallelize the loop
             residuals = Parallel(n_jobs=n_jobs)(
-                delayed(process_cluster)(cluster_index, Ci, cluster_data, maps) for cluster_index in re_cluster)
+                delayed(process_cluster)(cluster_index, c_i, cluster_data, maps) for cluster_index in re_cluster)
         best_gev = self.compute_gev(all_data, maps)
         print(f'\nBest GEV: {best_gev}')
         return maps, np.sum(residuals), best_gev
@@ -321,15 +325,17 @@ class MicrostateClusterer:
         progress_dialog.show()
 
         data_initializer = DataInitializer()
+
         def metric_function(point1, point2):
             return self.calculate_spatial_similarity(clustering_option, point1, point2)
 
-        maps2use, peaks2use = data_initializer.generate_maps_and_peaks(preprocessed_data_path,
-                                                      extension,
-                                                      datatype,
-                                                      use_percentages,
-                                                      min_dist
-                                                      )
+        maps2use, peaks2use = data_initializer.generate_maps_and_peaks(
+            preprocessed_data_path,
+            extension,
+            datatype,
+            use_percentages,
+            min_dist
+        )
 
         if method == 'Modified K-Means Clustering':
             modified_kmeans_results = self.run_modified_kmeans(
@@ -350,7 +356,7 @@ class MicrostateClusterer:
                 preprocessed_data_path, extension, datatype,
                 maps2use=maps2use,
                 n_states=n_states,
-                n_maps2use=50 # edit
+                n_maps2use=50  # TODO: edit
             )
 
         else:
@@ -368,7 +374,9 @@ class MicrostateClusterer:
 
             elif method == 'PCA + K-Means Clustering':
                 encoded_features = self.extract_features_with_pca(maps2use, pca_components=n_pca)
-                initial_centers = data_initializer.initialize_cluster_centers(np.transpose(encoded_features), n_states, initializer)
+                initial_centers = data_initializer.initialize_cluster_centers(
+                    np.transpose(encoded_features), n_states, initializer
+                )
                 metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
                 clustering_instance = kmeans.kmeans(encoded_features,
                                                     initial_centers,
@@ -379,7 +387,9 @@ class MicrostateClusterer:
 
             elif method == 'Autoencoder + K-Means Clustering':
                 encoded_features, autoencoder = self.extract_features_with_autoencoder(maps2use, encoding_dim=10)
-                initial_centers = data_initializer.initialize_cluster_centers(np.transpose(encoded_features), n_states, initializer)
+                initial_centers = data_initializer.initialize_cluster_centers(
+                    np.transpose(encoded_features), n_states, initializer
+                )
                 metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
                 clustering_instance = kmeans.kmeans(encoded_features,
                                                     initial_centers,
@@ -390,24 +400,27 @@ class MicrostateClusterer:
 
             elif method == 'X-Means Clustering':
                 if clustering_option == 'Bayesian Information Criterion':
-                    CRITERION = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
+                    criterion = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
                 elif clustering_option == 'Minimum Noiseless Description Length':
-                    CRITERION = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH
+                    criterion = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH
                 else:
                     raise ValueError("Failed to match metric")
                 clustering_instance = xmeans.xmeans(maps2use,
                                                     initial_centers,
                                                     n_states,
                                                     tolerance=self.clustering_tolerance,
-                                                    criterion=CRITERION
+                                                    criterion=criterion
                                                     )
 
             else:
                 raise ValueError("Failed to match method")
 
-            best_gev = 0
+            best_gev, best_confidence = 0, 0
             for init in range(self.number_of_repeats):
-                progress_dialog.set_label_text(f"Clustering {int(n_states)} Microstate Maps\nInitialization #{init + 1} of {self.number_of_repeats}")
+                progress_dialog.set_label_text(
+                    f"Clustering {int(n_states)}"
+                    f"Microstate Maps\nInitialization #{init + 1} of {self.number_of_repeats}"
+                )
                 print('\nClustering #', str(init + 1), 'of', str(self.number_of_repeats))
 
                 if method in ['K-Means Clustering', 'X-Means Clustering']:
@@ -424,7 +437,7 @@ class MicrostateClusterer:
                     # Find original centroids
                     centroids = self.find_original_centroids(maps2use, cluster_labels_flat, n_states)
                     # Calculate residuals
-                    residual = 0#self.calculate_residuals(maps2use, autoencoder)
+                    residual = 0  # self.calculate_residuals(maps2use, autoencoder)
 
                 gev_r = self.compute_gev(np.transpose(maps2use), np.array(centroids))
 
@@ -432,7 +445,12 @@ class MicrostateClusterer:
                 progress_dialog.set_line_edit_text(f"Global Explained Variance: {gev_r}")
                 print('Found', str(int(n_states)), 'Microstate Maps')
                 print('GEV:', str(gev_r))
-                if gev_r > best_gev:
+
+                microstate_labeler = MicrostateLabeler(best_maps, eeg_info, microstate_maps_path)
+                micro_labels, labels_overall_confidence = microstate_labeler.do_labeling()
+
+                # if gev_r > best_gev:
+                if labels_overall_confidence > best_confidence:
                     best_gev = gev_r
                     best_maps = centroids
                     best_residual = residual

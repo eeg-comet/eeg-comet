@@ -201,7 +201,9 @@ class COMET:
 
     def do_autopilot(self):
 
-        autopilot_clusterer = AutopilotClusterer(self.save_dir, self.study_name, self.extension, self.datatype)
+        autopilot_clusterer = AutopilotClusterer(
+            self.save_dir, self.study_name, self.extension, self.datatype
+        )
         autopilot_clusterer.run_autopilot()
 
     def do_clustering(self):
@@ -222,10 +224,11 @@ class COMET:
             ]
         assert self.clustering_method in avaliable_methods, "clustering_method not supported"
 
-        microstate_clusterer = MicrostateClusterer(self.number_of_repeats,
-                                                   self.max_iterations,
-                                                   self.clustering_tolerance
-                                                   )
+        microstate_clusterer = MicrostateClusterer(
+            self.number_of_repeats,
+            self.max_iterations,
+            self.clustering_tolerance
+        )
 
         if self.number_of_maps == 'auto':
             self.maps2use, self.peaks2use = DataInitializer().generate_maps_and_peaks(
@@ -276,7 +279,7 @@ class COMET:
     def do_labeling(self):
 
         self.microstate_labeler = MicrostateLabeler(self.best_maps, self.eeg_info, self.microstate_maps_path)
-        self.micro_labels = self.microstate_labeler.do_labeling()
+        self.micro_labels, self.labels_overall_confidence = self.microstate_labeler.do_labeling()
         self.done_labeling_microstates = True
 
     def do_backfitting(self):

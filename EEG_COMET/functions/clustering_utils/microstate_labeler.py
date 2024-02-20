@@ -23,6 +23,7 @@ class MicrostateLabeler:
         return e_x / e_x.sum(axis=-1, keepdims=True)
 
     def do_labeling(self):
+        """Perform microstate labeling using a trained model."""
         image_size = 448
         images = []
 
@@ -47,17 +48,16 @@ class MicrostateLabeler:
         model = load_model(model_path, compile=False)
         predictions = model.predict(stacked_microstate_images)
         softmax_predictions = self.softmax(predictions) * 100
-        label_result, probability = self.get_labels(predictions, softmax_predictions, dictionary2use)
-        print(f'label_result: {label_result}')
-        print(f'probability: {probability}')
+        assigned_labels, probabilities = self.get_labels(predictions, softmax_predictions, dictionary2use)
+        overall_confidence = sum(probabilities.values()) / len(probabilities)
 
         micro_labels = []
         additional_label = chr(ord('A') + 7)
         assert self.n_states < 27, 'Cannot label more than 27 microstates: not enough letters'
 
         for i in range(self.n_states):
-            if i in label_result:
-                micro_labels.append(label_result[i])
+            if i in assigned_labels:
+                micro_labels.append(assigned_labels[i])
             else:
                 micro_labels.append(additional_label)
                 additional_label = chr(ord(additional_label) + 1)
@@ -98,12 +98,13 @@ class MicrostateLabeler:
         # Save Best Maps
         maps_df = pd.DataFrame(self.best_maps.T, columns=micro_labels, index=self.eeg_info['ch_names'])
         maps_df.to_csv(self.microstate_maps_path)
-        return micro_labels
+        return micro_labels, overall_confidence
 
     @staticmethod
     def get_labels(confidences, softmax_predictions, dictionary2use):
-        result = {}
-        probability = {}
+        """Get microstate labels based on confidence scores."""
+        assigned_labels = {}
+        probabilities = {}
 
         num_classes = len(dictionary2use)
         label_indices = list(range(num_classes))
@@ -115,7 +116,7 @@ class MicrostateLabeler:
             max_image_index = -1
 
             for image_index in range(confidences.shape[0]):
-                if image_index not in result:
+                if image_index not in assigned_labels:
                     if label_index < confidences.shape[1]:  # Ensure label index is within bounds
                         confidence = confidences[image_index, label_index]
                         if confidence > max_confidence:
@@ -123,7 +124,7 @@ class MicrostateLabeler:
                             max_image_index = image_index
 
             if max_image_index != -1:
-                result[max_image_index] = label_char
-                probability[max_image_index] = softmax_predictions[max_image_index, label_index]
+                assigned_labels[max_image_index] = label_char
+                probabilities[max_image_index] = softmax_predictions[max_image_index, label_index]
 
-        return result, probability
+        return assigned_labels, probabilities
