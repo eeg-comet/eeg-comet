@@ -18,7 +18,7 @@ from gui.progress_dialog import ProgressDialog
 
 class SourceLocalizer:
     def __init__(self, subjects_dir, localized_sources_path, preprocessed_data_path, segmentation_path,
-                 use_anatomy, extension, datatype, spacing, inv_method, microstate_maps, nperm):
+                 use_anatomy, extension, datatype, spacing, inverse_method, microstate_maps, nperm):
         self.subjects_dir = subjects_dir
         self.localized_sources_path = localized_sources_path
         stc_path = os.path.join(localized_sources_path, "stc")
@@ -31,7 +31,7 @@ class SourceLocalizer:
         self.extension = extension
         self.datatype = datatype
         self.spacing = spacing
-        self.inv_method = inv_method
+        self.inverse_method = inverse_method
         self.microstate_maps = microstate_maps
         self.tess_path = None
         self.avg_sources_path = None
@@ -212,7 +212,7 @@ class SourceLocalizer:
             noise_cov, raw_info, mag=0.1, grad=0.1, eeg=0.1, proj=True)
         # Apply minimum-norm inverse to obtain the source time series
 
-        if self.inv_method == 'LAURA':
+        if self.inverse_method == 'LAURA':
             # Fix dipole orientations in the forward solution
             fwd = mne.convert_forward_solution(
                 fwd, force_fixed=True, verbose=True)
@@ -232,11 +232,11 @@ class SourceLocalizer:
             if self.datatype == 'epoched':
                 # Process epoched data
                 stc_file = mne.minimum_norm.apply_inverse_epochs(
-                    raw_eeg, inverse_operator, lambda2, method=self.inv_method, pick_ori=None, verbose=True)
+                    raw_eeg, inverse_operator, lambda2, method=self.inverse_method, pick_ori=None, verbose=True)
             else:
                 # Process raw data
                 stc_file = mne.minimum_norm.apply_inverse_raw(
-                    raw_eeg, inverse_operator, lambda2, method=self.inv_method, pick_ori=None, verbose=True)
+                    raw_eeg, inverse_operator, lambda2, method=self.inverse_method, pick_ori=None, verbose=True)
 
         return stc_file
 
@@ -244,17 +244,20 @@ class SourceLocalizer:
         """
         Perform source localization for multiple EEG files.
         """
+        list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
+
         # Create an instance of the progress dialog
         progress_dialog = ProgressDialog()
         progress_dialog.set_window_title("Source Localization ...")
         progress_dialog.set_label_text(
-            f"Running source localization using {self.inv_method} method")
+            f"Running source localization using {self.inverse_method} method")
         progress_dialog.show()
-
-        list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
+        progress_dialog.start_process(len(list_eeg_path))
+        progress_dialog.update_progress(0)
         for idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_name)):
             print(f"Source Localizing {eeg_name} ({idx + 1}/{len(list_eeg_path)})")
             progress_dialog.set_line_edit_text(f"{eeg_name}")
+            progress_dialog.update_progress(idx)
             stc_subject_path = os.path.join(self.stc_path, list_eeg_name[idx])
             if not os.path.exists(stc_subject_path):
                 os.makedirs(stc_subject_path)
@@ -285,7 +288,10 @@ class SourceLocalizer:
                 self.export_src_bem_trans('fsaverage', src, bem, trans)
                 stc_file = self.compute_stc(src, bem, trans, eeg, eeg_info)
 
-            progress_dialog.update_progress(idx + 1, len(list_eeg_path))
+            if not progress_dialog.running:  # Check if the process should be stopped
+                break
+            else:
+                progress_dialog.update_progress(idx + 1)
             print(f"\nExporting Source Time Courses: {eeg_name}")
             self.stc_write(stc_subject_path, stc_file)
         progress_dialog.close()
@@ -381,6 +387,7 @@ class SourceLocalizer:
         """
         Identify microstate source localization for multiple EEG files.
         """
+        list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
 
         # Create an instance of the progress dialog
         progress_dialog = ProgressDialog()
@@ -388,12 +395,13 @@ class SourceLocalizer:
         progress_dialog.set_label_text(
             f"Identifying microstate sources with the {source_method} method")
         progress_dialog.show()
+        progress_dialog.start_process(len(list_eeg_path))
+        progress_dialog.update_progress(0)
 
-        list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
         for idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_name)):
             print(f"\nLoading Source Time Courses: {eeg_name}")
             progress_dialog.set_line_edit_text(f"{eeg_name}")
-
+            progress_dialog.update_progress(idx)
             stc_subject_path = os.path.join(self.stc_path, eeg_name)
             stc_file = self.stc_read(stc_subject_path)
             stc_data = stc_file[0].data.T
@@ -429,5 +437,8 @@ class SourceLocalizer:
                     filename = os.path.join(avg_subject_path, f"{list_eeg_name[idx]}_{m}.npy")
                     np.save(filename, array_data)
 
-            progress_dialog.update_progress(idx + 1, len(list_eeg_path))
+            if not progress_dialog.running:  # Check if the process should be stopped
+                break
+            else:
+                progress_dialog.update_progress(idx + 1)
         progress_dialog.close()

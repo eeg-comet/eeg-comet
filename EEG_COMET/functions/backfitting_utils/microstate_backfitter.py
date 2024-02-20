@@ -13,7 +13,7 @@ from gui.progress_dialog import ProgressDialog
 class MicrostateBackfitter:
     def __init__(self, study_name, preprocessed_data_path, microstate_maps, backfit_to,
                  filter_segments, filter_segments_option, identify_short_window, remove_segments_less_than,
-                 micro_labels, save_path, extension, datatype, sample_rate, smooth_param, export_format):
+                 micro_labels, segmentation_path, extension, datatype, sample_rate, smoothing_parameters, export_format):
 
         self.study_name = study_name
         self.preprocessed_data_path = preprocessed_data_path
@@ -24,11 +24,11 @@ class MicrostateBackfitter:
         self.identify_short_window = identify_short_window
         self.remove_segments_less_than = remove_segments_less_than
         self.microstate_labels = micro_labels
-        self.save_path = save_path
+        self.segmentation_path = segmentation_path
         self.extension = extension
         self.datatype = datatype
         self.sample_rate = sample_rate
-        self.smooth_param = smooth_param
+        self.smoothing_parameters = smoothing_parameters
         self.export_format = export_format
 
     @staticmethod
@@ -184,7 +184,7 @@ class MicrostateBackfitter:
         return segmentation
 
     def substitude_maps_with_duration(self, segmentation, segments_less_than, option, data, microstate_maps, n_states,
-                                      smooth_param=[1e-6, 3, 5]):
+                                      smoothing_parameters=[1e-6, 3, 5]):
         """
         Substitute short segments in the segmentation array with neighboring elements based on the chosen option.
         """
@@ -222,7 +222,7 @@ class MicrostateBackfitter:
         elif option == 'replace_half':
             filled_segmentation = self.fill_with_neighbors_half(filled_segmentation)
         elif option == 'smooth':
-            filled_segmentation = self.segmentation_smooth(data, microstate_maps, n_states, *smooth_param)
+            filled_segmentation = self.segmentation_smooth(data, microstate_maps, n_states, *smoothing_parameters)
 
         return filled_segmentation
 
@@ -303,14 +303,18 @@ class MicrostateBackfitter:
                 progress_dialog.set_window_title("Filtering Segments ...")
                 progress_dialog.set_label_text("Identifying the optimal window length for removal")
                 progress_dialog.show()
+                progress_dialog.start_process(len(list_eeg_path))
+                progress_dialog.update_progress(0)
 
                 rm_max_len = 50
                 len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
                 similarity_scores = np.empty((len(list_eeg_path), len(len_win2rm_list)))
+
                 progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True,
                                     desc="Identifying the optimal window length for removal")
                 for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_names)):
                     progress_dialog.set_line_edit_text(f"{eeg_name}")
+                    progress_dialog.update_progress(eeg_idx)
                     eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                     eeg_data = eeg.get_data()
                     idx_eeg = list_eeg_path.index(eeg_path)
@@ -328,8 +332,10 @@ class MicrostateBackfitter:
                         labeled_segmentation = self.label_segments(np.array(segmentation))
                         similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data,
                                                                                                 labeled_segmentation)
-
-                    progress_dialog.update_progress(eeg_idx + 1, len(list_eeg_path))
+                    if not progress_dialog.running:  # Check if the process should be stopped
+                        break
+                    else:
+                        progress_dialog.update_progress(eeg_idx + 1)
                     progress_bar.update(1)
 
                 progress_dialog.close()
@@ -375,6 +381,9 @@ class MicrostateBackfitter:
         progress_dialog.set_window_title("Backfitting ...")
         progress_dialog.set_label_text("Backfitting microstates to data: ")
         progress_dialog.show()
+        progress_dialog.start_process(len(list_eeg_path))
+        progress_dialog.update_progress(0)
+
         # Create a tqdm progress bar
         progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True)
 
@@ -386,6 +395,7 @@ class MicrostateBackfitter:
             filename = os.path.split(eeg_path)[1].split('.')[0]
 
             progress_dialog.set_line_edit_text(f"{filename}")
+            progress_dialog.update_progress(eeg_idx)
             progress_bar.set_description(f"Backfitting microstates to data: {filename}")
 
             for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
@@ -418,9 +428,9 @@ class MicrostateBackfitter:
                                                                           trial_data,
                                                                           self.microstate_maps,
                                                                           len(self.microstate_labels),
-                                                                          [self.smooth_param[0],
+                                                                          [self.smoothing_parameters[0],
                                                                            remove_segments_less_than,
-                                                                           self.smooth_param[2]])
+                                                                           self.smoothing_parameters[2]])
 
                 elif self.backfit_to == 'peaks':
                     gfp = np.std(eeg_data, axis=0)
@@ -457,10 +467,13 @@ class MicrostateBackfitter:
                     trial_filename = filename
 
                 segmentation_io.export_segmentation(
-                    self.save_path, trial_filename, labeled_segmentation, trial_times, self.export_format
+                    self.segmentation_path, trial_filename, labeled_segmentation, trial_times, self.export_format
                 )
 
-            progress_dialog.update_progress(eeg_idx + 1, len(list_eeg_path))
+            if not progress_dialog.running:  # Check if the process should be stopped
+                break
+            else:
+                progress_dialog.update_progress(eeg_idx + 1)
             progress_bar.update(1)
 
         progress_dialog.close()

@@ -128,13 +128,27 @@ class MicrostateClusterer:
         """
         Runs modified K-Means clustering with multiple initializations to find the best microstate maps.
         """
+        # Create an instance of the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title("Clustering ...")
+        progress_dialog.show()
+        progress_dialog.start_process(n_inits)
+
         data_initializer = DataInitializer()
         all_data, _ = data_initializer.generate_maps_and_peaks(
             preprocessed_data_path, extension, datatype, use_percentages=100
         )
         best_residual, best_gev, best_maps = None, 0, None
         modified_kmeans_results = {}
+
+        progress_dialog.set_label_text(f"Clustering {int(n_states)} Microstate Maps")
+        progress_dialog.update_progress(0)
         for init in range(n_inits):
+            progress_dialog.set_label_text(
+                f"Clustering {int(n_states)} "
+                f"Microstate Maps\nInitialization #{init + 1} of {n_inits}"
+            )
+            progress_dialog.update_progress(init)
             if verbose:
                 print(f'\nClustering #{init + 1} of {n_inits}')
             initial_maps = data_initializer.initialize_cluster_centers(maps2use, n_states, initializer)
@@ -146,12 +160,20 @@ class MicrostateClusterer:
                 'gev': gev,
                 'residual': residual
             }
+
+            progress_dialog.set_line_edit_text(f"Global Explained Variance: {100 * gev:.3f}")
             if verbose:
                 print(f'Found {n_states} Microstate Maps')
                 print(f'GEV: {gev}')
             # Update the best results if current gev is higher
             if gev > best_gev:
                 best_residual, best_gev, best_maps = residual, gev, maps
+
+            progress_dialog.update_progress(init + 1)
+
+            if not progress_dialog.running:  # Check if the process should be stopped
+                break
+
         modified_kmeans_results['best'] = {
             'maps': best_maps,
             'gev': best_gev,
@@ -159,6 +181,9 @@ class MicrostateClusterer:
         }
         if verbose:
             print(f'\nBest GEV: {best_gev}')
+
+        progress_dialog.close()
+
         return modified_kmeans_results
 
     def run_aahc(self, preprocessed_data_path, extension, datatype, maps2use, n_states, n_maps2use=1000, verbose=True):
@@ -319,11 +344,6 @@ class MicrostateClusterer:
         Performs clustering on preprocessed data to find microstate maps.
         """
 
-        # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
-        progress_dialog.set_window_title("Clustering ...")
-        progress_dialog.show()
-
         data_initializer = DataInitializer()
 
         def metric_function(point1, point2):
@@ -360,6 +380,12 @@ class MicrostateClusterer:
             )
 
         else:
+            # Create an instance of the progress dialog
+            progress_dialog = ProgressDialog()
+            progress_dialog.set_window_title("Clustering ...")
+            progress_dialog.show()
+            progress_dialog.start_process(self.number_of_repeats)
+
             initial_centers = data_initializer.initialize_cluster_centers(maps2use, n_states, initializer)
             maps2use = np.transpose(maps2use)
 
@@ -415,6 +441,8 @@ class MicrostateClusterer:
             else:
                 raise ValueError("Failed to match method")
 
+            progress_dialog.set_label_text(f"Clustering {int(n_states)} Microstate Maps")
+            progress_dialog.update_progress(0)
             best_gev, best_confidence = 0, 0
             for init in range(self.number_of_repeats):
                 progress_dialog.set_label_text(
@@ -441,8 +469,8 @@ class MicrostateClusterer:
 
                 gev_r = self.compute_gev(np.transpose(maps2use), np.array(centroids))
 
-                progress_dialog.update_progress(init + 1, self.number_of_repeats)
-                progress_dialog.set_line_edit_text(f"Global Explained Variance: {gev_r}")
+                progress_dialog.update_progress(init + 1)
+                progress_dialog.set_line_edit_text(f"Global Explained Variance: {100 * gev_r:.2f}")
                 print('Found', str(int(n_states)), 'Microstate Maps')
                 print('GEV:', str(gev_r))
 
@@ -454,6 +482,10 @@ class MicrostateClusterer:
                     best_gev = gev_r
                     best_maps = centroids
                     best_residual = residual
+
+                if not progress_dialog.running:  # Check if the process should be stopped
+                    break
+
             print('\nBest GEV:', str(best_gev))
             progress_dialog.close()
 
