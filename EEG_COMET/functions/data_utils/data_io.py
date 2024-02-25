@@ -56,7 +56,7 @@ class DataIO:
         return list_path, list_filename
 
     @staticmethod
-    def load_eegs(filename, eeg_format, datatype, channel_location_dir='', chan2rm=[]):
+    def load_eegs(eeg_path, eeg_format, datatype, channel_location_dir='', chan2rm=[]):
         """
         Load EEG data from different formats and preprocess if needed.
         """
@@ -66,30 +66,30 @@ class DataIO:
     
             # Load EEG data based on the specified format
             if eeg_format == ".vhdr":
-                eeg = mne.io.read_raw_brainvision(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_brainvision(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".edf":
-                eeg = mne.io.read_raw_edf(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_edf(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".bdf":
-                eeg = mne.io.read_raw_bdf(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_bdf(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".gdf":
-                eeg = mne.io.read_raw_gdf(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_gdf(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".cnt":
-                eeg = mne.io.read_raw_cnt(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_cnt(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".egi" or eeg_format == ".mff":
-                eeg = mne.io.read_raw_egi(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_egi(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".set":
-                eeg = mne.io.read_raw_eeglab(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_eeglab(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".data":
-                eeg = mne.io.read_raw_nicolet(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_nicolet(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".nxe":
-                eeg = mne.io.read_raw_eximia(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_eximia(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".lay":
-                eeg = mne.io.read_raw_persyst(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_persyst(eeg_path, preload=True, verbose=verbose)
             elif eeg_format == ".eeg":
-                eeg = mne.io.read_raw_nihon(filename, preload=True, verbose=verbose)
+                eeg = mne.io.read_raw_nihon(eeg_path, preload=True, verbose=verbose)
         elif datatype == 'epoched':
             if eeg_format == ".set":
-                eeg = mne.io.read_epochs_eeglab(filename, verbose=verbose)
+                eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=verbose)
     
         # Optional: Load channel locations if provided
         try:
@@ -106,14 +106,13 @@ class DataIO:
         channel_names = eeg.info['ch_names']
         if any(chan2rm) and not all(elem == '' for elem in chan2rm) and chan2rm in channel_names:
             eeg = eeg.drop_channels(chan2rm)
+        if 'TRIGGER' in channel_names:
+            eeg = eeg.drop_channels('TRIGGER')
 
         # Add average reference projection
         eeg.set_eeg_reference('average', projection=True, verbose=verbose)
         # Apply the added projection
         eeg.apply_proj(verbose=verbose)
-        
-        if 'TRIGGER' in channel_names:
-            eeg = eeg.drop_channels('TRIGGER')
     
         return eeg
 
