@@ -139,7 +139,7 @@ class COMET:
         current_time = datetime.now().strftime("%I:%M %p")
         separator = "******************************************************"
         if log_type == 'settings':
-            current_log_text = f"\n{separator}{log}{separator}\n"
+            current_log_text = f"\n{separator}\n{log}\n{separator}\n"
         else:
             current_log_text = f"[{current_date} {current_time}]: {log}\n"
         self.log_text.append(current_log_text)
@@ -390,14 +390,15 @@ class COMET:
             f"* Clustering will be performed on {cluster_data_log}", log_type='settings'
         )
 
-        best_residual, best_gev, best_maps = None, 0, None
+        self.best_residual, self.best_maps = None, None
+        self.best_gev, self.best_confidence = 0, 0
         if self.clustering_method == 'Modified K-Means Clustering':
             modified_kmeans_results = {}
             for init in range(self.number_of_repeats):
                 self.update_progress(
                     progress_dialog, progress_bar, init,
                     f"Clustering [{init + 1}/{self.number_of_repeats}] - "
-                    f"Global Explained Variance: {100 * best_gev:.3f}%"
+                    f"Global Explained Variance: {100 * self.best_gev:.3f}%"
                 )
 
                 maps_init, residual_init = microstate_clusterer.modified_kmeans(
@@ -423,8 +424,8 @@ class COMET:
                 )
 
                 # Update the best results if current gev is higher
-                if gev_init > best_gev:
-                    best_residual, best_gev, best_maps = residual_init, gev_init, maps_init
+                if gev_init > self.best_gev:
+                    self.best_residual, self.best_gev, self.best_maps = residual_init, gev_init, maps_init
 
                 # Check if the process should be stopped
                 if not progress_dialog.running:
@@ -435,14 +436,13 @@ class COMET:
             progress_bar.close()
 
             modified_kmeans_results['best'] = {
-                'maps': best_maps,
-                'gev': best_gev,
-                'residual': best_residual
+                'maps': self.best_maps,
+                'gev': self.best_gev,
+                'residual': self.best_residual
             }
-            self.best_maps = modified_kmeans_results['best']['maps']
-            self.best_gev = modified_kmeans_results['best']['gev']
-            self.best_residual = modified_kmeans_results['best']['residual']
-
+            # self.best_maps = modified_kmeans_results['best']['maps']
+            # self.best_gev = modified_kmeans_results['best']['gev']
+            # self.best_residual = modified_kmeans_results['best']['residual']
 
         else:
 
@@ -456,12 +456,11 @@ class COMET:
 
             progress_dialog.set_label_text(f"Clustering {int(self.number_of_maps)} Microstate Maps")
             progress_dialog.update_progress(0)
-            best_gev, best_confidence = 0, 0
             for init in range(self.number_of_repeats):
                 self.update_progress(
                     progress_dialog, progress_bar, init,
                     f"Clustering [{init + 1}/{self.number_of_repeats}] - "
-                    f"Best Global Explained Variance: {100 * best_gev:.3f}%"
+                    f"Best Global Explained Variance: {100 * self.best_gev:.3f}%"
                 )
 
                 if self.clustering_method in ['K-Means Clustering', 'X-Means Clustering']:
@@ -488,10 +487,10 @@ class COMET:
                 micro_labels, labels_overall_confidence = microstate_labeler.do_labeling()
 
                 # if gev_r > best_gev:
-                if labels_overall_confidence > best_confidence:
-                    best_gev = gev_init
-                    best_maps = maps_init
-                    best_residual = residual_init
+                if labels_overall_confidence > self.best_confidence:
+                    self.best_gev = gev_init
+                    self.best_maps = maps_init
+                    self.best_residual = residual_init
 
                 # Check if the process should be stopped
                 if not progress_dialog.running:
@@ -502,13 +501,13 @@ class COMET:
             progress_bar.close()
 
         # Save Best Maps
-        microstate_clusterer.microstates2csv(best_maps, self.eeg_info, self.microstate_maps_path)
+        microstate_clusterer.microstates2csv(self.best_maps, self.eeg_info, self.microstate_maps_path)
 
         print(f'Global Explained Variance: {self.best_gev}')
         # Log the clustering progress
         self.append_log(
             f"Clustering Done\n"
-            f"✓ The Best Global Explained Variance: {100 * best_gev:.3f}%"
+            f"✓ The Best Global Explained Variance: {100 * self.best_gev:.3f}%"
         )
 
         # Set clustering flag
@@ -602,16 +601,16 @@ class COMET:
             backfit_to_text = "Backfitting microstates to all time points."
 
         if self.filter_segments_option == 'remove':
-            filter_segments_option_text = f"\nRemoving segments with less than " \
+            filter_segments_option_text = f"Removing segments with less than " \
                                           f"{remove_segments_less_than_ms}ms in duration."
         elif self.filter_segments_option == 'replace_high':
-            filter_segments_option_text = f"\nReplacing segments with less than {remove_segments_less_than_ms}ms" \
+            filter_segments_option_text = f"Replacing segments with less than {remove_segments_less_than_ms}ms" \
                 f"by the nearby microstate with higher occurrence."
         elif self.filter_segments_option == 'replace_half':
-            filter_segments_option_text = f"\nReplacing segments with less than {remove_segments_less_than_ms}ms" \
+            filter_segments_option_text = f"Replacing segments with less than {remove_segments_less_than_ms}ms" \
                 f"by half by the previous and half by the next dominant microstate."
         elif self.filter_segments_option == 'smooth':
-            filter_segments_option_text = f"\nSmoothing segments with window size {remove_segments_less_than_ms}ms" \
+            filter_segments_option_text = f"Smoothing segments with window size {remove_segments_less_than_ms}ms" \
                                           f" and lambda {self.lamb}."
         else:
             filter_segments_option_text = ""
