@@ -294,7 +294,6 @@ class MicrostateVisualizationDialog(QDialog):
                 self.tbx.best_maps, self.tbx.eeg_info, self.tbx.microstate_maps_path, self.tbx.micro_labels)
             self.tbx.done_labeling_microstates = True
             # Update MainWindow's log if necessary
-            self.main_window.log_window.append_log("Microstates have been successfully labeled.")
             self.main_window.mainwindow_controller()
             self.close()
         else:

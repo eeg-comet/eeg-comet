@@ -15,7 +15,7 @@ class DataPreprocessor:
         pass
 
     @staticmethod
-    def preprocess_eegs(eegfile, list_eegs, eeg_format, datatype, channel_location_dir,
+    def preprocess_eegs(eeg_path, list_eegs, eeg_format, datatype, channel_location_dir,
                         filter_true, filtermethod, lowcut, highcut, downsample_true, fs, chan2rm):
 
         verbose = 'ERROR'
@@ -39,7 +39,7 @@ class DataPreprocessor:
             channels2remove[0] = chan2rm
 
         # Load the EEG data
-        eeg = DataIO().load_eegs(eegfile, eeg_format, datatype, channel_location_dir, channels2remove[0])
+        eeg = DataIO().load_eegs(eeg_path, eeg_format, datatype, channel_location_dir, channels2remove[0])
 
         # Apply filtering
         if filter_true:

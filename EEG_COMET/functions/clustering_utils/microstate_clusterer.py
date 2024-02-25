@@ -14,9 +14,7 @@ from keras.layers import Flatten, Dense, Reshape, Input
 from keras.models import Model
 from sklearn.decomposition import PCA
 from joblib import Parallel, delayed
-from gui.progress_dialog import ProgressDialog
 from functions.data_utils.data_initializer import DataInitializer
-from functions.clustering_utils.microstate_labeler import MicrostateLabeler
 
 
 class MicrostateClusterer:
@@ -86,11 +84,9 @@ class MicrostateClusterer:
         if metric == 'Cosine Similarity':
             # Calculates the cosine similarity
             dist = spatial.distance.cosine(point1, point2)
-        elif metric == 'Spatial Correlation':
+        else: # metric == 'Spatial Correlation':
             # Calculates the spatial correlation
             dist = spatial.distance.correlation(point1, point2)
-        else:
-            raise ValueError("Failed to match metric")
         return 1 - abs(dist)
 
     @staticmethod
@@ -128,11 +124,6 @@ class MicrostateClusterer:
         """
         Runs modified K-Means clustering with multiple initializations to find the best microstate maps.
         """
-        # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
-        progress_dialog.set_window_title("Clustering ...")
-        progress_dialog.show()
-        progress_dialog.start_process(n_inits)
 
         data_initializer = DataInitializer()
         all_data, _ = data_initializer.generate_maps_and_peaks(
@@ -141,14 +132,7 @@ class MicrostateClusterer:
         best_residual, best_gev, best_maps = None, 0, None
         modified_kmeans_results = {}
 
-        progress_dialog.set_label_text(f"Clustering {int(n_states)} Microstate Maps")
-        progress_dialog.update_progress(0)
         for init in range(n_inits):
-            progress_dialog.set_label_text(
-                f"Clustering {int(n_states)} "
-                f"Microstate Maps\nInitialization #{init + 1} of {n_inits}"
-            )
-            progress_dialog.update_progress(init)
             if verbose:
                 print(f'\nClustering #{init + 1} of {n_inits}')
             initial_maps = data_initializer.initialize_cluster_centers(maps2use, n_states, initializer)
@@ -161,18 +145,12 @@ class MicrostateClusterer:
                 'residual': residual
             }
 
-            progress_dialog.set_line_edit_text(f"Global Explained Variance: {100 * gev:.3f}")
             if verbose:
                 print(f'Found {n_states} Microstate Maps')
                 print(f'GEV: {gev}')
             # Update the best results if current gev is higher
             if gev > best_gev:
                 best_residual, best_gev, best_maps = residual, gev, maps
-
-            progress_dialog.update_progress(init + 1)
-
-            if not progress_dialog.running:  # Check if the process should be stopped
-                break
 
         modified_kmeans_results['best'] = {
             'maps': best_maps,
@@ -181,8 +159,6 @@ class MicrostateClusterer:
         }
         if verbose:
             print(f'\nBest GEV: {best_gev}')
-
-        progress_dialog.close()
 
         return modified_kmeans_results
 
@@ -338,158 +314,71 @@ class MicrostateClusterer:
         reduced_data = pca.fit_transform(eeg_data)
         return reduced_data
 
-    def clustering_func(self, preprocessed_data_path, extension, datatype, n_pca, method, n_states, initializer,
-                        use_percentages, min_dist, clustering_option, eeg_info, microstate_maps_path):
+        # if method == 'Agglomerative Hierarchical Clustering':
+        #     best_maps, best_residual, best_gev = self.run_aahc(
+        #         preprocessed_data_path, extension, datatype,
+        #         maps2use=maps2use,
+        #         n_states=n_states,
+        #         n_maps2use=50  # TODO: edit
+        #     )
+        #
+        # else:
+
+    def get_clustering_instance(self, maps2use, initial_maps, method, n_states, clustering_option):
         """
         Performs clustering on preprocessed data to find microstate maps.
         """
 
-        data_initializer = DataInitializer()
-
         def metric_function(point1, point2):
             return self.calculate_spatial_similarity(clustering_option, point1, point2)
 
-        maps2use, peaks2use = data_initializer.generate_maps_and_peaks(
-            preprocessed_data_path,
-            extension,
-            datatype,
-            use_percentages,
-            min_dist
-        )
+        # Transpose maps2use
+        maps2use = np.transpose(maps2use)
 
-        if method == 'Modified K-Means Clustering':
-            modified_kmeans_results = self.run_modified_kmeans(
-                preprocessed_data_path, extension, datatype,
-                maps2use=maps2use,
-                n_states=n_states,
-                n_inits=self.number_of_repeats,
-                initializer=initializer,
-                max_iter=self.max_iterations,
-                thresh=self.clustering_tolerance
+        # Define metric for clustering
+        metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
+
+        if method == 'K-Means Clustering':
+            clustering_instance = kmeans.kmeans(
+                data=maps2use,
+                initial_centers=initial_maps,
+                tolerance=self.clustering_tolerance,
+                itermax=self.max_iterations,
+                metric=metric
             )
-            best_maps = modified_kmeans_results['best']['maps']
-            best_gev = modified_kmeans_results['best']['gev']
-            best_residual = modified_kmeans_results['best']['residual']
-
-        elif method == 'Agglomerative Hierarchical Clustering':
-            best_maps, best_residual, best_gev = self.run_aahc(
-                preprocessed_data_path, extension, datatype,
-                maps2use=maps2use,
-                n_states=n_states,
-                n_maps2use=50  # TODO: edit
+        elif method == 'PCA + K-Means Clustering':
+            clustering_instance = kmeans.kmeans(
+                data=maps2use,
+                initial_centers=initial_maps,
+                tolerance=self.clustering_tolerance,
+                itermax=self.max_iterations,
+                metric=metric
             )
-
-        else:
-            # Create an instance of the progress dialog
-            progress_dialog = ProgressDialog()
-            progress_dialog.set_window_title("Clustering ...")
-            progress_dialog.show()
-            progress_dialog.start_process(self.number_of_repeats)
-
-            initial_centers = data_initializer.initialize_cluster_centers(maps2use, n_states, initializer)
-            maps2use = np.transpose(maps2use)
-
-            if method == 'K-Means Clustering':
-                metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
-                clustering_instance = kmeans.kmeans(maps2use,
-                                                    initial_centers,
-                                                    tolerance=self.clustering_tolerance,
-                                                    itermax=self.max_iterations,
-                                                    metric=metric
-                                                    )
-
-            elif method == 'PCA + K-Means Clustering':
-                encoded_features = self.extract_features_with_pca(maps2use, pca_components=n_pca)
-                initial_centers = data_initializer.initialize_cluster_centers(
-                    np.transpose(encoded_features), n_states, initializer
-                )
-                metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
-                clustering_instance = kmeans.kmeans(encoded_features,
-                                                    initial_centers,
-                                                    tolerance=self.clustering_tolerance,
-                                                    itermax=self.max_iterations,
-                                                    metric=metric
-                                                    )
-
-            elif method == 'Autoencoder + K-Means Clustering':
-                encoded_features, autoencoder = self.extract_features_with_autoencoder(maps2use, encoding_dim=10)
-                initial_centers = data_initializer.initialize_cluster_centers(
-                    np.transpose(encoded_features), n_states, initializer
-                )
-                metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
-                clustering_instance = kmeans.kmeans(encoded_features,
-                                                    initial_centers,
-                                                    tolerance=self.clustering_tolerance,
-                                                    itermax=self.max_iterations,
-                                                    metric=metric
-                                                    )
-
-            elif method == 'X-Means Clustering':
-                if clustering_option == 'Bayesian Information Criterion':
-                    criterion = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
-                elif clustering_option == 'Minimum Noiseless Description Length':
-                    criterion = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH
-                else:
-                    raise ValueError("Failed to match metric")
-                clustering_instance = xmeans.xmeans(maps2use,
-                                                    initial_centers,
-                                                    n_states,
-                                                    tolerance=self.clustering_tolerance,
-                                                    criterion=criterion
-                                                    )
-
+        elif method == 'Autoencoder + K-Means Clustering':
+            clustering_instance = kmeans.kmeans(
+                data=maps2use,
+                initial_centers=initial_maps,
+                tolerance=self.clustering_tolerance,
+                itermax=self.max_iterations,
+                metric=metric
+            )
+        elif method == 'X-Means Clustering':
+            # Determine the splitting criterion for X-Means
+            if clustering_option == 'Bayesian Information Criterion':
+                criterion = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
+            elif clustering_option == 'Minimum Noiseless Description Length':
+                criterion = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH
             else:
-                raise ValueError("Failed to match method")
+                raise ValueError("Failed to match criterion")
 
-            progress_dialog.set_label_text(f"Clustering {int(n_states)} Microstate Maps")
-            progress_dialog.update_progress(0)
-            best_gev, best_confidence = 0, 0
-            for init in range(self.number_of_repeats):
-                progress_dialog.set_label_text(
-                    f"Clustering {int(n_states)}"
-                    f"Microstate Maps\nInitialization #{init + 1} of {self.number_of_repeats}"
-                )
-                print('\nClustering #', str(init + 1), 'of', str(self.number_of_repeats))
+            clustering_instance = xmeans.xmeans(
+                data=maps2use,
+                initial_centers=initial_maps,
+                kmax=n_states,
+                tolerance=self.clustering_tolerance,
+                criterion=criterion
+            )
+        else:
+            raise ValueError("Failed to match method")
 
-                if method in ['K-Means Clustering', 'X-Means Clustering']:
-                    clustering_instance.process()
-                    residual = clustering_instance.get_total_wce()
-                    centroids = clustering_instance.get_centers()
-                elif method in ['PCA + K-Means Clustering', 'Autoencoder + K-Means Clustering']:
-                    clustering_instance.process()
-                    cluster_labels = clustering_instance.get_clusters()
-                    # Flatten the cluster labels
-                    cluster_labels_flat = np.zeros(len(maps2use))
-                    for cluster_id, cluster in enumerate(cluster_labels):
-                        cluster_labels_flat[cluster] = cluster_id
-                    # Find original centroids
-                    centroids = self.find_original_centroids(maps2use, cluster_labels_flat, n_states)
-                    # Calculate residuals
-                    residual = 0  # self.calculate_residuals(maps2use, autoencoder)
-
-                gev_r = self.compute_gev(np.transpose(maps2use), np.array(centroids))
-
-                progress_dialog.update_progress(init + 1)
-                progress_dialog.set_line_edit_text(f"Global Explained Variance: {100 * gev_r:.2f}")
-                print('Found', str(int(n_states)), 'Microstate Maps')
-                print('GEV:', str(gev_r))
-
-                microstate_labeler = MicrostateLabeler(best_maps, eeg_info, microstate_maps_path)
-                micro_labels, labels_overall_confidence = microstate_labeler.do_labeling()
-
-                # if gev_r > best_gev:
-                if labels_overall_confidence > best_confidence:
-                    best_gev = gev_r
-                    best_maps = centroids
-                    best_residual = residual
-
-                if not progress_dialog.running:  # Check if the process should be stopped
-                    break
-
-            print('\nBest GEV:', str(best_gev))
-            progress_dialog.close()
-
-        # Save Best Maps
-        self.microstates2csv(best_maps, eeg_info, microstate_maps_path)
-
-        return best_maps, best_gev, best_residual
+        return clustering_instance

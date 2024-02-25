@@ -46,7 +46,7 @@ class MicrostateLabeler:
         dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
         model_path = './models/model_v1.22.h5'
         model = load_model(model_path, compile=False)
-        predictions = model.predict(stacked_microstate_images)
+        predictions = model.predict(stacked_microstate_images, verbose=0)
         softmax_predictions = self.softmax(predictions) * 100
         assigned_labels, probabilities = self.get_labels(predictions, softmax_predictions, dictionary2use)
         overall_confidence = sum(probabilities.values()) / len(probabilities)
@@ -63,7 +63,6 @@ class MicrostateLabeler:
                 additional_label = chr(ord(additional_label) + 1)
 
         self.micro_labels = micro_labels
-        print(f'Microstate Labels: {self.micro_labels}')
 
         ### TEMP
         # Save microstates as image

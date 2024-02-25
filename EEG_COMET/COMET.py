@@ -1,9 +1,11 @@
+
 import os
+import mne
+import pickle
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import pickle
-import mne
+from datetime import datetime
 
 from functions.data_utils.data_io import DataIO
 from functions.data_utils.data_preprocessor import DataPreprocessor
@@ -33,6 +35,7 @@ class COMET:
 
         if config:
             self.load_config(config)
+        self.log_text = []  # Initialize log_text as an empty list
         self.done_preprocessing: bool = False
         self.done_clustering: bool = False
         self.done_labeling_microstates: bool = False
@@ -52,7 +55,7 @@ class COMET:
         self.input_folder: str = config['base']['input_folder']
         self.channel_location_dir: str = config['base']['channel_location_dir']
         self.output_folder: str = config['base']['output_folder']
-        self.log_text: str = config['base']['log_text']
+        # self.log_text: str = config['base']['log_text']
 
         self.save_dir: str = os.path.join(self.output_folder, self.study_name)
         assert self.study_name != "", "study name cannot be empty"
@@ -128,6 +131,45 @@ class COMET:
         self.source_localization_method: str = config['source_localize_microstates']['source_localization_method']
         self.anatomy_subjects_dir: str = config['source_localize_microstates']['anatomy_subjects_dir']
 
+    def append_log(self, log, log_type='info'):
+        """
+        Appends a log entry with the current date and time to the log_text list.
+        """
+        current_date = datetime.now().strftime("%d/%m/%y")
+        current_time = datetime.now().strftime("%I:%M %p")
+        separator = "******************************************************"
+        if log_type == 'settings':
+            current_log_text = f"\n{separator}{log}{separator}\n"
+        else:
+            current_log_text = f"[{current_date} {current_time}]: {log}\n"
+        self.log_text.append(current_log_text)
+
+    @staticmethod
+    def setup_progress_dialog(window_title, label_text, max_value):
+        """
+        Sets up a progress dialog with the specified window title, label text, and maximum value.
+        """
+        # Initialize the progress dialog
+        progress_dialog = ProgressDialog()
+        progress_dialog.set_window_title(window_title)
+        progress_dialog.set_label_text(label_text)
+        progress_dialog.show()
+        progress_dialog.start_process(max_value)
+        progress_dialog.update_progress(0)
+        # Create a tqdm progress bar
+        progress_bar = tqdm(total=max_value, ncols=100, position=0, leave=True)
+        return progress_dialog, progress_bar
+
+    @staticmethod
+    def update_progress(progress_dialog, progress_bar, value, description):
+        """
+        Updates the progress of the progress dialog and progress bar with the specified value and description.
+        """
+        progress_dialog.set_line_edit_text(description)
+        progress_dialog.update_progress(value)
+        progress_bar.set_description(description)
+        progress_bar.update(1)
+
     def load_raw(self):
         """
         Locate EEG file paths.
@@ -152,27 +194,37 @@ class COMET:
         # Initialize variables
         length_all_data = []
         data_io = DataIO()
-        progress_dialog = ProgressDialog()
-        progress_dialog.set_window_title("Preprocessing ...")
-        progress_dialog.set_label_text("Preprocessing data: ")
-        progress_dialog.show()
-        progress_dialog.start_process(len(self.list_eegs))
-        progress_dialog.update_progress(0)
+        progress_dialog, progress_bar = self.setup_progress_dialog(
+            window_title="Preprocessing ...",
+            label_text="Preprocessing data: ",
+            max_value=len(self.list_eegs)
+        )
 
-        # Create a tqdm progress bar
-        progress_bar = tqdm(total=len(self.list_eegs), ncols=100, position=0, leave=True)
+        # Log the preprocessing progress
+        self.append_log(
+            f"Study Created\n"
+            f"✓ Study Name: {self.study_name}\n"
+            f"✓ Input Path: {self.input_folder}\n"
+            f"✓ Found {len(self.list_eegs_path)} {self.datatype} EEG data with {self.extension} extension."
+        )
+
+        self.append_log(
+            f"EEG Preprocessing Settings:\n"
+            f"* Channels to Remove: {self.ch2rm}\n"
+            f"* Bandpass Filter: {self.filter_method.upper()} Method ({self.lowcut_freq}Hz and {self.highcut_freq}Hz)\n"
+            f"* Downsampling Rate: {self.sample_rate}Hz", log_type='settings'
+        )
+
+        # Create an instance of the DataPreprocessor class
+        preprocessor = DataPreprocessor()
 
         # Iterate through EEG files
-        for filename_idx, filename in enumerate(self.list_eegs_path):
-            eeg_name = self.list_eegs[self.list_eegs_path.index(filename)]
-            progress_dialog.set_line_edit_text(f"{eeg_name}")
-            progress_dialog.update_progress(filename_idx)
-            progress_bar.set_description(f"Preprocessing file: {eeg_name}")
+        for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
+            self.update_progress(progress_dialog, progress_bar, eeg_idx, f"{eeg_name}")
 
             # Preprocess EEG data
-            preprocessor = DataPreprocessor()
             eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocessor.preprocess_eegs(
-                filename,
+                eeg_path,
                 self.list_eegs_path,
                 self.extension,
                 self.datatype,
@@ -198,15 +250,18 @@ class COMET:
             n_chan = len(ch_names)
             self.n_chan = n_chan
             self.ch_names = ch_names
-            name = os.path.basename(filename)
-            name = os.path.splitext(name)[0]
+            # name = os.path.basename(eeg_path)
+            name = os.path.splitext(eeg_name)[0]
             save_path = os.path.join(self.preprocessed_data_path, name)
             self.length_all_data = np.append(length_all_data, int(length_data))
             data_io.export_eegs(eeg, save_path, self.extension, self.datatype)
 
-            progress_dialog.update_progress(filename_idx + 1)
-            progress_bar.update(1)
+            # Log the preprocessing progress
 
+            self.append_log(
+                f"EEG Preprocessed [{eeg_idx + 1}/{len(self.list_eegs_path)}]\n"
+                f"✓ Data: {eeg_name} - Length: {int(length_data / self.sample_rate)} sec"
+            )
             # Check if the process should be stopped
             if not progress_dialog.running:
                 break
@@ -250,6 +305,12 @@ class COMET:
         assert self.clustering_method in available_methods, "Clustering method not supported"
 
         # Initialize microstate clusterer
+        progress_dialog, progress_bar = self.setup_progress_dialog(
+            window_title="Clustering ...",
+            label_text=f"Performing Clustering: Generating {self.number_of_maps} Microstate Maps.",
+            max_value=self.number_of_repeats
+        )
+        data_initializer = DataInitializer()
         microstate_clusterer = MicrostateClusterer(
             self.number_of_repeats,
             self.max_iterations,
@@ -266,7 +327,7 @@ class COMET:
                 self.use_percentages,
                 self.min_distance_size
             )
-            self.clusterer_optimizer = ClustererOptimizer(
+            clusterer_optimizer = ClustererOptimizer(
                 self.maps2use,
                 self.min_distance_size,
                 self.number_of_repeats,
@@ -280,27 +341,175 @@ class COMET:
             )
 
             # Find optimal number of maps
-            self.optimal_k, self.k_values, self.target_values = self.clusterer_optimizer.find_optimal_k(
+            self.optimal_k, self.k_values, self.target_values = clusterer_optimizer.find_optimal_k(
                 self.stopping_mode, self.stopping_parameter)
             self.number_of_maps = self.optimal_k
             print(f'Result: n_states = {self.number_of_maps}')
 
         # Perform clustering
-        self.best_maps, self.gev, _ = microstate_clusterer.clustering_func(
+        self.maps2use, self.peaks2use = data_initializer.generate_maps_and_peaks(
             self.preprocessed_data_path,
             self.extension,
             self.datatype,
-            self.n_pca,
-            self.clustering_method,
-            self.number_of_maps,
-            self.initializer,
             self.use_percentages,
-            self.min_distance_size,
-            self.clustering_option,
-            self.eeg_info,
-            self.microstate_maps_path
+            self.min_distance_size
         )
-        print(f'Global Explained Variance: {self.gev}')
+
+        if self.clustering_method == 'PCA + K-Means Clustering':
+            # Extract features using PCA
+            self.maps2use = microstate_clusterer.extract_features_with_pca(
+                np.transpose(self.maps2use), pca_components=self.n_pca)
+
+        if self.clustering_method == 'Autoencoder + K-Means Clustering':
+            # Extract features using Autoencoder
+            self.maps2use, autoencoder = microstate_clusterer.extract_features_with_autoencoder(np.transpose(
+                self.maps2use), encoding_dim=10)
+
+        self.initial_maps = data_initializer.initialize_cluster_centers(
+            self.maps2use, self.number_of_maps, self.initializer
+        )
+
+        all_data, _ = data_initializer.generate_maps_and_peaks(
+            self.preprocessed_data_path, self.extension, self.datatype, use_percentages=100
+        )
+
+        if self.choose_number_of_maps == "auto":
+            k_log = 'will be automatically determined.'
+        else:
+            k_log = 'is user-predefined.'
+
+        if self.use_percentages is not None:
+            cluster_data_log = f"{self.use_percentages}% randomly selected time-points of the data."
+        else:
+            cluster_data_log = 'the local peaks of the global field power.'
+
+        self.append_log(
+            f"Clustering Settings:\n"
+            f"* Clustering algorithm: {self.clustering_method}\n"
+            f"* The number of maps to extract {k_log}\n"
+            f"* Clustering will be performed on {cluster_data_log}", log_type='settings'
+        )
+
+        best_residual, best_gev, best_maps = None, 0, None
+        if self.clustering_method == 'Modified K-Means Clustering':
+            modified_kmeans_results = {}
+            for init in range(self.number_of_repeats):
+                self.update_progress(
+                    progress_dialog, progress_bar, init,
+                    f"Clustering [{init + 1}/{self.number_of_repeats}] - "
+                    f"Global Explained Variance: {100 * best_gev:.3f}%"
+                )
+
+                maps_init, residual_init = microstate_clusterer.modified_kmeans(
+                    data=self.maps2use,
+                    initial_maps=self.initial_maps,
+                    n_states=self.number_of_maps,
+                    max_iter=self.max_iterations,
+                    thresh=self.clustering_tolerance
+                )
+                gev_init = microstate_clusterer.compute_gev(all_data, maps_init)
+                # Store the results for this initialization in the dictionary
+                modified_kmeans_results[init] = {
+                    'maps': maps_init,
+                    'gev': gev_init,
+                    'residual': residual_init
+                }
+
+                print(f'Found {self.number_of_maps} Microstate Maps')
+                print(f'GEV: {gev_init}')
+                self.append_log(
+                    f"Data Clustered [{init + 1}/{self.number_of_repeats}]\n"
+                    f"✓ Global Explained Variance: {100 * gev_init}%"
+                )
+
+                # Update the best results if current gev is higher
+                if gev_init > best_gev:
+                    best_residual, best_gev, best_maps = residual_init, gev_init, maps_init
+
+                # Check if the process should be stopped
+                if not progress_dialog.running:
+                    break
+
+            # Close progress dialogs
+            progress_dialog.close()
+            progress_bar.close()
+
+            modified_kmeans_results['best'] = {
+                'maps': best_maps,
+                'gev': best_gev,
+                'residual': best_residual
+            }
+            self.best_maps = modified_kmeans_results['best']['maps']
+            self.best_gev = modified_kmeans_results['best']['gev']
+            self.best_residual = modified_kmeans_results['best']['residual']
+
+
+        else:
+
+            clustering_instance = microstate_clusterer.get_clustering_instance(
+                self.maps2use,
+                self.initial_maps,
+                self.clustering_method,
+                self.number_of_maps,
+                self.clustering_option
+            )
+
+            progress_dialog.set_label_text(f"Clustering {int(self.number_of_maps)} Microstate Maps")
+            progress_dialog.update_progress(0)
+            best_gev, best_confidence = 0, 0
+            for init in range(self.number_of_repeats):
+                self.update_progress(
+                    progress_dialog, progress_bar, init,
+                    f"Clustering [{init + 1}/{self.number_of_repeats}] - "
+                    f"Best Global Explained Variance: {100 * best_gev:.3f}%"
+                )
+
+                if self.clustering_method in ['K-Means Clustering', 'X-Means Clustering']:
+                    clustering_instance.process()
+                    residual_init = clustering_instance.get_total_wce()
+                    maps_init = clustering_instance.get_centers()
+                elif self.clustering_method in ['PCA + K-Means Clustering', 'Autoencoder + K-Means Clustering']:
+                    clustering_instance.process()
+                    cluster_labels = clustering_instance.get_clusters()
+                    # Flatten the cluster labels
+                    cluster_labels_flat = np.zeros(len(self.maps2use))
+                    for cluster_id, cluster in enumerate(cluster_labels):
+                        cluster_labels_flat[cluster] = cluster_id
+                    # Find original centroids
+                    maps_init = microstate_clusterer.find_original_centroids(
+                        self.maps2use, cluster_labels_flat, self.number_of_maps)
+                    # Calculate residuals
+                    residual_init = 0  # self.calculate_residuals(maps2use, autoencoder)
+
+                maps_init = np.array(maps_init)
+                gev_init = microstate_clusterer.compute_gev(self.maps2use, maps_init)
+
+                microstate_labeler = MicrostateLabeler(maps_init, self.eeg_info, self.microstate_maps_path)
+                micro_labels, labels_overall_confidence = microstate_labeler.do_labeling()
+
+                # if gev_r > best_gev:
+                if labels_overall_confidence > best_confidence:
+                    best_gev = gev_init
+                    best_maps = maps_init
+                    best_residual = residual_init
+
+                # Check if the process should be stopped
+                if not progress_dialog.running:
+                    break
+
+                # Close progress dialogs
+            progress_dialog.close()
+            progress_bar.close()
+
+        # Save Best Maps
+        microstate_clusterer.microstates2csv(best_maps, self.eeg_info, self.microstate_maps_path)
+
+        print(f'Global Explained Variance: {self.best_gev}')
+        # Log the clustering progress
+        self.append_log(
+            f"Clustering Done\n"
+            f"✓ The Best Global Explained Variance: {100 * best_gev:.3f}%"
+        )
 
         # Set clustering flag
         self.done_clustering = True
@@ -317,6 +526,7 @@ class COMET:
         self.micro_labels, self.labels_overall_confidence = self.microstate_labeler.do_labeling()
 
         # Set labeling flag
+        self.append_log("✓ Microstates have been successfully labeled.")
         self.done_labeling_microstates = True
 
     def do_backfitting(self):
@@ -327,8 +537,10 @@ class COMET:
         if not os.path.exists(self.segmentation_path):
             os.makedirs(self.segmentation_path)
 
-        # Initialize backfitter instance
-        backfitter_instance = MicrostateBackfitter(
+        # Create an instance of the SegmentationIO class
+        data_io = DataIO()
+        segmentation_io = SegmentationIO()
+        microstate_backfitter = MicrostateBackfitter(
             study_name=self.study_name,
             preprocessed_data_path=self.preprocessed_data_path,
             microstate_maps=self.best_maps,
@@ -347,7 +559,100 @@ class COMET:
         )
 
         # Perform segmentation
-        backfitter_instance.perform_segmentation()
+        if self.identify_short_window:
+            # Create an instance of the progress dialog
+            progress_dialog, progress_bar = self.setup_progress_dialog(
+                window_title="Backfitting ...",
+                label_text="Backfitting microstates to data: ",
+                max_value=len(self.list_eegs_path)
+            )
+
+            rm_max_len = 50
+            len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
+            similarity_scores = np.empty((len(self.list_eegs_path), len(len_win2rm_list)))
+
+            # Iterate through EEG files
+            for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
+                self.update_progress(progress_dialog, progress_bar, eeg_idx, f"{eeg_name}")
+
+                eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+
+                # Compute similarity scores for different segment removal lengths
+                for idx_win2rm, len_win2rm in enumerate(len_win2rm_list):
+                    similarity_scores[eeg_idx, idx_win2rm] = microstate_backfitter.get_similarity_score(eeg, len_win2rm)
+
+                if not progress_dialog.running:  # Check if the process should be stopped
+                    break
+
+            progress_dialog.close()
+            progress_bar.close()
+
+            # Identify optimal length filter based on similarity scores
+            remove_segments_less_than = microstate_backfitter.identify_optimal_length_filter(similarity_scores)
+
+        else:
+            remove_segments_less_than = self.remove_segments_less_than
+
+        remove_segments_less_than_ms = remove_segments_less_than * (1000 / self.sample_rate)
+        print("Optimal length to remove:", remove_segments_less_than_ms)
+
+        if self.backfit_to == 'peaks':
+            backfit_to_text = "Backfitting microstates to the local peaks of the global field power."
+        else:
+            backfit_to_text = "Backfitting microstates to all time points."
+
+        if self.filter_segments_option == 'remove':
+            filter_segments_option_text = f"\nRemoving segments with less than " \
+                                          f"{remove_segments_less_than_ms}ms in duration."
+        elif self.filter_segments_option == 'replace_high':
+            filter_segments_option_text = f"\nReplacing segments with less than {remove_segments_less_than_ms}ms" \
+                f"by the nearby microstate with higher occurrence."
+        elif self.filter_segments_option == 'replace_half':
+            filter_segments_option_text = f"\nReplacing segments with less than {remove_segments_less_than_ms}ms" \
+                f"by half by the previous and half by the next dominant microstate."
+        elif self.filter_segments_option == 'smooth':
+            filter_segments_option_text = f"\nSmoothing segments with window size {remove_segments_less_than_ms}ms" \
+                                          f" and lambda {self.lamb}."
+        else:
+            filter_segments_option_text = ""
+
+        # Create an instance of the progress dialog
+        progress_dialog, progress_bar = self.setup_progress_dialog(
+            window_title="Backfitting ...",
+            label_text="Backfitting microstates to data: ",
+            max_value=len(self.list_eegs_path)
+        )
+
+        # Log the backfitting progress
+        self.append_log(
+            f"Microstates Backfitting Settings:\n"
+            f"* {backfit_to_text}\n"
+            f"* {filter_segments_option_text}", log_type='settings'
+        )
+
+        # Iterate through EEG files
+        for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
+            self.update_progress(progress_dialog, progress_bar, eeg_idx, f"{eeg_name}")
+
+            eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+
+            labeled_segmentation, trial_filename, trial_times, segmentation_fit = microstate_backfitter.perform_segmentation(
+                eeg, eeg_name, remove_segments_less_than)
+            segmentation_io.export_segmentation(
+                self.segmentation_path, trial_filename, labeled_segmentation, trial_times, self.export_format
+            )
+
+            # Log the backfitting progress
+            self.append_log(
+                f"Microstates Backfitted [{eeg_idx + 1}/{len(self.list_eegs_path)}]\n"
+                f"✓ Data: {eeg_name}"
+            )
+
+            if not progress_dialog.running:  # Check if the process should be stopped
+                break
+
+        progress_dialog.close()
+        progress_bar.close()
 
         # Set backfitting flag
         self.done_backfitting = True
@@ -370,24 +675,22 @@ class COMET:
             self.export_format
         )
 
-        # Initialize progress dialog
-        progress_dialog = ProgressDialog()
-        progress_dialog.set_window_title("Extracting Features ...")
-        progress_dialog.set_label_text("Extracting features: ")
-        progress_dialog.show()
-        progress_dialog.start_process(len(segmentation_list_path))
-        progress_dialog.update_progress(0)
+        # Create an instance of the progress dialog
+        progress_dialog, progress_bar = self.setup_progress_dialog(
+            window_title="Extracting Features ...",
+            label_text="Extracting features for data: ",
+            max_value=len(segmentation_list_path)
+        )
 
-        # Create a tqdm progress bar
-        progress_bar = tqdm(total=len(segmentation_list_path), ncols=100, position=0, leave=True)
+        self.append_log(
+            f"Feature Extraction Settings:\n"
+            f"* Features to Extract: {self.feature_list}\n"
+            f"* Feature Type: {self.feature_mode}", log_type='settings'
+        )
+        for segmentation_idx, (segmentation_path, segmentation_name) in enumerate(zip(segmentation_list_path, segmentation_list_filename)):
+            progress_bar.set_description(f"{segmentation_name}")
 
-        for s in range(len(segmentation_list_path)):
-            progress_dialog.set_line_edit_text(f"{filename}")
-            progress_dialog.update_progress(s)
-
-            segmentation_path = segmentation_list_path[s]
-            filename = segmentation_list_filename[s]
-            progress_bar.set_description(f"{filename}")
+            self.update_progress(progress_dialog, progress_bar, segmentation_idx, f"{segmentation_name}")
 
             # Load segmentation array
             segmentation_array = SegmentationIO().load_segmentation(segmentation_path, import_format='.csv')
@@ -404,34 +707,33 @@ class COMET:
                 if 'GEV' in self.feature_list:
                     data_io = DataIO()
                     if self.datatype == 'epoched':
-                        underscore_index = filename.rfind('_')
-                        eeg_filename = filename[:underscore_index]
-                        trial_number = filename[underscore_index + 1:]
+                        underscore_index = segmentation_name.rfind('_')
+                        eeg_filename = segmentation_name[:underscore_index]
+                        trial_number = segmentation_name[underscore_index + 1:]
                         eeg_path = os.path.join(self.preprocessed_data_path, f"{eeg_filename}{self.extension}")
                         eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                         trial_data = np.squeeze(eeg[int(trial_number)].get_data())
                     else:
-                        eeg_path = os.path.join(self.preprocessed_data_path, f"{filename}{self.extension}")
+                        eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
                         eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                         eeg_data = data_io.get_eeg_data(eeg, self.datatype)
 
                     output_features = feature_extractor.extract_microstate_features(
-                        filename,
+                        segmentation_name,
                         self.feature_list,
                         trial_data if self.datatype == 'epoched' else eeg_data,
                         self.best_maps,
                         self.micro_labels
                     )
                 else:
-                    output_features = feature_extractor.extract_microstate_features(filename, self.feature_list)
+                    output_features = feature_extractor.extract_microstate_features(
+                        segmentation_name, self.feature_list
+                    )
 
-                if s == 0:
+                if segmentation_idx == 0:
                     static_features_dfs = output_features
                 else:
                     static_features_dfs = pd.concat([static_features_dfs, output_features], ignore_index=True)
-
-                if not progress_dialog.running:  # Check if the process should be stopped
-                    break
 
             # Extract dynamic features
             if 'dynamic' in self.feature_mode:
@@ -444,28 +746,36 @@ class COMET:
 
                 if 'GEV' in self.feature_list:
                     data_io = DataIO()
-                    eeg_path = os.path.join(self.preprocessed_data_path, f"{filename}{self.extension}")
+                    eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
                     eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                     eeg_data = data_io.get_eeg_data(eeg, self.datatype)
                     output_features = feature_extractor.extract_microstate_features(
-                        filename,
+                        segmentation_name,
                         self.feature_list,
                         eeg_data,
                         self.best_maps,
                         self.micro_labels
                     )
                 else:
-                    output_features = feature_extractor.extract_microstate_features(filename, self.feature_list)
+                    output_features = feature_extractor.extract_microstate_features(
+                        segmentation_name, self.feature_list
+                    )
 
-                if s == 0:
+                if segmentation_idx == 0:
                     dynamic_features_dfs = output_features
                 else:
                     dynamic_features_dfs = pd.concat([dynamic_features_dfs, output_features], ignore_index=True)
 
-                if not progress_dialog.running:  # Check if the process should be stopped
-                    break
+            # Log the feature extraction progress
+            self.append_log(
+                f"Features Extracted [{segmentation_idx + 1}/{len(self.list_eegs_path)}]\n"
+                f"✓ Data: {segmentation_name}"
+            )
 
-            progress_dialog.update_progress(s + 1)
+            if not progress_dialog.running:  # Check if the process should be stopped
+                break
+
+            progress_dialog.update_progress(segmentation_idx + 1)
             progress_bar.update(1)
 
         # Close progress dialogs
@@ -582,5 +892,3 @@ class COMET:
         # Serialize and save the TBX object
         with open(self.tbx_object_path, 'wb') as output:
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
-
-        print("\nEEG-COMET parameters saved successfully.")

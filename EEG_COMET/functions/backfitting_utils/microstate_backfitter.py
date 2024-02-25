@@ -1,13 +1,9 @@
 
 import numpy as np
 import os.path
-from tqdm import tqdm
 from scipy.signal import find_peaks
 from collections import Counter
 from itertools import groupby
-from functions.data_utils.data_io import DataIO
-from functions.backfitting_utils.segmentation_io import SegmentationIO
-from gui.progress_dialog import ProgressDialog
 
 
 class MicrostateBackfitter:
@@ -288,193 +284,143 @@ class MicrostateBackfitter:
                 return i - 1
         return len(values) - 1
 
-    def perform_segmentation(self):
+    def get_similarity_score(self, eeg, rm_max_len=50):
+        # Generate a list of window lengths to test for segment removal
+        len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
 
-        # Create an instance of the SegmentationIO class
-        segmentation_io = SegmentationIO()
+        # Load EEG data
+        eeg_data = eeg.get_data()
 
-        data_io = DataIO()
-        list_eeg_path, list_eeg_names = data_io.find_data(self.preprocessed_data_path, self.extension, "*")
-
-        if self.filter_segments:
-            if self.identify_short_window:
-                # Create an instance of the progress dialog
-                progress_dialog = ProgressDialog()
-                progress_dialog.set_window_title("Filtering Segments ...")
-                progress_dialog.set_label_text("Identifying the optimal window length for removal")
-                progress_dialog.show()
-                progress_dialog.start_process(len(list_eeg_path))
-                progress_dialog.update_progress(0)
-
-                rm_max_len = 50
-                len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
-                similarity_scores = np.empty((len(list_eeg_path), len(len_win2rm_list)))
-
-                progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True,
-                                    desc="Identifying the optimal window length for removal")
-                for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_names)):
-                    progress_dialog.set_line_edit_text(f"{eeg_name}")
-                    progress_dialog.update_progress(eeg_idx)
-                    eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
-                    eeg_data = eeg.get_data()
-                    idx_eeg = list_eeg_path.index(eeg_path)
-                    for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
-                        if self.datatype == 'epoched':
-                            trial_data = eeg[idx].get_data()
-                        else:
-                            trial_data = eeg_data
-                        correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
-                            np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
-                        segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
-                    for len_win2rm in len_win2rm_list:
-                        idx_win2rm = len_win2rm_list.index(len_win2rm)
-                        segmentation = self.mark_short_segments(segmentation, idx_win2rm)
-                        labeled_segmentation = self.label_segments(np.array(segmentation))
-                        similarity_scores[idx_eeg, idx_win2rm] = self.goodness_fit_segmentation(eeg_data,
-                                                                                                labeled_segmentation)
-                    if not progress_dialog.running:  # Check if the process should be stopped
-                        break
-                    else:
-                        progress_dialog.update_progress(eeg_idx + 1)
-                    progress_bar.update(1)
-
-                progress_dialog.close()
-                progress_bar.close()
-                similarity_scores = np.array(similarity_scores)
-
-                optimal_indices = []
-
-                # Loop through each row in the 2D array
-                for row in similarity_scores:
-                    derivative = np.diff(row)
-                    peaks, _ = find_peaks(derivative)
-                    if len(peaks) > 0:
-                        inflection_point = peaks[0] + 1
-                    else:
-                        inflection_point = len(row)
-                    optimal_indices.append(inflection_point)
-
-                remove_segments_less_than = int(np.median(optimal_indices))
-
+        # Iterate over each trial in the EEG data (if epoched)
+        for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
+            # Extract trial data
+            if self.datatype == 'epoched':
+                trial_data = eeg[idx].get_data()
             else:
-                remove_segments_less_than = self.remove_segments_less_than
+                trial_data = eeg_data
 
-            remove_segments_less_than_ms = remove_segments_less_than * (1000 / self.sample_rate)
-            print("Optimal length to remove:", remove_segments_less_than_ms)
+            # Calculate correlation matrix between microstate maps and trial data
+            correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
+                np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
 
-            if self.filter_segments_option == 'remove':
-                print(f"\nRemoving segments with less than {remove_segments_less_than_ms}ms in duration.")
-            elif self.filter_segments_option == 'replace_high':
-                print(
-                    f"\nReplacing segments with less than {remove_segments_less_than_ms}ms"
-                    f"by the nearby microstate with higher occurrence.")
-            elif self.filter_segments_option == 'replace_half':
-                print(
-                    f"\nReplacing segments with less than {remove_segments_less_than_ms}ms"
-                    f"by half by the previous and half by the next dominant microstate.")
-            elif self.filter_segments_option == 'smooth':
-                print(
-                    f"\nSmoothing segments.")
+            # Identify the segmentation based on the maximum correlation coefficient
+            segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
 
-        # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
-        progress_dialog.set_window_title("Backfitting ...")
-        progress_dialog.set_label_text("Backfitting microstates to data: ")
-        progress_dialog.show()
-        progress_dialog.start_process(len(list_eeg_path))
-        progress_dialog.update_progress(0)
+        # Calculate similarity scores for different segment removal lengths
+        for len_win2rm in len_win2rm_list:
+            idx_win2rm = len_win2rm_list.index(len_win2rm)
 
-        # Create a tqdm progress bar
-        progress_bar = tqdm(total=len(list_eeg_path), ncols=100, position=0, leave=True)
+            # Mark short segments for removal
+            segmentation = self.mark_short_segments(segmentation, idx_win2rm)
 
+            # Label segments
+            labeled_segmentation = self.label_segments(np.array(segmentation))
+
+            # Calculate similarity score
+            similarity_score = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
+
+        return similarity_score
+
+    def identify_optimal_length_filter(self, similarity_scores):
+        # Convert similarity scores to numpy array
+        similarity_scores = np.array(similarity_scores)
+
+        # Initialize list to store optimal indices
+        optimal_indices = []
+
+        # Loop through each row in the 2D array of similarity scores
+        for row in similarity_scores:
+            # Compute derivative of the row
+            derivative = np.diff(row)
+
+            # Find peaks in the derivative
+            peaks, _ = find_peaks(derivative)
+
+            # If peaks exist, select the first peak, otherwise use the length of the row
+            if len(peaks) > 0:
+                inflection_point = peaks[0] + 1
+            else:
+                inflection_point = len(row)
+
+            # Append inflection point to optimal indices
+            optimal_indices.append(inflection_point)
+
+        # Calculate the median of optimal indices as the optimal length to remove segments
+        remove_segments_less_than = int(np.median(optimal_indices))
+
+        return remove_segments_less_than
+
+    def perform_segmentation(self, eeg, eeg_name, remove_segments_less_than):
         segmentation_fit = 0
-        for eeg_idx, eeg_path in enumerate(list_eeg_path):
-            eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
-            eeg_data = eeg.get_data()
-            eeg_times = eeg.times * 1000
-            filename = os.path.split(eeg_path)[1].split('.')[0]
+        eeg_data = eeg.get_data()
+        eeg_times = eeg.times * 1000
 
-            progress_dialog.set_line_edit_text(f"{filename}")
-            progress_dialog.update_progress(eeg_idx)
-            progress_bar.set_description(f"Backfitting microstates to data: {filename}")
-
-            for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
-                if self.datatype == 'epoched':
-                    trial_data = np.squeeze(eeg[idx].get_data())
-                    trial_times = eeg[idx].times * 1000
-                else:
-                    trial_data = eeg_data
-                    window_size = 5
-                    # Smooth Data
-                    weights = np.repeat(1.0, window_size) / window_size
-                    trial_data = np.apply_along_axis(
-                        lambda x: np.convolve(x, weights, mode='same'), axis=1, arr=trial_data)
-
-                    trial_times = eeg_times
-
-                if self.backfit_to == 'all':
-                    # Calculate the correlation coefficient between each topography and each time point
-                    correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
-                        np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
-
-                    # Find the time point with the highest correlation coefficient for each topography
-                    segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
-
-                    # Filter short segments
-                    if self.filter_segments:
-                        segmentation = self.substitude_maps_with_duration(segmentation,
-                                                                          remove_segments_less_than,
-                                                                          self.filter_segments_option,
-                                                                          trial_data,
-                                                                          self.microstate_maps,
-                                                                          len(self.microstate_labels),
-                                                                          [self.smoothing_parameters[0],
-                                                                           remove_segments_less_than,
-                                                                           self.smoothing_parameters[2]])
-
-                elif self.backfit_to == 'peaks':
-                    gfp = np.std(eeg_data, axis=0)
-                    peaks, _ = find_peaks(gfp)
-
-                    # Define troughs between consecutive peaks
-                    troughs = [0]
-                    for p in range(len(peaks) - 1):
-                        min_arg = np.argmin(gfp[peaks[p]:peaks[p + 1]])
-                        troughs.append(peaks[p] + min_arg)
-                    troughs.append(len(gfp))
-
-                    # Compute the differences between consecutive troughs
-                    diff_troughs = np.diff(troughs)
-
-                    # Compute the activation of microstate maps with EEG data at identified peaks
-                    activation = np.dot(self.microstate_maps, eeg_data[:, peaks])
-
-                    # Identify the segmentation based on the highest activation
-                    segmentation_peaks = np.argmax(np.abs(activation), axis=0)
-
-                    # Repeat the segmentation based on the identified troughs
-                    segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
-
-                labeled_segmentation = self.label_segments(segmentation)
-
-                similarity_metric = self.goodness_fit_segmentation(trial_data, labeled_segmentation)
-                segmentation_fit = segmentation_fit + similarity_metric
-
-                # Call the export_segmentation method
-                if idx is not None:
-                    trial_filename = f"{filename}_{idx}"
-                else:
-                    trial_filename = filename
-
-                segmentation_io.export_segmentation(
-                    self.segmentation_path, trial_filename, labeled_segmentation, trial_times, self.export_format
-                )
-
-            if not progress_dialog.running:  # Check if the process should be stopped
-                break
+        for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
+            if self.datatype == 'epoched':
+                trial_data = np.squeeze(eeg[idx].get_data())
+                trial_times = eeg[idx].times * 1000
             else:
-                progress_dialog.update_progress(eeg_idx + 1)
-            progress_bar.update(1)
+                trial_data = eeg_data
+                window_size = 5
+                # Smooth Data
+                weights = np.repeat(1.0, window_size) / window_size
+                trial_data = np.apply_along_axis(
+                    lambda x: np.convolve(x, weights, mode='same'), axis=1, arr=trial_data)
 
-        progress_dialog.close()
-        progress_bar.close()
+                trial_times = eeg_times
+
+        if self.backfit_to == 'all':
+            # Calculate the correlation coefficient between each topography and each time point
+            correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
+                np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
+
+            # Find the time point with the highest correlation coefficient for each topography
+            segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+
+            # Filter short segments
+            if self.filter_segments:
+                segmentation = self.substitude_maps_with_duration(segmentation,
+                                                                  remove_segments_less_than,
+                                                                  self.filter_segments_option,
+                                                                  trial_data,
+                                                                  self.microstate_maps,
+                                                                  len(self.microstate_labels),
+                                                                  [self.smoothing_parameters[0],
+                                                                   remove_segments_less_than,
+                                                                   self.smoothing_parameters[2]])
+
+        elif self.backfit_to == 'peaks':
+            gfp = np.std(eeg_data, axis=0)
+            peaks, _ = find_peaks(gfp)
+
+            # Define troughs between consecutive peaks
+            troughs = [0]
+            for p in range(len(peaks) - 1):
+                min_arg = np.argmin(gfp[peaks[p]:peaks[p + 1]])
+                troughs.append(peaks[p] + min_arg)
+            troughs.append(len(gfp))
+
+            # Compute the differences between consecutive troughs
+            diff_troughs = np.diff(troughs)
+
+            # Compute the activation of microstate maps with EEG data at identified peaks
+            activation = np.dot(self.microstate_maps, eeg_data[:, peaks])
+
+            # Identify the segmentation based on the highest activation
+            segmentation_peaks = np.argmax(np.abs(activation), axis=0)
+
+            # Repeat the segmentation based on the identified troughs
+            segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
+
+        labeled_segmentation = self.label_segments(segmentation)
+
+        similarity_metric = self.goodness_fit_segmentation(trial_data, labeled_segmentation)
+        segmentation_fit += similarity_metric
+
+        # Call the export_segmentation method
+        if idx is not None:
+            trial_filename = f"{eeg_name}_{idx}"
+        else:
+            trial_filename = eeg_name
+
+        return labeled_segmentation, trial_filename, trial_times, segmentation_fit

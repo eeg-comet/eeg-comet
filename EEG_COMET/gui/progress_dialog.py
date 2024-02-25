@@ -102,3 +102,4 @@ class ProgressDialog(QDialog):
         if self.worker_thread and self.worker_thread.isRunning():
             self.worker_thread.requestInterruption()
         self.running = False
+        self.close()

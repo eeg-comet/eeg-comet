@@ -465,19 +465,8 @@ class NewStudyWindow(QDialog):
 
         if self.main_window:
             self.main_window.tbx = self.comet_tbx
-
-            self.main_window.log_window.append_log(f"Study name: {self.study_name}")
-            self.main_window.log_window.append_log(f"Input folder: {self.input_folder}")
-            self.main_window.log_window.append_log(
-                f"Preprocessed {len(list_eegs)} {self.get_data_type()} EEG data with {self.get_extension()} extension.")
-            self.main_window.log_window.append_log(f"Channels removed from data: {self.ch2rm}")
-            if self.filter_data:
-                self.main_window.log_window.append_log(
-                    f"Bandpass filtered data using: {self.filter_method.upper()} "
-                    f"Filter within {self.lowcut_freq}Hz and {self.highcut_freq}Hz")
-            if self.downsample_data:
-                self.main_window.log_window.append_log(f"Downsampled data to: {self.sample_rate}Hz")
-
+            if hasattr(self.comet_tbx, 'log_text'):
+                self.main_window.LogWindow.replace_log(self.comet_tbx.log_text)
             self.main_window.load_study(from_new_study=True)
         self.ui.close()
 

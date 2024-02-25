@@ -2,11 +2,11 @@ import os.path
 import webbrowser
 import pickle
 from PyQt5 import uic, QtCore
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QComboBox, QSpinBox, QMessageBox, QWidget, QTextEdit, QVBoxLayout
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QComboBox, QSpinBox, QMessageBox
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt
-from datetime import datetime
 
+from gui.logging_window import LogWindow
 from gui.newstudywindow import NewStudyWindow
 from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
 from gui.optimizer_visualization_dialog import OptimizerVisualizationDialog
@@ -18,60 +18,14 @@ from functions.gui_utils.set_widgets_status import set_widgets_status
 from COMET import COMET
 
 
-class LogWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-
-        # Set up the log window
-        self.setWindowTitle("EEG-COMET Log")
-        self.resize(500, 300)
-
-        # Create and configure the layout
-        layout = QVBoxLayout()
-        self.textArea = QTextEdit()
-        self.textArea.setReadOnly(True)
-        font = QFont()
-        font.setPointSize(10)
-        self.textArea.setFont(font)
-        layout.addWidget(self.textArea)
-        self.setLayout(layout)
-
-    def append_log(self, log, parent_window=None):
-        # Get the current date and time
-        current_date = datetime.now().strftime("%d/%m/%y")
-        current_time = datetime.now().strftime("%I:%M %p")
-
-        # Format the log entry with date and time
-        log_text = f"[{current_date} {current_time}]: {log}\n"
-
-        # Append the log entry to the text area
-        self.textArea.append(log_text)
-
-        # If a parent window is provided, update its log_text attribute
-        if parent_window:
-            parent_window.comet_tbx.log_text = self.textArea.toPlainText()
-
-    def replace_log(self, import_log):
-        # Replace the current log with the imported log
-        self.textArea.setText(import_log)
-
-    def show_hide_log_window(self):
-        # Toggle the visibility of the log window
-        if self.isVisible():
-            self.setVisible(False)
-        else:
-            self.setVisible(True)
-
-
 class MainMicrostateWindow(QMainWindow):
     def __init__(self, context, parent=None):
         super(MainMicrostateWindow, self).__init__(parent)
 
         # Initialize key components
         self.comet_tbx = COMET()
-        self.log_window = LogWindow()
         self.context = context
-
+        
         # Load the UI from the .ui file
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
         self.ui.setWindowTitle("EEG-COMET")
@@ -84,9 +38,9 @@ class MainMicrostateWindow(QMainWindow):
         self.setup_connections()
 
         # Initialize log window
-        self.log_window_open = True
-        self.log_window.show()
-        self.log_window.append_log("Welcome to EEG-COMET!")
+        self.ui.LogWindow_open = True
+        self.ui.LogWindow.show()
+        self.ui.LogWindow.append_log("Welcome to EEG-COMET!")
 
     @staticmethod
     def open_github():
@@ -114,6 +68,13 @@ class MainMicrostateWindow(QMainWindow):
                 'https://github.com/eBrainLab/EEG-COMET/archive/refs/heads/main.zip')
 
     def init_dialogs(self):
+        # Create and initialize LogWindow
+        self.ui.LogWindow = LogWindow(
+            self.context,
+            main_window=self,
+            comet_tbx=self.comet_tbx
+        )
+        
         # Create and initialize NewStudyWindow
         self.ui.NewStudyWindow = NewStudyWindow(
             self.context,
@@ -233,7 +194,7 @@ class MainMicrostateWindow(QMainWindow):
                 item.clicked.connect(self.mainwindow_controller)
         # Button connections for performing specific tasks
         click_actions = [
-            (self.ui.step0_show_hide_log_window_button, self.log_window.show_hide_log_window),
+            (self.ui.step0_show_hide_log_window_button, self.ui.LogWindow.show_hide_log_window),
             (self.ui.step0_auto_pilot_button, self.run_autopilot),
             (self.ui.step0_load_study_button, self.load_study),
             (self.ui.step0_new_study_button, self.open_new_study_dialog),
@@ -255,7 +216,7 @@ class MainMicrostateWindow(QMainWindow):
             (self.ui.update_action, self.update_toolbox),
             (self.ui.step0_new_study_action, self.open_new_study_dialog),
             (self.ui.step0_load_study_action, self.load_study),
-            (self.ui.step0_reopen_log_window, self.log_window.show_hide_log_window)
+            (self.ui.step0_reopen_log_window, self.ui.LogWindow.show_hide_log_window)
         ]
         for button, action in click_actions:
             button.clicked.connect(action)
@@ -280,24 +241,27 @@ class MainMicrostateWindow(QMainWindow):
 
     def load_study_helper(self):
         # Get the folder containing preprocessed data
-        self.save_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing preprocessed data")
-        # Check if the comet_tbx_object.pkl file exists
-        tbx_object_path = os.path.join(self.save_folder, 'comet_tbx_object.pkl')
+        self.save_folder = QFileDialog.getExistingDirectory(
+            self, "Please choose the folder where the EEG-COMET study is located."
+        )
+        # Check if the eeg_comet_parameters.pkl file exists
+        tbx_object_path = os.path.join(self.save_folder, 'eeg_comet_parameters.pkl')
         # Handle the case where loading the study fails
         if not os.path.exists(tbx_object_path):
             QMessageBox.information(self, "Load error",
                                     "The selected folder does not contain a valid study!",
                                     QMessageBox.Ok)
             return
-        # Load the COMET object from the pickle file
-        with open(tbx_object_path, 'rb') as input_tbx:
-            self.comet_tbx = pickle.load(input_tbx)
-        # Update the log window with loaded study information
-        if hasattr(self.comet_tbx, 'log_text'):
-            self.log_window.replace_log(self.comet_tbx.log_text)
         else:
-            self.comet_tbx.log_text = ""
-        self.log_window.append_log(f"Loaded Study: {self.comet_tbx.study_name}")
+            # Load the COMET object from the pickle file
+            with open(tbx_object_path, 'rb') as input_tbx:
+                self.comet_tbx = pickle.load(input_tbx)
+            # Update the log window with loaded study information
+            if hasattr(self.comet_tbx, 'log_text'):
+                self.ui.LogWindow.replace_log(self.comet_tbx.log_text)
+            else:
+                self.ui.LogWindow.replace_log("")  # If log_text is not present, replace with empty string
+            self.ui.LogWindow.append_log(f"Study Loaded - ✓ Study Name: {self.comet_tbx.study_name}")
 
     def load_study(self, from_new_study=False):
         if from_new_study:
@@ -957,7 +921,6 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.smoothing_distance = ''
                 # self.min_distance_size = []
             if self.ui.step2_auto_k_radio.isChecked():
-                k_log = 'will be automatically determined.'
                 self.comet_tbx.choose_number_of_maps = "auto"
                 self.comet_tbx.kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
                 self.comet_tbx.kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
@@ -979,7 +942,6 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
                 self.comet_tbx.number_of_maps = 'auto'
             elif self.ui.step2_user_k_radio.isChecked():
-                k_log = 'is user-predefined.'
                 self.comet_tbx.choose_number_of_maps = "user"
                 self.comet_tbx.stopping_mode = ''
                 self.comet_tbx.stopping_parameter = ''
@@ -994,9 +956,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.n_pca = int(self.ui.step2_npca_input.text())
             if self.ui.step2_use_percent_radio.isChecked():
                 self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
-                cluster_data_log = f"{self.comet_tbx.use_percentages}% randomly selected time-points of the data."
             else:
-                cluster_data_log = 'the local peaks of the global field power.'
                 self.comet_tbx.use_percentages = None
             self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
             self.comet_tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
@@ -1004,19 +964,16 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
             self.comet_tbx.microstate_maps_path = os.path.join(self.comet_tbx.save_dir, 'microstate_maps.csv')
 
-            self.log_window.append_log(
-                f"Clustering algorithm: {self.comet_tbx.clustering_method}")
-            self.log_window.append_log(f"The number of maps to extract {k_log}")
-            self.log_window.append_log(f"Clustering will be performed on {cluster_data_log}")
             # Perform clustering
             self.comet_tbx.do_clustering()
             # Update flags and save the state
             self.comet_tbx.done_clustering = True
             self.comet_tbx.save_tbx()
-            self.log_window.append_log(f"GEV: {self.comet_tbx.gev}")
+            self.LogWindow.replace_log(self.comet_tbx.log_text)
             # Label the maps and save the state
             self.visualize_microstates()
             self.comet_tbx.save_tbx()
+            self.LogWindow.replace_log(self.comet_tbx.log_text)
             # Update the main window
             self.ui.step0_show_backfitting_radio.setChecked(True)
             self.mainwindow_controller()
@@ -1076,11 +1033,10 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.filter_segments_option = ''
                 self.comet_tbx.remove_segments_less_than = []
             # Log and perform backfitting
-            self.log_window.append_log(f"Started to backfit microstates to data...", self)
             self.comet_tbx.do_backfitting()
-            self.log_window.append_log(f"Completed backfitting", self)
             # Save the state
             self.comet_tbx.save_tbx()
+            self.LogWindow.replace_log(self.comet_tbx.log_text)
             # Update the main window
             self.ui.step0_show_featureextraction_radio.setChecked(True)
             self.mainwindow_controller()
@@ -1157,13 +1113,11 @@ class MainMicrostateWindow(QMainWindow):
             # Set window size for dynamic features
             self.comet_tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
             # Log and perform feature extraction
-            self.log_window.append_log(f"Started to extract {self.comet_tbx.feature_list}"
-                                       f"features in {self.comet_tbx.feature_mode} mode...", self)
             self.comet_tbx.extract_features()
-            self.log_window.append_log(f"Completed feature extraction.", self)
             # Update flags and save the state
             self.comet_tbx.done_extracting_features = True
             self.comet_tbx.save_tbx()
+            self.LogWindow.replace_log(self.comet_tbx.log_text)
             # Show a message box to inform the user about the successful feature extraction
             QMessageBox.information(self,
                                     "Extraction Successful",
@@ -1230,6 +1184,7 @@ class MainMicrostateWindow(QMainWindow):
             # Perform the source localization and save the state
             self.comet_tbx.source_localize_microstates()
             self.comet_tbx.save_tbx()
+            self.LogWindow.replace_log(self.comet_tbx.log_text)
             # Update the main window
             self.mainwindow_controller()
 
@@ -1256,6 +1211,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.source_microstate_correlation()
             self.comet_tbx.done_source_microstate_correlation = True
             self.comet_tbx.save_tbx()
+            self.LogWindow.replace_log(self.comet_tbx.log_text)
             # Update the main window
             self.mainwindow_controller()
 
@@ -1283,6 +1239,6 @@ class MainMicrostateWindow(QMainWindow):
         # Check the user's response
         if reply == QMessageBox.Yes:
             # Close the log window
-            self.log_window.close()
+            self.ui.LogWindow.close()
             # Close the main window
             self.close()
