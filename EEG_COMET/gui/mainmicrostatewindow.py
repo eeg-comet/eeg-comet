@@ -179,7 +179,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_cov_checkbox,
             self.ui.step4_feature_gev_checkbox,
             self.ui.step4_feature_tp_checkbox,
+            self.ui.step4_feature_se_checkbox,
             self.ui.step4_feature_lzc_checkbox,
+            self.ui.step4_feature_er_checkbox,
             self.ui.step4_static_features_checkbox,
             self.ui.step4_dynamic_features_checkbox,
             self.ui.step5_use_tess_radio,
@@ -441,7 +443,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_cov_checkbox,
             self.ui.step4_feature_gev_checkbox,
             self.ui.step4_feature_tp_checkbox,
+            self.ui.step4_feature_se_checkbox,
             self.ui.step4_feature_lzc_checkbox,
+            self.ui.step4_feature_er_checkbox,
             self.ui.step4_duration_of_window_input,
             self.ui.step4_duration_of_window_label,
             self.ui.step4_duration_of_window_label_2,
@@ -756,7 +760,9 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_feature_cov_checkbox,
                     self.ui.step4_feature_gev_checkbox,
                     self.ui.step4_feature_tp_checkbox,
+                    self.ui.step4_feature_se_checkbox,
                     self.ui.step4_feature_lzc_checkbox,
+                    self.ui.step4_feature_er_checkbox
                 ]
                 feature_checkboxes2 = [
                     self.ui.step4_static_features_checkbox,
@@ -1101,8 +1107,12 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.feature_list.append("GEV")
             if self.ui.step4_feature_tp_checkbox.isChecked():
                 self.comet_tbx.feature_list.append("TP")
+            if self.ui.step4_feature_se_checkbox.isChecked():
+                self.comet_tbx.feature_list.append("SE")
             if self.ui.step4_feature_lzc_checkbox.isChecked():
                 self.comet_tbx.feature_list.append("LZC")
+            if self.ui.step4_feature_er_checkbox.isChecked():
+                self.comet_tbx.feature_list.append("ER")
 
             # Define feature extraction modes
             self.comet_tbx.feature_mode = []

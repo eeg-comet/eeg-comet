@@ -1,5 +1,6 @@
 
 import os
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from PyQt5 import uic
@@ -40,6 +41,8 @@ class FeatureVisualizationDialog(QDialog):
     def bind_events(self):
         self.ui.plot_all_static_button.clicked.connect(self.show_static_violin_all)
         self.ui.plot_all_dynamic_button.clicked.connect(self.show_dynamic_line_all)
+
+        self.ui.plot_heatmap_button.clicked.connect(self.show_tp_heatmap)
         self.ui.plot_groups_button.clicked.connect(self.compare_groups)
         self.ui.add_group_a_button.clicked.connect(self.move_file_from_all_to_a)
         self.ui.add_group_b_button.clicked.connect(self.move_file_from_all_to_b)
@@ -47,6 +50,7 @@ class FeatureVisualizationDialog(QDialog):
         self.ui.remove_group_b_button.clicked.connect(self.move_file_from_b_to_all)
         self.ui.reset_groups_button.clicked.connect(self.reset_groups)
 
+        self.ui.feature_combo.currentTextChanged.connect(self.feature_visualization_controller)
         self.ui.all_files_list.itemSelectionChanged.connect(self.feature_visualization_controller)
         buttons = [
             self.ui.compare_groups_checkbox,
@@ -67,6 +71,13 @@ class FeatureVisualizationDialog(QDialog):
         self.ui.plot_all_static_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
         self.ui.plot_all_dynamic_button.setEnabled(
             len(self.ui.all_files_list.selectedItems()) == 1 and "dynamic" in self.feature_mode)
+
+        if self.feature_combo.currentText() == 'TP':
+            set_widgets_status(self.ui.plot_heatmap_button, mode='enable')
+            set_widgets_status(self.ui.plot_heatmap_button, mode='show')
+        else:
+            set_widgets_status(self.ui.plot_heatmap_button, mode='disable')
+            set_widgets_status(self.ui.plot_heatmap_button, mode='hide')
 
         compare_groups_widgets = [
             self.ui.add_group_a_button,
@@ -151,6 +162,19 @@ class FeatureVisualizationDialog(QDialog):
         self.plot_line(features_df, selected_feature)
         self.ui.plot_label.setText(f"Filename: {selected_file}- Dynamic Feature: {selected_feature}")
 
+    def show_tp_heatmap(self):
+        """
+        Displays the heatmap for transition probabilities.
+        """
+        # Get the selected files from the all_files_list
+        selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
+        # Load all features
+        all_features_df = self.load_features("static")
+        # Filter features_df based on selected files
+        features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
+        self.plot_heatmap(features_df)
+        self.ui.plot_label.setText("Transition Probability Heatmap")
+
     def compare_groups(self):
         """
         Compares selected features between two groups.
@@ -217,6 +241,48 @@ class FeatureVisualizationDialog(QDialog):
 
         self.clear_and_set_fonts(ax)
         sns.lineplot(x='Window_index', y=feature, hue='Feature', data=plot_data, ax=ax)
+        self.canvas.draw()
+
+    def plot_heatmap(self, features_df):
+        """
+        Plots a heatmap for the transition probabilities.
+        """
+        ax = self.canvas.figure.gca()
+        self.clear_and_set_fonts(ax)
+
+        # Extract unique states from column names
+        states = sorted(set(col.split('_')[1] for col in features_df.columns if col.startswith('TP')))
+
+        # Initialize transition matrix
+        transition_matrix = np.zeros((len(states), len(states)))
+
+        # Fill transition matrix
+        for i, from_state in enumerate(states):
+            for j, to_state in enumerate(states):
+                if f'TP_{from_state}_{to_state}' in features_df.columns:
+                    transition_matrix[i, j] = features_df[f'TP_{from_state}_{to_state}'].mean()
+
+        # Plot heatmap
+        ax.matshow(transition_matrix, cmap="YlGnBu")
+
+        # Annotate values with percentage
+        for i in range(len(states)):
+            for j in range(len(states)):
+                if i != j:
+                    value = transition_matrix[i, j]
+                    ax.text(j, i, f'{100 * value:.2f}%', ha='center', va='center', color='black', fontsize=14)
+
+        # Set ticks and labels
+        ax.set_xticks(np.arange(len(states)))
+        ax.set_yticks(np.arange(len(states)))
+        ax.set_xticklabels(states)
+        ax.set_yticklabels(states)
+
+        # Set labels and title
+        ax.set_xlabel('To')
+        ax.set_ylabel('From')
+
+        # Show the plot
         self.canvas.draw()
 
     def get_group_names(self):

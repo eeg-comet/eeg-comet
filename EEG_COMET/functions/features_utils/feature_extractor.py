@@ -8,47 +8,19 @@ and Lempel-Ziv complexity. The class supports both 'static' and 'dynamic' modes 
 import pandas as pd
 from collections import Counter, defaultdict
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
+from functions.features_utils.feature_helper import FeatureHelper
 
 
 class FeatureExtractor:
-    def __init__(self, segment, sampling_rate, window_size, mode='static'):
+    def __init__(self, input_sequence, sampling_rate, window_size, mode='static'):
         """
         Initialize the FeatureExtractor class.
         """
-        self.segment = segment
+        self.input_sequence = input_sequence
         self.sampling_rate = sampling_rate
         self.window_size = window_size
         self.mode = mode
-        self.num_windows = len(segment) // (sampling_rate * window_size)
-
-    def _calculate_window_index(self, i):
-        """
-        Calculate the window index for a given position.
-        """
-        return i // (self.sampling_rate * self.window_size)
-
-    def _remove_consecutive_duplicates(self, str_array):
-        """
-        Remove consecutive duplicate characters from a string.
-        """
-        if isinstance(str_array, list):
-            str_array = "".join(str_array)
-
-        new_str_array = ""
-        prev_char = None
-
-        for char in str_array:
-            if char != prev_char:
-                new_str_array += str(char)
-                prev_char = char
-
-        return new_str_array
-
-    def _initialize_empty_window_data(self):
-        """
-        Create a dictionary with zero values for all elements in the segment.
-        """
-        return {element: 0 for element in set(self.segment)}
+        self.num_windows = len(input_sequence) // (sampling_rate * window_size)
 
     def global_explained_variance(self, eeg_data, microstate_maps, microstate_labels=None):
         """
@@ -57,7 +29,8 @@ class FeatureExtractor:
         if microstate_labels and len(microstate_labels) != microstate_maps.shape[0]:
             raise ValueError("Length of microstate_labels must match the number of microstate maps.")
 
-        window_element_gev = [self._initialize_empty_window_data() for _ in range(self.num_windows)]
+        window_element_gev = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
+                              for _ in range(self.num_windows)]
         window_size_samples = self.window_size * self.sampling_rate
 
         if self.mode == 'dynamic':
@@ -94,13 +67,14 @@ class FeatureExtractor:
         """
         Calculate the coverage percentage of each element within windows.
         """
-        window_element_coverage = [self._initialize_empty_window_data() for _ in range(self.num_windows)]
+        window_element_coverage = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
+                                   for _ in range(self.num_windows)]
 
         for window_index in range(self.num_windows):
             window_start = window_index * self.window_size * self.sampling_rate
             window_end = (window_index + 1) * self.window_size * self.sampling_rate
-            window_segment = self.segment[window_start:window_end]
-            element_counts = Counter(window_segment)
+            window_input_sequence = self.input_sequence[window_start:window_end]
+            element_counts = Counter(window_input_sequence)
 
             total_elements = sum(element_counts.values())
             if total_elements > 0:
@@ -125,16 +99,17 @@ class FeatureExtractor:
         """
         Compute the number of times an element changes from another element within non-overlapping windows.
         """
-        window_change_counts = [self._initialize_empty_window_data() for _ in range(self.num_windows)]
+        window_change_counts = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
+                                for _ in range(self.num_windows)]
         total_element_counts = Counter()
 
         for window_index in range(self.num_windows):
             window_start = window_index * (self.sampling_rate * self.window_size)
             window_end = window_start + (self.sampling_rate * self.window_size)
-            window_segment = self.segment[window_start:window_end]
-            window_segment = self._remove_consecutive_duplicates(window_segment)
+            window_input_sequence = self.input_sequence[window_start:window_end]
+            window_input_sequence = FeatureHelper().remove_repetition_sequence(window_input_sequence)
 
-            element_counts = Counter(window_segment)
+            element_counts = Counter(window_input_sequence)
             window_change_counts[window_index] = element_counts
             total_element_counts.update(element_counts)
 
@@ -153,23 +128,23 @@ class FeatureExtractor:
         """
         if self.mode == 'static':
             durations = {}
-            current_segment = None
+            current_input_sequence = None
             current_duration = 0
 
-            for item in self.segment:
-                if item != current_segment:
-                    if current_segment is not None:
-                        if current_segment not in durations:
-                            durations[current_segment] = []
-                        durations[current_segment].append(current_duration * 1000 / self.sampling_rate)
-                    current_segment = item
+            for item in self.input_sequence:
+                if item != current_input_sequence:
+                    if current_input_sequence is not None:
+                        if current_input_sequence not in durations:
+                            durations[current_input_sequence] = []
+                        durations[current_input_sequence].append(current_duration * 1000 / self.sampling_rate)
+                    current_input_sequence = item
                     current_duration = 1
                 else:
                     current_duration += 1
 
-            if current_segment not in durations:
-                durations[current_segment] = []
-            durations[current_segment].append(current_duration * 1000 / self.sampling_rate)
+            if current_input_sequence not in durations:
+                durations[current_input_sequence] = []
+            durations[current_input_sequence].append(current_duration * 1000 / self.sampling_rate)
 
             average_durations = {key: sum(value) / len(value) for key, value in durations.items()}
 
@@ -178,7 +153,7 @@ class FeatureExtractor:
             current_window = {}
             current_window_duration = 0
 
-            for item in self.segment:
+            for item in self.input_sequence:
                 if current_window_duration >= self.window_size * self.sampling_rate:
                     windows.append(current_window.copy())
                     current_window = {}
@@ -207,14 +182,14 @@ class FeatureExtractor:
 
     def compute_transition_probabilities(self):
         """
-        Compute the transition probabilities for a given segment.
+        Compute the transition probabilities for a given input_sequence.
         """
 
         transitions = defaultdict(int)
         total_transitions = 0
-        for i in range(len(self.segment) - 1):
-            current_element = self.segment[i]
-            next_element = self.segment[i + 1]
+        for i in range(len(self.input_sequence) - 1):
+            current_element = self.input_sequence[i]
+            next_element = self.input_sequence[i + 1]
             # Skip self-transitions
             if current_element == next_element:
                 continue
@@ -224,69 +199,76 @@ class FeatureExtractor:
         probabilities = {pair: count / total_transitions for pair, count in transitions.items()}
         return probabilities
 
+    def shannon_entropy(self):
+        """
+        Calculate Shannon entropy.
+        """
+
+        window_entropies, window_size_samples = FeatureHelper().initialize_dynamic_windows(
+            self.input_sequence, self.sampling_rate, self.window_size
+        )
+
+        for window_index in range(len(window_entropies)):
+            window_start = window_index * window_size_samples
+            window_end = window_start + window_size_samples
+            window_input_sequence = self.input_sequence[window_start:window_end]
+            window_entropies[window_index] = FeatureHelper().calculate_entropy(window_input_sequence)
+
+        if self.mode == 'static':
+            overall_entropy = FeatureHelper().calculate_entropy(self.input_sequence)
+            return overall_entropy
+
+        elif self.mode == 'dynamic':
+            return window_entropies
+
+        else:
+            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
+
     def lempel_ziv_complexity(self):
         """
         Calculate Lempel-Ziv complexity using the LZ76 algorithm and a sliding window implementation.
         """
 
-        window_size_samples = int(self.sampling_rate * self.window_size)
-        num_windows = len(self.segment) // window_size_samples
-        window_complexities = [0.0 for _ in range(self.num_windows)]  # Initialize list with zeros
+        overall_complexity = FeatureHelper().compute_lempel_ziv_complexity(
+            FeatureHelper().remove_repetition_sequence(self.input_sequence)
+        )
+        return overall_complexity
 
-        for window_index in range(num_windows):
+
+    def entropy_representation(self):
+        """
+        Calculate the entropy representation of different classes of entropies and their ratio compared to theoretical dictionary based on the MicroSynt pipeline.
+        """
+        # TODO: not completed
+        word_size = 5
+        window_entropy_representations, window_size_samples = FeatureHelper().initialize_dynamic_windows(
+            self.input_sequence, self.sampling_rate, self.window_size
+        )
+
+        for window_index in range(len(window_entropy_representations)):
             window_start = window_index * window_size_samples
             window_end = window_start + window_size_samples
-            window_segment = self.segment[window_start:window_end]
-            window_complexities[window_index] = self._calculate_single_window_complexity(window_segment)
+            window_input_sequence = self.input_sequence[window_start:window_end]
+            window_entropy_representations[window_index] = FeatureHelper().calculate_entropy(window_input_sequence)
 
         if self.mode == 'static':
-            avg_complexity = sum(window_complexities) / num_windows if num_windows > 0 else 0.0
-            return avg_complexity
+            overall_entropy_representations, _ = MicroSynt().sequence_analysis(self.input_sequence, word_size)
+            return overall_entropy_representations
 
         elif self.mode == 'dynamic':
-            return window_complexities
+            return window_entropy_representations
 
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
 
-    def _calculate_single_window_complexity(self, segment):
-        """
-        Calculate Lempel-Ziv complexity for a single window using the LZ76 algorithm.
-        """
-        i, k, l = 0, 1, 1
-        c, k_max = 1, 1
-
-        while True:
-            if segment[i + k - 1] == segment[l + k - 1]:
-                k = k + 1
-                if l + k > len(segment):
-                    c = c + 1
-                    break
-            else:
-                if k > k_max:
-                    k_max = k
-                i = i + 1
-                if i == l:
-                    c = c + 1
-                    l = l + k_max
-                    if l + 1 > len(segment):
-                        break
-                    else:
-                        i = 0
-                        k = 1
-                        k_max = 1
-                else:
-                    k = 1
-        return c / len(segment)
-
     def extract_microstate_features(
             self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None):
         """
-        Extracts a set of microstate features from EEG data segments, given a list of feature identifiers.
+        Extracts a set of microstate features from EEG data input_sequences, given a list of feature identifiers.
         The function operates in two modes: 'static' and 'dynamic'.
 
-        In 'static' mode, the function returns aggregated feature values over the entire segment for each feature.
-        In 'dynamic' mode, it returns features calculated over a set of windows within the segment.
+        In 'static' mode, the function returns aggregated feature values over the entire input_sequence for each feature.
+        In 'dynamic' mode, it returns features calculated over a set of windows within the input_sequence.
 
         Note: The 'TP' (Transition Probability) feature is only supported in 'static' mode.
               If 'TP' is requested in 'dynamic' mode, it will be ignored.
@@ -306,15 +288,21 @@ class FeatureExtractor:
         if 'GEV' in feature_list:
             extracted_explained_variance = self.global_explained_variance(eeg_data, microstate_maps, microstate_labels)
             features_dict.append(('GEV', extracted_explained_variance))
+        if 'SE' in feature_list:
+            extracted_entropy = self.shannon_entropy()
+            features_dict.append(('SE', extracted_entropy))
+        if 'ER' in feature_list:
+            extracted_entropy_representation = self.entropy_representation()
+            features_dict.append(('ER', extracted_entropy_representation))
 
-        # Only add TP if the mode is not dynamic
+        # Only add TP and LZC if the mode is not dynamic
+        if 'LZC' in feature_list and self.mode != 'dynamic':
+            extracted_microstate_complexity = self.lempel_ziv_complexity()
+            features_dict.append(('LZC', extracted_microstate_complexity))
         if 'TP' in feature_list and self.mode != 'dynamic':
             extracted_microstate_transition_probability = self.compute_transition_probabilities()
             features_dict.append(('TP', extracted_microstate_transition_probability))
 
-        if 'LZC' in feature_list:
-            extracted_microstate_complexity = self.lempel_ziv_complexity()
-            features_dict.append(('LZC', extracted_microstate_complexity))
 
         # Create a list to hold the data
         output_features_data = []
@@ -327,6 +315,8 @@ class FeatureExtractor:
                 else:
                     output_features_data.append([filename, feature, feature_data])
             elif self.mode == 'dynamic':
+                if not isinstance(feature_data, (list, tuple)):
+                    feature_data = [feature_data]
                 for window_index, window_data in enumerate(feature_data):
                     if isinstance(window_data, dict):
                         for element, value in window_data.items():
@@ -349,3 +339,88 @@ class FeatureExtractor:
                 index=["Filename", "Window_index"], columns="Feature", values="Value").reset_index()
 
         return output_features_df
+
+
+class MicroSynt:
+
+    @staticmethod
+    def sequence_analysis(input_sequence, word_size):
+        """
+        Analyze the entropy distribution in an input sequence.
+        """
+        # Check if the input_sequence is a list, if so, join it into a string
+        if isinstance(input_sequence, list):
+            input_sequence = ''.join(input_sequence)
+
+        theoretical_dictionary = FeatureHelper().generate_theoretical_dictionary(input_sequence, word_size)
+        real_dictionary, sequence_representation_real = FeatureHelper().generate_real_dictionary(
+            input_sequence, word_size
+        )
+
+        # Compute entropy for each word in real_dictionary
+        word_entropy = {}
+        for word in real_dictionary:
+            entropy = FeatureHelper().calculate_entropy(word)
+            word_entropy[word] = entropy
+
+        # Get unique entropy values and sort them (lowest first)
+        unique_entropies_sorted = sorted(set(word_entropy.values()))
+
+        # Convert sequence_representation to entropy classes
+        entropy_representation_real = {f"EntropyClass{i + 1}": 0 for i in range(len(unique_entropies_sorted))}
+
+        for word, count in sequence_representation_real.items():
+            entropy = word_entropy[word]
+            entropy_class = f"EntropyClass{unique_entropies_sorted.index(entropy) + 1}"
+            entropy_representation_real[entropy_class] += count
+
+        # Calculate percentages for each entropy class
+        total_words_real = sum(entropy_representation_real.values())
+        entropy_representation_percentage_real = {ec: count / total_words_real for ec, count in
+                                                  entropy_representation_real.items()}
+
+        # Convert sequence_representation for theoretical dictionary to entropy classes
+        entropy_representation_theoretical = {f"EntropyClass{i + 1}": 0 for i in range(len(unique_entropies_sorted))}
+
+        for word in theoretical_dictionary:
+            entropy = FeatureHelper().calculate_entropy(word)
+            entropy_class = f"EntropyClass{unique_entropies_sorted.index(entropy) + 1}"
+            entropy_representation_theoretical[entropy_class] += 1
+
+        # Calculate percentages for each entropy class
+        total_words_theoretical = sum(entropy_representation_theoretical.values())
+        entropy_representation_percentage_theoretical = {ec: count / total_words_theoretical for ec, count in
+                                                         entropy_representation_theoretical.items()}
+
+        return entropy_representation_percentage_real, entropy_representation_percentage_theoretical
+
+    def surrogate_statistics(self, input_sequence, word_size, repeats=1000):
+        """
+        Generate surrogate statistics based on input sequences.
+        """
+        distributions = {}
+
+        for _ in range(repeats):
+            # Generate surrogate sequence
+            surrogate_sequence = FeatureHelper().generate_synthetic_sequence(input_sequence, 'surrogate')
+            surrogate_no_permanence_sequence = FeatureHelper().remove_repetition_sequence(surrogate_sequence)
+
+            # Generate entropy representations
+            surrogate_entropy_representation, surrogate_entropy_representation_theoretical = self.sequence_analysis(
+                surrogate_no_permanence_sequence, word_size
+            )
+
+            # Calculate representation ratios
+            surrogate_entropy_representation_ratio = FeatureHelper().calculate_representation_ratios(
+                surrogate_entropy_representation, surrogate_entropy_representation_theoretical
+            )
+
+            # Append the ratio to the distribution for each class separately
+            for key, value in surrogate_entropy_representation_ratio.items():
+                # Rename the key
+                new_key = key.replace('RepresentationRatio', 'Distribution')
+                if new_key not in distributions:
+                    distributions[new_key] = []
+                distributions[new_key].append(value)
+
+        return distributions
