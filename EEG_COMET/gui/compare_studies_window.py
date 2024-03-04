@@ -36,12 +36,13 @@ class CompareStudiesWindow(QDialog):
             self.ui.study2_name_label.setText(self.comet_tbx_study2.study_name)
         if self.study1_loaded and self.study2_loaded:
             set_widgets_status(self.ui.plot_features_button, mode='enable')
+            mutual_features = set(self.comet_tbx_study1.feature_list) & set(self.comet_tbx_study2.feature_list)
+            self.ui.feature_combo.addItems([i for i in mutual_features])
             selected_feature = self.ui.feature_combo.currentText()
-
-            self.ui.feature_combo
+            self.ui.plot_label.setText(f"{self.comet_tbx_study1.feature_list_dictionary[selected_feature]}")
         else:
             set_widgets_status(self.ui.plot_features_button, mode='disable')
-
+            self.ui.feature_combo.clear()
 
     def connect_ui(self):
         """Connect UI signals to slots"""
