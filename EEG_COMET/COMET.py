@@ -36,6 +36,12 @@ class COMET:
         if config:
             self.load_config(config)
         self.log_text = []  # Initialize log_text as an empty list
+        self.feature_list_dictionary = {
+            "OCC": "Frequency of Occurrence (Hz)", "DUR": "Mean Microstate Duration (ms)",
+            "COV": "Microstate Coverage (%)", "GEV": "Microstate Global Explained Variance (%)",
+            "TP": "Transition Probability", "SE": "Sequence Entropy", "LZC": "Sequence Lempel-Ziv Complexity",
+            "ER": "Sequence Entropy Representation"
+        }
         self.done_preprocessing: bool = False
         self.done_clustering: bool = False
         self.done_labeling_microstates: bool = False

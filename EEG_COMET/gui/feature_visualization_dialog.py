@@ -149,7 +149,7 @@ class FeatureVisualizationDialog(QDialog):
         # Filter features_df based on selected files
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
         self.plot_violin(features_df, selected_feature)
-        self.ui.plot_label.setText(f"Static Feature: {selected_feature}")
+        self.ui.plot_label.setText(f"Static Feature: {self.tbx.feature_list_dictionary[selected_feature]}")
 
     def show_dynamic_line_all(self):
         """
@@ -160,7 +160,7 @@ class FeatureVisualizationDialog(QDialog):
         features_df = self.load_features("dynamic").query(f'Filename == "{selected_file}"')
 
         self.plot_line(features_df, selected_feature)
-        self.ui.plot_label.setText(f"Filename: {selected_file}- Dynamic Feature: {selected_feature}")
+        self.ui.plot_label.setText(f"Dynamic Feature: {self.tbx.feature_list_dictionary[selected_feature]}")
 
     def show_tp_heatmap(self):
         """
@@ -208,6 +208,13 @@ class FeatureVisualizationDialog(QDialog):
         for eeg_file in self.list_eegs:
             self.ui.all_files_list.addItem(str(eeg_file))
 
+    def set_labels_ticks(self, ax, filter_cols, feature):
+        ax.set_xlabel("Microstate")
+        xticklabels = [col.split('_')[-1] for col in filter_cols]
+        ax.set_xticks(range(len(xticklabels)))
+        ax.set_xticklabels(xticklabels)
+        ax.set_ylabel(self.tbx.feature_list_dictionary[feature])
+
     def plot_violin(self, features_df, feature):
         """
         Plots a violin plot for the selected static feature.
@@ -226,6 +233,7 @@ class FeatureVisualizationDialog(QDialog):
         color_palette = sns.color_palette("Set1", num_features)
 
         sns.violinplot(x='Feature', y=feature, data=plot_data, ax=ax, palette=color_palette)
+        self.set_labels_ticks(ax, filter_cols, feature)
         self.canvas.draw()
 
     def plot_line(self, features_df, feature):
@@ -241,6 +249,7 @@ class FeatureVisualizationDialog(QDialog):
 
         self.clear_and_set_fonts(ax)
         sns.lineplot(x='Window_index', y=feature, hue='Feature', data=plot_data, ax=ax)
+        self.set_labels_ticks(ax, filter_cols, feature)
         self.canvas.draw()
 
     def plot_heatmap(self, features_df):
@@ -298,7 +307,7 @@ class FeatureVisualizationDialog(QDialog):
         """
         ax.clear()
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(16)
+            item.set_fontsize(20)
 
     def plot_group_comparison(self, features_df, selected_feature, group_a_name, group_b_name):
         """

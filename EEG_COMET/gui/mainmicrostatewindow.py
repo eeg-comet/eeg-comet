@@ -8,6 +8,7 @@ from PyQt5.QtCore import Qt
 
 from gui.logging_window import LogWindow
 from gui.newstudywindow import NewStudyWindow
+from gui.compare_studies_window import CompareStudiesWindow
 from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
 from gui.optimizer_visualization_dialog import OptimizerVisualizationDialog
 from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
@@ -81,6 +82,9 @@ class MainMicrostateWindow(QMainWindow):
             main_window=self,
             comet_tbx=self.comet_tbx
         )
+
+        self.ui.CompareStudiesWindow = CompareStudiesWindow(self.context)
+
         # Create and initialize MicrostateVisualizationDialog
         # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
         #     self.context,
@@ -200,6 +204,7 @@ class MainMicrostateWindow(QMainWindow):
             (self.ui.step0_auto_pilot_button, self.run_autopilot),
             (self.ui.step0_load_study_button, self.load_study),
             (self.ui.step0_new_study_button, self.open_new_study_dialog),
+            (self.ui.step0_compare_studies_button, self.open_compare_studies_window),
             (self.ui.step2_numberofmaps_elbow_button, self.visualize_elbow),
             (self.ui.step2_clustering_button, self.do_clustering),
             (self.ui.step3_label_maps_button, self.visualize_microstates),
@@ -290,6 +295,10 @@ class MainMicrostateWindow(QMainWindow):
                 self.load_study_helper()
         # Update the main window
         self.mainwindow_controller()
+
+    def open_compare_studies_window(self):
+        self.ui.CompareStudiesWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.ui.CompareStudiesWindow.showMaximized()
 
     @staticmethod
     def reset_option_box(box, options=None, current=None):
