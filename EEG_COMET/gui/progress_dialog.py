@@ -99,6 +99,7 @@ class ProgressDialog(QDialog):
 
     def stop_process(self):
         """Stop the process."""
+        self.stop_button.setText("Please Wait...")
         if self.worker_thread and self.worker_thread.isRunning():
             self.worker_thread.requestInterruption()
         self.running = False
