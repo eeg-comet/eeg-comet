@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>749</width>
-    <height>451</height>
+    <width>892</width>
+    <height>519</height>
    </rect>
   </property>
   <property name="font">
@@ -21,16 +21,16 @@
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
-    <widget class="QSplitter" name="splitter_2">
+    <widget class="QSplitter" name="splitter_4">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
-     <widget class="QSplitter" name="splitter">
+     <widget class="QSplitter" name="splitter_3">
       <property name="orientation">
        <enum>Qt::Vertical</enum>
       </property>
       <widget class="QWidget" name="gridLayoutWidget">
-       <layout class="QGridLayout" name="gridLayout_3">
+       <layout class="QGridLayout" name="Study_GridLayout">
         <item row="1" column="0">
          <widget class="QLabel" name="study_name_label">
           <property name="sizePolicy">
@@ -145,16 +145,101 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="layoutWidget">
-       <layout class="QGridLayout" name="gridLayout_2">
-        <item row="3" column="0" colspan="2">
-         <layout class="QVBoxLayout" name="Figure_Microstates_Study2_Layout"/>
-        </item>
-        <item row="2" column="0" colspan="2">
-         <layout class="QVBoxLayout" name="Figure_Microstates_Study1_Layout"/>
-        </item>
-        <item row="1" column="0" colspan="2">
-         <widget class="QLabel" name="study1_name_label_2">
+      <widget class="QSplitter" name="splitter_2">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <widget class="QWidget" name="layoutWidget">
+        <layout class="QGridLayout" name="Microstates_GridLayout">
+         <item row="3" column="0" colspan="2">
+          <layout class="QVBoxLayout" name="Figure_Microstates_Study2_Layout"/>
+         </item>
+         <item row="2" column="0" colspan="2">
+          <layout class="QVBoxLayout" name="Figure_Microstates_Study1_Layout"/>
+         </item>
+         <item row="1" column="0" colspan="2">
+          <widget class="QLabel" name="study1_name_label_2">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Microstates</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2" rowspan="3">
+          <widget class="Line" name="line">
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0" colspan="3">
+          <widget class="Line" name="line_3">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="verticalLayoutWidget_5">
+        <layout class="QVBoxLayout" name="CorrLayout">
+         <item>
+          <widget class="Line" name="line_4">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPlainTextEdit" name="correlations_textedit">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </widget>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <widget class="QWidget" name="verticalLayoutWidget">
+       <property name="font">
+        <font>
+         <pointsize>14</pointsize>
+        </font>
+       </property>
+       <layout class="QVBoxLayout" name="Features_VerticalLayout">
+        <item>
+         <widget class="QLabel" name="feature_label">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
             <horstretch>0</horstretch>
@@ -169,138 +254,163 @@
            </font>
           </property>
           <property name="text">
-           <string>Microstates</string>
+           <string>Select the feature to comapre</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
-        <item row="1" column="2" rowspan="4">
-         <widget class="Line" name="line">
+        <item>
+         <widget class="QComboBox" name="feature_combo">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="font">
            <font>
             <pointsize>14</pointsize>
            </font>
           </property>
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
          </widget>
         </item>
-        <item row="0" column="0" colspan="3">
-         <widget class="Line" name="line_3">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="0" colspan="2">
-         <widget class="QPlainTextEdit" name="corr_coefs_textedit">
+        <item>
+         <widget class="QLabel" name="plot_label">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Maximum">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="Figure_Features_Layout"/>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="paired_test_checkbox">
+          <property name="text">
+           <string>Perform Paired Test</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QLabel" name="paired_test_label">
+            <property name="text">
+             <string>p-Value Correction Method:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="paired_test_method_combo">
+            <item>
+             <property name="text">
+              <string>Bonferroni</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Holm</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Sidak</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Holm-Sidak</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Hommel</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>FDR-BH</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>FDR-TSBH</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>FDR-TSBKY</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QPushButton" name="plot_features_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Compare Features Between Studies</string>
           </property>
          </widget>
         </item>
        </layout>
       </widget>
-     </widget>
-     <widget class="QWidget" name="verticalLayoutWidget">
-      <property name="font">
-       <font>
-        <pointsize>14</pointsize>
-       </font>
-      </property>
-      <layout class="QVBoxLayout" name="Vertical_Layout">
-       <item>
-        <widget class="QLabel" name="feature_label">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Select the feature to comapre</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QComboBox" name="feature_combo">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="plot_label">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <layout class="QVBoxLayout" name="Figure_Features_Layout"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="plot_features_button">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Compare Features Between Studies</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
+      <widget class="QWidget" name="verticalLayoutWidget_6">
+       <layout class="QVBoxLayout" name="StatsLayout">
+        <item>
+         <widget class="Line" name="line_5">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPlainTextEdit" name="stats_textedit">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
      </widget>
     </widget>
    </item>
