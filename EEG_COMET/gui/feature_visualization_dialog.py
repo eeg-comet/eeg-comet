@@ -149,7 +149,6 @@ class FeatureVisualizationDialog(QDialog):
         # Filter features_df based on selected files
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
         self.plot_violin(features_df, selected_feature)
-        self.ui.plot_label.setText(f"Static Feature: {self.tbx.feature_list_dictionary[selected_feature]}")
 
     def show_dynamic_line_all(self):
         """
@@ -160,7 +159,6 @@ class FeatureVisualizationDialog(QDialog):
         features_df = self.load_features("dynamic").query(f'Filename == "{selected_file}"')
 
         self.plot_line(features_df, selected_feature)
-        self.ui.plot_label.setText(f"Dynamic Feature: {self.tbx.feature_list_dictionary[selected_feature]}")
 
     def show_tp_heatmap(self):
         """
@@ -214,6 +212,7 @@ class FeatureVisualizationDialog(QDialog):
         ax.set_xticks(range(len(xticklabels)))
         ax.set_xticklabels(xticklabels)
         ax.set_ylabel(self.tbx.feature_list_dictionary[feature])
+        self.ui.plot_label.setText(f"{self.tbx.feature_list_dictionary[feature]}")
 
     def plot_violin(self, features_df, feature):
         """
@@ -335,4 +334,5 @@ class FeatureVisualizationDialog(QDialog):
 
         self.clear_and_set_fonts(ax)
         sns.violinplot(x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax)
+        self.set_labels_ticks(ax, filter_cols, selected_feature)
         self.canvas.draw()
