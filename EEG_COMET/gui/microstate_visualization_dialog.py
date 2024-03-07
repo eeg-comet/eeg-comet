@@ -288,10 +288,9 @@ class MicrostateVisualizationDialog(QDialog):
         # Check if all label widgets have values
         all_labels_filled = all(label_widget.text() for label_widget in self.micro_label_widgets)
         if all_labels_filled:
-            self.tbx.micro_labels = self.current_order_labels
-            self.tbx.best_maps = self.current_order_maps.copy()
+            self.tbx.update_microstates_order(self.current_order_labels, self.current_order_maps)
             MicrostateClusterer().microstates2csv(
-                self.tbx.best_maps, self.tbx.eeg_info, self.tbx.microstate_maps_path, self.tbx.micro_labels)
+                self.current_order_maps, self.tbx.eeg_info, self.tbx.microstate_maps_path, self.current_order_labels)
             self.tbx.done_labeling_microstates = True
             # Update MainWindow's log if necessary
             self.main_window.mainwindow_controller()
