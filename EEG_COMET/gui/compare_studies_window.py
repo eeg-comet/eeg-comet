@@ -257,6 +257,10 @@ class CompareStudiesWindow(QDialog):
             x='Feature', y=selected_feature, hue='Study', data=plot_data, ax=ax,
             hue_order=[self.comet_tbx_study1.study_name, self.comet_tbx_study2.study_name]
         )
+        sns.swarmplot(
+            x='Feature', y=selected_feature, hue='Study', data=plot_data, ax=ax,
+            color="white", size=10, marker='o', dodge=True, legend=False
+        )
         self.set_labels_ticks(ax, feature_list, selected_feature)
         self.canvas_features.draw()
 

@@ -232,6 +232,7 @@ class FeatureVisualizationDialog(QDialog):
         color_palette = sns.color_palette("Set1", num_features)
 
         sns.violinplot(x='Feature', y=feature, data=plot_data, ax=ax, palette=color_palette)
+        sns.swarmplot(x='Feature', y=feature, data=plot_data, ax=ax, color="white", size=10, marker='o')
         self.set_labels_ticks(ax, filter_cols, feature)
         self.canvas.draw()
 
@@ -334,5 +335,9 @@ class FeatureVisualizationDialog(QDialog):
 
         self.clear_and_set_fonts(ax)
         sns.violinplot(x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax)
+        sns.swarmplot(
+            x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax,
+            color="white", size=10, marker='o', dodge=True, legend=False
+        )
         self.set_labels_ticks(ax, filter_cols, selected_feature)
         self.canvas.draw()
