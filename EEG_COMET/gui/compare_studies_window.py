@@ -72,15 +72,15 @@ class CompareStudiesWindow(QDialog):
         """Creates matplotlib figures and canvases for visualization."""
         self.figure_microstates_study1 = Figure(tight_layout=True)
         self.canvas_microstates_study1 = FigureCanvasQTAgg(self.figure_microstates_study1)
-        self.canvas_microstates_study1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.canvas_microstates_study1.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.Figure_Microstates_Study1_Layout.addWidget(self.canvas_microstates_study1)
         self.figure_microstates_study2 = Figure(tight_layout=True)
         self.canvas_microstates_study2 = FigureCanvasQTAgg(self.figure_microstates_study2)
-        self.canvas_microstates_study2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.canvas_microstates_study2.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.Figure_Microstates_Study2_Layout.addWidget(self.canvas_microstates_study2)
         self.figure_features = Figure(tight_layout=True)
         self.canvas_features = FigureCanvasQTAgg(self.figure_features)
-        self.canvas_features.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.canvas_features.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.Figure_Features_Layout.addWidget(self.canvas_features)
 
     @staticmethod

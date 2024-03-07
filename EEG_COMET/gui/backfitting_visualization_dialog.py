@@ -37,7 +37,7 @@ class BackfittingVisualizationDialog(QDialog):
 
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.ui.Figure_Layout.addWidget(self.canvas)
 
         # Connect signals to slots

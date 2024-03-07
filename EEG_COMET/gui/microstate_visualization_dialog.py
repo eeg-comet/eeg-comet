@@ -53,7 +53,7 @@ class MicrostateVisualizationDialog(QDialog):
         """Create matplotlib figure and canvas"""
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.Microstate_Layout.addWidget(self.canvas)
 
     def create_label_widgets(self, micro_labels):
