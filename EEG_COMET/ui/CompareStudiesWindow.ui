@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>892</width>
-    <height>519</height>
+    <width>890</width>
+    <height>511</height>
    </rect>
   </property>
   <property name="font">
@@ -262,42 +262,46 @@
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="feature_combo">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="plot_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="Feature_Horizontal_Layout">
+          <item>
+           <widget class="QComboBox" name="feature_combo">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="plot_label">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item>
          <layout class="QVBoxLayout" name="Figure_Features_Layout"/>
@@ -310,16 +314,16 @@
          </widget>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout">
+         <layout class="QHBoxLayout" name="Multiple_Test_Layout">
           <item>
-           <widget class="QLabel" name="paired_test_label">
+           <widget class="QLabel" name="multiple_test_label">
             <property name="text">
              <string>p-Value Correction Method:</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QComboBox" name="paired_test_method_combo">
+           <widget class="QComboBox" name="multiple_test_method_combo">
             <item>
              <property name="text">
               <string>Bonferroni</string>
