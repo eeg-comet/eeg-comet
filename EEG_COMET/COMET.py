@@ -176,6 +176,10 @@ class COMET:
         progress_bar.set_description(description)
         progress_bar.update(1)
 
+    def update_microstates_order(self, current_order_labels, current_order_maps):
+        self.micro_labels = current_order_labels
+        self.best_maps = current_order_maps
+
     def load_raw(self):
         """
         Locate EEG file paths.
