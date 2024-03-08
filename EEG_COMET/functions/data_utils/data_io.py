@@ -112,7 +112,7 @@ class DataIO:
             # Add average reference projection
             eeg.set_eeg_reference('average', projection=True)
             # Apply the added projection
-            eeg.apply_proj(verbose=verbose)
+            eeg.apply_proj()
     
         return eeg
 
