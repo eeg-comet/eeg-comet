@@ -18,7 +18,7 @@
   </property>
   <property name="maximumSize">
    <size>
-    <width>1000</width>
+    <width>2000</width>
     <height>2000</height>
    </size>
   </property>
@@ -67,8 +67,8 @@
        <property name="font">
         <font>
          <pointsize>12</pointsize>
-         <weight>75</weight>
-         <bold>true</bold>
+         <weight>50</weight>
+         <bold>false</bold>
         </font>
        </property>
        <property name="text">

@@ -1,36 +1,108 @@
 
+import os.path
 from PyQt5 import uic
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QWidget, QApplication
+from PyQt5.QtCore import QThread, pyqtSignal
 from datetime import datetime
 
 
-class LogWindow(QWidget):
-    def __init__(self, context, main_window=None, comet_tbx=None):
-        super().__init__()
-        self.main_window = main_window
-        self.comet_tbx = comet_tbx
-        self.ui = uic.loadUi(context.get_resource("LogWindow.ui"), self)
-        self.ui.setWindowTitle("EEG-COMET Log")
+class WorkerThread(QThread):
+    progress_updated = pyqtSignal(int)
 
-    def append_log(self, log):
-        # Get the current date and time
+    def __init__(self, max_value):
+        super().__init__()
+        self.max_value = max_value
+
+    def run(self):
+        for i in range(self.max_value + 1):
+            if self.isInterruptionRequested():  # Check if the thread should be stopped
+                break
+            self.progress_updated.emit(i)
+            self.msleep(100)
+
+
+class LogWindow(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        script_path = os.path.abspath(__file__)
+        ui_path = os.path.join(os.path.dirname(script_path), "..", "ui", "LogWindow.ui")
+        self.ui = uic.loadUi(ui_path, self)
+        self.ui.setWindowTitle("EEG-COMET Log")
+        self.ui.progress_stop_button.clicked.connect(self.stop_process)
+        self.running = False
+        self.worker_thread = None
+
+    def append_log(self, log, log_type='info'):
+        """Appends a log entry with the current date and time to the log_text list."""
         current_date = datetime.now().strftime("%d/%m/%y")
         current_time = datetime.now().strftime("%I:%M %p")
-
-        # Format the log entry with date and time
-        log_text = f"[{current_date} {current_time}]: {log}\n"
-
-        # Append the log entry to the text area
-        self.textArea.append(log_text)
+        separator = "******************************************************"
+        if log_type == 'settings':
+            current_log_text = f"\n{separator}\n{log}\n{separator}\n"
+        else:
+            current_log_text = f"[{current_date} {current_time}]: {log}\n"
+        self.ui.log_text_area.append(current_log_text)
 
     def replace_log(self, import_log):
-        # Convert the list of log entries into a single string
+        """Replace the current log with the imported log."""
         log_text = '\n'.join(import_log)
-        # Replace the current log with the imported log
-        self.textArea.setText(log_text)
+        self.ui.log_text_area.setText(log_text)
+
+    def setup_progress_dialog(self, window_title, label_text, max_value):
+        """Sets up a progress dialog with the specified window title, label text, and maximum value."""
+        self.setWindowTitle(window_title)
+        self.ui.progress_label.setText(label_text)
+        self.progress_bar.setValue(0)
+        self.start_process(max_value)
+
+    def update_progress(self, value, text=None):
+        """Update the progress bar with the given value and maximum value."""
+        if not self.running:  # Check if the process is running
+            return
+        if text is not None:
+            self.set_line_edit_text(text)
+        self.progress_bar.setValue(value)
+        QApplication.processEvents()
+
+    def set_window_title(self, title):
+        """Set the window title."""
+        self.setWindowTitle(title)
+
+    def set_label_text(self, text):
+        """Set the text of the label."""
+        self.ui.progress_label.setText(text)
+
+    def set_line_edit_text(self, text):
+        """Set the text of the line edit."""
+        self.ui.progress_lineedit.setText(text)
+
+    def is_worker_thread_running(self):
+        """Check if the worker thread is running."""
+        if hasattr(self, 'worker_thread') and self.worker_thread.isRunning():
+            return True
+        else:
+            return False
+
+    def start_process(self, max_value):
+        """Start the process."""
+        if self.running:
+            return
+        self.progress_bar.setRange(0, max_value)
+        self.worker_thread = WorkerThread(max_value)
+        self.worker_thread.progress_updated.connect(self.update_progress)
+        self.worker_thread.start()
+        self.running = True
+
+    def stop_process(self):
+        """Stop the process."""
+        if self.is_worker_thread_running():
+            self.progress_stop_button.setText("Please Wait...")
+            self.worker_thread.requestInterruption()
+            self.running = False
 
     def show_hide_log_window(self):
-        # Toggle the visibility of the log window
+        """Toggle the visibility of the log window."""
         if self.isVisible():
             self.setVisible(False)
         else:

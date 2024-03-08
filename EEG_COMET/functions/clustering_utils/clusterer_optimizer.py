@@ -5,7 +5,7 @@ import seaborn as sns
 from tqdm import tqdm
 from sklearn.model_selection import KFold
 from sklearn.metrics import pairwise_distances
-from gui.progress_dialog import ProgressDialog
+from gui.logging_window import LogWindow
 from functions.data_utils.data_initializer import DataInitializer
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
 
@@ -136,7 +136,7 @@ class ClustererOptimizer:
         self.k_values_silhouette = range(self.kmin, self.kmax + 1)
         self.target_silhouette = []
         # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
+        progress_dialog = LogWindow()
         progress_dialog.set_window_title("Finding Optimal K ...")
         progress_dialog.set_label_text("Silhouette Method")
         progress_dialog.show()
@@ -190,7 +190,7 @@ class ClustererOptimizer:
         self.k_values_calinski_harabasz = range(self.kmin, self.kmax + 1)
         self.target_calinski_harabasz = []
         # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
+        progress_dialog = LogWindow()
         progress_dialog.set_window_title("Finding Optimal K ...")
         progress_dialog.set_label_text("Calinski-Harabasz Method")
         progress_dialog.show()
@@ -246,7 +246,7 @@ class ClustererOptimizer:
         self.k_values_davies_bouldin = range(self.kmin, self.kmax + 1)
         self.target_davies_bouldin = []
         # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
+        progress_dialog = LogWindow()
         progress_dialog.set_window_title("Finding Optimal K ...")
         progress_dialog.set_label_text("Davies_Bouldin Method")
         progress_dialog.show()
@@ -278,7 +278,7 @@ class ClustererOptimizer:
         self.target_elbow = []
 
         # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
+        progress_dialog = LogWindow()
         progress_dialog.set_window_title("Finding Optimal K ...")
         progress_dialog.set_label_text(f"Elbow Method with %{threshold} Threshold")
         progress_dialog.show()
@@ -353,7 +353,7 @@ class ClustererOptimizer:
         ssd_random = np.zeros((len(self.k_values_gap_statistic), n_random_datasets))
 
         # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
+        progress_dialog = LogWindow()
         progress_dialog.set_window_title("Finding Optimal K ...")
         progress_dialog.set_label_text(f"Gap Statistic Method with {n_random_datasets}-Random Datasets")
         progress_dialog.show()
@@ -405,7 +405,7 @@ class ClustererOptimizer:
         total_updates = len(self.k_values_cross_validation) * n_splits
 
         # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
+        progress_dialog = LogWindow()
         progress_dialog.set_window_title("Finding Optimal K ...")
         progress_dialog.set_label_text(f"{n_splits}-Fold Cross-Validation Method")
         progress_dialog.show()

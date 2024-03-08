@@ -13,7 +13,7 @@ from scipy import stats
 from laura import make_laura
 from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
-from gui.progress_dialog import ProgressDialog
+from gui.logging_window import LogWindow
 
 
 class SourceLocalizer:
@@ -247,7 +247,8 @@ class SourceLocalizer:
         list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
 
         # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
+        # TODO: Log the process in the COMET
+        progress_dialog = LogWindow()
         progress_dialog.set_window_title("Source Localization ...")
         progress_dialog.set_label_text(
             f"Running source localization using {self.inverse_method} method")
@@ -390,7 +391,7 @@ class SourceLocalizer:
         list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
 
         # Create an instance of the progress dialog
-        progress_dialog = ProgressDialog()
+        progress_dialog = LogWindow()
         progress_dialog.set_window_title("Localizing Microstates ...")
         progress_dialog.set_label_text(
             f"Identifying microstate sources with the {source_method} method")
