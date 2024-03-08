@@ -317,6 +317,7 @@ class COMET:
 
         # Set preprocessing flag
         self.done_preprocessing = True
+        self.LogWindow.process_finished("✓ All EEG data have been successfully preprocessed!")
 
         # Optionally save the preprocessed data
         if self.auto_save:
