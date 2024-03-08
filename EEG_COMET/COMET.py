@@ -33,6 +33,7 @@ class COMET:
         # Define all instance variables
         # TODO: Set Default Values
         self.LogWindow = None
+        self.log_text = []
         self.config = {}
         self.study_name = ""
         self.input_folder = ""
@@ -96,7 +97,6 @@ class COMET:
 
         if config:
             self.load_config(config)
-        self.log_text = []  # Initialize log_text as an empty list
         self.done_preprocessing: bool = False
         self.done_clustering: bool = False
         self.done_labeling_microstates: bool = False
@@ -550,8 +550,7 @@ class COMET:
         print(f'Global Explained Variance: {self.best_gev}')
         # Set clustering flag
         self.done_clustering = True
-        self.LogWindow.update_progress(
-            self.number_of_repeats,
+        self.LogWindow.process_finished(
             f"✓ The data has been successfully clustered into {self.number_of_maps} microstates."
             f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
         )
@@ -574,9 +573,7 @@ class COMET:
 
         # Set labeling flag
         self.done_labeling_microstates = True
-        self.LogWindow.update_progress(
-            1, "✓ Microstates have been successfully labeled!"
-        )
+        self.LogWindow.process_finished("✓ Microstates have been successfully labeled!")
 
     def do_backfitting(self):
         print('\nBackfitting ...')
@@ -699,9 +696,7 @@ class COMET:
 
         # Set backfitting flag
         self.done_backfitting = True
-        self.LogWindow.update_progress(
-            len(self.list_eegs_path) + 1, "✓ Microstates have been successfully backfitted to the data!"
-        )
+        self.LogWindow.process_finished("✓ Microstates have been successfully backfitted to the data!")
 
         # Optionally save the results
         if self.auto_save:
@@ -846,9 +841,7 @@ class COMET:
 
         # Set extracting features flag
         self.done_extracting_features = True
-        self.LogWindow.update_progress(
-            len(segmentation_list_path) + 1, "✓ All features have been successfully extracted!"
-        )
+        self.LogWindow.process_finished("✓ All features have been successfully extracted!")
 
         # Optionally save the results
         if self.auto_save:
@@ -934,6 +927,7 @@ class COMET:
         Save current EEG-COMET parameters for future use.
         """
         # Exclude LogWindow from pickling
+        self.log_text = self.LogWindow.ui.log_text_area.toPlainText()
         log_window = self.LogWindow
         self.LogWindow = None
 

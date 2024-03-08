@@ -252,10 +252,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet_tbx.load_tbx(tbx_object_path)
             self.comet_tbx.LogWindow.show()
             # Update the log window with loaded study information
-            if hasattr(self.comet_tbx, 'log_text'):
-                self.comet_tbx.LogWindow.replace_log(self.comet_tbx.log_text)
-            else:
-                self.comet_tbx.LogWindow.replace_log("")
+            self.comet_tbx.LogWindow.replace_log(self.comet_tbx.log_text)
             self.comet_tbx.LogWindow.append_log(f"Study Loaded - ✓ Study Name: {self.comet_tbx.study_name}")
 
     def load_study(self, from_new_study=False):

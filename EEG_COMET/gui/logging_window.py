@@ -2,7 +2,7 @@
 import os.path
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget, QApplication
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from datetime import datetime
 
 
@@ -19,6 +19,7 @@ class WorkerThread(QThread):
                 break
             self.progress_updated.emit(i)
             self.msleep(100)
+        self.progress_updated.emit(self.max_value)
 
 
 class LogWindow(QWidget):
@@ -44,9 +45,8 @@ class LogWindow(QWidget):
             current_log_text = f"[{current_date} {current_time}]: {log}\n"
         self.ui.log_text_area.append(current_log_text)
 
-    def replace_log(self, import_log):
+    def replace_log(self, log_text):
         """Replace the current log with the imported log."""
-        log_text = '\n'.join(import_log)
         self.ui.log_text_area.setText(log_text)
 
     def setup_progress_dialog(self, window_title, label_text, max_value):
@@ -64,6 +64,13 @@ class LogWindow(QWidget):
             self.set_line_edit_text(text)
         self.progress_bar.setValue(value)
         QApplication.processEvents()
+
+    def process_finished(self, text=None):
+        """Called when the processing is finished."""
+        if text is not None:
+            self.set_line_edit_text(text)
+        self.running = False
+        self.progress_stop_button.setText("Stop Processing")
 
     def set_window_title(self, title):
         """Set the window title."""
