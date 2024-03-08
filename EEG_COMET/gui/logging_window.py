@@ -79,7 +79,7 @@ class LogWindow(QWidget):
 
     def is_worker_thread_running(self):
         """Check if the worker thread is running."""
-        if hasattr(self, 'worker_thread') and self.worker_thread.isRunning():
+        if self.worker_thread is not None and self.worker_thread.isRunning():
             return True
         else:
             return False
