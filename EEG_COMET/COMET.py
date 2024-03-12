@@ -4,6 +4,7 @@ import mne
 import pickle
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from gui.logging_window import LogWindow
 from functions.data_utils.data_io import DataIO
 from functions.data_utils.data_preprocessor import DataPreprocessor
@@ -268,7 +269,8 @@ class COMET:
         preprocessor = DataPreprocessor()
 
         # Iterate through EEG files
-        for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
+        for eeg_idx, (eeg_path, eeg_name) in tqdm(enumerate(zip(self.list_eegs_path, self.list_eegs)),
+                                                  total=len(self.list_eegs_path)):
             self.LogWindow.update_progress(eeg_idx, f"{eeg_name}")
 
             # Preprocess EEG data
@@ -641,7 +643,6 @@ class COMET:
                 remove_segments_less_than = 0
 
         remove_segments_less_than_ms = remove_segments_less_than * (1000 / self.sample_rate)
-        print("Optimal length to remove:", remove_segments_less_than_ms)
 
         if self.backfit_to == 'peaks':
             backfit_to_text = "Backfitting microstates to the local peaks of the global field power."
@@ -678,7 +679,8 @@ class COMET:
         )
 
         # Iterate through EEG files
-        for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
+        for eeg_idx, (eeg_path, eeg_name) in tqdm(enumerate(zip(self.list_eegs_path, self.list_eegs)),
+                                                  total=len(self.list_eegs_path)):
             self.LogWindow.update_progress(eeg_idx, f"{eeg_name}")
 
             eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
@@ -738,9 +740,9 @@ class COMET:
             f"* Features to Extract: {self.feature_list}\n"
             f"* Feature Type: {self.feature_mode}", log_type='settings'
         )
-        for segmentation_idx, (segmentation_path, segmentation_name) in enumerate(
-                zip(segmentation_list_path, segmentation_list_filename)):
 
+        for segmentation_idx, (segmentation_path, segmentation_name) in tqdm(
+                enumerate(zip(segmentation_list_path, segmentation_list_filename)), total=len(segmentation_list_path)):
             self.LogWindow.update_progress(segmentation_idx, f"{segmentation_name}")
 
             # Load segmentation array
