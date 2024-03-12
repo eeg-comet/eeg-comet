@@ -50,6 +50,7 @@ class FeatureVisualizationDialog(QDialog):
         self.ui.remove_group_b_button.clicked.connect(self.move_file_from_b_to_all)
         self.ui.reset_groups_button.clicked.connect(self.reset_groups)
 
+        self.ui.figure_settings_checkbox.clicked.connect(self.feature_visualization_controller)
         self.ui.feature_combo.currentTextChanged.connect(self.feature_visualization_controller)
         self.ui.all_files_list.itemSelectionChanged.connect(self.feature_visualization_controller)
         buttons = [
@@ -78,6 +79,19 @@ class FeatureVisualizationDialog(QDialog):
         else:
             set_widgets_status(self.ui.plot_heatmap_button, mode='disable')
             set_widgets_status(self.ui.plot_heatmap_button, mode='hide')
+
+        figure_settings_widgets = [
+            self.ui.font_size_label,
+            self.ui.font_size_input,
+            self.ui.label_size_label,
+            self.ui.label_size_input,
+            self.ui.colormap_label,
+            self.ui.colormap_combobox,
+        ]
+        if self.ui.figure_settings_checkbox.isChecked():
+            set_widgets_status(figure_settings_widgets, mode='show')
+        else:
+            set_widgets_status(figure_settings_widgets, mode='hide')
 
         compare_groups_widgets = [
             self.ui.add_group_a_button,
@@ -137,6 +151,13 @@ class FeatureVisualizationDialog(QDialog):
         self.canvas.draw()
         self.ui.plot_label.setText("")
 
+    def get_plot_parameters(self):
+        # Get plot parameters from UI components
+        fontsize = int(self.ui.font_size_input.text())
+        labelsize = int(self.ui.label_size_input.text())
+        colormap = self.ui.colormap_combobox.currentText()
+        return fontsize, labelsize, colormap
+
     def show_static_violin_all(self):
         """
         Displays violin plots of all static features.
@@ -148,7 +169,8 @@ class FeatureVisualizationDialog(QDialog):
         all_features_df = self.load_features("static")
         # Filter features_df based on selected files
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
-        self.plot_violin(features_df, selected_feature)
+        fontsize, labelsize, colormap = self.get_plot_parameters()
+        self.plot_violin(features_df, selected_feature, fontsize, labelsize, colormap)
 
     def show_dynamic_line_all(self):
         """
@@ -157,8 +179,8 @@ class FeatureVisualizationDialog(QDialog):
         selected_feature = self.ui.feature_combo.currentText()
         selected_file = self.ui.all_files_list.currentItem().text()
         features_df = self.load_features("dynamic").query(f'Filename == "{selected_file}"')
-
-        self.plot_line(features_df, selected_feature)
+        fontsize, labelsize, colormap = self.get_plot_parameters()
+        self.plot_line(features_df, selected_feature, fontsize, labelsize, colormap)
 
     def show_tp_heatmap(self):
         """
@@ -180,8 +202,10 @@ class FeatureVisualizationDialog(QDialog):
         selected_feature = self.ui.feature_combo.currentText()
         group_a_name, group_b_name = self.get_group_names()
         features_df = self.load_features("static")
-
-        self.plot_group_comparison(features_df, selected_feature, group_a_name, group_b_name)
+        fontsize, labelsize, colormap = self.get_plot_parameters()
+        self.plot_group_comparison(
+            features_df, selected_feature, group_a_name, group_b_name, fontsize, labelsize, colormap
+        )
 
     def load_features(self, mode):
         """
@@ -206,15 +230,16 @@ class FeatureVisualizationDialog(QDialog):
         for eeg_file in self.list_eegs:
             self.ui.all_files_list.addItem(str(eeg_file))
 
-    def set_labels_ticks(self, ax, filter_cols, feature):
-        ax.set_xlabel("Microstate")
+    def set_labels_ticks(self, filter_cols, feature, ax, fontsize, labelsize):
+        ax.set_xlabel("Microstate", fontsize=fontsize)
         xticklabels = [col.split('_')[-1] for col in filter_cols]
         ax.set_xticks(range(len(xticklabels)))
         ax.set_xticklabels(xticklabels)
-        ax.set_ylabel(self.tbx.feature_list_dictionary[feature])
+        ax.set_ylabel(self.tbx.feature_list_dictionary[feature], fontsize=fontsize)
+        ax.tick_params(axis='both', which='major', labelsize=labelsize)
         self.ui.plot_label.setText(f"{self.tbx.feature_list_dictionary[feature]}")
 
-    def plot_violin(self, features_df, feature):
+    def plot_violin(self, features_df, feature, fontsize, labelsize, colormap):
         """
         Plots a violin plot for the selected static feature.
         """
@@ -229,14 +254,14 @@ class FeatureVisualizationDialog(QDialog):
 
         # Use a color palette for the violins based on the number of features
         num_features = len(filter_cols)
-        color_palette = sns.color_palette("Set1", num_features)
+        color_palette = sns.color_palette(colormap, num_features)
 
         sns.violinplot(x='Feature', y=feature, data=plot_data, ax=ax, palette=color_palette)
         sns.swarmplot(x='Feature', y=feature, data=plot_data, ax=ax, color="white", size=10, marker='o')
-        self.set_labels_ticks(ax, filter_cols, feature)
+        self.set_labels_ticks(filter_cols, feature, ax, fontsize, labelsize)
         self.canvas.draw()
 
-    def plot_line(self, features_df, feature):
+    def plot_line(self, features_df, feature, fontsize, labelsize, colormap):
         """
         Plots a line plot for the selected dynamic feature.
         """
@@ -249,10 +274,10 @@ class FeatureVisualizationDialog(QDialog):
 
         self.clear_and_set_fonts(ax)
         sns.lineplot(x='Window_index', y=feature, hue='Feature', data=plot_data, ax=ax)
-        self.set_labels_ticks(ax, filter_cols, feature)
+        self.set_labels_ticks(filter_cols, feature, ax, fontsize, labelsize)
         self.canvas.draw()
 
-    def plot_heatmap(self, features_df):
+    def plot_heatmap(self, features_df, fontsize, labelsize, colormap):
         """
         Plots a heatmap for the transition probabilities.
         """
@@ -271,7 +296,7 @@ class FeatureVisualizationDialog(QDialog):
                 if f'TP_{from_state}_{to_state}' in features_df.columns:
                     transition_matrix[i, j] = features_df[f'TP_{from_state}_{to_state}'].mean()
 
-        # Plot heatmap
+        # Plot heatmap colormap
         ax.matshow(transition_matrix, cmap="YlGnBu")
 
         # Annotate values with percentage
@@ -286,10 +311,11 @@ class FeatureVisualizationDialog(QDialog):
         ax.set_yticks(np.arange(len(states)))
         ax.set_xticklabels(states)
         ax.set_yticklabels(states)
+        ax.tick_params(axis='both', which='major', labelsize=labelsize)
 
         # Set labels and title
-        ax.set_xlabel('To')
-        ax.set_ylabel('From')
+        ax.set_xlabel('To', fontsize=fontsize)
+        ax.set_ylabel('From', fontsize=fontsize)
 
         # Show the plot
         self.canvas.draw()
@@ -309,7 +335,8 @@ class FeatureVisualizationDialog(QDialog):
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
             item.set_fontsize(20)
 
-    def plot_group_comparison(self, features_df, selected_feature, group_a_name, group_b_name):
+    def plot_group_comparison(self, features_df, selected_feature, group_a_name, group_b_name, fontsize, labelsize,
+                              colormap):
         """
         Plots a comparison of features between two groups.
         """
@@ -334,10 +361,12 @@ class FeatureVisualizationDialog(QDialog):
         comparison_data = pd.concat([group_a_data, group_b_data], axis=0).reset_index()
 
         self.clear_and_set_fonts(ax)
-        sns.violinplot(x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax)
+        num_features = len(filter_cols)
+        color_palette = sns.color_palette(colormap, num_features)
+        sns.violinplot(x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax, palette=color_palette)
         sns.swarmplot(
             x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax,
             color="white", size=10, marker='o', dodge=True, legend=False
         )
-        self.set_labels_ticks(ax, filter_cols, selected_feature)
+        self.set_labels_ticks(filter_cols, selected_feature, ax, fontsize, labelsize)
         self.canvas.draw()
