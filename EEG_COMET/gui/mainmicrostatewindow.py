@@ -440,11 +440,16 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_se_checkbox,
             self.ui.step4_feature_lzc_checkbox,
             self.ui.step4_feature_er_checkbox,
-            self.ui.step4_duration_of_window_input,
-            self.ui.step4_duration_of_window_label,
-            self.ui.step4_duration_of_window_label_2,
             self.ui.step4_static_features_checkbox,
             self.ui.step4_dynamic_features_checkbox,
+            self.ui.step4_sliding_window_label,
+            self.ui.step4_sliding_window_label_2,
+            self.ui.step4_sliding_window_input,
+            self.step4_word_size_label1,
+            self.step4_word_size_label2,
+            self.step4_word_size_label3,
+            self.step4_word_size_min_input,
+            self.step4_word_size_max_input,
             self.ui.step4_extractfeatures_button,
             self.ui.step4_outputformats_label,
             self.ui.step4_outputformats_combobox,
@@ -747,6 +752,28 @@ class MainMicrostateWindow(QMainWindow):
                                     self.ui.step3_backfit_visualization_button,
                                     self.ui.step5_compute_source_microstate_correlation_button,
                                     self.ui.step5_visualize_sources_button], mode='hide')
+
+                sliding_feature_extraction_widgets = [
+                    self.ui.step4_sliding_window_label,
+                    self.ui.step4_sliding_window_label_2,
+                    self.ui.step4_sliding_window_input
+                ]
+                if self.ui.step4_dynamic_features_checkbox.isChecked():
+                    set_widgets_status(sliding_feature_extraction_widgets, mode='enable')
+                else:
+                    set_widgets_status(sliding_feature_extraction_widgets, mode='disable')
+
+                microsynt_feature_extraction_widgets = [
+                    self.step4_word_size_label1,
+                    self.step4_word_size_label2,
+                    self.step4_word_size_label3,
+                    self.step4_word_size_min_input,
+                    self.step4_word_size_max_input
+                ]
+                if self.ui.step4_feature_er_checkbox.isChecked():
+                    set_widgets_status(microsynt_feature_extraction_widgets, mode='enable')
+                else:
+                    set_widgets_status(microsynt_feature_extraction_widgets, mode='disable')
 
                 feature_checkboxes1 = [
                     self.ui.step4_feature_occ_checkbox,
@@ -1112,7 +1139,7 @@ class MainMicrostateWindow(QMainWindow):
             if self.ui.step4_dynamic_features_checkbox.isChecked():
                 self.comet_tbx.feature_mode.append("dynamic")
             # Set window size for dynamic features
-            self.comet_tbx.window_size = int(self.ui.step4_duration_of_window_input.text())
+            self.comet_tbx.window_size = int(self.ui.step4_sliding_window_input.text())
             # Log and perform feature extraction
             self.comet_tbx.extract_features()
             # Update flags and save the state

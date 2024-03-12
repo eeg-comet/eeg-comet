@@ -635,7 +635,10 @@ class COMET:
             remove_segments_less_than = microstate_backfitter.identify_optimal_length_filter(similarity_scores)
 
         else:
-            remove_segments_less_than = self.remove_segments_less_than
+            if self.filter_segments:
+                remove_segments_less_than = self.remove_segments_less_than
+            else:
+                remove_segments_less_than = 0
 
         remove_segments_less_than_ms = remove_segments_less_than * (1000 / self.sample_rate)
         print("Optimal length to remove:", remove_segments_less_than_ms)
@@ -658,7 +661,7 @@ class COMET:
             filter_segments_option_text = f"Smoothing segments with window size {remove_segments_less_than_ms}ms" \
                                           f" and lambda {self.lamb}."
         else:
-            filter_segments_option_text = ""
+            filter_segments_option_text = "No filtering applied to short segments."
 
         # Create an instance of the progress dialog
         self.LogWindow.setup_progress_dialog(
