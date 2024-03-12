@@ -361,8 +361,7 @@ class FeatureVisualizationDialog(QDialog):
         comparison_data = pd.concat([group_a_data, group_b_data], axis=0).reset_index()
 
         self.clear_and_set_fonts(ax)
-        num_features = len(filter_cols)
-        color_palette = sns.color_palette(colormap, num_features)
+        color_palette = sns.color_palette(colormap, 2)
         sns.violinplot(x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax, palette=color_palette)
         sns.swarmplot(
             x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax,
