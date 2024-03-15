@@ -235,12 +235,12 @@ class FeatureExtractor:
         return overall_complexity
 
 
-    def entropy_representation(self):
+    def entropy_representation(self, word_size):
         """
         Calculate the entropy representation of different classes of entropies and their ratio compared to theoretical dictionary based on the MicroSynt pipeline.
         """
         # TODO: not completed
-        word_size = 5
+        # word_size = 5
         window_entropy_representations, window_size_samples = FeatureHelper().initialize_dynamic_windows(
             self.input_sequence, self.sampling_rate, self.window_size
         )
@@ -262,7 +262,7 @@ class FeatureExtractor:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
 
     def extract_microstate_features(
-            self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None):
+            self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None, word_size=2):
         """
         Extracts a set of microstate features from EEG data input_sequences, given a list of feature identifiers.
         The function operates in two modes: 'static' and 'dynamic'.
@@ -292,7 +292,7 @@ class FeatureExtractor:
             extracted_entropy = self.shannon_entropy()
             features_dict.append(('SE', extracted_entropy))
         if 'ER' in feature_list:
-            extracted_entropy_representation = self.entropy_representation()
+            extracted_entropy_representation = self.entropy_representation(word_size)
             features_dict.append(('ER', extracted_entropy_representation))
 
         # Only add TP and LZC if the mode is not dynamic

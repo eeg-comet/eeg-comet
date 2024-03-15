@@ -54,6 +54,7 @@ class MicrostateVisualizationDialog(QDialog):
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.canvas.setMinimumHeight(100)
         self.Microstate_Layout.addWidget(self.canvas)
 
     def create_label_widgets(self, micro_labels):
