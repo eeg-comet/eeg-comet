@@ -9,15 +9,16 @@ from gui.logging_window import LogWindow
 from functions.data_utils.data_io import DataIO
 from functions.data_utils.data_preprocessor import DataPreprocessor
 from functions.data_utils.data_initializer import DataInitializer
+from functions.clustering_utils.clusterer_optimizer import ClustererOptimizer
+from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
+from functions.clustering_utils.microstate_labeler import MicrostateLabeler
+from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
+from functions.backfitting_utils.segmentation_io import SegmentationIO
+from functions.features_utils.feature_helper import FeatureHelper
 from functions.features_utils.feature_extractor import FeatureExtractor
 from functions.features_utils.feature_io import FeatureIO
-from functions.backfitting_utils.segmentation_io import SegmentationIO
-from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
-from functions.clustering_utils.autopilot_clusterer import AutopilotClusterer
-from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
-from functions.clustering_utils.clusterer_optimizer import ClustererOptimizer
-from functions.clustering_utils.microstate_labeler import MicrostateLabeler
 from functions.sourcelocalization_utils.source_localizer import SourceLocalizer
+from functions.clustering_utils.autopilot_clusterer import AutopilotClusterer
 
 
 class COMET:
@@ -85,6 +86,7 @@ class COMET:
         self.micro_labels = []
         self.extracted_features_path = ""
         self.segmentation_path = ""
+        self.word_size = 2
         self.export_format = ""
         self.feature_list = []
         self.save_transitions_bool = False
@@ -229,10 +231,9 @@ class COMET:
         else:
             self.pattern = '*' + self.pattern_content + '*'
 
-        self.list_eegs_path, self.list_eegs = DataIO().find_data(self.input_folder, self.extension, self.pattern)
-
-    # self.list_eegs = [os.path.basename(x).split('.')[0] for x in self.list_eegs_path]
-    # assert self.list_eegs_path, 'eeg list is empty'
+        self.list_eegs_path, self.list_eegs = DataIO().find_data(
+            input_folder=self.input_folder, extension=self.extension, pattern=self.pattern
+        )
 
     def do_preprocessing(self):
         print('\nPreprocessing ...')
@@ -271,22 +272,22 @@ class COMET:
         # Iterate through EEG files
         for eeg_idx, (eeg_path, eeg_name) in tqdm(enumerate(zip(self.list_eegs_path, self.list_eegs)),
                                                   total=len(self.list_eegs_path)):
-            self.LogWindow.update_progress(eeg_idx, f"{eeg_name}")
+            self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
             # Preprocess EEG data
             eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocessor.preprocess_eegs(
-                eeg_path,
-                self.list_eegs_path,
-                self.extension,
-                self.datatype,
-                self.channel_location_dir,
-                self.filter_data,
-                self.filter_method,
-                self.lowcut_freq,
-                self.highcut_freq,
-                self.downsample_data,
-                self.sample_rate,
-                self.ch2rm
+                eeg_path=eeg_path,
+                list_eegs=self.list_eegs_path,
+                eeg_format=self.extension,
+                datatype=self.datatype,
+                channel_location_dir=self.channel_location_dir,
+                filter_bool=self.filter_data,
+                filtermethod=self.filter_method,
+                lowcut=self.lowcut_freq,
+                highcut=self.highcut_freq,
+                downsample_bool=self.downsample_data,
+                sampling_rate=self.sample_rate,
+                chan2rm=self.ch2rm
             )
 
             # Save EEG info
@@ -294,7 +295,7 @@ class COMET:
             if not self.sample_rate:
                 self.sample_rate = int(self.eeg_info['sfreq'])
             self.channels2remove = channels2remove
-            data_io.save_eeg_info(self.eeg_info_path, eeg_info)
+            data_io.save_eeg_info(eeg_info_path=self.eeg_info_path, eeg_info=eeg_info)
 
             # Save EEG object
             ch_names, ch_location = list(self.eeg_info['ch_names']), self.eeg_info['chs']
@@ -305,7 +306,7 @@ class COMET:
             name = os.path.splitext(eeg_name)[0]
             save_path = os.path.join(self.preprocessed_data_path, name)
             self.length_all_data = np.append(length_all_data, int(length_data))
-            data_io.export_eegs(eeg, save_path, self.extension, self.datatype)
+            data_io.export_eegs(eeg=eeg, save_path=save_path, extension=self.extension, datatype=self.datatype)
 
             # Log the preprocessing progress
 
@@ -366,61 +367,67 @@ class COMET:
         )
         data_initializer = DataInitializer()
         microstate_clusterer = MicrostateClusterer(
-            self.number_of_repeats,
-            self.max_iterations,
-            self.clustering_tolerance
+            n_inits=self.number_of_repeats,
+            max_iter=self.max_iterations,
+            tolerance=self.clustering_tolerance
         )
 
         # Generate maps and peaks automatically if number_of_maps is set to 'auto'
         if self.number_of_maps == 'auto':
             data_initializer = DataInitializer()
             self.maps2use, self.peaks2use = data_initializer.generate_maps_and_peaks(
-                self.preprocessed_data_path,
-                self.extension,
-                self.datatype,
-                self.use_percentages,
-                self.min_distance_size
+                preprocessed_folder=self.preprocessed_data_path,
+                extension=self.extension,
+                datatype=self.datatype,
+                use_percentages=self.use_percentages,
+                min_dist=self.min_distance_size
             )
             clusterer_optimizer = ClustererOptimizer(
-                self.maps2use,
-                self.min_distance_size,
-                self.number_of_repeats,
-                self.kmin,
-                self.kmax,
-                self.preprocessed_data_path,
-                self.extension,
-                self.datatype,
-                self.clustering_tolerance,
-                self.max_iterations
+                maps2use=self.maps2use,
+                min_dist=self.min_distance_size,
+                n_inits=self.number_of_repeats,
+                kmin=self.kmin,
+                kmax=self.kmax,
+                preprocessed_data_path=self.preprocessed_data_path,
+                extension=self.extension,
+                datatype=self.datatype,
+                tolerance=self.clustering_tolerance,
+                max_iter=self.max_iterations
             )
 
             # Find optimal number of maps
             self.optimal_k, self.k_values, self.target_values = clusterer_optimizer.find_optimal_k(
-                self.stopping_mode, self.stopping_parameter)
+                optimizer_mode=self.stopping_mode, parameter_value=self.stopping_parameter
+            )
             self.number_of_maps = self.optimal_k
             print(f'Result: n_states = {self.number_of_maps}')
 
         # Perform clustering
         self.maps2use, self.peaks2use = data_initializer.generate_maps_and_peaks(
-            self.preprocessed_data_path,
-            self.extension,
-            self.datatype,
-            self.use_percentages,
-            self.min_distance_size
+            preprocessed_folder=self.preprocessed_data_path,
+            extension=self.extension,
+            datatype=self.datatype,
+            use_percentages=self.use_percentages,
+            min_dist=self.min_distance_size
         )
 
         if self.clustering_method == 'PCA + K-Means Clustering':
             # Extract features using PCA
             self.maps2use = microstate_clusterer.extract_features_with_pca(
-                np.transpose(self.maps2use), pca_components=self.n_pca)
+                eeg_data=np.transpose(self.maps2use), pca_components=self.n_pca
+            )
 
         if self.clustering_method == 'Autoencoder + K-Means Clustering':
             # Extract features using Autoencoder
-            self.maps2use, autoencoder = microstate_clusterer.extract_features_with_autoencoder(np.transpose(
-                self.maps2use), encoding_dim=10)
+            self.maps2use, autoencoder = microstate_clusterer.extract_features_with_autoencoder(
+                eeg_data=np.transpose(self.maps2use), encoding_dim=10
+            )
 
         all_data, _ = data_initializer.generate_maps_and_peaks(
-            self.preprocessed_data_path, self.extension, self.datatype, use_percentages=100
+            preprocessed_folder=self.preprocessed_data_path,
+            extension=self.extension,
+            datatype=self.datatype,
+            use_percentages=100
         )
 
         if self.choose_number_of_maps == "auto":
@@ -446,13 +453,12 @@ class COMET:
             modified_kmeans_results = {}
             for init in range(self.number_of_repeats):
                 self.LogWindow.update_progress(
-                    init,
-                    f"Clustering [{init + 1}/{self.number_of_repeats}] - "
+                    value=init,
+                    text=f"Clustering [{init + 1}/{self.number_of_repeats}] - "
                     f"Global Explained Variance: {100 * self.best_gev:.3f}%"
                 )
-
                 initial_maps = data_initializer.initialize_cluster_centers(
-                    self.maps2use, self.number_of_maps, self.initializer
+                    maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
                 )
 
                 maps_init, residual_init = microstate_clusterer.modified_kmeans(
@@ -462,7 +468,7 @@ class COMET:
                     max_iter=self.max_iterations,
                     thresh=self.clustering_tolerance
                 )
-                gev_init = microstate_clusterer.compute_gev(all_data, maps_init)
+                gev_init = microstate_clusterer.compute_gev(data=all_data, maps=maps_init)
                 # Store the results for this initialization in the dictionary
                 modified_kmeans_results[init] = {
                     'maps': maps_init,
@@ -496,21 +502,20 @@ class COMET:
 
         else:
             initial_maps = data_initializer.initialize_cluster_centers(
-                self.maps2use, self.number_of_maps, self.initializer
+                maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
             )
-
             clustering_instance = microstate_clusterer.get_clustering_instance(
-                self.maps2use,
-                initial_maps,
-                self.clustering_method,
-                self.number_of_maps,
-                self.clustering_option
+                maps2use=self.maps2use,
+                initial_maps=initial_maps,
+                method=self.clustering_method,
+                n_states=self.number_of_maps,
+                clustering_option=self.clustering_option
             )
 
             for init in range(self.number_of_repeats):
                 self.LogWindow.update_progress(
-                    init,
-                    f"Clustering [{init + 1}/{self.number_of_repeats}] - "
+                    value=init,
+                    text=f"Clustering [{init + 1}/{self.number_of_repeats}] - "
                     f"Best Global Explained Variance: {100 * self.best_gev:.3f}%"
                 )
 
@@ -532,9 +537,11 @@ class COMET:
                     residual_init = 0  # self.calculate_residuals(maps2use, autoencoder)
 
                 maps_init = np.array(maps_init)
-                gev_init = microstate_clusterer.compute_gev(self.maps2use, maps_init)
+                gev_init = microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
 
-                microstate_labeler = MicrostateLabeler(maps_init, self.eeg_info, self.microstate_maps_path)
+                microstate_labeler = MicrostateLabeler(
+                    microstate_maps=maps_init, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path
+                )
                 micro_labels, labels_overall_confidence = microstate_labeler.do_labeling()
 
                 # if gev_r > best_gev:
@@ -548,7 +555,8 @@ class COMET:
                     break
 
         # Save Best Maps
-        microstate_clusterer.microstates2csv(self.best_maps, self.eeg_info, self.microstate_maps_path)
+        microstate_clusterer.microstates2csv(
+            microstate_maps=self.best_maps, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path)
 
         print(f'Global Explained Variance: {self.best_gev}')
         # Set clustering flag
@@ -564,7 +572,9 @@ class COMET:
 
     def do_labeling(self):
         # Initialize microstate labeler
-        self.microstate_labeler = MicrostateLabeler(self.best_maps, self.eeg_info, self.microstate_maps_path)
+        self.microstate_labeler = MicrostateLabeler(
+            microstate_maps=self.best_maps, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path
+        )
 
         # Perform labeling
         self.LogWindow.setup_progress_dialog(
@@ -622,19 +632,23 @@ class COMET:
 
             # Iterate through EEG files
             for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
-                self.LogWindow.update_progress(eeg_idx, f"{eeg_name}")
+                self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
                 eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
 
                 # Compute similarity scores for different segment removal lengths
                 for idx_win2rm, len_win2rm in enumerate(len_win2rm_list):
-                    similarity_scores[eeg_idx, idx_win2rm] = microstate_backfitter.get_similarity_score(eeg, len_win2rm)
+                    similarity_scores[eeg_idx, idx_win2rm] = microstate_backfitter.get_similarity_score(
+                        eeg=eeg, rm_max_len=len_win2rm
+                    )
 
                 if not self.LogWindow.running:  # Check if the process should be stopped
                     break
 
             # Identify optimal length filter based on similarity scores
-            remove_segments_less_than = microstate_backfitter.identify_optimal_length_filter(similarity_scores)
+            remove_segments_less_than = microstate_backfitter.identify_optimal_length_filter(
+                similarity_scores=similarity_scores
+            )
 
         else:
             if self.filter_segments:
@@ -681,14 +695,19 @@ class COMET:
         # Iterate through EEG files
         for eeg_idx, (eeg_path, eeg_name) in tqdm(enumerate(zip(self.list_eegs_path, self.list_eegs)),
                                                   total=len(self.list_eegs_path)):
-            self.LogWindow.update_progress(eeg_idx, f"{eeg_name}")
+            self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
-            eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+            eeg = data_io.load_eegs(eeg_path=eeg_path, eeg_format=self.extension, datatype=self.datatype)
 
             labeled_segmentation, trial_filename, trial_times, segmentation_fit = microstate_backfitter.\
-                perform_segmentation(eeg, eeg_name, remove_segments_less_than)
+                perform_segmentation(eeg=eeg, eeg_name=eeg_name, remove_segments_less_than=remove_segments_less_than)
+
             segmentation_io.export_segmentation(
-                self.segmentation_path, trial_filename, labeled_segmentation, trial_times, self.export_format
+                output_folder=self.segmentation_path,
+                filename=trial_filename,
+                segmentation_array=labeled_segmentation,
+                time_array=trial_times,
+                export_format=self.export_format
             )
 
             # Log the backfitting progress
@@ -724,8 +743,8 @@ class COMET:
 
         # Find segmentation files
         segmentation_list_path, segmentation_list_filename = DataIO().find_data(
-            self.segmentation_path,
-            self.export_format
+            input_folder=self.segmentation_path,
+            extension=self.export_format
         )
 
         # Create an instance of the progress dialog
@@ -741,109 +760,124 @@ class COMET:
             f"* Feature Type: {self.feature_mode}", log_type='settings'
         )
 
-        for segmentation_idx, (segmentation_path, segmentation_name) in tqdm(
-                enumerate(zip(segmentation_list_path, segmentation_list_filename)), total=len(segmentation_list_path)):
-            self.LogWindow.update_progress(segmentation_idx, f"{segmentation_name}")
+        for feature_type in self.feature_types:
+            static_features_dfs = pd.DataFrame()
+            dynamic_features_dfs = pd.DataFrame()
+            for segmentation_idx, (segmentation_path, segmentation_name) in tqdm(
+                    enumerate(zip(segmentation_list_path, segmentation_list_filename)),
+                    total=len(segmentation_list_path)):
+                self.LogWindow.update_progress(value=segmentation_idx, text=f"{segmentation_name}")
 
-            # Load segmentation array
-            segmentation_array = SegmentationIO().load_segmentation(segmentation_path, import_format='.csv')
-
-            # Extract static features
-            if 'static' in self.feature_mode:
-                feature_extractor = FeatureExtractor(
-                    segmentation_array,
-                    self.sample_rate,
-                    self.window_size,
-                    mode='static'
+                # Load segmentation array
+                segmentation_array = SegmentationIO().load_segmentation(
+                    segmentation_path=segmentation_path, import_format='.csv'
                 )
+                if feature_type == 'real':
+                    input_sequence = segmentation_array
+                else:
+                    input_sequence = FeatureHelper().generate_synthetic_sequence(
+                        input_sequence=segmentation_array, method=feature_type
+                    )
 
-                if 'GEV' in self.feature_list:
-                    data_io = DataIO()
-                    if self.datatype == 'epoched':
-                        underscore_index = segmentation_name.rfind('_')
-                        eeg_filename = segmentation_name[:underscore_index]
-                        trial_number = segmentation_name[underscore_index + 1:]
-                        eeg_path = os.path.join(self.preprocessed_data_path, f"{eeg_filename}{self.extension}")
-                        eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
-                        trial_data = np.squeeze(eeg[int(trial_number)].get_data())
+                # Extract static features
+                if 'static' in self.feature_mode:
+                    feature_extractor = FeatureExtractor(
+                        input_sequence=input_sequence,
+                        sampling_rate=self.sample_rate,
+                        window_size=self.window_size,
+                        feature_mode='static'
+                    )
+
+                    if 'GEV' in self.feature_list:
+                        data_io = DataIO()
+                        if self.datatype == 'epoched':
+                            underscore_index = segmentation_name.rfind('_')
+                            eeg_filename = segmentation_name[:underscore_index]
+                            trial_number = segmentation_name[underscore_index + 1:]
+                            eeg_path = os.path.join(self.preprocessed_data_path, f"{eeg_filename}{self.extension}")
+                            eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                            trial_data = np.squeeze(eeg[int(trial_number)].get_data())
+                        else:
+                            eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
+                            eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                            eeg_data = data_io.get_eeg_data(eeg, self.datatype)
+
+                        output_features = feature_extractor.extract_microstate_features(
+                            filename=segmentation_name,
+                            feature_list=self.feature_list,
+                            eeg_data=trial_data if self.datatype == 'epoched' else eeg_data,
+                            microstate_maps=self.best_maps,
+                            microstate_labels=self.micro_labels,
+                            word_size=self.word_size
+                        )
                     else:
+                        output_features = feature_extractor.extract_microstate_features(
+                            filename=segmentation_name, feature_list=self.feature_list, word_size=self.word_size
+                        )
+
+                    if segmentation_idx == 0:
+                        static_features_dfs = output_features
+                    else:
+                        static_features_dfs = pd.concat([static_features_dfs, output_features], ignore_index=True)
+
+                # Extract dynamic features
+                if 'dynamic' in self.feature_mode:
+                    feature_extractor = FeatureExtractor(
+                        input_sequence=input_sequence,
+                        sampling_rate=self.sample_rate,
+                        window_size=self.window_size,
+                        feature_mode='dynamic'
+                    )
+
+                    if 'GEV' in self.feature_list:
+                        data_io = DataIO()
                         eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
                         eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
                         eeg_data = data_io.get_eeg_data(eeg, self.datatype)
+                        output_features = feature_extractor.extract_microstate_features(
+                            filename=segmentation_name,
+                            feature_list=self.feature_list,
+                            eeg_data=eeg_data,
+                            microstate_maps=self.best_maps,
+                            microstate_labels=self.micro_labels
+                        )
+                    else:
+                        output_features = feature_extractor.extract_microstate_features(
+                            filename=segmentation_name, feature_list=self.feature_list
+                        )
 
-                    output_features = feature_extractor.extract_microstate_features(
-                        segmentation_name,
-                        self.feature_list,
-                        trial_data if self.datatype == 'epoched' else eeg_data,
-                        self.best_maps,
-                        self.micro_labels
-                    )
-                else:
-                    output_features = feature_extractor.extract_microstate_features(
-                        segmentation_name, self.feature_list
-                    )
+                    if segmentation_idx == 0:
+                        dynamic_features_dfs = output_features
+                    else:
+                        dynamic_features_dfs = pd.concat([dynamic_features_dfs, output_features], ignore_index=True)
 
-                if segmentation_idx == 0:
-                    static_features_dfs = output_features
-                else:
-                    static_features_dfs = pd.concat([static_features_dfs, output_features], ignore_index=True)
-
-            # Extract dynamic features
-            if 'dynamic' in self.feature_mode:
-                feature_extractor = FeatureExtractor(
-                    segmentation_array,
-                    self.sample_rate,
-                    self.window_size,
-                    mode='dynamic'
+                # Log the feature extraction progress
+                self.LogWindow.append_log(
+                    f"Features Extracted [{segmentation_idx + 1}/{len(self.list_eegs_path)}]\n"
+                    f"✓ Data: {segmentation_name}"
                 )
 
-                if 'GEV' in self.feature_list:
-                    data_io = DataIO()
-                    eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
-                    eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
-                    eeg_data = data_io.get_eeg_data(eeg, self.datatype)
-                    output_features = feature_extractor.extract_microstate_features(
-                        segmentation_name,
-                        self.feature_list,
-                        eeg_data,
-                        self.best_maps,
-                        self.micro_labels
-                    )
-                else:
-                    output_features = feature_extractor.extract_microstate_features(
-                        segmentation_name, self.feature_list
-                    )
+                if not self.LogWindow.running:  # Check if the process should be stopped
+                    break
 
-                if segmentation_idx == 0:
-                    dynamic_features_dfs = output_features
-                else:
-                    dynamic_features_dfs = pd.concat([dynamic_features_dfs, output_features], ignore_index=True)
-
-            # Log the feature extraction progress
-            self.LogWindow.append_log(
-                f"Features Extracted [{segmentation_idx + 1}/{len(self.list_eegs_path)}]\n"
-                f"✓ Data: {segmentation_name}"
-            )
-
-            if not self.LogWindow.running:  # Check if the process should be stopped
-                break
-
-        # Export extracted features
-        feature_io = FeatureIO()
-        if 'static' in self.feature_mode:
-            feature_io.export_features(
-                static_features_dfs,
-                'static',
-                self.extracted_features_path,
-                self.export_format
-            )
-        if 'dynamic' in self.feature_mode:
-            feature_io.export_features(
-                dynamic_features_dfs,
-                'dynamic',
-                self.extracted_features_path,
-                self.export_format
-            )
+            # Export extracted features
+            feature_io = FeatureIO()
+            if 'static' in self.feature_mode:
+                feature_io.export_features(
+                    features_df=static_features_dfs,
+                    feature_type=feature_type,
+                    feature_mode='static',
+                    output_folder=self.extracted_features_path,
+                    export_format=self.export_format
+                )
+            if 'dynamic' in self.feature_mode:
+                feature_io.export_features(
+                    features_df=dynamic_features_dfs,
+                    feature_type=feature_type,
+                    feature_mode='dynamic',
+                    output_folder=self.extracted_features_path,
+                    export_format=self.export_format
+                )
 
         # Set extracting features flag
         self.done_extracting_features = True
@@ -913,7 +947,7 @@ class COMET:
         )
 
         # Identify microstates sources using the specified method
-        source_localizer.identify_microstates_sources(method)
+        source_localizer.identify_microstates_sources(source_method=method)
 
         # Set source-microstate correlation flag
         self.done_source_microstate_correlation = True

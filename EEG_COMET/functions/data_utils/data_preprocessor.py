@@ -16,7 +16,7 @@ class DataPreprocessor:
 
     @staticmethod
     def preprocess_eegs(eeg_path, list_eegs, eeg_format, datatype, channel_location_dir,
-                        filter_true, filtermethod, lowcut, highcut, downsample_true, fs, chan2rm):
+                        filter_bool, filtermethod, lowcut, highcut, downsample_bool, sampling_rate, chan2rm):
 
         verbose = 'ERROR'
         channels2remove = ['']
@@ -42,15 +42,15 @@ class DataPreprocessor:
         eeg = DataIO().load_eegs(eeg_path, eeg_format, datatype, channel_location_dir, channels2remove[0])
 
         # Apply filtering
-        if filter_true:
+        if filter_bool:
             eeg = eeg.filter(
                 l_freq=lowcut, h_freq=highcut, method=filtermethod, phase='zero', n_jobs=-1, verbose=verbose)
 
         # Apply downsampling
         sfreq = eeg.info['sfreq']
-        if downsample_true:
-            if sfreq != fs:
-                eeg = eeg.resample(fs, verbose=verbose)
+        if downsample_bool:
+            if sfreq != sampling_rate:
+                eeg = eeg.resample(sampling_rate, verbose=verbose)
 
         # Add average reference projection
         eeg.set_eeg_reference('average', projection=True, verbose=verbose)

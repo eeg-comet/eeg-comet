@@ -9,11 +9,11 @@ import pandas as pd
 
 class FeatureIO:
     @staticmethod
-    def export_features(features_df, mode, output_folder, export_format='.csv'):
+    def export_features(features_df, feature_type, feature_mode, output_folder, export_format='.csv'):
         """
         Export calculated features to the specified file format.
         """
-        output_path = os.path.join(output_folder, f'{mode}_features{export_format}')
+        output_path = os.path.join(output_folder, f'{feature_type}_{feature_mode}_features{export_format}')
 
         if export_format == '.csv':
             features_df.to_csv(output_path, index=False)

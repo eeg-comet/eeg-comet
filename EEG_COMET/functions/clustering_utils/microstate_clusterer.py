@@ -56,22 +56,22 @@ class MicrostateClusterer:
         return np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
 
     @staticmethod
-    def microstates2csv(microstates, eeg_info, microstate_maps_path, headers=None):
+    def microstates2csv(microstate_maps, eeg_info, microstate_maps_path, headers=None):
         """
         Export microstate maps to a CSV file.
         """
         # Transpose the microstates array if needed
-        if microstates.shape[1] == len(eeg_info['ch_names']):
-            microstates = microstates.T
+        if microstate_maps.shape[1] == len(eeg_info['ch_names']):
+            microstate_maps = microstate_maps.T
 
         # Save Best Maps
-        microstates = np.array(microstates)
-        maps_df = pd.DataFrame(microstates, index=eeg_info['ch_names'])
+        microstate_maps = np.array(microstate_maps)
+        maps_df = pd.DataFrame(microstate_maps, index=eeg_info['ch_names'])
 
         if headers is not None:
             maps_df.columns = headers
         else:
-            headers = [f'{i + 1}' for i in range(microstates.shape[1])]
+            headers = [f'{i + 1}' for i in range(microstate_maps.shape[1])]
             maps_df.columns = headers
 
         maps_df.to_csv(microstate_maps_path)

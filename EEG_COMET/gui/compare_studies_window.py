@@ -39,32 +39,65 @@ class CompareStudiesWindow(QDialog):
         self.ui.plot_label.clear()
         self.ui.correlations_textedit.clear()
         self.ui.stats_textedit.clear()
+
+        study2_widgets = [self.ui.load_study2_button, self.ui.study2_name_label, self.ui.study2_file_list,
+                          self.ui.correlations_textedit, self.canvas_microstates_study2]
         if self.study1_loaded:
             self.ui.study1_name_label.setText(self.comet_tbx_study1.study_name)
             self.feature_list_dictionary = self.comet_tbx_study1.feature_list_dictionary
-        if self.study2_loaded:
-            self.ui.study2_name_label.setText(self.comet_tbx_study2.study_name)
-        if self.study1_loaded and self.study2_loaded:
-            set_widgets_status(self.ui.plot_features_button, mode='enable')
-            common_features = [feat for feat in self.comet_tbx_study1.feature_list
-                               if feat in self.comet_tbx_study2.feature_list]
-            self.ui.feature_combo.clear()
-            self.ui.feature_combo.addItems([i for i in common_features])
-            self.update_corr_stats()
-        else:
-            set_widgets_status(self.ui.plot_features_button, mode='disable')
+
+            if self.ui.compare_study2_radio.isChecked():
+                set_widgets_status(study2_widgets, mode='enable')
+                set_widgets_status(study2_widgets, mode='show')
+
+                if self.study2_loaded:
+                    self.study2_name = self.comet_tbx_study2.study_name
+                    self.ui.study2_name_label.setText(self.study2_name)
+                else:
+                    self.ui.study2_name_label.setText("Study 2")
+
+                if self.study1_loaded and self.study2_loaded:
+                    set_widgets_status(self.ui.plot_features_button, mode='enable')
+                    common_features = [feat for feat in self.comet_tbx_study1.feature_list
+                                       if feat in self.comet_tbx_study2.feature_list]
+                    self.ui.feature_combo.clear()
+                    self.ui.feature_combo.addItems([i for i in common_features])
+                    self.update_corr_stats()
+                else:
+                    set_widgets_status(self.ui.plot_features_button, mode='disable')
+
+            else:
+                set_widgets_status(study2_widgets, mode='disable')
+                set_widgets_status(study2_widgets, mode='hide')
+
+                set_widgets_status(self.ui.plot_features_button, mode='enable')
+                features = self.comet_tbx_study1.feature_list
+                self.ui.feature_combo.clear()
+                self.ui.feature_combo.addItems([i for i in features])
+                if self.ui.compare_surrogate_radio.isChecked():
+                    self.ui.study2_name_label.setText("Surrogate Study")
+                    self.synthetic_type = 'surrogate'
+                elif self.ui.compare_random_radio.isChecked():
+                    self.ui.study2_name_label.setText("Random Study")
+                    self.synthetic_type = 'random'
+                self.study2_name = self.synthetic_type
 
     def update_plot_label(self):
         """Updates the plot label based on the selected feature."""
         selected_feature = self.ui.feature_combo.currentText()
-        self.ui.plot_label.setText(f"{self.feature_list_dictionary[selected_feature]}")
+        if selected_feature:
+            self.ui.plot_label.setText(f"{self.feature_list_dictionary[selected_feature]}")
 
     def connect_ui(self):
         """Connects UI signals to corresponding slots (functions) for event handling."""
         self.ui.load_study1_button.clicked.connect(self.load_study1)
         self.ui.load_study2_button.clicked.connect(self.load_study2)
+        compare_widgets = [self.ui.compare_study2_radio, self.ui.compare_surrogate_radio, self.ui.compare_random_radio]
+        for item in compare_widgets:
+            item.clicked.connect(self.update_ui)
         self.ui.feature_combo.currentTextChanged.connect(self.update_plot_label)
-        self.ui.plot_features_button.clicked.connect(self.update_corr_stats)
+        if self.study2_loaded:
+            self.ui.plot_features_button.clicked.connect(self.update_corr_stats)
         self.ui.plot_features_button.clicked.connect(self.plot_features)
         self.ui.plot_features_button.clicked.connect(self.update_feature_stats)
 
@@ -73,14 +106,17 @@ class CompareStudiesWindow(QDialog):
         self.figure_microstates_study1 = Figure(tight_layout=True)
         self.canvas_microstates_study1 = FigureCanvasQTAgg(self.figure_microstates_study1)
         self.canvas_microstates_study1.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.canvas_microstates_study1.setMinimumHeight(100)
         self.Figure_Microstates_Study1_Layout.addWidget(self.canvas_microstates_study1)
         self.figure_microstates_study2 = Figure(tight_layout=True)
         self.canvas_microstates_study2 = FigureCanvasQTAgg(self.figure_microstates_study2)
         self.canvas_microstates_study2.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.canvas_microstates_study2.setMinimumHeight(100)
         self.Figure_Microstates_Study2_Layout.addWidget(self.canvas_microstates_study2)
         self.figure_features = Figure(tight_layout=True)
         self.canvas_features = FigureCanvasQTAgg(self.figure_features)
         self.canvas_features.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.canvas_features.setMinimumHeight(100)
         self.Figure_Features_Layout.addWidget(self.canvas_features)
 
     @staticmethod
@@ -159,6 +195,18 @@ class CompareStudiesWindow(QDialog):
             self.plot_maps(self.comet_tbx_study2, self.figure_microstates_study2, self.canvas_microstates_study2)
             self.update_ui()
 
+    @staticmethod
+    def organize_data2plot(common_features_df, selected_feature):
+        columns_to_keep = ['Filename', 'Study'] + \
+                          [col for col in common_features_df.columns if col.startswith(selected_feature)]
+        common_features_df = common_features_df[columns_to_keep]
+        feature_list = common_features_df.columns.tolist()
+        feature_list = [col for col in feature_list if col not in ['Study', 'Filename']]
+
+        plot_data = pd.melt(common_features_df.reset_index(), id_vars=['Filename', 'Study'], value_vars=feature_list)
+        plot_data.columns = ['Filename', 'Study', 'Feature', selected_feature]
+        return plot_data, feature_list
+
     def plot_microstates_with_labels(self, microstate, micro_label, eeg_info, ax):
         """Plots microstates with corresponding labels on a given axis."""
 
@@ -214,15 +262,20 @@ class CompareStudiesWindow(QDialog):
         self.ui.plot_label.setText(f"{self.feature_list_dictionary[feature]}")
 
     @staticmethod
-    def load_features(tbx):
+    def load_features(tbx, feature_type):
         """Loads features from a file and returns them as a DataFrame."""
-        feature_path = os.path.join(tbx.extracted_features_path, f"static_features{tbx.export_format}")
+        feature_path = os.path.join(
+            tbx.extracted_features_path, f"{feature_type}_static_features{tbx.export_format}"
+        )
         return FeatureIO().import_features(feature_path, tbx.export_format)
 
     def get_common_features(self):
         """Retrieves common features between the two loaded studies."""
-        features_df_study1 = self.load_features(self.comet_tbx_study1)
-        features_df_study2 = self.load_features(self.comet_tbx_study2)
+        features_df_study1 = self.load_features(self.comet_tbx_study1, 'real')
+        if self.ui.compare_study2_radio.isChecked():
+            features_df_study2 = self.load_features(self.comet_tbx_study2, 'real')
+        else:
+            features_df_study2 = self.load_features(self.comet_tbx_study1, self.synthetic_type)
         common_columns = [col for col in features_df_study1.columns if col in features_df_study2.columns]
         common_columns.sort()
 
@@ -231,7 +284,7 @@ class CompareStudiesWindow(QDialog):
         study1_df['Study'] = self.comet_tbx_study1.study_name
 
         study2_df = features_df_study2[common_columns].copy()
-        study2_df['Study'] = self.comet_tbx_study2.study_name
+        study2_df['Study'] = self.study2_name
 
         # Concatenate DataFrames along with the new 'Study' column
         common_features_df = pd.concat([study1_df, study2_df], ignore_index=True)
@@ -242,20 +295,13 @@ class CompareStudiesWindow(QDialog):
         """Plots a violin plot for the selected static feature."""
         selected_feature = self.ui.feature_combo.currentText()
         common_features_df, common_columns = self.get_common_features()
-        columns_to_keep = ['Filename', 'Study'] + \
-                          [col for col in common_features_df.columns if col.startswith(selected_feature)]
-        common_features_df = common_features_df[columns_to_keep]
-        feature_list = common_features_df.columns.tolist()
-        feature_list = [col for col in feature_list if col not in ['Study', 'Filename']]
-
-        plot_data = pd.melt(common_features_df.reset_index(), id_vars=['Filename', 'Study'], value_vars=feature_list)
-        plot_data.columns = ['Filename', 'Study', 'Feature', selected_feature]
+        plot_data, feature_list = self.organize_data2plot(common_features_df, selected_feature)
 
         ax = self.canvas_features.figure.gca()
         self.clear_and_set_fonts(ax)
         sns.violinplot(
             x='Feature', y=selected_feature, hue='Study', data=plot_data, ax=ax,
-            hue_order=[self.comet_tbx_study1.study_name, self.comet_tbx_study2.study_name]
+            hue_order=[self.comet_tbx_study1.study_name, self.study2_name]
         )
         sns.swarmplot(
             x='Feature', y=selected_feature, hue='Study', data=plot_data, ax=ax,
@@ -298,7 +344,9 @@ class CompareStudiesWindow(QDialog):
         # Filter DataFrames based on selected feature and study
         selected_feature_study1_df = common_features_df[common_features_df['Study'] == self.comet_tbx_study1.study_name]
         selected_feature_study1_df = selected_feature_study1_df.sort_values(by='Filename')
-        selected_feature_study2_df = common_features_df[common_features_df['Study'] == self.comet_tbx_study2.study_name]
+
+
+        selected_feature_study2_df = common_features_df[common_features_df['Study'] == self.study2_name]
         selected_feature_study2_df = selected_feature_study2_df.sort_values(by='Filename')
 
         # Perform t-test for each column

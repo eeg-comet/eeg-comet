@@ -197,31 +197,72 @@ class AutopilotClusterer:
         print(f"\niteration_clustering_score: {iteration_clustering_score}")
         return iteration_maps, iteration_gev, iteration_residual, iteration_segmentation, iteration_clustering_score
 
-    def run_autopilot(self):
-        best_clustering_score = 0  # Initialize with a low score
-        best_maps = None
-        best_gev = None
-        best_residual = None
-        best_segmentation = None
+    # def run_autopilot(self):
+        # from keras.models import load_model
+        # import mne
+        # import io
+        # import cv2
+        # import matplotlib.pyplot as plt
+        #
+        #
+        # """Perform microstate labeling using a trained model."""
+        # num_classes = 7
+        # dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
+        # image_size = 448
+        # # Iterate through EEG time points
+        # segmentation = []
+        # model_path = './models/model_v1.22.h5'
+        # model = load_model(model_path, compile=False)
+        # print(f"self.eeg_data.shape: {self.eeg_data.shape}")
+        #
+        # for time_point in range(self.eeg_data.shape[1]):
+        #     eeg_time_point = self.eeg_data[:, time_point]
+        #
+        #     fig, ax = plt.subplots()
+        #     mne.viz.plot_topomap(eeg_time_point, self.eeg_info, sensors=False, axes=ax, show=False,
+        #                          sphere='auto')
+        #
+        #     with io.BytesIO() as buf:
+        #         fig.savefig(buf, dpi=200, bbox_inches='tight')
+        #         buf.seek(0)
+        #         img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+        #     plt.close(fig)
+        #
+        #     image = cv2.imdecode(img_arr, 1)
+        #     image_time_point = cv2.resize(image, (image_size, image_size))
+        #
+        #     confidences = model.predict(np.expand_dims(image_time_point, axis=0))
+        #
+        #     max_confidence_index = np.argmax(confidences[0])
+        #     assigned_label = dictionary2use[max_confidence_index]
+        #
+        #     segmentation.append(assigned_label)
+        #     print(segmentation)
 
-        for params in self.param_combinations:
-            use_percentages = 50 if params['data2use'] == 'Random' else None
-
-            iteration_maps, iteration_gev, iteration_residual, iteration_segmentation, iteration_clustering_score = \
-                self.run_iteration(
-                    use_percentages,
-                    params['number_maps'],
-                    params['initializer'],
-                    params['backfit_maps'],
-                    params['backfit_smoothing_methods'],
-                    params['backfit_smoothing_win']
-                )
-
-            if iteration_clustering_score > best_clustering_score:
-                best_clustering_score = iteration_clustering_score
-                best_maps = iteration_maps
-                best_gev = iteration_gev
-                best_residual = iteration_residual
-                best_segmentation = iteration_segmentation
-
-            print(f"Best SCORE: {best_clustering_score}, Best GEV: {best_gev}")
+        # best_clustering_score = 0  # Initialize with a low score
+        # best_maps = None
+        # best_gev = None
+        # best_residual = None
+        # best_segmentation = None
+        #
+        # for params in self.param_combinations:
+        #     use_percentages = 50 if params['data2use'] == 'Random' else None
+        #
+        #     iteration_maps, iteration_gev, iteration_residual, iteration_segmentation, iteration_clustering_score = \
+        #         self.run_iteration(
+        #             use_percentages,
+        #             params['number_maps'],
+        #             params['initializer'],
+        #             params['backfit_maps'],
+        #             params['backfit_smoothing_methods'],
+        #             params['backfit_smoothing_win']
+        #         )
+        #
+        #     if iteration_clustering_score > best_clustering_score:
+        #         best_clustering_score = iteration_clustering_score
+        #         best_maps = iteration_maps
+        #         best_gev = iteration_gev
+        #         best_residual = iteration_residual
+        #         best_segmentation = iteration_segmentation
+        #
+        #     print(f"Best SCORE: {best_clustering_score}, Best GEV: {best_gev}")

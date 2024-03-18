@@ -9,9 +9,9 @@ from keras.models import load_model
 
 
 class MicrostateLabeler:
-    def __init__(self, best_maps, eeg_info, microstate_maps_path):
-        self.best_maps = best_maps
-        self.n_states = best_maps.shape[0]
+    def __init__(self, microstate_maps, eeg_info, microstate_maps_path):
+        self.microstate_maps = microstate_maps
+        self.n_states = microstate_maps.shape[0]
         self.eeg_info = eeg_info
         self.microstate_maps_path = microstate_maps_path
         self.micro_labels = []
@@ -27,9 +27,9 @@ class MicrostateLabeler:
         image_size = 448
         images = []
 
-        for i in range(self.best_maps.shape[0]):
+        for i in range(self.microstate_maps.shape[0]):
             fig, ax = plt.subplots()
-            mne.viz.plot_topomap(self.best_maps[i, :], self.eeg_info, contours=10, sensors=False, axes=ax, show=False,
+            mne.viz.plot_topomap(self.microstate_maps[i, :], self.eeg_info, contours=10, sensors=False, axes=ax, show=False,
                                  sphere='auto')
             with io.BytesIO() as buf:
                 fig.savefig(buf, dpi=200, bbox_inches='tight')
@@ -42,7 +42,7 @@ class MicrostateLabeler:
         stacked_microstate_images = np.vstack(images)
 
         # Load model and do inference
-        num_classes = self.best_maps.shape[0]
+        num_classes = self.microstate_maps.shape[0]
         dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
         model_path = './models/model_v1.22.h5'
         model = load_model(model_path, compile=False)
@@ -69,7 +69,7 @@ class MicrostateLabeler:
         # import os.path
         # import random
         # for step in range(15):
-        #     for i in range(self.best_maps.shape[0]):
+        #     for i in range(self.microstate_maps.shape[0]):
         #         filename_prefix = os.path.join(
         #             'C:/Users/amin_/OneDrive - Simon Fraser University (1sfu)/TOOLBOX/TRAIN_MICROSTATE_LABELER/MICROSTATES_AS_IMAGE/NEW/' + self.micro_labels[i], self.micro_labels[i])
         #         index = 400
@@ -86,7 +86,7 @@ class MicrostateLabeler:
         #         random_sensors = random.choice([True, False])
         #         random_interp = random.choice(['cubic', 'nearest', 'linear'])
         #         random_sphere = random.choice([None, 'auto', 'eeglab'])
-        #         mne.viz.plot_topomap(random_polarity*self.best_maps[i, :], self.eeg_info,
+        #         mne.viz.plot_topomap(random_polarity*self.microstate_maps[i, :], self.eeg_info,
         #                              contours=random_contours, sensors=random_sensors, axes=ax,
         #                              cmap=random_cmap, image_interp=random_interp, sphere=random_sphere, show=False)
         #         plt.savefig(filename, dpi=200, bbox_inches='tight')
@@ -95,7 +95,7 @@ class MicrostateLabeler:
 
 
         # Save Best Maps
-        maps_df = pd.DataFrame(self.best_maps.T, columns=micro_labels, index=self.eeg_info['ch_names'])
+        maps_df = pd.DataFrame(self.microstate_maps.T, columns=micro_labels, index=self.eeg_info['ch_names'])
         maps_df.to_csv(self.microstate_maps_path)
         return micro_labels, overall_confidence
 

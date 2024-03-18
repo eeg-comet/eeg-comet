@@ -50,7 +50,7 @@ class SegmentationIO:
             return False
 
     @staticmethod
-    def load_segmentation(filename, import_format='.csv'):
+    def load_segmentation(segmentation_path, import_format='.csv'):
         """
         Load segmentation data from a file.
         """
@@ -60,9 +60,9 @@ class SegmentationIO:
             return None
 
         try:
-            with open(filename, 'rb') as f:
+            with open(segmentation_path, 'rb') as f:
                 if import_format == '.csv':
-                    df = pd.read_csv(filename)
+                    df = pd.read_csv(segmentation_path)
                     return np.array(df['segmentation'])
                 elif import_format == '.pkl':
                     return pickle.load(f)

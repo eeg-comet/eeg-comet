@@ -442,6 +442,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_er_checkbox,
             self.ui.step4_static_features_checkbox,
             self.ui.step4_dynamic_features_checkbox,
+            self.ui.step4_synthetic_checkbox,
             self.ui.step4_sliding_window_label,
             self.ui.step4_sliding_window_label_2,
             self.ui.step4_sliding_window_input,
@@ -787,7 +788,8 @@ class MainMicrostateWindow(QMainWindow):
                 ]
                 feature_checkboxes2 = [
                     self.ui.step4_static_features_checkbox,
-                    self.ui.step4_dynamic_features_checkbox
+                    self.ui.step4_dynamic_features_checkbox,
+                    self.ui.step4_synthetic_checkbox
                 ]
                 self.ui.step4_extractfeatures_button.setDisabled(
                     not any(checkbox.isChecked() for checkbox in feature_checkboxes1) or
@@ -1131,6 +1133,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.feature_list.append("LZC")
             if self.ui.step4_feature_er_checkbox.isChecked():
                 self.comet_tbx.feature_list.append("ER")
+                self.comet_tbx.word_size = int(self.ui.step4_word_size_min_input.text())
 
             # Define feature extraction modes
             self.comet_tbx.feature_mode = []
@@ -1138,6 +1141,10 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.feature_mode.append("static")
             if self.ui.step4_dynamic_features_checkbox.isChecked():
                 self.comet_tbx.feature_mode.append("dynamic")
+            if self.ui.step4_synthetic_checkbox.isChecked():
+                self.comet_tbx.feature_types = ['real', 'surrogate', 'random']
+            else:
+                self.comet_tbx.feature_types = ['real']
             # Set window size for dynamic features
             self.comet_tbx.window_size = int(self.ui.step4_sliding_window_input.text())
             # Log and perform feature extraction

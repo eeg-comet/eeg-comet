@@ -12,14 +12,14 @@ from functions.features_utils.feature_helper import FeatureHelper
 
 
 class FeatureExtractor:
-    def __init__(self, input_sequence, sampling_rate, window_size, mode='static'):
+    def __init__(self, input_sequence, sampling_rate, window_size, feature_mode='static'):
         """
         Initialize the FeatureExtractor class.
         """
         self.input_sequence = input_sequence
         self.sampling_rate = sampling_rate
         self.window_size = window_size
-        self.mode = mode
+        self.feature_mode = feature_mode
         self.num_windows = len(input_sequence) // (sampling_rate * window_size)
 
     def global_explained_variance(self, eeg_data, microstate_maps, microstate_labels=None):
@@ -33,7 +33,7 @@ class FeatureExtractor:
                               for _ in range(self.num_windows)]
         window_size_samples = self.window_size * self.sampling_rate
 
-        if self.mode == 'dynamic':
+        if self.feature_mode == 'dynamic':
             gevs = {}
             for i, label in enumerate(microstate_labels):
                 gevs[label] = []
@@ -52,7 +52,7 @@ class FeatureExtractor:
                     window_element_gev[window_index][label] = gev
             return window_element_gev
 
-        elif self.mode == 'static':
+        elif self.feature_mode == 'static':
             gevs = {}
             for i, label in enumerate(microstate_labels):
                 # Compute GEV
@@ -82,7 +82,7 @@ class FeatureExtractor:
                     coverage = count / total_elements * 100
                     window_element_coverage[window_index][element] = coverage
 
-        if self.mode == 'static':
+        if self.feature_mode == 'static':
             total_coverage = Counter()
             for window_coverage in window_element_coverage:
                 total_coverage.update(window_coverage)
@@ -90,7 +90,7 @@ class FeatureExtractor:
             average_coverage = {element: min(coverage / num_windows, 100.0) for element, coverage in
                                 total_coverage.items()}
             return average_coverage
-        elif self.mode == 'dynamic':
+        elif self.feature_mode == 'dynamic':
             return window_element_coverage
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
@@ -113,11 +113,11 @@ class FeatureExtractor:
             window_change_counts[window_index] = element_counts
             total_element_counts.update(element_counts)
 
-        if self.mode == 'static':
+        if self.feature_mode == 'static':
             num_windows = len(window_change_counts)
             average_counts = {element: count / num_windows for element, count in total_element_counts.items()}
             return average_counts
-        elif self.mode == 'dynamic':
+        elif self.feature_mode == 'dynamic':
             return window_change_counts
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
@@ -126,7 +126,7 @@ class FeatureExtractor:
         """
         Compute the average duration of each element uninterrupted in the data.
         """
-        if self.mode == 'static':
+        if self.feature_mode == 'static':
             durations = {}
             current_input_sequence = None
             current_duration = 0
@@ -148,7 +148,7 @@ class FeatureExtractor:
 
             average_durations = {key: sum(value) / len(value) for key, value in durations.items()}
 
-        elif self.mode == 'dynamic' and self.window_size is not None:
+        elif self.feature_mode == 'dynamic' and self.window_size is not None:
             windows = []
             current_window = {}
             current_window_duration = 0
@@ -214,11 +214,11 @@ class FeatureExtractor:
             window_input_sequence = self.input_sequence[window_start:window_end]
             window_entropies[window_index] = FeatureHelper().calculate_entropy(window_input_sequence)
 
-        if self.mode == 'static':
+        if self.feature_mode == 'static':
             overall_entropy = FeatureHelper().calculate_entropy(self.input_sequence)
             return overall_entropy
 
-        elif self.mode == 'dynamic':
+        elif self.feature_mode == 'dynamic':
             return window_entropies
 
         else:
@@ -233,7 +233,6 @@ class FeatureExtractor:
             FeatureHelper().remove_repetition_sequence(self.input_sequence)
         )
         return overall_complexity
-
 
     def entropy_representation(self, word_size):
         """
@@ -251,11 +250,11 @@ class FeatureExtractor:
             window_input_sequence = self.input_sequence[window_start:window_end]
             window_entropy_representations[window_index] = FeatureHelper().calculate_entropy(window_input_sequence)
 
-        if self.mode == 'static':
+        if self.feature_mode == 'static':
             overall_entropy_representations, _ = MicroSynt().sequence_analysis(self.input_sequence, word_size)
             return overall_entropy_representations
 
-        elif self.mode == 'dynamic':
+        elif self.feature_mode == 'dynamic':
             return window_entropy_representations
 
         else:
@@ -296,10 +295,10 @@ class FeatureExtractor:
             features_dict.append(('ER', extracted_entropy_representation))
 
         # Only add TP and LZC if the mode is not dynamic
-        if 'LZC' in feature_list and self.mode != 'dynamic':
+        if 'LZC' in feature_list and self.feature_mode != 'dynamic':
             extracted_microstate_complexity = self.lempel_ziv_complexity()
             features_dict.append(('LZC', extracted_microstate_complexity))
-        if 'TP' in feature_list and self.mode != 'dynamic':
+        if 'TP' in feature_list and self.feature_mode != 'dynamic':
             extracted_microstate_transition_probability = self.compute_transition_probabilities()
             features_dict.append(('TP', extracted_microstate_transition_probability))
 
@@ -308,13 +307,13 @@ class FeatureExtractor:
         output_features_data = []
 
         for feature, feature_data in features_dict:
-            if self.mode == 'static':
+            if self.feature_mode == 'static':
                 if isinstance(feature_data, dict):
                     for element, value in feature_data.items():
                         output_features_data.append([filename, f"{feature}_{element}", value])
                 else:
                     output_features_data.append([filename, feature, feature_data])
-            elif self.mode == 'dynamic':
+            elif self.feature_mode == 'dynamic':
                 if not isinstance(feature_data, (list, tuple)):
                     feature_data = [feature_data]
                 for window_index, window_data in enumerate(feature_data):
@@ -324,17 +323,17 @@ class FeatureExtractor:
                     else:
                         output_features_data.append([filename, window_index, feature, window_data])
 
-        if self.mode == 'static':
+        if self.feature_mode == 'static':
             columns = ['Filename', 'Feature', 'Value']
-        elif self.mode == 'dynamic':
+        elif self.feature_mode == 'dynamic':
             columns = ["Filename", "Window_index", "Feature", "Value"]
 
         output_features_df = pd.DataFrame(output_features_data, columns=columns)
 
-        if self.mode == 'static':
+        if self.feature_mode == 'static':
             output_features_df = output_features_df.pivot_table(
                 index='Filename', columns='Feature', values='Value').reset_index()
-        elif self.mode == 'dynamic':
+        elif self.feature_mode == 'dynamic':
             output_features_df = output_features_df.pivot_table(
                 index=["Filename", "Window_index"], columns="Feature", values="Value").reset_index()
 
