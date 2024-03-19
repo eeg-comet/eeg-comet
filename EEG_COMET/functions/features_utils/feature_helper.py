@@ -6,19 +6,37 @@ from collections import Counter
 
 
 class FeatureHelper:
-
+    """
+    The FeatureHelper class provides utility methods for microstate feature extraction.
+    """
     @staticmethod
     def initialize_empty_window_data(input_sequence):
         """
         Create a dictionary with zero values for all elements in the input_sequence.
+
+        Args:
+            input_sequence (list or str): The input sequence of elements.
+
+        Returns:
+            dict: A dictionary with zero values for each element in the input_sequence.
         """
+        
         return {element: 0 for element in set(input_sequence)}
 
     @staticmethod
     def initialize_dynamic_windows(input_sequence, sampling_rate, window_size):
         """
         Divide the input sequence into fixed-size windows and initialize a list to store feature values for each window.
+
+        Args:
+            input_sequence (list or str): The input sequence of elements.
+            sampling_rate (int): The sampling rate of the input sequence.
+            window_size (int): The size of the window in seconds.
+
+        Returns:
+            tuple: A tuple containing a list to store feature values for each window and the sample size of each window.
         """
+        
         # Calculate the number of samples in each window
         window_size_samples = int(sampling_rate * window_size)
 
@@ -33,7 +51,14 @@ class FeatureHelper:
     def remove_repetition_sequence(input_sequence):
         """
         Remove consecutive repetitions from a sequence.
+
+        Args:
+            input_sequence (list or str): The input sequence of elements.
+
+        Returns:
+            str: The input sequence with consecutive repetitions removed.
         """
+        
         # If the input sequence is a list, join it into a string
         if isinstance(input_sequence, list):
             input_sequence = "".join(input_sequence)
@@ -57,7 +82,14 @@ class FeatureHelper:
     def compute_lempel_ziv_complexity(input_no_permanence_sequence):
         """
         Calculate Lempel-Ziv complexity for a single window using the LZ76 algorithm.
+
+        Args:
+            input_no_permanence_sequence (str): The input sequence with consecutive repetitions removed.
+
+        Returns:
+            float: The Lempel-Ziv complexity of the input sequence.
         """
+        
         # Initialize variables
         n = len(input_no_permanence_sequence)
         i, k, l, c, k_max = 0, 1, 1, 1, 1
@@ -77,17 +109,12 @@ class FeatureHelper:
                     c += 1
                     # Move l to the end of the current block
                     l += k_max
-                    # Check if the end of the sequence is reached
                     if l + 1 > n - 1:
                         break
-                    else:
-                        # Reset indices and k_max for the next block
-                        i = 0
-                        k = 1
-                        k_max = 1
-                else:
-                    # Reset k for the next comparison
-                    k = 1
+                    # Reset indices and k_max for the next block
+                    i = 0
+                    k_max = 1
+                k = 1
             else:
                 # Increment k if the characters are the same
                 k += 1
@@ -106,7 +133,15 @@ class FeatureHelper:
     def generate_synthetic_sequence(input_sequence, method='random'):
         """
         Generate a synthetic sequence based on the input sequence.
+
+        Args:
+            input_sequence (list or str): The input sequence of elements.
+            method (str, optional): The method to generate the synthetic sequence. Defaults to 'random'.
+
+        Returns:
+            str: The generated synthetic sequence.
         """
+        
         if isinstance(input_sequence, list):
             input_sequence = "".join(input_sequence)
 
@@ -132,26 +167,40 @@ class FeatureHelper:
     def generate_theoretical_dictionary(input_sequence, word_size):
         """
         Generate a theoretical dictionary of non-repeating words.
+
+        Args:
+            input_sequence (list or str): The input sequence of elements.
+            word_size (int): The size of the word for the theoretical dictionary.
+
+        Returns:
+            list: The generated theoretical dictionary of non-repeating words.
         """
+        
         # Count the number of unique characters in the input sequence
         unique_characters = sorted(set(input_sequence))
 
         # Generate all possible non-repeating words of the given size
         possible_words = itertools.product(unique_characters, repeat=word_size)
 
-        # Filter out combinations with consecutive same letters
-        theoretical_dictionary = []
-        for word in possible_words:
-            if not any(word[i] == word[i + 1] for i in range(len(word) - 1)):
-                theoretical_dictionary.append(''.join(word))
-
-        return theoretical_dictionary
+        return [
+            ''.join(word)
+            for word in possible_words
+            if all(word[i] != word[i + 1] for i in range(len(word) - 1))
+        ]
 
     @staticmethod
     def generate_real_dictionary(input_sequence, word_size):
         """
         Generate a real dictionary from an input sequence.
+
+        Args:
+            input_sequence (list or str): The input sequence of elements.
+            word_size (int): The size of the word for the real dictionary.
+
+        Returns:
+            tuple: A tuple containing the sorted real dictionary and the sequence representation.
         """
+        
         # Check if the input_sequence is a list, if so, join it into a string
         if isinstance(input_sequence, list):
             input_sequence = ''.join(input_sequence)
@@ -182,7 +231,14 @@ class FeatureHelper:
     def calculate_entropy(input_sequence):
         """
         Calculate the Shannon entropy of a sequence.
+
+        Args:
+            input_sequence (list or str): The input sequence of elements.
+
+        Returns:
+            float: The Shannon entropy of the input sequence.
         """
+        
         # Count the frequency of each microstate in the input sequence
         microstate_counts = Counter(input_sequence)
 
@@ -193,7 +249,7 @@ class FeatureHelper:
         entropy = 0
 
         # Calculate entropy
-        for microstate, count in microstate_counts.items():
+        for count in microstate_counts.values():
             probability = count / total_microstates
             entropy -= probability * math.log(probability)
 
@@ -203,7 +259,14 @@ class FeatureHelper:
     def calculate_representation_ratios(*entropy_dicts):
         """
         Calculate representation ratios between entropy distributions.
+
+        Args:
+            *entropy_dicts (dict): Variable number of entropy dictionaries.
+
+        Returns:
+            dict: A dictionary containing the representation ratios between entropy distributions.
         """
+        
         representation_ratios = {}
         first_entropy_dict = entropy_dicts[0]
 
@@ -213,7 +276,4 @@ class FeatureHelper:
             if second_entropy_value is not None:
                 representation_ratios[ratio_key] = entropy_value / second_entropy_value
 
-        # Sort representation_ratios based on ratio_key
-        sorted_representation_ratios = dict(sorted(representation_ratios.items(), key=lambda item: item[0]))
-
-        return sorted_representation_ratios
+        return dict(sorted(representation_ratios.items(), key=lambda item: item[0]))
