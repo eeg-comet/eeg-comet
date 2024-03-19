@@ -7,7 +7,18 @@ from functions.data_utils.data_io import DataIO
 
 
 class SourceVisualizer:
+    """
+    SourceVisualizer class for visualizing source data.
+    """
     def __init__(self, subjects_dir, spacing, localized_sources_path):
+        """
+        Initialize the SourceVisualizer.
+
+        Args:
+            subjects_dir: The directory where the subject-specific MRI data is stored.
+            spacing: The spacing parameter for creating the source space.
+            localized_sources_path: The directory where the localized source data is stored.
+        """
 
         self.subjects_dir = subjects_dir
         self.spacing = spacing
@@ -16,16 +27,21 @@ class SourceVisualizer:
         self.avg_sources_path = os.path.join(localized_sources_path, 'avg_sources')
 
     def export_meshes(self):
+        """
+        Export the source space meshes.
 
-        src_filename = 'fsaverage-' + self.spacing[:-1] + '-' + self.spacing[-1] + '-src.fif'
-        src_filepath = os.path.join(self.subjects_dir, 'fsaverage' ,'bem', src_filename)
+        Returns:
+            meshes: A list of PolyData objects representing the source space meshes.
+        """
+
+        src_filename = f'fsaverage-{self.spacing[:-1]}-{self.spacing[-1]}-src.fif'
+        src_filepath = os.path.join(self.subjects_dir, 'fsaverage', 'bem', src_filename)
         src = mne.read_source_spaces(src_filepath, verbose=False)
-        meshes = []
         vertices = np.array(src[0]['rr'])
         triangles = np.array(src[0]['tris'])
         triangles = np.c_[np.full(len(triangles), 3), triangles]
         mesh1 = pv.PolyData(vertices, triangles)
-        meshes.append(mesh1)
+        meshes = [mesh1]
         vertices = np.array(src[1]['rr'])
         triangles = np.array(src[1]['tris'])
         triangles = np.c_[np.full(len(triangles), 3), triangles]
@@ -70,6 +86,19 @@ class SourceVisualizer:
         return mystc, stc_avg
 
     def plot_sources(self, selected_items, source_mode, initial_time, spacing):
+        """
+        Plot the source data.
+
+        Args:
+            selected_items: The selected items.
+            source_mode: The source mode.
+            initial_time: The initial time.
+            spacing: The spacing parameter.
+
+        Returns:
+            None
+        """
+
         # [TODO] Need to add plots within the main visualization window
 
         [mystc, stc_avg] = self.preprocess_data(selected_items, source_mode)
