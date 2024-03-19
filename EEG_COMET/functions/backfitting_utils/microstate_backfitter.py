@@ -483,15 +483,17 @@ class MicrostateBackfitter:
 
             # Filter short segments
             if self.filter_segments:
-                segmentation = self.substitude_maps_with_duration(segmentation,
-                                                                  remove_segments_less_than,
-                                                                  self.filter_segments_option,
-                                                                  trial_data,
-                                                                  self.microstate_maps,
-                                                                  len(self.microstate_labels),
-                                                                  [self.smoothing_parameters[0],
-                                                                   remove_segments_less_than,
-                                                                   self.smoothing_parameters[2]])
+                segmentation = self.substitude_maps_with_duration(
+                    segmentation=segmentation,
+                    segments_less_than=remove_segments_less_than,
+                    option=self.filter_segments_option,
+                    data=trial_data,
+                    microstate_maps=self.microstate_maps,
+                    n_states=len(self.microstate_labels),
+                    smoothing_parameters=[
+                        self.smoothing_parameters[0], remove_segments_less_than, self.smoothing_parameters[2]
+                    ]
+                )
 
         elif self.backfit_to == 'peaks':
             gfp = np.std(eeg_data, axis=0)
