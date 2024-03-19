@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Clustering Functions
-
-"""
 
 import numpy as np
 import pandas as pd
@@ -18,8 +12,16 @@ from functions.data_utils.data_initializer import DataInitializer
 
 
 class MicrostateClusterer:
-
     def __init__(self, n_inits=10, max_iter=500, tolerance=1e-6):
+        """
+        Initializes the MicrostateClusterer.
+
+        Args:
+            n_inits (int): Number of clustering initializations.
+            max_iter (int): Maximum number of clustering iterations.
+            tolerance (float): Tolerance for convergence.
+        """
+        
         self.number_of_repeats = n_inits
         self.max_iterations = max_iter
         self.clustering_tolerance = tolerance
@@ -29,7 +31,16 @@ class MicrostateClusterer:
     def corr_vectors(array1, array2, axis=0):
         """
         Computes the Pearson correlation between two matrices A and B along a specified axis.
+
+        Args:
+            array1 (ndarray): First matrix.
+            array2 (ndarray): Second matrix.
+            axis (int): Axis along which to compute the correlation.
+
+        Returns:
+            ndarray: Pearson correlation between the two matrices.
         """
+        
         # Center and normalize matrices
         array1n = array1 - np.mean(array1, axis=axis, keepdims=True)
         array1n /= np.linalg.norm(array1n, axis=axis, ord=2, keepdims=True)
@@ -40,15 +51,24 @@ class MicrostateClusterer:
     def compute_gev(self, data, maps):
         """
         Calculates the global explained variance (GEV) of microstate maps based on input data.
+
+        Args:
+            data (ndarray): Input data.
+            maps (ndarray): Microstate maps.
+
+        Returns:
+            float: Global explained variance.
         """
-        gfp = np.std(data, axis=0)  # Global Field Power
+
+        if data.shape[0] != maps.shape[1]:
+            data = data.T
+        gfp = np.std(data, axis=0)
         # Normalize maps
         if maps.ndim == 1:
             maps = maps / np.linalg.norm(maps)
             maps = np.reshape(maps, (1, -1))
         else:
             maps = maps / np.linalg.norm(maps, axis=1, keepdims=True)
-        # Compute activation and segmentation
         activation = maps.dot(data)
         segmentation = np.argmax(np.abs(activation), axis=0)
         selected_maps = maps[segmentation, :]
@@ -59,41 +79,67 @@ class MicrostateClusterer:
     def microstates2csv(microstate_maps, eeg_info, microstate_maps_path, headers=None):
         """
         Export microstate maps to a CSV file.
+
+        Args:
+            microstate_maps (ndarray): Microstate maps.
+            eeg_info (dict): EEG information.
+            microstate_maps_path (str): Path to save the CSV file.
+            headers (list): List of column headers. Defaults to None.
         """
+        
         # Transpose the microstates array if needed
         if microstate_maps.shape[1] == len(eeg_info['ch_names']):
             microstate_maps = microstate_maps.T
-
         # Save Best Maps
         microstate_maps = np.array(microstate_maps)
         maps_df = pd.DataFrame(microstate_maps, index=eeg_info['ch_names'])
-
-        if headers is not None:
-            maps_df.columns = headers
-        else:
+        if headers is None:
             headers = [f'{i + 1}' for i in range(microstate_maps.shape[1])]
-            maps_df.columns = headers
-
+        maps_df.columns = headers
         maps_df.to_csv(microstate_maps_path)
 
     @staticmethod
     def calculate_spatial_similarity(metric, point1, point2):
         """
         Computes similarity between two points using cosine similarity or spatial correlation.
+
+        Args:
+            metric (str): Similarity metric to use ('Cosine Similarity' or 'Spatial Correlation').
+            point1 (ndarray): First point.
+            point2 (ndarray): Second point.
+
+        Returns:
+            float: Similarity between the two points.
         """
+
         if metric == 'Cosine Similarity':
             # Calculates the cosine similarity
             dist = spatial.distance.cosine(point1, point2)
-        else: # metric == 'Spatial Correlation':
+        elif metric == 'Spatial Correlation':
             # Calculates the spatial correlation
             dist = spatial.distance.correlation(point1, point2)
+        else:
+            raise ValueError(
+                "Invalid similarity metric. Valid options are 'Cosine Similarity' and 'Spatial Correlation'.")
         return 1 - abs(dist)
 
     @staticmethod
     def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6, verbose=True):
         """
         Performs modified K-Means clustering on data with a specified number of microstate maps.
+
+        Args:
+            data (ndarray): Input data.
+            initial_maps (ndarray): Initial microstate maps.
+            n_states (int): Number of microstate maps.
+            max_iter (int): Maximum number of clustering iterations. Defaults to 500.
+            thresh (float): Tolerance for convergence. Defaults to 1e-6.
+            verbose (bool): Whether to print verbose output. Defaults to True.
+
+        Returns:
+            tuple: Tuple containing the final microstate maps and the residual.
         """
+        
         # Initial setup
         n_channels, n_samples = data.shape
         maps = initial_maps.copy()
@@ -123,6 +169,21 @@ class MicrostateClusterer:
                             maps2use, n_states, n_inits, initializer='Random', max_iter=500, thresh=1e-6, verbose=True):
         """
         Runs modified K-Means clustering with multiple initializations to find the best microstate maps.
+
+        Args:
+            preprocessed_data_path (str): Path to preprocessed data.
+            extension (str): File extension of the preprocessed data.
+            datatype (str): Data type of the preprocessed data.
+            maps2use (ndarray): Microstate maps to use for clustering.
+            n_states (int): Number of microstate maps.
+            n_inits (int): Number of clustering initializations.
+            initializer (str): Initialization method. Defaults to 'Random'.
+            max_iter (int): Maximum number of clustering iterations. Defaults to 500.
+            thresh (float): Tolerance for convergence. Defaults to 1e-6.
+            verbose (bool): Whether to print verbose output. Defaults to True.
+
+        Returns:
+            dict: Dictionary containing the results of each initialization and the best microstate maps.
         """
 
         data_initializer = DataInitializer()
@@ -165,7 +226,20 @@ class MicrostateClusterer:
     def run_aahc(self, preprocessed_data_path, extension, datatype, maps2use, n_states, n_maps2use=1000, verbose=True):
         """
         Performs AAHC clustering on data with a specified number of microstate maps.
+
+        Args:
+            preprocessed_data_path (str): Path to preprocessed data.
+            extension (str): File extension of the preprocessed data.
+            datatype (str): Data type of the preprocessed data.
+            maps2use (ndarray): Microstate maps to use for clustering.
+            n_states (int): Number of microstate maps.
+            n_maps2use (int): Number of maps to use for clustering. Defaults to 1000.
+            verbose (bool): Whether to print verbose output. Defaults to True.
+
+        Returns:
+            tuple: Tuple containing the final microstate maps, the residual, and the best GEV.
         """
+
         def select_random_maps_subset(maps2use, n_maps2use):
             # Generate random indices to select maps
             random_indices = np.random.choice(maps2use.shape[1], size=n_maps2use, replace=False)
@@ -259,7 +333,15 @@ class MicrostateClusterer:
     def create_eeg_autoencoder(input_shape, encoding_dim):
         """
         Creates an autoencoder model for EEG data compression and reconstruction.
+
+        Args:
+            input_shape (tuple): Shape of the input data.
+            encoding_dim (int): Dimension of the encoded representation.
+
+        Returns:
+            tuple: Tuple containing the autoencoder model and the encoder model.
         """
+        
         # Encoder
         input_layer = Input(shape=input_shape, name='input')
         x = Flatten()(input_layer)
@@ -275,26 +357,55 @@ class MicrostateClusterer:
 
     @staticmethod
     def find_original_centroids(eeg_data, cluster_labels, n_clusters):
-        """Determines the original centroids of clustered data points."""
+        """
+        Determines the original centroids of clustered data points.
+
+        Args:
+            eeg_data (ndarray): EEG data.
+            cluster_labels (ndarray): Cluster labels.
+            n_clusters (int): Number of clusters.
+
+        Returns:
+            ndarray: Original centroids of clustered data points.
+        """
+        
         original_centroids = []
         for cluster_id in range(n_clusters):
             cluster_indices = np.where(cluster_labels == cluster_id)[0]
             cluster_data = eeg_data[cluster_indices]
             cluster_mean = np.mean(cluster_data, axis=0)
             original_centroids.append(cluster_mean)
-        original_centroids = np.array(original_centroids)
-        return original_centroids
+        return np.array(original_centroids)
 
     @staticmethod
     def calculate_residuals(eeg_data, autoencoder):
+        """
+        Calculates residuals (reconstruction errors) for each data point.
+
+        Args:
+            eeg_data (ndarray): EEG data.
+            autoencoder (Model): Autoencoder model.
+
+        Returns:
+            ndarray: Residuals for each data point.
+        """
+        
         # Encode and then decode the data to get the reconstructed data
         reconstructed_data = autoencoder.predict(eeg_data)
-        # Calculate residuals (reconstruction errors) for each data point
-        residuals = np.mean(np.abs(eeg_data - reconstructed_data), axis=1)
-        return residuals
+        return np.mean(np.abs(eeg_data - reconstructed_data), axis=1)
 
     def extract_features_with_autoencoder(self, eeg_data, encoding_dim=10):
-        """Extracts features from EEG data using an autoencoder."""
+        """
+        Extracts features from EEG data using an autoencoder.
+
+        Args:
+            eeg_data (ndarray): EEG data.
+            encoding_dim (int): Dimension of the encoded representation. Defaults to 10.
+
+        Returns:
+            ndarray: Encoded features.
+        """
+        
         # Create the autoencoder
         input_shape = eeg_data.shape[1:]
         autoencoder, encoder = self.create_eeg_autoencoder(input_shape, encoding_dim)
@@ -308,25 +419,32 @@ class MicrostateClusterer:
     def extract_features_with_pca(eeg_data, pca_components=10):
         """
         Reduces dimensionality of EEG data using Principal Component Analysis (PCA).
+
+        Args:
+            eeg_data (ndarray): EEG data.
+            pca_components (int): Number of PCA components. Defaults to 10.
+
+        Returns:
+            ndarray: Reduced-dimensional EEG data.
         """
+        
         # Perform PCA to reduce dimensionality
         pca = PCA(n_components=pca_components)
-        reduced_data = pca.fit_transform(eeg_data)
-        return reduced_data
-
-        # if method == 'Agglomerative Hierarchical Clustering':
-        #     best_maps, best_residual, best_gev = self.run_aahc(
-        #         preprocessed_data_path, extension, datatype,
-        #         maps2use=maps2use,
-        #         n_states=n_states,
-        #         n_maps2use=50  # TODO: edit
-        #     )
-        #
-        # else:
+        return pca.fit_transform(eeg_data)
 
     def get_clustering_instance(self, maps2use, initial_maps, method, n_states, clustering_option):
         """
         Performs clustering on preprocessed data to find microstate maps.
+
+        Args:
+            maps2use (ndarray): Microstate maps to use for clustering.
+            initial_maps (ndarray): Initial microstate maps.
+            method (str): Clustering method to use.
+            n_states (int): Number of microstate maps.
+            clustering_option (str): Clustering option to use.
+
+        Returns:
+            clustering_instance: Clustering instance.
         """
 
         def metric_function(point1, point2):
