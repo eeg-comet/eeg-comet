@@ -1,9 +1,3 @@
-"""
-This script defines a class called DataPreprocessor for preprocessing EEG data.
-The class provides a method preprocess_eegs that applies filtering, downsampling, and channel removal
-to EEG data according to specified parameters.
-
-"""
 
 import numpy as np
 import collections
@@ -11,13 +5,35 @@ from functions.data_utils.data_io import DataIO
 
 
 class DataPreprocessor:
+    """
+    The DataPreprocessor class provides methods for preprocessing EEG data.
+    """
     def __init__(self):
         pass
 
     @staticmethod
     def preprocess_eegs(eeg_path, list_eegs, datatype, channel_location_dir,
                         filter_bool, filtermethod, lowcut, highcut, downsample_bool, sampling_rate, chan2rm):
+        """
+        Preprocess EEG data.
 
+        Args:
+            eeg_path (str): The path to the EEG data file.
+            list_eegs (list): The list of EEG data files.
+            datatype (str): The type of the EEG data ('raw' or 'epoched').
+            channel_location_dir (str): The path to the channel location file.
+            filter_bool (bool): Whether to apply filtering.
+            filtermethod (str): The filtering method.
+            lowcut (float): The lowcut frequency for filtering.
+            highcut (float): The highcut frequency for filtering.
+            downsample_bool (bool): Whether to apply downsampling.
+            sampling_rate (float): The target sampling rate.
+            chan2rm (str or list): The channels to remove.
+
+        Returns:
+            tuple: A tuple containing the preprocessed EEG data, data length, EEG info, and channels to remove.
+        """
+        
         verbose = 'ERROR'
         channels2remove = ['']
 
@@ -46,9 +62,9 @@ class DataPreprocessor:
             eeg = eeg.filter(
                 l_freq=lowcut, h_freq=highcut, method=filtermethod, phase='zero', n_jobs=-1, verbose=verbose)
 
-        # Apply downsampling
-        sfreq = eeg.info['sfreq']
         if downsample_bool:
+            # Apply downsampling
+            sfreq = eeg.info['sfreq']
             if sfreq != sampling_rate:
                 eeg = eeg.resample(sampling_rate, verbose=verbose)
 
