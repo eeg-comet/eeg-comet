@@ -10,9 +10,26 @@ from functions.data_utils.data_initializer import DataInitializer
 from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
 
 
+# TODO: move the log to COMET / add figure settings
 class ClustererOptimizer:
     def __init__(self, maps2use, min_dist, n_inits, kmin, kmax, preprocessed_data_path, extension, datatype,
                  tolerance=None, max_iter=None):
+        """
+        Initialize the ClustererOptimizer object.
+
+        Args:
+            maps2use: The maps to use for clustering.
+            min_dist: The minimum distance between microstate maps.
+            n_inits: The number of initializations for the clustering algorithm.
+            kmin: The minimum number of microstate maps to consider.
+            kmax: The maximum number of microstate maps to consider.
+            preprocessed_data_path: The path to the preprocessed data.
+            extension: The file extension of the preprocessed data.
+            datatype: The data type of the preprocessed data.
+            tolerance: The tolerance for convergence of the clustering algorithm (optional).
+            max_iter: The maximum number of iterations for the clustering algorithm (optional).
+        """
+
         self.maps2use = maps2use
         self.min_dist = min_dist
         self.tolerance = tolerance
@@ -34,9 +51,12 @@ class ClustererOptimizer:
     def find_elbow_with_plot(self, ax):
         """
         Find the elbow point with plots to visualize the clustering metrics.
-        """
-        target_values = self.find_optimal_k_elbow('all')
 
+        Args:
+            ax: The matplotlib axis to plot the metrics on.
+        """
+
+        target_values = self.find_optimal_k_elbow('all')
         df = pd.DataFrame({
             'K': list(range(self.kmin, self.kmax + 1)),
             'Values': target_values
@@ -46,29 +66,43 @@ class ClustererOptimizer:
     def find_optimal_k(self, optimizer_mode='cv', parameter_value=5):
         """
         Find the elbow point without generating plots.
+
+        Args:
+            optimizer_mode: The mode of the optimizer (optional).
+            parameter_value: The value of the parameter for the optimizer (optional).
+
+        Returns:
+            The optimal number of microstate maps.
+        Raises:
+            ValueError: If the optimizer mode is invalid.
         """
+
         if optimizer_mode == 'gs':
             return self.find_optimal_k_gap_statistic(int(parameter_value))
-
         elif optimizer_mode == 'cv':
             return self.find_optimal_k_cross_validation(int(parameter_value), int(parameter_value))
-
         elif optimizer_mode in ['gev', 'res']:
             return self.find_optimal_k_elbow(optimizer_mode, int(parameter_value))
-
         elif optimizer_mode == 'sil':
             return self.find_optimal_k_using_silhouette()
-
         elif optimizer_mode == 'ch':
             return self.find_optimal_k_using_calinski_harabasz()
-
         elif optimizer_mode == 'db':
             return self.find_optimal_k_using_davies_bouldin()
-
         else:
             raise ValueError("Invalid optimizer_mode.")
 
     def export_segmentation(self, n_clusters, data):
+        """
+        Export the microstate segmentation.
+
+        Args:
+            n_clusters: The number of microstate clusters.
+            data: The data to be segmented.
+
+        Returns:
+            The microstate maps and the segmentation.
+        """
         modified_kmeans_results = self.microstate_clusterer.run_modified_kmeans(
             preprocessed_data_path=self.preprocessed_data_path,
             extension=self.extension,
@@ -86,8 +120,18 @@ class ClustererOptimizer:
         return maps, segmentation
 
     def _calculate_ssd_ignoring_polarity(self, n_clusters, data):
-        maps, segmentation = self.export_segmentation(n_clusters, data)
+        """
+        Calculate the sum of squared distances (SSD) ignoring polarity.
 
+        Args:
+            n_clusters: The number of microstate clusters.
+            data: The data to calculate the SSD.
+
+        Returns:
+            The SSD value.
+        """
+
+        maps, segmentation = self.export_segmentation(n_clusters, data)
         ssd = 0
         for cluster_idx in range(n_clusters):
             cluster_points = data[:, segmentation == cluster_idx]
@@ -96,42 +140,46 @@ class ClustererOptimizer:
         return ssd
 
     def _calculate_silhouette_score(self, data, n_clusters):
+        """
+        Find the optimal number of clusters using the silhouette method.
+
+        Returns:
+            The optimal number of microstate maps, the range of k values, and the target silhouette values.
+        """
+
         # Run your modified K-means clustering algorithm
         maps, segmentation = self.export_segmentation(n_clusters, data)
-
         n_samples = data.shape[1]
         silhouette_values = np.zeros(n_samples)
-
         for i in range(n_samples):
             a_i = 0
             b_i = float('inf')
-
             cluster_i = segmentation[i]
             data_i = data[:, i]
-
             for j in range(n_samples):
                 if i == j:
                     continue
-
                 cluster_j = segmentation[j]
-                data_j = data[:, j]
-
                 if cluster_i == cluster_j:
+                    data_j = data[:, j]
                     a_i += np.dot(data_i, data_j) / (np.linalg.norm(data_i) * np.linalg.norm(data_j))
                 else:
                     similarity = np.dot(data_i, maps[cluster_j, :]) /\
-                                 (np.linalg.norm(data_i) * np.linalg.norm(maps[cluster_j, :]))
+                                     (np.linalg.norm(data_i) * np.linalg.norm(maps[cluster_j, :]))
                     if similarity < b_i:
                         b_i = similarity
-
             a_i /= (segmentation == cluster_i).sum() - 1
             silhouette_values[i] = (b_i - a_i) / max(a_i, b_i)
-
-        silhouette_score = np.mean(silhouette_values)
-
-        return silhouette_score
+        return np.mean(silhouette_values)
 
     def find_optimal_k_using_silhouette(self):
+        """
+        Find the optimal number of clusters using the silhouette method.
+
+        Returns:
+            The optimal number of microstate maps, the range of k values, and the target silhouette values.
+        """
+
         print("Identifying the optimal number of clusters using the silhouette method")
         self.k_values_silhouette = range(self.kmin, self.kmax + 1)
         self.target_silhouette = []
@@ -159,26 +207,29 @@ class ClustererOptimizer:
 
     def _calculate_calinski_harabasz_score(self, n_clusters, data):
         """
-        Compute the Calinski-Harabasz score.
+        Calculate the Calinski-Harabasz score.
+
+        Args:
+            n_clusters: The number of microstate clusters.
+            data: The data to calculate the score.
+
+        Returns:
+            The Calinski-Harabasz score.
         """
+
         maps, segmentation = self.export_segmentation(n_clusters, data)
         activation = maps.dot(data)
         n_samples = data.shape[1]
-
         extra_disp, intra_disp = 0.0, 0.0
         mean_data = np.mean(data, axis=1)
-
         for cluster_idx in range(n_clusters):
             idx = (segmentation == cluster_idx)
             cluster_points = data[:, idx]
             activation_points = activation[cluster_idx, idx]
             cluster_center = np.dot(cluster_points, activation_points)
             cluster_center /= np.linalg.norm(cluster_center)
-            #cluster_center = np.mean(cluster_points, axis=1)
-
             extra_disp += cluster_points.shape[1] * np.sum((np.abs(cluster_center) - np.abs(mean_data)) ** 2)
             intra_disp += np.sum((np.abs(cluster_points) - np.abs(cluster_center)[:, np.newaxis]) ** 2)
-
         return (
             1.0
             if intra_disp == 0.0
@@ -186,6 +237,13 @@ class ClustererOptimizer:
         )
 
     def find_optimal_k_using_calinski_harabasz(self):
+        """
+        Find the optimal number of clusters using the Calinski-Harabasz method.
+
+        Returns:
+            The optimal number of microstate maps, the range of k values, and the target Calinski-Harabasz values.
+        """
+
         print("Identifying the optimal number of clusters using the Calinski-Harabasz method")
         self.k_values_calinski_harabasz = range(self.kmin, self.kmax + 1)
         self.target_calinski_harabasz = []
@@ -213,14 +271,20 @@ class ClustererOptimizer:
 
     def _calculate_davies_bouldin_score(self, n_clusters, data):
         """
-        Compute the Davies-Bouldin score.
+        Calculate the Davies-Bouldin score.
+
+        Args:
+            n_clusters: The number of microstate clusters.
+            data: The data to calculate the score.
+
+        Returns:
+            The Davies-Bouldin score.
         """
+
         maps, segmentation = self.export_segmentation(n_clusters, data)
         activation = maps.dot(data)
-
         intra_dists = np.zeros(n_clusters)
         centroids = np.zeros((n_clusters, data.shape[0]), dtype=float)
-
         for cluster_idx in range(n_clusters):
             idx = (segmentation == cluster_idx)
             cluster_points = data[:, idx]
@@ -228,20 +292,24 @@ class ClustererOptimizer:
             cluster_center = np.dot(cluster_points, activation_points)
             cluster_center /= np.linalg.norm(cluster_center)
             centroids[cluster_idx, :] = cluster_center
-            intra_dists[cluster_idx] = np.average(np.abs(pairwise_distances(cluster_points.T, [cluster_center],
-                                                                            metric='cosine')))
-
+            intra_dists[cluster_idx] = np.average(np.abs(pairwise_distances(
+                cluster_points.T, [cluster_center], metric='cosine')))
         centroid_distances = np.abs(pairwise_distances(centroids, metric='cosine'))
-
         if np.allclose(intra_dists, 0) or np.allclose(centroid_distances, 0):
             return 0.0
-
         centroid_distances[centroid_distances == 0] = np.inf
         combined_intra_dists = intra_dists[:, None] + intra_dists
         scores = np.max(combined_intra_dists / centroid_distances, axis=1)
         return np.mean(scores)
 
     def find_optimal_k_using_davies_bouldin(self):
+        """
+        Find the optimal number of clusters using the Davies-Bouldin method.
+
+        Returns:
+            The optimal number of microstate maps, the range of k values, and the target Davies-Bouldin values.
+        """
+
         print("Identifying the optimal number of clusters using the Davies-Bouldin method")
         self.k_values_davies_bouldin = range(self.kmin, self.kmax + 1)
         self.target_davies_bouldin = []
@@ -268,6 +336,17 @@ class ClustererOptimizer:
         return self.optimal_k_using_davies_bouldin, self.k_values_davies_bouldin, self.target_davies_bouldin
 
     def find_optimal_k_elbow(self, metric, threshold=5):
+        """
+        Find the optimal number of clusters using the elbow method.
+
+        Args:
+            metric: The metric to use for the elbow method.
+            threshold: The threshold for reduction in elbow values (optional).
+
+        Returns:
+            The optimal number of microstate maps, the range of k values, and the target elbow values.
+        """
+
         print(
             f"\nIdentifying the optimal number of clusters using the elbow method with %{threshold} threshold")
 
@@ -341,6 +420,16 @@ class ClustererOptimizer:
         return self.optimal_k_elbow, self.k_values_elbow, self.target_elbow
 
     def find_optimal_k_gap_statistic(self, n_random_datasets=5):
+        """
+        Find the optimal number of clusters using the gap statistic method.
+
+        Args:
+            n_random_datasets: The number of random datasets to generate (optional).
+
+        Returns:
+            The optimal number of microstate maps, the range of k values, and the target gap statistic values.
+        """
+
         print(
             f"\nIdentifying the optimal number of clusters using the gap statistic method"
             f"with {n_random_datasets}-random datasets")
@@ -395,6 +484,17 @@ class ClustererOptimizer:
         return self.optimal_k_gap_statistic, self.k_values_gap_statistic, self.target_gap_statistic
 
     def find_optimal_k_cross_validation(self, n_splits=5, threshold=5):
+        """
+        Find the optimal number of microstates using cross-validation.
+
+        Args:
+            n_splits: The number of splits for cross-validation (optional).
+            threshold: The threshold for reduction in cross-validation scores (optional).
+
+        Returns:
+            The optimal number of microstate maps, the range of k values, and the target cross-validation scores.
+        """
+
         print(f"\nIdentifying the optimal number of microstates using {n_splits}-fold cross-validation method")
         # Number of clusters to consider
         self.k_values_cross_validation = range(self.kmin, self.kmax + 1)
@@ -471,7 +571,14 @@ class ClustererOptimizer:
     def _plot(df, ax1, ax2, ax3):
         """
         Generate line plots for the calculated metrics to visualize the elbow point.
+
+        Args:
+            df: The dataframe containing the metrics.
+            ax1: The matplotlib axis for the residual plot.
+            ax2: The matplotlib axis for the global explained variance plot.
+            ax3: The matplotlib axis for the silhouette score plot.
         """
+
         # Visualize the result
         res_fig = sns.lineplot(data=df, x="K", y="Residual",
                                linewidth=5, marker="o", markersize=16, dashes=False, ax=ax1)
