@@ -3,9 +3,12 @@ from PyQt5.QtWidgets import QComboBox, QStyledItemDelegate, qApp
 from PyQt5.QtGui import QPalette, QFontMetrics, QStandardItem
 from PyQt5.QtCore import Qt, QEvent
 
+
 class CheckableComboBox(QComboBox):
-    # https://gis.stackexchange.com/a/351152
-    # Subclass Delegate to increase item height
+    """
+    The CheckableComboBox class is a custom QComboBox that allows for selecting multiple items with checkboxes.
+    """
+
     class Delegate(QStyledItemDelegate):
         def sizeHint(self, option, index):
             size = super().sizeHint(option, index)
@@ -13,34 +16,38 @@ class CheckableComboBox(QComboBox):
             return size
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize the CheckableComboBox instance.
+        """
+
         super().__init__(*args, **kwargs)
-        # Make the combo editable to set a custom text, but readonly
         self.setEditable(True)
         self.lineEdit().setReadOnly(True)
-        # Make the lineedit the same color as QPushButton
         palette = qApp.palette()
         palette.setBrush(QPalette.Base, palette.button())
         self.lineEdit().setPalette(palette)
-        # Use custom delegate
         self.setItemDelegate(CheckableComboBox.Delegate())
-        # Update the text when an item is toggled
         self.model().dataChanged.connect(self.updateText)
-        # Hide and show popup when clicking the line edit
         self.lineEdit().installEventFilter(self)
         self.closeOnLineEditClick = False
-        # Prevent popup from closing when clicking on an item
         self.view().viewport().installEventFilter(self)
-        # Set font size
         font = self.font()
         font.setPointSize(12)
         self.setFont(font)
 
     def resizeEvent(self, event):
-        # Recompute text to elide as needed
+        """
+        Reimplement the resizeEvent method to update the displayed text and elide as needed.
+        """
+
         self.updateText()
         super().resizeEvent(event)
 
     def eventFilter(self, object, event):
+        """
+        Reimplement the eventFilter method to handle events on the line edit and the view's viewport.
+        """
+
         if object == self.lineEdit():
             if event.type() == QEvent.MouseButtonRelease:
                 if self.closeOnLineEditClick:
@@ -49,47 +56,62 @@ class CheckableComboBox(QComboBox):
                     self.showPopup()
                 return True
             return False
-        if object == self.view().viewport():
-            if event.type() == QEvent.MouseButtonRelease:
-                index = self.view().indexAt(event.pos())
-                item = self.model().item(index.row())
-
-                if item.checkState() == Qt.Checked:
-                    item.setCheckState(Qt.Unchecked)
-                else:
-                    item.setCheckState(Qt.Checked)
-                return True
+        if object == self.view().viewport() and event.type() == QEvent.MouseButtonRelease:
+            index = self.view().indexAt(event.pos())
+            item = self.model().item(index.row())
+        
+            if item.checkState() == Qt.Checked:
+                item.setCheckState(Qt.Unchecked)
+            else:
+                item.setCheckState(Qt.Checked)
+            return True
         return False
 
     def showPopup(self):
+        """
+        Reimplement the showPopup method to show the popup and enable click on the line edit to close it.
+        """
+
         super().showPopup()
-        # When the popup is displayed, a click on the lineedit should close it
         self.closeOnLineEditClick = True
 
     def hidePopup(self):
+        """
+        Reimplement the hidePopup method to hide the popup and disable immediate reopening.
+        """
+
         super().hidePopup()
-        # Used to prevent immediate reopening when clicking on the lineEdit
         self.startTimer(100)
-        # Refresh the display text when closing
         self.updateText()
 
     def timerEvent(self, event):
-        # After timeout, kill timer, and reenable click on line edit
+        """
+        Reimplement the timerEvent method to handle the timer event for delaying reopening the popup.
+        """
+
         self.killTimer(event.timerId())
         self.closeOnLineEditClick = False
 
     def updateText(self):
-        texts = []
-        for i in range(self.model().rowCount()):
-            if self.model().item(i).checkState() == Qt.Checked:
-                texts.append(self.model().item(i).text())
+        """
+        Update the displayed text in the line edit based on the selected items.
+        """
+
+        texts = [
+            self.model().item(i).text()
+            for i in range(self.model().rowCount())
+            if self.model().item(i).checkState() == Qt.Checked
+        ]
         text = ", ".join(texts)
-        # Compute elided text (with "...")
         metrics = QFontMetrics(self.lineEdit().font())
         elidedText = metrics.elidedText(text, Qt.ElideRight, self.lineEdit().width())
         self.lineEdit().setText(elidedText)
 
     def addItem(self, text, data=None):
+        """
+        Add an item to the combo box with the given text and optional data.
+        """
+
         item = QStandardItem()
         item.setText(text)
         if data is None:
@@ -101,6 +123,10 @@ class CheckableComboBox(QComboBox):
         self.model().appendRow(item)
 
     def addItems(self, texts, datalist=None):
+        """
+        Add multiple items to the combo box with the given texts and optional data.
+        """
+
         for i, text in enumerate(texts):
             try:
                 data = datalist[i]
@@ -109,16 +135,22 @@ class CheckableComboBox(QComboBox):
             self.addItem(text, data)
 
     def deselectAllItems(self):
+        """
+        Deselect all items in the combo box.
+        """
+
         model = self.model()
         for i in range(model.rowCount()):
             item = model.item(i)
             item.setCheckState(Qt.Unchecked)
 
     def currentData(self):
-        # Return the list of selected items data
-        res = []
-        for i in range(self.model().rowCount()):
-            if self.model().item(i).checkState() == Qt.Checked:
-                res.append(self.model().item(i).data())
-        return res
+        """
+        Get the data of the currently selected items in the combo box.
+        """
 
+        return [
+            self.model().item(i).data()
+            for i in range(self.model().rowCount())
+            if self.model().item(i).checkState() == Qt.Checked
+        ]
