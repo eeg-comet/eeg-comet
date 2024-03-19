@@ -1,11 +1,4 @@
 
-"""
-This script defines a class called SegmentationIO that provides functions to export and import segmentation data
-in various formats ('csv', 'pkl', 'hdf', or 'json'). The exported data consists of a filename and a numpy array
-called str_segmentation, containing an array of strings.
-
-"""
-
 import os
 import numpy as np
 import pandas as pd
@@ -15,6 +8,9 @@ import json
 
 
 class SegmentationIO:
+    """
+    The SegmentationIO class provides methods for input/output operations related to segmentation.
+    """
     def __init__(self):
         pass
 
@@ -22,11 +18,20 @@ class SegmentationIO:
     def export_segmentation(output_folder, filename, segmentation_array, time_array, export_format='.csv'):
         """
         Export segmentation data along with time array to a file in the specified format.
+
+        Args:
+            output_folder (str): The folder where the exported file will be saved.
+            filename (str): The name of the exported file (without extension).
+            segmentation_array (ndarray): The segmentation data to be exported.
+            time_array (ndarray): The time array associated with the segmentation data.
+            export_format (str, optional): The format of the exported file. Defaults to '.csv'.
+
+        Returns:
+            bool: True if the export is successful, False otherwise.
         """
         valid_formats = ['.csv', '.pkl', '.hdf', '.json']
         if export_format not in valid_formats:
-            print("Invalid export format.")
-            return False
+            raise ValueError("Invalid export format.")
 
         output_path = os.path.join(output_folder, f"{filename}{export_format}")
 
@@ -53,11 +58,20 @@ class SegmentationIO:
     def load_segmentation(segmentation_path, import_format='.csv'):
         """
         Load segmentation data from a file.
+
+        Args:
+            segmentation_path (str): The path to the segmentation file.
+            import_format (str, optional): The format of the segmentation file. Defaults to '.csv'.
+
+        Returns:
+            ndarray or None: The loaded segmentation data if successful, None otherwise.
+
+        Raises:
+            ValueError: If the import format is not supported.
         """
         valid_formats = ['.csv', '.pkl', '.hdf', '.json']
         if import_format not in valid_formats:
-            print("Invalid import format.")
-            return None
+            raise ValueError("Invalid import format.")
 
         try:
             with open(segmentation_path, 'rb') as f:
