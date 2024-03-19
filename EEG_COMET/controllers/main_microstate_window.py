@@ -8,11 +8,11 @@ from PyQt5.QtCore import Qt
 
 from controllers.new_study_window import NewStudyWindow
 from controllers.compare_studies_window import CompareStudiesWindow
-from controllers.microstate_visualization_window import MicrostateVisualizationDialog
-from controllers.optimizer_visualization_window import OptimizerVisualizationDialog
-from controllers.backfitting_visualization_window import BackfittingVisualizationDialog
-from controllers.feature_visualization_window import FeatureVisualizationDialog
-from controllers.source_visualization_window import SourceVisualizationDialog
+from controllers.microstate_visualization_window import MicrostateVisualizationWindow
+from controllers.optimizer_visualization_window import OptimizerVisualizationWindow
+from controllers.backfitting_visualization_window import BackfittingVisualizationWindow
+from controllers.feature_visualization_window import FeatureVisualizationWindow
+from controllers.source_visualization_window import SourceVisualizationWindow
 from gui_utils.set_widgets_status import set_widgets_status
 from comet import COMET
 
@@ -73,22 +73,22 @@ class MainMicrostateWindow(QMainWindow):
 
         self.ui.CompareStudiesWindow = CompareStudiesWindow(self.context)
 
-        # Create and initialize MicrostateVisualizationDialog
-        # self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
+        # Create and initialize MicrostateVisualizationWindow
+        # self.ui.MicrostateVisualizationWindow = MicrostateVisualizationWindow(
         #     self.context,
         #     main_window=self,
         #     tbx=self.comet_tbx
         # )
-        # Create and initialize OptimizerVisualizationDialog
-        self.ui.OptimizerVisualizationDialog = OptimizerVisualizationDialog(
+        # Create and initialize OptimizerVisualizationWindow
+        self.ui.OptimizerVisualizationWindow = OptimizerVisualizationWindow(
             self.context
         )
-        # Create and initialize BackfittingVisualizationDialog
-        self.ui.BackfittingVisualizationDialog = BackfittingVisualizationDialog(
+        # Create and initialize BackfittingVisualizationWindow
+        self.ui.BackfittingVisualizationWindow = BackfittingVisualizationWindow(
             self.context
         )
-        # Create and initialize FeatureVisualizationDialog
-        self.ui.FeatureVisualizationDialog = FeatureVisualizationDialog(
+        # Create and initialize FeatureVisualizationWindow
+        self.ui.FeatureVisualizationWindow = FeatureVisualizationWindow(
             self.context,
             tbx=self.comet_tbx
         )
@@ -877,39 +877,39 @@ class MainMicrostateWindow(QMainWindow):
         """
         # Check if clustering is done and the number of maps is chosen automatically
         if self.comet_tbx.done_clustering and self.comet_tbx.choose_number_of_maps == "auto":
-            # Set attributes in OptimizerVisualizationDialog to indicate optimization is done
-            setattr(self.OptimizerVisualizationDialog, f'optimizer_{self.comet_tbx.stopping_mode}_done', True)
+            # Set attributes in OptimizerVisualizationWindow to indicate optimization is done
+            setattr(self.OptimizerVisualizationWindow, f'optimizer_{self.comet_tbx.stopping_mode}_done', True)
             # Initialize optimizer_results dictionary if not already done
-            self.OptimizerVisualizationDialog.optimizer_results = {}
+            self.OptimizerVisualizationWindow.optimizer_results = {}
             # Store clustering results in optimizer_results dictionary
-            self.OptimizerVisualizationDialog.optimizer_results[self.comet_tbx.stopping_mode] = {
+            self.OptimizerVisualizationWindow.optimizer_results[self.comet_tbx.stopping_mode] = {
                 'optimal_k': self.comet_tbx.optimal_k,
                 'k_values': self.comet_tbx.k_values,
                 'target_values': self.comet_tbx.target_values
             }
         else:
             # Initialize optimizer_results dictionary if clustering is not done
-            self.OptimizerVisualizationDialog.optimizer_results = {}
-        # Set attributes in OptimizerVisualizationDialog related to data and visualization
-        self.OptimizerVisualizationDialog.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
-        self.OptimizerVisualizationDialog.extension = self.comet_tbx.extension
-        self.OptimizerVisualizationDialog.datatype = self.comet_tbx.datatype
+            self.OptimizerVisualizationWindow.optimizer_results = {}
+        # Set attributes in OptimizerVisualizationWindow related to data and visualization
+        self.OptimizerVisualizationWindow.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
+        self.OptimizerVisualizationWindow.extension = self.comet_tbx.extension
+        self.OptimizerVisualizationWindow.datatype = self.comet_tbx.datatype
         # Check if using percentages and set the value accordingly
         if self.ui.step2_use_percent_radio.isChecked():
             self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
         else:
             self.comet_tbx.use_percentages = None
-        # Set attributes in OptimizerVisualizationDialog
-        self.OptimizerVisualizationDialog.use_percentages = self.comet_tbx.use_percentages
-        self.OptimizerVisualizationDialog.min_distance_size = int(int(self.ui.step2_kernel_size_input.text()) /
+        # Set attributes in OptimizerVisualizationWindow
+        self.OptimizerVisualizationWindow.use_percentages = self.comet_tbx.use_percentages
+        self.OptimizerVisualizationWindow.min_distance_size = int(int(self.ui.step2_kernel_size_input.text()) /
                                                                   (1000/self.comet_tbx.sample_rate))
-        self.OptimizerVisualizationDialog.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-        self.OptimizerVisualizationDialog.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+        self.OptimizerVisualizationWindow.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+        self.OptimizerVisualizationWindow.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
         self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
-        self.OptimizerVisualizationDialog.max_iterations = self.comet_tbx.max_iterations
-        # Set modality and show the OptimizerVisualizationDialog
-        self.OptimizerVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.OptimizerVisualizationDialog.showMaximized()
+        self.OptimizerVisualizationWindow.max_iterations = self.comet_tbx.max_iterations
+        # Set modality and show the OptimizerVisualizationWindow
+        self.OptimizerVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.OptimizerVisualizationWindow.showMaximized()
 
     def run_autopilot(self):
         """
@@ -1071,29 +1071,29 @@ class MainMicrostateWindow(QMainWindow):
         """
         Visualize microstate maps for labeling.
         """
-        self.ui.MicrostateVisualizationDialog = MicrostateVisualizationDialog(
+        self.ui.MicrostateVisualizationWindow = MicrostateVisualizationWindow(
             self.context,
             main_window=self,
             tbx=self.comet_tbx
         )
-        self.ui.MicrostateVisualizationDialog.plot_maps()
-        self.ui.MicrostateVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.ui.MicrostateVisualizationDialog.showMaximized()
+        self.ui.MicrostateVisualizationWindow.plot_maps()
+        self.ui.MicrostateVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.ui.MicrostateVisualizationWindow.showMaximized()
 
     def visualize_microstate_segmentation(self):
         """
-        Open BackfittingVisualizationDialog to visualize microstate segmentation.
+        Open BackfittingVisualizationWindow to visualize microstate segmentation.
         """
         # Set relevant paths and parameters for visualization
-        self.BackfittingVisualizationDialog.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
-        self.BackfittingVisualizationDialog.extension = self.comet_tbx.extension
-        self.BackfittingVisualizationDialog.datatype = self.comet_tbx.datatype
-        self.BackfittingVisualizationDialog.eeg_filenames_combobox.addItems([i for i in self.comet_tbx.list_eegs])
-        self.BackfittingVisualizationDialog.segmentation_path = self.comet_tbx.segmentation_path
-        self.BackfittingVisualizationDialog.export_format = self.comet_tbx.export_format
+        self.BackfittingVisualizationWindow.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
+        self.BackfittingVisualizationWindow.extension = self.comet_tbx.extension
+        self.BackfittingVisualizationWindow.datatype = self.comet_tbx.datatype
+        self.BackfittingVisualizationWindow.eeg_filenames_combobox.addItems([i for i in self.comet_tbx.list_eegs])
+        self.BackfittingVisualizationWindow.segmentation_path = self.comet_tbx.segmentation_path
+        self.BackfittingVisualizationWindow.export_format = self.comet_tbx.export_format
         # Display the Backfitting Visualization Dialog
-        self.BackfittingVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.BackfittingVisualizationDialog.showMaximized()
+        self.BackfittingVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.BackfittingVisualizationWindow.showMaximized()
 
     def extract_features(self):
         """
@@ -1157,19 +1157,19 @@ class MainMicrostateWindow(QMainWindow):
 
     def visualize_microstate_features(self):
         """
-        Open FeatureVisualizationDialog to visualize microstate features.
+        Open FeatureVisualizationWindow to visualize microstate features.
         """
         # Set relevant paths and parameters for visualization
-        self.FeatureVisualizationDialog.extracted_features_path = self.comet_tbx.extracted_features_path
-        self.FeatureVisualizationDialog.export_format = self.comet_tbx.export_format
-        self.FeatureVisualizationDialog.feature_mode = self.comet_tbx.feature_mode
-        self.FeatureVisualizationDialog.feature_combo.clear()
-        self.FeatureVisualizationDialog.feature_combo.addItems([i for i in self.comet_tbx.feature_list])
-        self.FeatureVisualizationDialog.list_eegs = self.comet_tbx.list_eegs
-        self.FeatureVisualizationDialog.reset_groups()
+        self.FeatureVisualizationWindow.extracted_features_path = self.comet_tbx.extracted_features_path
+        self.FeatureVisualizationWindow.export_format = self.comet_tbx.export_format
+        self.FeatureVisualizationWindow.feature_mode = self.comet_tbx.feature_mode
+        self.FeatureVisualizationWindow.feature_combo.clear()
+        self.FeatureVisualizationWindow.feature_combo.addItems([i for i in self.comet_tbx.feature_list])
+        self.FeatureVisualizationWindow.list_eegs = self.comet_tbx.list_eegs
+        self.FeatureVisualizationWindow.reset_groups()
         # Display the Feature Visualization Dialog
-        self.FeatureVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.FeatureVisualizationDialog.showMaximized()
+        self.FeatureVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.FeatureVisualizationWindow.showMaximized()
 
     def source_localize_microstates(self):
         """
@@ -1244,15 +1244,15 @@ class MainMicrostateWindow(QMainWindow):
 
     def visualize_source_localized_microstates(self):
         """
-        Open SourceVisualizationDialog to visualize microstates localized sources.
+        Open SourceVisualizationWindow to visualize microstates localized sources.
         """
         # TODO
         # Set relevant paths and parameters for visualization
-        self.ui.SourceVisualizationDialog = SourceVisualizationDialog(self.context, comet_tbx=self.comet_tbx)
-        #self.SourceVisualizationDialog.tess_path = os.path.join(self.comet_tbx.localized_sources_path, "tess_sources")
+        self.ui.SourceVisualizationWindow = SourceVisualizationWindow(self.context, comet_tbx=self.comet_tbx)
+        #self.SourceVisualizationWindow.tess_path = os.path.join(self.comet_tbx.localized_sources_path, "tess_sources")
         # Display the Source Visualization Dialog
-        self.SourceVisualizationDialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.SourceVisualizationDialog.showMaximized()
+        self.SourceVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.SourceVisualizationWindow.showMaximized()
 
     def exit_msg(self):
         """

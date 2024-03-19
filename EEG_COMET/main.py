@@ -15,7 +15,7 @@ import sys
 import os
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
-from controllers.mainmicrostatewindow import MainMicrostateWindow
+from controllers.main_microstate_window import MainMicrostateWindow
 
 
 class CustomApplicationContext:

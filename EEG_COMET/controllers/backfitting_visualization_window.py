@@ -13,7 +13,7 @@ from backfitting_utils.segmentation_io import SegmentationIO
 from gui_utils.set_widgets_status import set_widgets_status
 
 
-class BackfittingVisualizationDialog(QDialog):
+class BackfittingVisualizationWindow(QDialog):
     def __init__(self, context, parent=None):
         super().__init__(parent)
 

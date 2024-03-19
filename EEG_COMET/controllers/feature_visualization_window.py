@@ -12,7 +12,7 @@ from features_utils.feature_io import FeatureIO
 from gui_utils.set_widgets_status import set_widgets_status
 
 
-class FeatureVisualizationDialog(QDialog):
+class FeatureVisualizationWindow(QDialog):
     def __init__(self, context, parent=None, tbx=None):
         super().__init__(parent)
 

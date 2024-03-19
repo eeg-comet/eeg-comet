@@ -9,9 +9,9 @@ from sourcelocalization_utils.source_visualizer import SourceVisualizer
 # TODO: *** fix the compatibility issue with the individual anatomy
 
 
-class SourceVisualizationDialog(QDialog):
+class SourceVisualizationWindow(QDialog):
     def __init__(self, context, parent=None, comet_tbx=None):
-        super(SourceVisualizationDialog, self).__init__(parent)
+        super(SourceVisualizationWindow, self).__init__(parent)
 
         self.list_subjects = None
         self.comet_tbx = comet_tbx

@@ -9,9 +9,9 @@ from data_utils.data_initializer import DataInitializer
 from clustering_utils.clusterer_optimizer import ClustererOptimizer
 
 
-class OptimizerVisualizationDialog(QDialog):
+class OptimizerVisualizationWindow(QDialog):
     def __init__(self, context, parent=None):
-        super(OptimizerVisualizationDialog, self).__init__(parent)
+        super(OptimizerVisualizationWindow, self).__init__(parent)
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
         # load the ui
         basepath = os.path.dirname(__file__)

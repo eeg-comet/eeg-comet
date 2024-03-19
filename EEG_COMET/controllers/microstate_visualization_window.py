@@ -10,9 +10,9 @@ from clustering_utils.microstate_clusterer import MicrostateClusterer
 from clustering_utils.microstate_visualizer import show_microstate
 
 
-class MicrostateVisualizationDialog(QDialog):
+class MicrostateVisualizationWindow(QDialog):
     def __init__(self, context, parent=None, main_window=None, tbx=None):
-        super(MicrostateVisualizationDialog, self).__init__(parent)
+        super(MicrostateVisualizationWindow, self).__init__(parent)
         self.main_window = main_window
         self.tbx = tbx
         self.current_order_labels = self.tbx.micro_labels
