@@ -6,7 +6,7 @@ from scipy import stats
 from laura import make_laura
 from functions.data_utils.data_io import DataIO
 from functions.backfitting_utils.segmentation_io import SegmentationIO
-from gui.logging_window import LogWindow
+from controllers.logging_window import LogWindow
 
 
 # TODO: send log to COMET

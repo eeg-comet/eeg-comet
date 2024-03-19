@@ -1,6 +1,6 @@
 from functions.gui_utils.config_io import load_config
 import warnings
-from COMET import COMET
+from comet import COMET
 import pickle
 import os
 

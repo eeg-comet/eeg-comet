@@ -6,15 +6,15 @@ from PyQt5.QtWidgets import QMainWindow, QFileDialog, QComboBox, QSpinBox, QMess
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt
 
-from gui.newstudywindow import NewStudyWindow
-from gui.compare_studies_window import CompareStudiesWindow
-from gui.microstate_visualization_dialog import MicrostateVisualizationDialog
-from gui.optimizer_visualization_dialog import OptimizerVisualizationDialog
-from gui.backfitting_visualization_dialog import BackfittingVisualizationDialog
-from gui.feature_visualization_dialog import FeatureVisualizationDialog
-from gui.sourcevisualizationdialog import SourceVisualizationDialog
+from controllers.new_study_window import NewStudyWindow
+from controllers.compare_studies_window import CompareStudiesWindow
+from controllers.microstate_visualization_window import MicrostateVisualizationDialog
+from controllers.optimizer_visualization_window import OptimizerVisualizationDialog
+from controllers.backfitting_visualization_window import BackfittingVisualizationDialog
+from controllers.feature_visualization_window import FeatureVisualizationDialog
+from controllers.source_visualization_window import SourceVisualizationDialog
 from functions.gui_utils.set_widgets_status import set_widgets_status
-from COMET import COMET
+from comet import COMET
 
 
 class MainMicrostateWindow(QMainWindow):

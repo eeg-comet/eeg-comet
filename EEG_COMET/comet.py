@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from gui.logging_window import LogWindow
+from controllers.logging_window import LogWindow
 from functions.data_utils.data_io import DataIO
 from functions.data_utils.data_preprocessor import DataPreprocessor
 from functions.data_utils.data_initializer import DataInitializer
@@ -41,20 +41,18 @@ class COMET:
         self.input_folder = ""
         self.channel_location_dir = ""
         self.output_folder = ""
-        self.save_dir = ""
-        self.preprocessed_data_path = ""
         self.eeg_info_path = ""
-        self.load_all_files = False
+        self.load_all_files = True
         self.pattern_content = ""
         self.pattern = ""
         self.extension = ""
         self.datatype = ""
-        self.filter_data = False
+        self.filter_data = True
         self.filter_method = ""
-        self.lowcut_freq = ""
-        self.highcut_freq = ""
-        self.downsample_data = False
-        self.sample_rate = ""
+        self.lowcut_freq = 2
+        self.highcut_freq = 20
+        self.downsample_data = True
+        self.sample_rate = 250
         self.remove_channels = False
         self.ch2rm = "missing"
         self.list_eegs_path, self.list_eegs = [], []
@@ -72,7 +70,6 @@ class COMET:
         self.clustering_tolerance = ""
         self.clustering_option = ""
         self.number_of_repeats = ""
-        self.microstate_maps_path = ""
         self.use_percentages = ""
         self.best_maps = None
         self.backfit_to = ""
@@ -84,19 +81,30 @@ class COMET:
         self.b = ""
         self.lamb = ""
         self.micro_labels = []
-        self.extracted_features_path = ""
-        self.segmentation_path = ""
         self.word_size = 2
         self.export_format = ""
         self.feature_list = []
         self.save_transitions_bool = False
         self.window_size = ""
-        self.localized_sources_path = ""
         self.inverse_method = ""
         self.nperm = ""
         self.spacing = ""
         self.source_localization_method = ""
         self.anatomy_subjects_dir = ""
+
+        # Define global directories based on the study information
+        self.save_dir = os.path.join(self.output_folder, self.study_name)
+        self.preprocessed_data_path = os.path.join(
+            self.save_dir, f"{self.study_name}_preprocessed_data")
+        self.microstate_maps_path = os.path.join(self.save_dir, 'microstate_maps.csv')
+        self.extracted_features_path = os.path.join(
+            self.save_dir, f"{self.study_name}_extracted_features")
+        self.segmentation_path = os.path.join(
+            self.save_dir, f"{self.study_name}_segmentation")
+        self.localized_sources_path = os.path.join(
+            self.save_dir, f"{self.study_name}_localized_sources")
+        self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
+        self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
 
         if config:
             self.load_config(config)
@@ -226,11 +234,7 @@ class COMET:
         """
         Locate EEG file paths.
         """
-        if self.load_all_files:
-            self.pattern = '*'
-        else:
-            self.pattern = '*' + self.pattern_content + '*'
-
+        self.pattern = '*' if self.load_all_files else '*' + self.pattern_content + '*'
         self.list_eegs_path, self.list_eegs = DataIO().find_data(
             input_folder=self.input_folder, extension=self.extension, pattern=self.pattern
         )
@@ -278,7 +282,6 @@ class COMET:
             eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocessor.preprocess_eegs(
                 eeg_path=eeg_path,
                 list_eegs=self.list_eegs_path,
-                eeg_format=self.extension,
                 datatype=self.datatype,
                 channel_location_dir=self.channel_location_dir,
                 filter_bool=self.filter_data,
@@ -607,7 +610,6 @@ class COMET:
             filter_segments=self.filter_segments,
             filter_segments_option=self.filter_segments_option,
             identify_short_window=self.identify_short_window,
-            remove_segments_less_than=self.remove_segments_less_than,
             micro_labels=self.micro_labels,
             segmentation_path=self.segmentation_path,
             extension=self.extension,
@@ -634,7 +636,7 @@ class COMET:
             for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
                 self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
-                eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                eeg = data_io.load_eegs(eeg_path, self.datatype)
 
                 # Compute similarity scores for different segment removal lengths
                 for idx_win2rm, len_win2rm in enumerate(len_win2rm_list):
@@ -697,7 +699,7 @@ class COMET:
                                                   total=len(self.list_eegs_path)):
             self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
-            eeg = data_io.load_eegs(eeg_path=eeg_path, eeg_format=self.extension, datatype=self.datatype)
+            eeg = data_io.load_eegs(eeg_path=eeg_path, datatype=self.datatype)
 
             labeled_segmentation, trial_filename, trial_times, segmentation_fit = microstate_backfitter.\
                 perform_segmentation(eeg=eeg, eeg_name=eeg_name, remove_segments_less_than=remove_segments_less_than)
@@ -795,11 +797,11 @@ class COMET:
                             eeg_filename = segmentation_name[:underscore_index]
                             trial_number = segmentation_name[underscore_index + 1:]
                             eeg_path = os.path.join(self.preprocessed_data_path, f"{eeg_filename}{self.extension}")
-                            eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                            eeg = data_io.load_eegs(eeg_path, self.datatype)
                             trial_data = np.squeeze(eeg[int(trial_number)].get_data())
                         else:
                             eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
-                            eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                            eeg = data_io.load_eegs(eeg_path, self.datatype)
                             eeg_data = data_io.get_eeg_data(eeg, self.datatype)
 
                         output_features = feature_extractor.extract_microstate_features(
@@ -832,7 +834,7 @@ class COMET:
                     if 'GEV' in self.feature_list:
                         data_io = DataIO()
                         eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
-                        eeg = data_io.load_eegs(eeg_path, self.extension, self.datatype)
+                        eeg = data_io.load_eegs(eeg_path, self.datatype)
                         eeg_data = data_io.get_eeg_data(eeg, self.datatype)
                         output_features = feature_extractor.extract_microstate_features(
                             filename=segmentation_name,
