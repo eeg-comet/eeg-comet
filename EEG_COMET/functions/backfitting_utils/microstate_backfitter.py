@@ -1,15 +1,38 @@
 
 import numpy as np
-import os.path
 from scipy.signal import find_peaks
 from collections import Counter
 from itertools import groupby
 
 
 class MicrostateBackfitter:
-    def __init__(self, study_name, preprocessed_data_path, microstate_maps, backfit_to,
-                 filter_segments, filter_segments_option, identify_short_window, remove_segments_less_than,
-                 micro_labels, segmentation_path, extension, datatype, sample_rate, smoothing_parameters, export_format):
+    """
+    The MicrostateBackfitter class provides methods for backfitting microstates to EEG data.
+    It includes functions for filling segments, smoothing segmentations, labeling segments,
+    and calculating similarity scores.
+
+    Args:
+        study_name (str): Name of the study.
+        preprocessed_data_path (str): Path to the preprocessed data.
+        microstate_maps (np.ndarray): Array of microstate maps.
+        backfit_to (str): Backfitting method ('all' or 'peaks').
+        filter_segments (bool): Flag indicating whether to filter segments.
+        filter_segments_option (str): Option for filtering segments ('remove', 'replace_high', 'replace_half', 'smooth').
+        identify_short_window (bool): Flag indicating whether to identify short windows.
+        micro_labels (list): List of microstate labels.
+        segmentation_path (str): Path to the segmentation.
+        extension (str): File extension.
+        datatype (str): Data type ('continuous' or 'epoched').
+        sample_rate (int): Sampling rate.
+        smoothing_parameters (list, optional): Smoothing parameters. Defaults to None.
+        export_format (str): Export format.
+    """
+    def __init__(self, study_name, preprocessed_data_path, microstate_maps, backfit_to, filter_segments,
+                 filter_segments_option, identify_short_window, micro_labels,
+                 segmentation_path, extension, datatype, sample_rate, smoothing_parameters, export_format):
+        """
+        Initializes a new instance of the MicrostateBackfitter class.
+        """
 
         self.study_name = study_name
         self.preprocessed_data_path = preprocessed_data_path
@@ -18,7 +41,6 @@ class MicrostateBackfitter:
         self.filter_segments = filter_segments
         self.filter_segments_option = filter_segments_option
         self.identify_short_window = identify_short_window
-        self.remove_segments_less_than = remove_segments_less_than
         self.microstate_labels = micro_labels
         self.segmentation_path = segmentation_path
         self.extension = extension
@@ -117,17 +139,18 @@ class MicrostateBackfitter:
     @staticmethod
     def segmentation_smooth(data, microstate_maps, n_states, epsilon=1e-6, b=3, lamb=5):
         """
-        data: V
-        microstate_maps: Gamma (T-like symbol)
-        n_states: N_mu in paper
-        epsilon: convergence criterion parameter
-        b: window size parameter
-        lamb: non-smoothness penalty parameter (lambda)
+        Smooth the segmentation based on the given parameters.
 
-        segmentation: L
-        n_channels: N_s in paper
-        n_samples: N_T
+        Args:
+            data (numpy.ndarray): Array containing the data.
+            microstate_maps (numpy.ndarray): Array containing the microstate maps.
+            n_states (int): Number of microstate states.
+            epsilon (float, optional): Convergence criterion parameter. Defaults to 1e-6.
+            b (int, optional): Window size parameter. Defaults to 3.
+            lamb (int, optional): Non-smoothness penalty parameter. Defaults to 5.
 
+        Returns:
+            numpy.ndarray: Smoothed segmentation array.
         """
 
         n_channels, n_samples = data.shape
@@ -180,24 +203,38 @@ class MicrostateBackfitter:
         return segmentation
 
     def substitude_maps_with_duration(self, segmentation, segments_less_than, option, data, microstate_maps, n_states,
-                                      smoothing_parameters=[1e-6, 3, 5]):
+                                      smoothing_parameters=None):
         """
         Substitute short segments in the segmentation array with neighboring elements based on the chosen option.
+
+        Args:
+            self: The MicrostateBackfitter instance.
+            segmentation (numpy.ndarray): Array containing the segmentation.
+            segments_less_than (int): Threshold for removing segments.
+            option (str): Option for substitution ('remove', 'replace_high', 'replace_half', 'smooth').
+            data (numpy.ndarray): Array containing the data.
+            microstate_maps (numpy.ndarray): Array containing the microstate maps.
+            n_states (int): Number of microstate states.
+            smoothing_parameters (list, optional): Smoothing parameters. Defaults to None.
+
+        Returns:
+            numpy.ndarray: Substituted segmentation array.
         """
 
+        if smoothing_parameters is None:
+            smoothing_parameters = [1e-6, 3, 5]
         filled_segmentation = np.copy(segmentation)
         count_dups = [sum(1 for _ in group) for _, group in groupby(filled_segmentation)]
 
         # Replace short segments if left and right elements are the same
         for i, count in enumerate(count_dups):
             if count <= int(segments_less_than):
-                start = int(np.sum(count_dups[0:i]))
+                start = int(np.sum(count_dups[:i]))
                 stop = int(start + count)
                 # Check if there is a left and right neighbor to the segment
-                if start > 0 and stop < len(filled_segmentation):
-                    # Check if the left and right neighbors are the same as the segment
-                    if filled_segmentation[start - 1] == filled_segmentation[stop]:
-                        filled_segmentation[start:stop] = filled_segmentation[start - 1]
+                if start > 0 and stop < len(filled_segmentation) and filled_segmentation[start - 1] == \
+                        filled_segmentation[stop]:
+                    filled_segmentation[start:stop] = filled_segmentation[start - 1]
 
         # Recalculate count_dups after replacing segments with identical neighbors
         count_dups = [sum(1 for _ in group) for _, group in groupby(filled_segmentation)]
@@ -205,7 +242,7 @@ class MicrostateBackfitter:
         # Find short segments
         for C in range(len(count_dups)):
             if count_dups[C] <= int(segments_less_than):
-                start = int(np.sum(count_dups[0:C]))
+                start = int(np.sum(count_dups[:C]))
                 stop = int(start + count_dups[C])
                 filled_segmentation[start:stop] = -1
 
@@ -223,6 +260,16 @@ class MicrostateBackfitter:
         return filled_segmentation
 
     def label_segments(self, segmentation):
+        """
+        Label the segments in the segmentation array.
+
+        Args:
+            segmentation (list or numpy.ndarray): Array containing the segmentation.
+
+        Returns:
+            numpy.ndarray: Array containing the labeled segmentation.
+        """
+
         segmentation = segmentation + 1
         segmentation = list(map(int, segmentation))
         labeled_segmentation = list(map(str, segmentation))
@@ -231,24 +278,46 @@ class MicrostateBackfitter:
             labeled_segmentation = np.char.replace(labeled_segmentation, str(m), self.microstate_labels[m - 1])
         return labeled_segmentation
 
-    # TODO: create a function to compute the goodness of fit for filtered segmentation
     def goodness_fit_segmentation(self, eeg_data, labeled_segmentation):
+        """
+        Calculate the goodness of fit for the labeled segmentation compared to the EEG data.
+
+        Args:
+            self: The MicrostateBackfitter instance.
+            eeg_data (numpy.ndarray): Array containing the EEG data.
+            labeled_segmentation (numpy.ndarray): Array containing the labeled segmentation.
+
+        Returns:
+            float: The mean similarity score between the microstate maps and the EEG data.
+        """
+
         similarity_mean = 0
         for m in range(len(self.microstate_labels)):
             microstate_map = self.microstate_maps[m, :]
             microstate_map_norm = np.linalg.norm(microstate_map)
             data_indices = [i for i, x in enumerate(labeled_segmentation) if x == self.microstate_labels[m]]
-            eeg_data_segement = eeg_data[:, data_indices]
-            eeg_data_segement_norm = np.linalg.norm(eeg_data_segement, axis=0)
+            eeg_data_segment = eeg_data[:, data_indices]
+            eeg_data_segment_norm = np.linalg.norm(eeg_data_segment, axis=0)
             # Compute the dot product
-            dot_product = np.dot(microstate_map, eeg_data_segement)
+            dot_product = np.dot(microstate_map, eeg_data_segment)
             # Compute the cosine similarity
-            similarity = abs(dot_product / (microstate_map_norm * eeg_data_segement_norm))
+            similarity = abs(dot_product / (microstate_map_norm * eeg_data_segment_norm))
             similarity_mean = similarity_mean + similarity.mean()
         return similarity_mean / len(self.microstate_labels)
 
     @staticmethod
     def mark_short_segments(segmentation, min_occurrence):
+        """
+        Mark short segments in the segmentation array with -1.
+
+        Args:
+            segmentation (list or numpy.ndarray): Array containing the segmentation.
+            min_occurrence (int): Minimum number of occurrences for a segment to be considered not short.
+
+        Returns:
+            numpy.ndarray: Array with short segments marked as -1.
+        """
+
         if len(segmentation) == 0:
             return segmentation
 
@@ -278,6 +347,17 @@ class MicrostateBackfitter:
 
     @staticmethod
     def find_optimal_index(values, threshold=0.001):
+        """
+        Find the index of the last value in the list where the rate of change is below the given threshold.
+
+        Args:
+            values (list or numpy.ndarray): List of values.
+            threshold (float, optional): Threshold for the rate of change. Defaults to 0.001.
+
+        Returns:
+            int: Index of the last value where the rate of change is below the threshold.
+        """
+
         for i in range(1, len(values)):
             rate_of_change = values[i] - values[i - 1]
             if rate_of_change < threshold:
@@ -285,6 +365,18 @@ class MicrostateBackfitter:
         return len(values) - 1
 
     def get_similarity_score(self, eeg, rm_max_len=50):
+        """
+        Calculate the similarity score between the microstate maps and the EEG data.
+
+        Args:
+            self: The MicrostateBackfitter instance.
+            eeg (numpy.ndarray): Array containing the EEG data.
+            rm_max_len (int, optional): Maximum length of segments to remove. Defaults to 50.
+
+        Returns:
+            float: The similarity score between the microstate maps and the EEG data.
+        """
+
         # Generate a list of window lengths to test for segment removal
         len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
 
@@ -294,11 +386,7 @@ class MicrostateBackfitter:
         # Iterate over each trial in the EEG data (if epoched)
         for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
             # Extract trial data
-            if self.datatype == 'epoched':
-                trial_data = eeg[idx].get_data()
-            else:
-                trial_data = eeg_data
-
+            trial_data = eeg[idx].get_data() if self.datatype == 'epoched' else eeg_data
             # Calculate correlation matrix between microstate maps and trial data
             correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
                 np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
@@ -321,7 +409,18 @@ class MicrostateBackfitter:
 
         return similarity_score
 
-    def identify_optimal_length_filter(self, similarity_scores):
+    @staticmethod
+    def identify_optimal_length_filter(similarity_scores):
+        """
+        Identify the optimal length filter based on the similarity scores.
+
+        Args:
+            similarity_scores (list or numpy.ndarray): List of similarity scores.
+
+        Returns:
+            int: The optimal length filter.
+        """
+
         # Convert similarity scores to numpy array
         similarity_scores = np.array(similarity_scores)
 
@@ -337,20 +436,25 @@ class MicrostateBackfitter:
             peaks, _ = find_peaks(derivative)
 
             # If peaks exist, select the first peak, otherwise use the length of the row
-            if len(peaks) > 0:
-                inflection_point = peaks[0] + 1
-            else:
-                inflection_point = len(row)
-
+            inflection_point = peaks[0] + 1 if len(peaks) > 0 else len(row)
             # Append inflection point to optimal indices
             optimal_indices.append(inflection_point)
 
-        # Calculate the median of optimal indices as the optimal length to remove segments
-        remove_segments_less_than = int(np.median(optimal_indices))
-
-        return remove_segments_less_than
+        return int(np.median(optimal_indices))
 
     def perform_segmentation(self, eeg, eeg_name, remove_segments_less_than):
+        """
+        Perform segmentation on the EEG data based on the specified backfitting method.
+
+        Args:
+            self: The MicrostateBackfitter instance.
+            eeg (numpy.ndarray): Array containing the EEG data.
+            eeg_name (str): Name of the EEG data.
+            remove_segments_less_than (int): Threshold for removing segments.
+
+        Returns:
+            tuple: A tuple containing the labeled segmentation, trial filename, trial times, and segmentation
+        """
         segmentation_fit = 0
         eeg_data = eeg.get_data()
         eeg_times = eeg.times * 1000
@@ -418,9 +522,5 @@ class MicrostateBackfitter:
         segmentation_fit += similarity_metric
 
         # Call the export_segmentation method
-        if idx is not None:
-            trial_filename = f"{eeg_name}_{idx}"
-        else:
-            trial_filename = eeg_name
-
+        trial_filename = f"{eeg_name}_{idx}" if idx is not None else eeg_name
         return labeled_segmentation, trial_filename, trial_times, segmentation_fit
