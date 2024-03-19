@@ -10,6 +10,15 @@ from keras.models import load_model
 
 class MicrostateLabeler:
     def __init__(self, microstate_maps, eeg_info, microstate_maps_path):
+        """
+        Class for performing microstate labeling using a trained model.
+
+        Args:
+            microstate_maps (ndarray): The microstate maps.
+            eeg_info (dict): Information about the EEG.
+            microstate_maps_path (str): The path to save the microstate maps.
+        """
+
         self.microstate_maps = microstate_maps
         self.n_states = microstate_maps.shape[0]
         self.eeg_info = eeg_info
@@ -29,8 +38,10 @@ class MicrostateLabeler:
 
         for i in range(self.microstate_maps.shape[0]):
             fig, ax = plt.subplots()
-            mne.viz.plot_topomap(self.microstate_maps[i, :], self.eeg_info, contours=10, sensors=False, axes=ax, show=False,
-                                 sphere='auto')
+            mne.viz.plot_topomap(
+                self.microstate_maps[i, :], self.eeg_info,
+                contours=10, sensors=False, axes=ax, show=False, sphere='auto'
+            )
             with io.BytesIO() as buf:
                 fig.savefig(buf, dpi=200, bbox_inches='tight')
                 buf.seek(0)
@@ -92,7 +103,6 @@ class MicrostateLabeler:
         #         plt.savefig(filename, dpi=200, bbox_inches='tight')
 
         ### TEMP
-
 
         # Save Best Maps
         maps_df = pd.DataFrame(self.microstate_maps.T, columns=micro_labels, index=self.eeg_info['ch_names'])
