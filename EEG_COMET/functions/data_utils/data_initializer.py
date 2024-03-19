@@ -100,7 +100,7 @@ class DataInitializer:
         maps2use, peaks2use = [], []
         counter = 0
         for eeg_path in all_preprocessed_paths:
-            eeg = data_io.load_eegs(eeg_path, extension, datatype)
+            eeg = data_io.load_eegs(eeg_path, datatype)
             eeg_data = data_io.get_eeg_data(eeg, datatype)
             maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist)
 

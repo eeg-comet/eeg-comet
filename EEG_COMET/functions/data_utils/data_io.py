@@ -1,10 +1,3 @@
-"""
-Description: EEG Data Loading and Preprocessing Script
-
-This script provides functions for loading and preprocessing EEG data from different formats using the MNE library.
-It supports loading raw or epoched data, applying channel location information, removing channels, and applying average
-reference projection. The script is designed to enhance flexibility and efficiency when working with EEG data.
-"""
 
 import os.path
 import pickle
@@ -15,6 +8,9 @@ import warnings
 
 
 class DataIO:
+    """
+    The DataIO class provides methods for saving, loading, and manipulating EEG data.
+    """
     def __init__(self):
         pass
 
@@ -22,76 +18,90 @@ class DataIO:
     def save_eeg_info(eeg_info_path, eeg_info):
         """
         Save EEG information to a binary file using pickle.
+
+        Args:
+            eeg_info_path (str): The path to save the EEG information.
+            eeg_info (object): The EEG information object.
         """
     
         with open(eeg_info_path, 'wb') as f:
-            pickle.dump(eeg_info, f)  # Serialize and save the eeg_info object to the specified file path
+            pickle.dump(eeg_info, f)
 
     @staticmethod
     def load_eeg_info(eeg_info_path):
         """
         Load EEG information from a binary file using pickle.
+
+        Args:
+            eeg_info_path (str): The path to load the EEG information from.
+
+        Returns:
+            object: The loaded EEG information object.
         """
     
         with open(eeg_info_path, 'rb') as f:
-            eeg_info = pickle.load(f)  # Deserialize and load the eeg_info object from the specified file path
+            eeg_info = pickle.load(f)
         return eeg_info
 
     @staticmethod
     def find_data(input_folder, extension, pattern='*'):
         """
         Recursively search for data files within a folder based on extension and pattern.
+
+        Args:
+            input_folder (str): The folder to search for data files.
+            extension (str): The file extension to match. If 'auto', load all eeg files with valid formats.
+            pattern (str, optional): The pattern to match against the file name. Defaults to '*'.
+
+        Returns:
+            tuple: A tuple containing the list of matching file paths and the list of matching file names.
         """
-    
-        list_path = []  # Initialize an empty list to store matching file paths
+        
+        list_path = []
         list_filename = []
-    
-        # Walk through the directory tree rooted at input_folder
-        for path, subdirs, files in os.walk(input_folder):
-            for name in files:
-                # Check if the file name matches the pattern with the specified extension
-                if fnmatch(name, pattern + extension):
-                    # Add the matching file's full path to the list
-                    list_path.append(os.path.join(path, name))
-                    list_filename.append(name.split('.')[0])
+        if extension == ".auto":
+            valid_eeg_formats = [
+                ".vhdr", ".edf", ".bdf", ".gdf",
+                ".cnt", ".egi", ".mff", ".set",
+                ".data", ".nxe", ".lay", ".eeg"
+            ]
+            for path, subdirs, files in os.walk(input_folder):
+                for name in files:
+                    if os.path.splitext(name)[1] in valid_eeg_formats:
+                        list_path.append(os.path.join(path, name))
+                        list_filename.append(os.path.splitext(name)[0])
+        else:
+            for path, subdirs, files in os.walk(input_folder):
+                for name in files:
+                    if fnmatch(name, pattern + extension):
+                        list_path.append(os.path.join(path, name))
+                        list_filename.append(name.split('.')[0])
         return list_path, list_filename
 
     @staticmethod
-    def load_eegs(eeg_path, eeg_format, datatype, channel_location_dir='', chan2rm=[], verbose='CRITICAL'):
+    def load_eegs(eeg_path, datatype, channel_location_dir='', chan2rm=None, verbose='CRITICAL'):
         """
         Load EEG data from different formats and preprocess if needed.
+
+        Args:
+            eeg_path (str): The path to the EEG data file.
+            datatype (str): The type of the EEG data ('raw' or 'epoched').
+            channel_location_dir (str, optional): The path to the channel location file. Defaults to ''.
+            chan2rm (list, optional): The list of channels to remove. Defaults to [].
+            verbose (str, optional): The verbosity level. Defaults to 'CRITICAL'.
+
+        Returns:
+            object: The loaded EEG data object.
         """
+
+        if chan2rm is None:
+            chan2rm = []
         with mne.use_log_level(verbose):
             warnings.filterwarnings('ignore')
             if datatype == 'raw':
-                # Load EEG data based on the specified format
-                if eeg_format == ".vhdr":
-                    eeg = mne.io.read_raw_brainvision(eeg_path, preload=True)
-                elif eeg_format == ".edf":
-                    eeg = mne.io.read_raw_edf(eeg_path, preload=True)
-                elif eeg_format == ".bdf":
-                    eeg = mne.io.read_raw_bdf(eeg_path, preload=True)
-                elif eeg_format == ".gdf":
-                    eeg = mne.io.read_raw_gdf(eeg_path, preload=True)
-                elif eeg_format == ".cnt":
-                    eeg = mne.io.read_raw_cnt(eeg_path, preload=True)
-                elif eeg_format == ".egi" or eeg_format == ".mff":
-                    eeg = mne.io.read_raw_egi(eeg_path, preload=True)
-                elif eeg_format == ".set":
-                    eeg = mne.io.read_raw_eeglab(eeg_path, preload=True)
-                elif eeg_format == ".data":
-                    eeg = mne.io.read_raw_nicolet(eeg_path, preload=True)
-                elif eeg_format == ".nxe":
-                    eeg = mne.io.read_raw_eximia(eeg_path, preload=True)
-                elif eeg_format == ".lay":
-                    eeg = mne.io.read_raw_persyst(eeg_path, preload=True)
-                elif eeg_format == ".eeg":
-                    eeg = mne.io.read_raw_nihon(eeg_path, preload=True)
+                eeg = mne.io.read_raw(eeg_path, preload=True, verbose=False)
             elif datatype == 'epoched':
-                if eeg_format == ".set":
-                    eeg = mne.io.read_epochs_eeglab(eeg_path)
-
-            # Optional: Load channel locations if provided
+                eeg = mne.io.read_epochs(eeg_path, verbose=False)
             try:
                 if os.path.isfile(channel_location_dir):
                     montage = mne.channels.read_custom_montage(channel_location_dir)
@@ -100,36 +110,35 @@ class DataIO:
                     montage = mne.channels.make_standard_montage(channel_location_dir)
                     eeg.set_montage(montage, match_case=False, on_missing='warn')
             except Exception as e:
-                print('Invalid File, Try Loading Again. Details:' + e)
-
-            # Drop channels
+                print(f'Invalid File, Try Loading Again. Details:{e}')
             channel_names = eeg.info['ch_names']
-            if any(chan2rm) and not all(elem == '' for elem in chan2rm) and chan2rm in channel_names:
+            if (
+                any(chan2rm)
+                and any(elem != '' for elem in chan2rm)
+                and chan2rm in channel_names
+            ):
                 eeg = eeg.drop_channels(chan2rm)
             if 'TRIGGER' in channel_names:
                 eeg = eeg.drop_channels('TRIGGER')
-
-            # Add average reference projection
             eeg.set_eeg_reference('average', projection=True)
-            # Apply the added projection
             eeg.apply_proj()
-    
         return eeg
 
     @staticmethod
     def export_eegs(eeg, save_path, extension, datatype):
         """
         Export EEG data to a specified file format.
+
+        Args:
+            eeg (object): The EEG data object.
+            save_path (str): The path to save the exported EEG data.
+            extension (str): The file extension of the exported EEG data.
+            datatype (str): The type of the EEG data ('raw' or 'epoched').
         """
 
-        # List of available file extensions for export
         available_extensions = ['.vhdr', '.set', '.edf']
-    
-        # Check if the provided extension is valid, otherwise default to '.set'
         if extension not in available_extensions:
             extension = '.set'
-    
-        # Export EEG data based on the specified datatype
         if datatype == 'raw':
             mne.export.export_raw(save_path + extension, eeg, fmt='auto', overwrite=True)
         elif datatype == 'epoched':
@@ -139,10 +148,16 @@ class DataIO:
     def get_eeg_data(eeg, datatype):
         """
         Extract EEG data from MNE-Python Epochs or Raw object.
+
+        Args:
+            eeg (object): The EEG data object.
+            datatype (str): The type of the EEG data ('raw' or 'epoched').
+
+        Returns:
+            numpy.ndarray: The extracted EEG data.
         """
     
         if datatype == "epoched":
-            # Concatenate the epoch data along the specified axis
             for index in range(eeg.__len__()):
                 if index == 0:
                     eeg_data = np.squeeze(eeg[0].get_data())
@@ -150,7 +165,6 @@ class DataIO:
                     epoch = np.squeeze(eeg[index].get_data())
                     eeg_data = np.append(eeg_data, epoch, axis=1)
         else:
-            eeg_data = eeg.get_data()  # Get continuous raw data
-    
+            eeg_data = eeg.get_data()
         return eeg_data
     

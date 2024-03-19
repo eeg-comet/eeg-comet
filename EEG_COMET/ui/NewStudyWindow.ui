@@ -555,17 +555,17 @@
          </property>
          <item>
           <property name="text">
+           <string>Automatically find EEG files with valid formats (.auto)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
            <string>EEGLAB files (.set, .fdt)</string>
           </property>
          </item>
          <item>
           <property name="text">
            <string>BrainVision (.vhdr, .vmrk, .eeg)</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Bittium NeurOne ()</string>
           </property>
          </item>
          <item>
@@ -1521,11 +1521,11 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_6"/>
+  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>

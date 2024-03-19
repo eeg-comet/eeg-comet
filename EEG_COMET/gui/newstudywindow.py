@@ -323,8 +323,7 @@ class NewStudyWindow(QDialog):
         """
         filename = self.ui.step0_selected_files_list.currentItem().text()
         data_io = DataIO()
-        eeg = data_io.load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype,
-                                self.comet_tbx.channel_location_dir, [])
+        eeg = data_io.load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
         if not np.isnan(eeg.info['chs'][0]['loc'][0]):
             montage = eeg.get_montage()
             channel_names = montage.ch_names
@@ -476,8 +475,7 @@ class NewStudyWindow(QDialog):
         """
         self.canvas.figure.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype,
-                                 self.comet_tbx.channel_location_dir, [])
+        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
         if eeg.info['dig'] is None:
             QMessageBox.information(self, "Load error",
                                     "Unable to retrieve channel locations."
@@ -506,8 +504,7 @@ class NewStudyWindow(QDialog):
         Plot the EEG data.
         """
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype,
-                                 self.comet_tbx.channel_location_dir)
+        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
         eeg.plot()
 
     def plot_psd(self):
