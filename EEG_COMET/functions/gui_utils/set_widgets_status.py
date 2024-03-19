@@ -1,13 +1,16 @@
-"""
-This function is designed to modify the state of one or more GUI widgets based on the specified mode.
-It can enable, disable, hide, or show a single widget or a list of widgets, as indicated by the mode parameter.
 
-"""
 def set_widgets_status(widgets, mode='enable'):
-    '''
-    widgets: list of widgets, or a single widget
-    mode: 'enable', 'disable', 'hide', or 'show'
-    '''
+    """
+    Modify the state of one or more GUI widgets based on the specified mode.
+
+    Args:
+        widgets (list or QWidget): A list of widgets or a single widget.
+        mode (str): The mode to apply to the widgets. Valid modes are 'enable', 'disable', 'hide', or 'show'.
+
+    Returns:
+        None
+    """
+
     valid_modes = {'enable', 'disable', 'hide', 'show'}
 
     if mode not in valid_modes:
