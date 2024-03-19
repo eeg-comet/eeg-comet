@@ -1,10 +1,3 @@
-"""
-Description: This class facilitates the localization of neural sources from EEG data.
-It handles both the reading and writing of source time courses, as well as exporting
-necessary transformations and BEM solutions. Different methods for coregistration
-using individual or template MRIs are also available.
-
-"""
 
 import os
 import numpy as np
@@ -16,9 +9,16 @@ from functions.backfitting_utils.segmentation_io import SegmentationIO
 from gui.logging_window import LogWindow
 
 
+# TODO: send log to COMET
 class SourceLocalizer:
+    """
+    SourceLocalizer class for performing source localization on EEG data.
+    """
     def __init__(self, subjects_dir, localized_sources_path, preprocessed_data_path, segmentation_path,
                  use_anatomy, extension, datatype, spacing, inverse_method, microstate_maps, nperm):
+        """
+        Initialize the SourceLocalizer
+        """
         self.subjects_dir = subjects_dir
         self.localized_sources_path = localized_sources_path
         stc_path = os.path.join(localized_sources_path, "stc")
@@ -41,7 +41,12 @@ class SourceLocalizer:
     def stc_write(self, stc_data_subject_path, stc_file):
         """
         Write source time series to disk.
+
+        Args:
+            stc_data_subject_path: The path to the directory where the source time series will be saved.
+            stc_file: The source time series data to be saved.
         """
+
         if self.datatype == "epoched":
             for idx, stc in enumerate(stc_file):
                 filename = f'stc_{idx}'
@@ -54,15 +59,28 @@ class SourceLocalizer:
     def stc_read(self, stc_data_subject_path):
         """
         Read source time series from disk.
+
+        Args:
+            stc_data_subject_path: The path to the directory where the source time series is stored.
+
+        Returns:
+            stc_file: The loaded source time series data.
         """
+
         stc_list, _ = self.data_io.find_data(stc_data_subject_path, '.h5', pattern='*')
-        stc_file = [mne.read_source_estimate(stc_path) for stc_path in stc_list]
-        return stc_file
+        return [mne.read_source_estimate(stc_path) for stc_path in stc_list]
 
     def export_src_bem_trans(self, subject, src, bem, trans):
         """
         Export source space, BEM, and coregistration transformations.
+
+        Args:
+            subject: The subject identifier.
+            src: The source space data.
+            bem: The BEM data.
+            trans: The coregistration transformation data.
         """
+
         mne.write_source_spaces(
             os.path.join(self.subjects_dir, subject, f'{subject}-{self.spacing}-src.fif'), src, overwrite=True)
         mne.write_bem_solution(
@@ -73,7 +91,16 @@ class SourceLocalizer:
     def load_average_mri(self, eeg_info):
         """
         Load the standard fsaverage MRI subject and create corresponding BEM and coregistration transformations.
+
+        Args:
+            eeg_info: The EEG info object.
+
+        Returns:
+            src: The source space data.
+            bem: The BEM data.
+            trans: The coregistration transformation data.
         """
+
         # Print information about using the standard template MRI subject -fsaverage-
         print('\nUsing the standard template MRI subject -fsaverage-')
         print('\nWarning, patient-specific MRI is more accurate!')
@@ -88,7 +115,7 @@ class SourceLocalizer:
         trans = "fsaverage"  # MNE has a built-in fsaverage transformation
 
         # Check if a different spacing is provided, then create a new source space
-        if not self.spacing == 'ico5':
+        if self.spacing != 'ico5':
             src = mne.setup_source_space(
                 subject,
                 spacing=self.spacing,
@@ -127,7 +154,17 @@ class SourceLocalizer:
     def individual_mri(self, subject, raw_info):
         """
         Perform individual MRI coregistration for a specific subject.
+
+        Args:
+            subject: The subject identifier.
+            raw_info: The raw EEG info object.
+
+        Returns:
+            src: The source space data.
+            bem: The BEM data.
+            trans: The coregistration transformation data.
         """
+
         print(f"\nUsing the individual MRI subject: {subject}")
         print('\nThis may take some time to compute ...')
         # Get MNI fiducials for the subject
@@ -180,22 +217,47 @@ class SourceLocalizer:
     @staticmethod
     def apply_laura(eeg, inverse_operator, forward, verbose=0):
         """
-        The LAURA inverse solution as instance of mne.SourceEstimate
+        Apply the LAURA inverse solution to obtain the source estimate.
+
+        Args:
+            eeg: The EEG data.
+            inverse_operator: The inverse operator.
+            forward: The forward solution.
+            verbose: Verbosity level (0 or 1).
+
+        Returns:
+            stc: The source estimate.
         """
+
         # Extract necessary parameters
         vertices = [forward["src"][0]['vertno'], forward["src"][1]['vertno']]
         # calculate source
         eeg_data = eeg.get_data()
         y_hat = np.array(np.matmul(inverse_operator, eeg_data))
-        stc = mne.SourceEstimate(
-            y_hat, vertices, tmin=eeg.times.min(), tstep=1 / eeg.info["sfreq"],
-            subject=forward["src"]._subject, verbose=verbose)
-        return stc
+        return mne.SourceEstimate(
+            y_hat,
+            vertices,
+            tmin=eeg.times.min(),
+            tstep=1 / eeg.info["sfreq"],
+            subject=forward["src"]._subject,
+            verbose=verbose,
+        )
 
     def compute_stc(self, src, bem, trans, raw_eeg, raw_info):
         """
-        Extract the forward solution and apply minimum-norm inverse to obtain the source time series.
+        Compute the source time series using the minimum-norm inverse method.
+    
+        Args:
+            src: The source space data.
+            bem: The BEM data.
+            trans: The coregistration transformation data.
+            raw_eeg: The raw EEG data.
+            raw_info: The raw EEG info object.
+
+        Returns:
+            stc_file: The source time series data.
         """
+
         print('\nPerforming source localization ...')
         # Calculate the forward solution using the specified parameters
         fwd = mne.make_forward_solution(
@@ -220,7 +282,7 @@ class SourceLocalizer:
             inverse_operator = make_laura(
                 fwd, noise_cov=noise_cov, verbose=True)
             # Invert data using the inverse operator
-            stc_file = self.apply_laura(raw_eeg, inverse_operator, fwd)
+            return self.apply_laura(raw_eeg, inverse_operator, fwd)
 
         else:
             # Create the inverse operator
@@ -229,21 +291,34 @@ class SourceLocalizer:
             snr = 3.
             lambda2 = 1. / snr ** 2
 
-            if self.datatype == 'epoched':
-                # Process epoched data
-                stc_file = mne.minimum_norm.apply_inverse_epochs(
-                    raw_eeg, inverse_operator, lambda2, method=self.inverse_method, pick_ori=None, verbose=True)
-            else:
-                # Process raw data
-                stc_file = mne.minimum_norm.apply_inverse_raw(
-                    raw_eeg, inverse_operator, lambda2, method=self.inverse_method, pick_ori=None, verbose=True)
-
-        return stc_file
+            return (
+                mne.minimum_norm.apply_inverse_epochs(
+                    raw_eeg,
+                    inverse_operator,
+                    lambda2,
+                    method=self.inverse_method,
+                    pick_ori=None,
+                    verbose=True,
+                )
+                if self.datatype == 'epoched'
+                else mne.minimum_norm.apply_inverse_raw(
+                    raw_eeg,
+                    inverse_operator,
+                    lambda2,
+                    method=self.inverse_method,
+                    pick_ori=None,
+                    verbose=True,
+                )
+            )
 
     def run_source_localization(self):
         """
         Perform source localization for multiple EEG files.
+    
+        Raises:
+            FileNotFoundError: If the specified EEG files or directories are not found.
         """
+        
         list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
 
         # Create an instance of the progress dialog
@@ -281,7 +356,14 @@ class SourceLocalizer:
                     subjects_dir=self.individual_subjects_dir,
                     spacing=self.spacing[-1]
                 )
-                morph.save(os.path.join(self.individual_subjects_dir, subject, subject + '-morph.h5'), overwrite=True)
+                morph.save(
+                    os.path.join(
+                        self.individual_subjects_dir,
+                        subject,
+                        f'{subject}-morph.h5',
+                    ),
+                    overwrite=True,
+                )
                 stc_file = morph.apply(stc_file)
             else:
                 print("\nUsing default template brain - fsaverage")
@@ -320,7 +402,18 @@ class SourceLocalizer:
     def run_tess(self, stc_data, eeg_data, nperm):
         """
         Run the TESS algorithm.
+
+        Args:
+            stc_data: The source time series data.
+            eeg_data: The EEG data.
+            nperm: The number of permutations.
+
+        Returns:
+            p_values: The p-values.
+            z_scores: The z-scores.
+            filtered_z_scores: The filtered z-scores.
         """
+
         # TESS Algorithm
         # https://linkinghub.elsevier.com/retrieve/pii/S1053-8119(14)00243-2
         self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
@@ -340,7 +433,7 @@ class SourceLocalizer:
         beta_dist = np.zeros((beta_coeff.shape[0], beta_coeff.shape[1], nperm))
         bonferroni = beta_coeff.shape[1]
         t_shuffle = t_coeff
-        for ii in range(0, nperm):
+        for ii in range(nperm):
             np.random.shuffle(t_shuffle)
             beta_dist[:, :, ii] = self.second_regression(t_shuffle, stc_data)
             if (ii % 50) == 0:
@@ -358,6 +451,13 @@ class SourceLocalizer:
     def avg_sources(self, labelled_data_path, stc_data):
         """
         Averages the source data over times matched with each microstate segment.
+
+        Args:
+            labelled_data_path: The path to the directory where the labelled data is stored.
+            stc_data: The source time series data.
+
+        Returns:
+            all_sources_dict: A dictionary containing the averaged source data for each microstate.
         """
 
         self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
@@ -379,7 +479,7 @@ class SourceLocalizer:
                     all_sources_dict[m] = [sources_m_mean]
 
                 # If you want to convert the lists to NumPy arrays for each 'm'
-            for m in all_sources_dict.keys():
+            for m in all_sources_dict:
                 all_sources_dict[m] = np.vstack(all_sources_dict[m])
 
             return all_sources_dict
@@ -387,7 +487,14 @@ class SourceLocalizer:
     def identify_microstates_sources(self, source_method):
         """
         Identify microstate source localization for multiple EEG files.
+
+        Args:
+            source_method: The method to use for microstate source localization.
+
+        Raises:
+            FileNotFoundError: If the specified EEG files or directories are not found.
         """
+
         list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
 
         # Create an instance of the progress dialog
