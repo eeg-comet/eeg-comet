@@ -2,7 +2,7 @@
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.signal import correlate
-from functions.data_utils.data_io import DataIO
+from data_utils.data_io import DataIO
 
 
 class DataInitializer:

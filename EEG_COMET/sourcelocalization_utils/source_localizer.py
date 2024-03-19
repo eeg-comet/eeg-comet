@@ -4,8 +4,8 @@ import numpy as np
 import mne
 from scipy import stats
 from laura import make_laura
-from functions.data_utils.data_io import DataIO
-from functions.backfitting_utils.segmentation_io import SegmentationIO
+from data_utils.data_io import DataIO
+from backfitting_utils.segmentation_io import SegmentationIO
 from controllers.logging_window import LogWindow
 
 

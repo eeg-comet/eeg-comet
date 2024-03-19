@@ -7,9 +7,9 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import QFileDialog, QDialog, QComboBox, QMessageBox, QSizePolicy
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from functions.gui_utils.CheckableComboBox import CheckableComboBox
-from functions.gui_utils.set_widgets_status import set_widgets_status
-from functions.data_utils.data_io import DataIO
+from gui_utils.CheckableComboBox import CheckableComboBox
+from gui_utils.set_widgets_status import set_widgets_status
+from data_utils.data_io import DataIO
 
 
 class NewStudyWindow(QDialog):

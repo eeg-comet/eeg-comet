@@ -1,6 +1,6 @@
+
 import os.path
 import webbrowser
-import pickle
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QComboBox, QSpinBox, QMessageBox
 from PyQt5.QtGui import QPixmap, QFont
@@ -13,7 +13,7 @@ from controllers.optimizer_visualization_window import OptimizerVisualizationDia
 from controllers.backfitting_visualization_window import BackfittingVisualizationDialog
 from controllers.feature_visualization_window import FeatureVisualizationDialog
 from controllers.source_visualization_window import SourceVisualizationDialog
-from functions.gui_utils.set_widgets_status import set_widgets_status
+from gui_utils.set_widgets_status import set_widgets_status
 from comet import COMET
 
 
@@ -248,7 +248,7 @@ class MainMicrostateWindow(QMainWindow):
                                     QMessageBox.Ok)
             return
         else:
-            # Load the COMET object from the pickle file
+            # Load the COMET object
             self.comet_tbx.load_tbx(tbx_object_path)
             self.comet_tbx.LogWindow.show()
             # Update the log window with loaded study information

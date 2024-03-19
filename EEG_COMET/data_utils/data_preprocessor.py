@@ -1,7 +1,7 @@
 
 import numpy as np
 import collections
-from functions.data_utils.data_io import DataIO
+from data_utils.data_io import DataIO
 
 
 class DataPreprocessor:

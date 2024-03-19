@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from functions.data_utils.data_io import DataIO
-from functions.backfitting_utils.segmentation_io import SegmentationIO
-from functions.gui_utils.set_widgets_status import set_widgets_status
+from data_utils.data_io import DataIO
+from backfitting_utils.segmentation_io import SegmentationIO
+from gui_utils.set_widgets_status import set_widgets_status
 
 
 class BackfittingVisualizationDialog(QDialog):

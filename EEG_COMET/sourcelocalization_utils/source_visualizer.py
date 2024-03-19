@@ -3,7 +3,7 @@ import mne
 import os.path
 import numpy as np
 import pyvista as pv
-from functions.data_utils.data_io import DataIO
+from data_utils.data_io import DataIO
 
 
 class SourceVisualizer:

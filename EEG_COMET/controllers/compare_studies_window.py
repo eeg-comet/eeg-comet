@@ -10,9 +10,9 @@ from PyQt5.QtWidgets import QDialog, QMessageBox, QFileDialog, QSizePolicy
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from functions.gui_utils.set_widgets_status import set_widgets_status
-from functions.clustering_utils.microstate_visualizer import show_microstate
-from functions.features_utils.feature_io import FeatureIO
+from gui_utils.set_widgets_status import set_widgets_status
+from clustering_utils.microstate_visualizer import show_microstate
+from features_utils.feature_io import FeatureIO
 
 
 class CompareStudiesWindow(QDialog):

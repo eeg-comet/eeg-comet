@@ -5,8 +5,8 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QSizePolicy
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from functions.data_utils.data_initializer import DataInitializer
-from functions.clustering_utils.clusterer_optimizer import ClustererOptimizer
+from data_utils.data_initializer import DataInitializer
+from clustering_utils.clusterer_optimizer import ClustererOptimizer
 
 
 class OptimizerVisualizationDialog(QDialog):

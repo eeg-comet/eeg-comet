@@ -8,8 +8,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QSizePolicy
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from functions.features_utils.feature_io import FeatureIO
-from functions.gui_utils.set_widgets_status import set_widgets_status
+from features_utils.feature_io import FeatureIO
+from gui_utils.set_widgets_status import set_widgets_status
 
 
 class FeatureVisualizationDialog(QDialog):

@@ -2,13 +2,12 @@
 import os
 import numpy as np
 from sklearn.model_selection import ParameterGrid
-
-from functions.data_utils.data_io import DataIO
-from functions.data_utils.data_initializer import DataInitializer
-from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
-from functions.clustering_utils.microstate_labeler import MicrostateLabeler
-from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
-from functions.backfitting_utils.segmentation_io import SegmentationIO
+from data_utils.data_io import DataIO
+from data_utils.data_initializer import DataInitializer
+from clustering_utils.microstate_clusterer import MicrostateClusterer
+from clustering_utils.microstate_labeler import MicrostateLabeler
+from backfitting_utils.microstate_backfitter import MicrostateBackfitter
+from backfitting_utils.segmentation_io import SegmentationIO
 
 
 class AutopilotClusterer:

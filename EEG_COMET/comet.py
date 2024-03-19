@@ -6,19 +6,19 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from controllers.logging_window import LogWindow
-from functions.data_utils.data_io import DataIO
-from functions.data_utils.data_preprocessor import DataPreprocessor
-from functions.data_utils.data_initializer import DataInitializer
-from functions.clustering_utils.clusterer_optimizer import ClustererOptimizer
-from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
-from functions.clustering_utils.microstate_labeler import MicrostateLabeler
-from functions.backfitting_utils.microstate_backfitter import MicrostateBackfitter
-from functions.backfitting_utils.segmentation_io import SegmentationIO
-from functions.features_utils.feature_helper import FeatureHelper
-from functions.features_utils.feature_extractor import FeatureExtractor
-from functions.features_utils.feature_io import FeatureIO
-from functions.sourcelocalization_utils.source_localizer import SourceLocalizer
-from functions.clustering_utils.autopilot_clusterer import AutopilotClusterer
+from data_utils.data_io import DataIO
+from data_utils.data_preprocessor import DataPreprocessor
+from data_utils.data_initializer import DataInitializer
+from clustering_utils.clusterer_optimizer import ClustererOptimizer
+from clustering_utils.microstate_clusterer import MicrostateClusterer
+from clustering_utils.microstate_labeler import MicrostateLabeler
+from backfitting_utils.microstate_backfitter import MicrostateBackfitter
+from backfitting_utils.segmentation_io import SegmentationIO
+from features_utils.feature_helper import FeatureHelper
+from features_utils.feature_extractor import FeatureExtractor
+from features_utils.feature_io import FeatureIO
+from sourcelocalization_utils.source_localizer import SourceLocalizer
+from clustering_utils.autopilot_clusterer import AutopilotClusterer
 
 
 class COMET:

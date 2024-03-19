@@ -6,8 +6,8 @@ from tqdm import tqdm
 from sklearn.model_selection import KFold
 from sklearn.metrics import pairwise_distances
 from controllers.logging_window import LogWindow
-from functions.data_utils.data_initializer import DataInitializer
-from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
+from data_utils.data_initializer import DataInitializer
+from clustering_utils.microstate_clusterer import MicrostateClusterer
 
 
 # TODO: move the log to COMET / add figure settings

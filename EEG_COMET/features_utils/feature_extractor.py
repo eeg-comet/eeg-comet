@@ -1,8 +1,8 @@
 
 import pandas as pd
 from collections import Counter, defaultdict
-from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
-from functions.features_utils.feature_helper import FeatureHelper
+from clustering_utils.microstate_clusterer import MicrostateClusterer
+from features_utils.feature_helper import FeatureHelper
 
 
 class FeatureExtractor:

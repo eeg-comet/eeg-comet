@@ -4,7 +4,7 @@ import mne
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QAbstractItemView
 from pyvistaqt import QtInteractor, BackgroundPlotter
-from functions.sourcelocalization_utils.source_visualizer import SourceVisualizer
+from sourcelocalization_utils.source_visualizer import SourceVisualizer
 
 # TODO: *** fix the compatibility issue with the individual anatomy
 

@@ -5,9 +5,9 @@ from PyQt5.QtWidgets import QDialog, QLineEdit, QMessageBox, QFileDialog, QSizeP
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from functions.gui_utils.set_widgets_status import set_widgets_status
-from functions.clustering_utils.microstate_clusterer import MicrostateClusterer
-from functions.clustering_utils.microstate_visualizer import show_microstate
+from gui_utils.set_widgets_status import set_widgets_status
+from clustering_utils.microstate_clusterer import MicrostateClusterer
+from clustering_utils.microstate_visualizer import show_microstate
 
 
 class MicrostateVisualizationDialog(QDialog):

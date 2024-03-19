@@ -8,7 +8,7 @@ from keras.layers import Flatten, Dense, Reshape, Input
 from keras.models import Model
 from sklearn.decomposition import PCA
 from joblib import Parallel, delayed
-from functions.data_utils.data_initializer import DataInitializer
+from data_utils.data_initializer import DataInitializer
 
 
 class MicrostateClusterer:
