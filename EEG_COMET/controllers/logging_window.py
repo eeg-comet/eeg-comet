@@ -38,8 +38,8 @@ class LogWindow(QWidget):
         """Appends a log entry with the current date and time to the log_text list."""
         current_date = datetime.now().strftime("%d/%m/%y")
         current_time = datetime.now().strftime("%I:%M %p")
-        separator = "******************************************************"
         if log_type == 'settings':
+            separator = "*" * 50
             current_log_text = f"\n{separator}\n{log}\n{separator}\n"
         else:
             current_log_text = f"[{current_date} {current_time}]: {log}\n"
@@ -51,6 +51,8 @@ class LogWindow(QWidget):
 
     def setup_progress_dialog(self, window_title, label_text, max_value):
         """Sets up a progress dialog with the specified window title, label text, and maximum value."""
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        self.show()
         self.setWindowTitle(window_title)
         self.ui.progress_label.setText(label_text)
         self.progress_bar.setValue(0)
@@ -67,6 +69,8 @@ class LogWindow(QWidget):
 
     def process_finished(self, text=None):
         """Called when the processing is finished."""
+        self.setWindowFlags(Qt.Window)
+        self.show()
         if text is not None:
             self.set_line_edit_text(text)
         self.running = False
@@ -86,10 +90,7 @@ class LogWindow(QWidget):
 
     def is_worker_thread_running(self):
         """Check if the worker thread is running."""
-        if self.worker_thread is not None and self.worker_thread.isRunning():
-            return True
-        else:
-            return False
+        return bool(self.worker_thread is not None and self.worker_thread.isRunning())
 
     def start_process(self, max_value):
         """Start the process."""
