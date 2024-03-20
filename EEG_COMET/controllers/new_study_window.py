@@ -435,9 +435,9 @@ class NewStudyWindow(QDialog):
             self.sample_rate = ''
 
         if self.ui.step0_ch2rm_radio.isChecked():
-            self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
+            self.chan2rm = self.ui.step0_ch2rm_combobox.currentData()
         elif self.ui.step0_ch2rm_missing_radio.isChecked():
-            self.ch2rm = 'missing'
+            self.chan2rm = 'missing'
 
         self.comet_tbx.preprocessed_data_path = self.preprocessed_data_path
         self.comet_tbx.filter_data = self.filter_data
@@ -446,7 +446,7 @@ class NewStudyWindow(QDialog):
         self.comet_tbx.highcut_freq = self.highcut_freq
         self.comet_tbx.downsample_data = self.downsample_data
         self.comet_tbx.sample_rate = self.sample_rate
-        self.comet_tbx.ch2rm = self.ch2rm
+        self.comet_tbx.chan2rm = self.chan2rm
         self.comet_tbx.save_dir = self.save_dir
         self.comet_tbx.study_name = self.ui.step0_study_name_lineedit.text()
         self.comet_tbx.eeg_info_path = os.path.join(self.comet_tbx.save_dir, "eeg_info.pkl")
@@ -489,8 +489,8 @@ class NewStudyWindow(QDialog):
                 show_names = False
 
             if self.ui.step0_ch2rm_combobox.currentData():
-                self.ch2rm = self.ui.step0_ch2rm_combobox.currentData()
-                eeg.info["bads"].extend(self.ch2rm)
+                self.chan2rm = self.ui.step0_ch2rm_combobox.currentData()
+                eeg.info["bads"].extend(self.chan2rm)
 
             fig, _ = eeg.plot_sensors(kind='select', show_names=show_names, show=False)
             #fig = montage.plot(show_names=show_names)

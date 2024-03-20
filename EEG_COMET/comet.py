@@ -5,6 +5,8 @@ import pickle
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from configparser import ConfigParser
+
 from controllers.logging_window import LogWindow
 from data_utils.data_io import DataIO
 from data_utils.data_preprocessor import DataPreprocessor
@@ -37,66 +39,21 @@ class COMET:
         self.LogWindow = None
         self.log_text = []
         self.config = {}
-        self.study_name = ""
-        self.input_folder = ""
-        self.channel_location_dir = ""
-        self.output_folder = ""
-        self.eeg_info_path = ""
-        self.load_all_files = True
-        self.pattern_content = ""
-        self.pattern = ""
-        self.extension = ""
-        self.datatype = ""
-        self.filter_data = True
-        self.filter_method = ""
-        self.lowcut_freq = 2
-        self.highcut_freq = 20
-        self.downsample_data = True
-        self.sample_rate = 250
-        self.remove_channels = False
-        self.ch2rm = "missing"
-        self.list_eegs_path, self.list_eegs = [], []
-        self.smoothing_gfp = False
-        self.smoothing_distance = ""
-        self.number_of_maps = ""
-        self.choose_number_of_maps = ""
-        self.stopping_mode = ""
-        self.stopping_parameter = ""
-        self.kmin = ""
-        self.kmax = ""
-        self.initializer = ""
-        self.clustering_method = ""
-        self.max_iterations = ""
-        self.clustering_tolerance = ""
-        self.clustering_option = ""
-        self.number_of_repeats = ""
-        self.use_percentages = ""
-        self.best_maps = None
-        self.backfit_to = ""
-        self.identify_short_window = False
-        self.filter_segments = False
-        self.remove_segments_less_than = ""
-        self.filter_segments_option = ""
-        self.epsilon = ""
-        self.b = ""
-        self.lamb = ""
-        self.micro_labels = []
-        self.word_size = 2
-        self.export_format = ""
-        self.feature_list = []
-        self.save_transitions_bool = False
-        self.window_size = ""
-        self.inverse_method = ""
-        self.nperm = ""
-        self.spacing = ""
-        self.source_localization_method = ""
-        self.anatomy_subjects_dir = ""
+
+        config_path = "./default_config.ini"
+        self.config = self.load_config(config_path)
+
+        # if config:
+        #     self.load_config(config)
 
         # Define global directories based on the study information
         self.save_dir = os.path.join(self.output_folder, self.study_name)
+        self.tbx_object_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
+        self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
         self.preprocessed_data_path = os.path.join(
             self.save_dir, f"{self.study_name}_preprocessed_data")
-        self.microstate_maps_path = os.path.join(self.save_dir, 'microstate_maps.csv')
+        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
+        self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
         self.extracted_features_path = os.path.join(
             self.save_dir, f"{self.study_name}_extracted_features")
         self.segmentation_path = os.path.join(
@@ -106,8 +63,7 @@ class COMET:
         self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
         self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
 
-        if config:
-            self.load_config(config)
+        # Initialize boolean flags indicating if the step has been completed
         self.done_preprocessing: bool = False
         self.done_clustering: bool = False
         self.done_labeling_microstates: bool = False
@@ -117,99 +73,91 @@ class COMET:
         self.done_source_microstate_correlation: bool = False
         self.auto_save = auto_save
 
-    def load_config(self, config):
+    def load_config(self, config_path):
         """
         Load configuration settings from a dictionary.
         """
-        self.config = config
+        config = ConfigParser()
+        config.read(config_path)
 
-        # Base configs
-        base_config = config.get('base', {})
-        self.study_name = base_config.get('study_name', "")
-        self.input_folder = base_config.get('input_folder', "")
-        self.channel_location_dir = base_config.get('channel_location_dir', "")
-        self.output_folder = base_config.get('output_folder', "")
+        # Input/Output Configs
+        io_config = config["io_config"]
+        self.study_name = io_config.get("study_name", "")
+        self.input_folder = io_config.get("input_folder", "")
+        self.channel_location_dir = io_config.get("channel_location_dir", "")
+        self.extension = io_config.get("extension", ".auto")
+        self.pattern_content = io_config.get("pattern", "*")
+        self.datatype = io_config.get("datatype", "raw")
+        self.output_folder = io_config.get("output_folder", "")
 
-        self.save_dir = os.path.join(self.output_folder, self.study_name)
-        assert self.study_name, "study name cannot be empty"
-        self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
-        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
-
-        # Load new study configs
-        load_new_study_config = config.get('load_new_study', {})
-        self.load_all_files = load_new_study_config.getboolean('load_all_files', False)
-        if self.load_all_files:
-            self.pattern_content = load_new_study_config.get('pattern_content', '')
-        self.extension = load_new_study_config.get('extension', '')
-        self.datatype = load_new_study_config.get('datatype', '')
-        self.filter_data = load_new_study_config.getboolean('filter_data', False)
+        # Preprocessing Configs
+        preprocessing_config = config["preprocessing_config"]
+        self.filter_data = preprocessing_config.getboolean("filter_data", True)
         if self.filter_data:
-            self.filter_method = load_new_study_config.get('filter_method', '')
-            self.lowcut_freq = load_new_study_config.getint('lowcut_freq', '')
-            self.highcut_freq = load_new_study_config.getint('highcut_freq', '')
-        self.downsample_data = load_new_study_config.getboolean('downsample_data', False)
+            self.filter_method = preprocessing_config.get("filter_method", "fir")
+            self.lowcut_freq = preprocessing_config.getint("lowcut_freq", 2)
+            self.highcut_freq = preprocessing_config.getint("highcut_freq", 20)
+        self.downsample_data = preprocessing_config.getboolean("downsample_data", True)
         if self.downsample_data:
-            self.sample_rate = load_new_study_config.getint('sample_rate', '')
-        self.remove_channels = load_new_study_config.getboolean('remove_channels', False)
+            self.sample_rate = preprocessing_config.getint("sample_rate", 250)
+        self.remove_channels = preprocessing_config.getboolean("remove_channels", False)
         if self.remove_channels:
-            self.ch2rm = load_new_study_config.get('ch2rm', 'missing')
+            self.chan2rm = preprocessing_config.get("ch2rm", "")
 
-        # Clustering configs
-        clustering_config = config.get('do_clustering', {})
-        self.smoothing_gfp = clustering_config.getboolean('smoothing_gfp', False)
+        # Clustering Configs
+        clustering_config = config["clustering_config"]
+        self.smoothing_gfp = clustering_config.getboolean("smoothing_gfp", False)
         if self.smoothing_gfp:
-            self.smoothing_distance = clustering_config.getint('smoothing_distance', '')
-        number_of_maps = clustering_config.get('number_of_maps', '')
-        self.number_of_maps = number_of_maps if number_of_maps == 'auto' else int(number_of_maps)
-        self.choose_number_of_maps = 'Auto' if number_of_maps == 'auto' else 'User'
-        if self.number_of_maps == 'auto':
-            self.stopping_mode = clustering_config.get('stopping_mode', '')
-            self.stopping_parameter = clustering_config.getfloat('stopping_parameter', '')
-            self.kmin = clustering_config.getint('kmin', '')
-            self.kmax = clustering_config.getint('kmax', '')
-        self.initializer = clustering_config.get('initializer', '')
-        self.clustering_method = clustering_config.get('clustering_method', '')
-        self.max_iterations = clustering_config.getint('max_iterations', '')
-        self.clustering_tolerance = clustering_config.getfloat('clustering_tolerance', '')
-        need_options = ['X-Means Clustering', 'Agglomerative Hierarchical Clustering',
-                        'K-Means Clustering', 'PCA + K-Means Clustering',
-                        'Autoencoder + K-Means Clustering', ]
-        self.clustering_option = clustering_config.get('clustering_option',
-                                                       '') if self.clustering_method in need_options else ''
-        self.number_of_repeats = clustering_config.getint('number_of_repeats', '')
-        self.microstate_maps_path = os.path.join(self.save_dir, 'microstate_maps.csv')
-        self.use_percentages = clustering_config.getint('use_percentages', '')
+            self.smoothing_distance = clustering_config.getint("smoothing_distance", 10)
+        number_of_maps = clustering_config.get("number_of_maps", 4)
+        self.number_of_maps = number_of_maps if number_of_maps == "auto" else int(number_of_maps)
+        self.choose_number_of_maps = "Auto" if number_of_maps == "auto" else "User"
+        if self.number_of_maps == "auto":
+            self.stopping_mode = clustering_config.get("stopping_mode", "gev")
+            self.stopping_parameter = clustering_config.getfloat("stopping_parameter", 10)
+            self.kmin = clustering_config.getint("kmin", 2)
+            self.kmax = clustering_config.getint("kmax", 10)
+        self.initializer = clustering_config.get("initializer", "Random")
+        self.clustering_method = clustering_config.get("clustering_method", "Modified K-Means Clustering")
+        self.max_iterations = clustering_config.getint("max_iterations", 500)
+        self.clustering_tolerance = clustering_config.getfloat("clustering_tolerance", 1e-6)
+        need_options = ["X-Means Clustering", "Agglomerative Hierarchical Clustering",
+                        "K-Means Clustering", "PCA + K-Means Clustering",
+                        "Autoencoder + K-Means Clustering", ]
+        self.clustering_option = clustering_config.get("clustering_option",
+                                                       "") if self.clustering_method in need_options else ""
+        self.number_of_repeats = clustering_config.getint("number_of_repeats", 5)
+        self.use_percentages = clustering_config.getint("use_percentages", "")
 
-        # Backfitting configs
-        backfitting_config = config.get('do_backfitting', {})
-        self.backfit_to = backfitting_config.get('backfit_to', '')
-        self.identify_short_window = backfitting_config.getboolean('identify_short_window', False)
-        self.filter_segments = backfitting_config.getboolean('filter_segments', False)
+        # Backfitting Configs
+        backfitting_config = config["backfitting_config"]
+        self.backfit_to = backfitting_config.get("backfit_to", "")
+        self.identify_short_window = backfitting_config.getboolean("identify_short_window", False)
+        self.filter_segments = backfitting_config.getboolean("filter_segments", False)
         if self.filter_segments:
-            self.remove_segments_less_than = backfitting_config.getint('remove_segments_less_than', '')
-            self.filter_segments_option = backfitting_config.get('filter_segments_option', '')
-        self.epsilon = backfitting_config.getfloat('epsilon', '')
-        self.b = backfitting_config.getint('b', '')
-        self.lamb = backfitting_config.getint('lamb', '')
-        self.micro_labels = [chr(i) for i in range(ord('A'), ord('A') + self.number_of_maps)]
+            self.remove_segments_less_than = backfitting_config.getint("remove_segments_less_than", 20)
+            self.filter_segments_option = backfitting_config.get("filter_segments_option", "smooth")
+        self.epsilon = backfitting_config.getfloat("epsilon", 1e-6)
+        self.b = backfitting_config.getint("b", 3)
+        self.lamb = backfitting_config.getint("lamb", 5)
 
-        # Feature extraction configs
-        feature_extraction_config = config.get('extract_features', {})
-        self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
-        self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
-        self.export_format = feature_extraction_config.get('export_format', '')
-        self.feature_list = [x.strip() for x in feature_extraction_config.get('feature_list', '').split(',')]
-        self.save_transitions_bool = 'TP' in self.feature_list
-        self.window_size = feature_extraction_config.getint('window_size', '') if 'OCC' in self.feature_list else ''
+        # Feature Extraction Configs
+        features_config = config["features_config"]
+        self.export_format = features_config.get("export_format", ".csv")
+        self.feature_list = [x.strip() for x in features_config.get("feature_list", "").split(",")]
+        self.feature_mode = [x.strip() for x in features_config.get("feature_mode", "").split(",")]
+        self.feature_types = [x.strip() for x in features_config.get("feature_types", "").split(",")]
+        self.window_size = features_config.getint("window_size", 1) if "OCC" in self.feature_list else ""
 
-        # Source localization configs
-        source_localization_config = config.get('source_localize_microstates', {})
-        self.localized_sources_path = os.path.join(self.save_dir, f"{self.study_name}_localized_sources")
-        self.inverse_method = source_localization_config.get('inverse_method', '')
-        self.nperm = source_localization_config.getint('nperm', '')
-        self.spacing = source_localization_config.get('spacing', '')
-        self.source_localization_method = source_localization_config.get('source_localization_method', '')
-        self.anatomy_subjects_dir = source_localization_config.get('anatomy_subjects_dir', '')
+        # Source Localization Configs
+        source_config = config["source_config"]
+        self.inverse_method = source_config.get("inverse_method", "dSPM")
+        self.nperm = source_config.getint("nperm", 2000)
+        self.spacing = source_config.get("spacing", "ico3")
+        self.source_localization_method = source_config.get("source_localization_method", "tess")
+        self.anatomy_subjects_dir = source_config.get("anatomy_subjects_dir", "")
+
+        return config
 
     def load_tbx(self, tbx_object_path):
         # Load the TBX object from the file
@@ -242,6 +190,22 @@ class COMET:
     def do_preprocessing(self):
         print('\nPreprocessing ...')
 
+        # Define global directories based on the study information
+        self.tbx_object_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
+        self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
+        self.preprocessed_data_path = os.path.join(
+            self.save_dir, f"{self.study_name}_preprocessed_data")
+        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
+        self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
+        self.extracted_features_path = os.path.join(
+            self.save_dir, f"{self.study_name}_extracted_features")
+        self.segmentation_path = os.path.join(
+            self.save_dir, f"{self.study_name}_segmentation")
+        self.localized_sources_path = os.path.join(
+            self.save_dir, f"{self.study_name}_localized_sources")
+        self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
+        self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
+
         # Create preprocessed data directory if it doesn't exist
         if not os.path.exists(self.preprocessed_data_path):
             os.makedirs(self.preprocessed_data_path)
@@ -265,7 +229,7 @@ class COMET:
 
         self.LogWindow.append_log(
             f"EEG Preprocessing Settings:\n"
-            f"* Channels to Remove: {self.ch2rm}\n"
+            f"* Channels to Remove: {self.chan2rm}\n"
             f"* Bandpass Filter: {self.filter_method.upper()} Method ({self.lowcut_freq}Hz and {self.highcut_freq}Hz)\n"
             f"* Downsampling Rate: {self.sample_rate}Hz", log_type='settings'
         )
@@ -290,7 +254,7 @@ class COMET:
                 highcut=self.highcut_freq,
                 downsample_bool=self.downsample_data,
                 sampling_rate=self.sample_rate,
-                chan2rm=self.ch2rm
+                chan2rm=self.chan2rm
             )
 
             # Save EEG info
@@ -327,6 +291,7 @@ class COMET:
 
         # Optionally save the preprocessed data
         if self.auto_save:
+            self.save_config()
             self.save_tbx()
 
     def do_autopilot(self):
@@ -571,6 +536,7 @@ class COMET:
 
         # Optionally save the clustered data
         if self.auto_save:
+            self.save_config()
             self.save_tbx()
 
     def do_labeling(self):
@@ -727,6 +693,7 @@ class COMET:
 
         # Optionally save the results
         if self.auto_save:
+            self.save_config()
             self.save_tbx()
 
     def extract_features(self):
@@ -887,6 +854,7 @@ class COMET:
 
         # Optionally save the results
         if self.auto_save:
+            self.save_config()
             self.save_tbx()
 
     def source_localize_microstates(self):
@@ -921,6 +889,7 @@ class COMET:
 
         # Optionally save the results
         if self.auto_save:
+            self.save_config()
             self.save_tbx()
 
     def source_microstate_correlation(self, method='tess'):
@@ -956,6 +925,7 @@ class COMET:
 
         # Optionally save the results
         if self.auto_save:
+            self.save_config()
             self.save_tbx()
 
     # 	TODO: Need to expand this function to include the following:
@@ -963,6 +933,69 @@ class COMET:
     # 	2. Load the microstates
     # 	3. Run TESS and Averaging based on the user input
     # 	4. Save the results
+
+    def save_config(self):
+        """
+        Update and save the current configuration settings based on the COMET object attributes.
+        """
+
+        # Update the config dictionary with the current attribute values
+        self.config["io_config"]["study_name"] = self.study_name
+        self.config["io_config"]["input_folder"] = self.input_folder
+        self.config["io_config"]["channel_location_dir"] = self.channel_location_dir
+        self.config["io_config"]["extension"] = self.extension
+        self.config["io_config"]["pattern_content"] = self.pattern_content
+        self.config["io_config"]["datatype"] = self.datatype
+        self.config["io_config"]["output_folder"] = self.output_folder
+
+        self.config["preprocessing_config"]["filter_data"] = str(self.filter_data)
+        self.config["preprocessing_config"]["filter_method"] = self.filter_method
+        self.config["preprocessing_config"]["lowcut_freq"] = str(self.lowcut_freq)
+        self.config["preprocessing_config"]["highcut_freq"] = str(self.highcut_freq)
+        self.config["preprocessing_config"]["downsample_data"] = str(self.downsample_data)
+        self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
+        self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
+        self.config["preprocessing_config"]["chan2rm"] = str(self.chan2rm)
+
+        self.config["clustering_config"]["smoothing_gfp"] = str(self.smoothing_gfp)
+        self.config["clustering_config"]["smoothing_distance"] = str(self.smoothing_distance)
+        self.config["clustering_config"]["number_of_maps"] = str(self.number_of_maps)
+        if self.number_of_maps == "auto":
+            self.config["clustering_config"]["kmin"] = str(self.kmin)
+            self.config["clustering_config"]["kmax"] = str(self.kmax)
+            self.config["clustering_config"]["stopping_mode"] = self.stopping_mode
+            self.config["clustering_config"]["stopping_parameter"] = str(self.stopping_parameter)
+        self.config["clustering_config"]["use_percentages"] = str(self.use_percentages)
+        self.config["clustering_config"]["initializer"] = self.initializer
+        self.config["clustering_config"]["clustering_method"] = self.clustering_method
+        self.config["clustering_config"]["max_iterations"] = str(self.max_iterations)
+        self.config["clustering_config"]["clustering_tolerance"] = str(self.clustering_tolerance)
+        self.config["clustering_config"]["clustering_option"] = self.clustering_option
+        self.config["clustering_config"]["number_of_repeats"] = str(self.number_of_repeats)
+
+        self.config["backfitting_config"]["backfit_to"] = self.backfit_to
+        self.config["backfitting_config"]["identify_short_window"] = str(self.identify_short_window)
+        self.config["backfitting_config"]["filter_segments"] = str(self.filter_segments)
+        self.config["backfitting_config"]["remove_segments_less_than"] = str(self.remove_segments_less_than)
+        self.config["backfitting_config"]["filter_segments_option"] = self.filter_segments_option
+        self.config["backfitting_config"]["epsilon"] = str(self.epsilon)
+        self.config["backfitting_config"]["b"] = str(self.b)
+        self.config["backfitting_config"]["lamb"] = str(self.lamb)
+
+        self.config["features_config"]["export_format"] = self.export_format
+        self.config["features_config"]["feature_list"] = ', '.join(self.feature_list)
+        self.config["features_config"]["feature_mode"] = ', '.join(self.feature_mode)
+        self.config["features_config"]["feature_types"] = ', '.join(self.feature_types)
+        self.config["features_config"]["window_size"] = str(self.window_size)
+
+        self.config["source_config"]["inverse_method"] = self.inverse_method
+        self.config["source_config"]["nperm"] = str(self.nperm)
+        self.config["source_config"]["spacing"] = self.spacing
+        self.config["source_config"]["source_localization_method"] = self.source_localization_method
+        self.config["source_config"]["anatomy_subjects_dir"] = self.anatomy_subjects_dir
+
+        with open(self.config_path, 'w+') as configfile:
+            self.config.write(configfile)
 
     def save_tbx(self):
         """
@@ -972,9 +1005,6 @@ class COMET:
         self.log_text = self.LogWindow.ui.log_text_area.toPlainText()
         log_window = self.LogWindow
         self.LogWindow = None
-
-        # Define the path for saving the TBX object
-        self.tbx_object_path = os.path.join(self.save_dir, 'eeg_comet_parameters.pkl')
 
         # Serialize and save the TBX object
         with open(self.tbx_object_path, 'wb') as output:

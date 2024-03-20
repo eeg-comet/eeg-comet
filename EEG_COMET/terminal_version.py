@@ -9,7 +9,7 @@ def main():
 	warnings.simplefilter("ignore")
 	# ==================================================================
 	# TODO#1 set config file path here
-	config_file = './config.ini'
+	config_file = './default_config.ini'
 	# ==================================================================
 	config = load_config(config_file)
 	
@@ -51,13 +51,5 @@ def main():
 		i()
 
 
-
 if __name__ == '__main__':
 	main()
-
-
-
-
-
-
-

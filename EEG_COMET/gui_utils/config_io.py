@@ -16,10 +16,6 @@ def initialize_config(config_path, config):
     This function initializes a configuration dictionary with predefined sections and default values.
     It sets up various sections for different aspects of a data processing pipeline and assigns initial values.
     The purpose is to provide a structured way to manage and store settings for data processing steps.
-
-    Example usage:
-    >>> config = {}  # An empty dictionary to hold configuration settings
-    >>> initialize_config('/path/to/save/config.ini', config)
     """
 
     # Create sections for different processing aspects
@@ -61,10 +57,6 @@ def load_config(config_path):
     Explanation:
     This function reads and parses configuration settings from a specified file using the ConfigParser module.
     The ConfigParser object can be used to access and manipulate the loaded configuration values.
-
-    Example usage:
-    >>> loaded_config = load_config('/path/to/config.ini')
-    >>> value = loaded_config.get('section', 'option')
     """
 
     config = ConfigParser()  # Create a ConfigParser object
@@ -86,11 +78,6 @@ def save_config(config_path, config):
     Explanation:
     This function saves configuration settings from a ConfigParser object to a specified file.
     The ConfigParser object should contain the desired configuration values.
-
-    Example usage:
-    >>> config = ConfigParser()
-    >>> config['section']['option'] = 'value'
-    >>> save_config('/path/to/save/config.ini', config)
     """
 
     with open(config_path, 'w+') as configfile:
