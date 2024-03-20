@@ -212,7 +212,7 @@ class FeatureVisualizationWindow(QDialog):
         """
         Loads features from a file and returns them as a DataFrame.
         """
-        feature_path = os.path.join(self.extracted_features_path, f"{mode}_features{self.export_format}")
+        feature_path = os.path.join(self.extracted_features_path, f"real_{mode}_features{self.export_format}")
         return FeatureIO().import_features(feature_path, self.export_format)
 
     def clear_all_lists(self):
