@@ -13,14 +13,20 @@ class Worker(QThread):
     def __init__(self, max_value):
         super().__init__()
         self.max_value = max_value
+        self.stopped = False  # Flag to track thread stop request
 
     def run(self):
         for i in range(self.max_value):
-            if self.isInterruptionRequested():  # Check if the thread should be stopped
-                break
+            if self.stopped:  # Check if the thread should be stopped
+                break  # Exit the loop if stop is requested
             self.progress_updated.emit(i)
             self.msleep(100)
-        self.finished.emit()
+        if not self.stopped:
+            self.finished.emit()
+
+    def stop(self):
+        """Stop the thread."""
+        self.stopped = True
 
 
 class LogWindow(QWidget):
@@ -34,13 +40,7 @@ class LogWindow(QWidget):
         self.ui.setWindowTitle("EEG-COMET Log")
         self.ui.progress_stop_button.clicked.connect(self.stop_process)
         self.running = False
-        self.worker_thread = QThread()
-        self.worker = Worker(100)
-        self.worker.moveToThread(self.worker_thread)
-        self.worker_thread.start()
-        self.worker.progress_updated.connect(self.update_progress)
-        self.worker.finished.connect(self.process_finished)
-        self.stop_requested.connect(self.worker.requestInterruption)
+        self.worker_thread = None
 
     def append_log(self, log, log_type='info'):
         """Appends a log entry with the current date and time to the log_text list."""
@@ -64,7 +64,12 @@ class LogWindow(QWidget):
         self.setWindowTitle(window_title)
         self.ui.progress_label.setText(label_text)
         self.ui.progress_bar.setValue(0)
-        self.start_process(max_value)
+        self.ui.progress_bar.setRange(0, max_value)
+        self.running = True
+        self.worker_thread = Worker(max_value)
+        self.worker_thread.progress_updated.connect(self.update_progress)
+        self.stop_requested.connect(self.worker_thread.stop)
+        self.worker_thread.start()
 
     def update_progress(self, value, text=None):
         """Update the progress bar with the given value and maximum value."""
@@ -96,24 +101,12 @@ class LogWindow(QWidget):
         """Set the text of the line edit."""
         self.ui.progress_lineedit.setText(text)
 
-    def is_worker_thread_running(self):
-        """Check if the worker thread is running."""
-        return bool(self.worker is not None and self.worker.isRunning())
-
-    def start_process(self, max_value):
-        """Start the process."""
-        if self.running:
-            return
-        self.ui.progress_bar.setRange(0, max_value)
-        self.worker.start()
-        self.running = True
-
     def stop_process(self):
         """Stop the process."""
-        if self.is_worker_thread_running():
-            self.ui.progress_stop_button.setText("Please Wait...")
-            self.worker_thread.requestInterruption()
-            self.running = False
+        if self.worker_thread and self.worker_thread.isRunning() and self.running:
+            self.stop_requested.emit()
+            self.worker_thread.quit()
+        self.running = False
 
     def show_hide_log_window(self):
         """Toggle the visibility of the log window."""
