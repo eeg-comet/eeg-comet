@@ -212,11 +212,13 @@ class FeatureHelper:
         for i in range(len(input_sequence) - word_size + 1):
             # Extract consecutive substring of given length
             combination = input_sequence[i:i + word_size]
+            # Convert combination to a hashable type (e.g., tuple) before using it as a key
+            combination_key = tuple(combination)
             # Add combination to the dictionary and update its count
-            if combination not in real_dictionary:
-                real_dictionary[combination] = 1
+            if combination_key not in real_dictionary:
+                real_dictionary[combination_key] = 1
             else:
-                real_dictionary[combination] += 1
+                real_dictionary[combination_key] += 1
 
         # Generate sequence representation
         for word, count in real_dictionary.items():
