@@ -1134,6 +1134,9 @@ class MainMicrostateWindow(QMainWindow):
             if self.ui.step4_feature_er_checkbox.isChecked():
                 self.comet_tbx.feature_list.append("ER")
                 self.comet_tbx.word_size = int(self.ui.step4_word_size_min_input.text())
+            else:
+                self.comet_tbx.word_size = 2
+
 
             # Define feature extraction modes
             self.comet_tbx.feature_mode = []
