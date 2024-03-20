@@ -100,10 +100,9 @@ class BackfittingVisualizationWindow(QDialog):
 
     def _load_data_and_segmentation(self, selected_file_name):
         # Load EEG data and segmentation data from files
-        eeg_dir = os.path.join(self.preprocessed_data_path, f"{selected_file_name}{self.extension}")
-
         data_io = DataIO()
-        eeg = data_io.load_eegs(eeg_dir, self.datatype)
+        eeg_dir, _ = data_io.find_data(self.preprocessed_data_path, self.extension, pattern=f"*{selected_file_name}*")
+        eeg = data_io.load_eegs(eeg_dir[0], self.datatype)
         eeg_data = eeg.get_data()
         eeg_times = eeg.times * 1000
 
