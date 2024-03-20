@@ -68,8 +68,9 @@ class DataIO:
             for path, subdirs, files in os.walk(input_folder):
                 for name in files:
                     if os.path.splitext(name)[1] in valid_eeg_formats:
-                        list_path.append(os.path.join(path, name))
-                        list_filename.append(os.path.splitext(name)[0])
+                        if fnmatch(name, pattern):
+                            list_path.append(os.path.join(path, name))
+                            list_filename.append(os.path.splitext(name)[0])
         else:
             for path, subdirs, files in os.walk(input_folder):
                 for name in files:
