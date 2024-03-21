@@ -60,7 +60,7 @@ class MicrostateClusterer:
             float: Global explained variance.
         """
 
-        if data.shape[0] != maps.shape[1]:
+        if len(maps.shape) > 1 and data.shape[0] != maps.shape[1]:
             data = data.T
         gfp = np.std(data, axis=0)
         # Normalize maps
