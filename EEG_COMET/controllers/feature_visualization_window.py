@@ -193,7 +193,8 @@ class FeatureVisualizationWindow(QDialog):
         all_features_df = self.load_features("static")
         # Filter features_df based on selected files
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
-        self.plot_heatmap(features_df)
+        fontsize, labelsize, colormap = self.get_plot_parameters()
+        self.plot_heatmap(features_df, fontsize, labelsize)
         self.ui.plot_label.setText("Transition Probability Heatmap")
 
     def compare_groups(self):
@@ -278,7 +279,7 @@ class FeatureVisualizationWindow(QDialog):
         self.set_labels_ticks(filter_cols, feature, ax, fontsize, labelsize)
         self.canvas.draw()
 
-    def plot_heatmap(self, features_df, fontsize, labelsize, colormap):
+    def plot_heatmap(self, features_df, fontsize, labelsize):
         """
         Plots a heatmap for the transition probabilities.
         """
