@@ -602,7 +602,7 @@ class COMET:
             for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
                 self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
-                eeg = data_io.load_eegs(eeg_path, self.datatype)
+                eeg = data_io.load_eegs(eeg_path=eeg_path, datatype=self.datatype)
 
                 # Compute similarity scores for different segment removal lengths
                 for idx_win2rm, len_win2rm in enumerate(len_win2rm_list):
@@ -759,17 +759,18 @@ class COMET:
 
                     if 'GEV' in self.feature_list:
                         data_io = DataIO()
+                        eeg_path, _ = data_io.find_data(
+                            input_folder=self.preprocessed_data_path,
+                            extension=self.extension,
+                            pattern=f"*{segmentation_name}*"
+                        )
+                        eeg = data_io.load_eegs(eeg_path=eeg_path[0], datatype=self.datatype)
                         if self.datatype == 'epoched':
                             underscore_index = segmentation_name.rfind('_')
-                            eeg_filename = segmentation_name[:underscore_index]
                             trial_number = segmentation_name[underscore_index + 1:]
-                            eeg_path = os.path.join(self.preprocessed_data_path, f"{eeg_filename}{self.extension}")
-                            eeg = data_io.load_eegs(eeg_path, self.datatype)
                             trial_data = np.squeeze(eeg[int(trial_number)].get_data())
                         else:
-                            eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
-                            eeg = data_io.load_eegs(eeg_path, self.datatype)
-                            eeg_data = data_io.get_eeg_data(eeg, self.datatype)
+                            eeg_data = data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
 
                         output_features = feature_extractor.extract_microstate_features(
                             filename=segmentation_name,
@@ -801,8 +802,8 @@ class COMET:
                     if 'GEV' in self.feature_list:
                         data_io = DataIO()
                         eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
-                        eeg = data_io.load_eegs(eeg_path, self.datatype)
-                        eeg_data = data_io.get_eeg_data(eeg, self.datatype)
+                        eeg = data_io.load_eegs(eeg_path=eeg_path, datatype=self.datatype)
+                        eeg_data = data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
                         output_features = feature_extractor.extract_microstate_features(
                             filename=segmentation_name,
                             feature_list=self.feature_list,
