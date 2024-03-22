@@ -89,7 +89,8 @@ class OptimizerVisualizationWindow(QDialog):
         ax.axvline(x=self.optimizer_results[mode]['optimal_k'], color='r', linestyle='--', label='Optimal K')
         self.canvas.draw()
 
-    def get_metric_text(self, mode):
+    @staticmethod
+    def get_metric_text(mode):
         metrics = {'gev': 'Elbow - Global Explained Variance',
                    'res': 'Elbow - Residual Variance',
                    'cv': 'Cross Validation',
@@ -100,7 +101,7 @@ class OptimizerVisualizationWindow(QDialog):
 
     def plot_optimizer(self):
         optimizer_method = self.ui.optimizer_combobox.currentText()
-        threshold = float(self.ui.optimizer_stopping_threshold_input.text())
+        threshold = int(float(self.ui.optimizer_stopping_threshold_input.text()))
         if optimizer_method == 'Gap Statistic':
             self.show_optimizer('gs', threshold)
         elif optimizer_method == 'Cross Validation':
