@@ -16,7 +16,7 @@ class SourceVisualizationWindow(QDialog):
         self.list_subjects = None
         self.comet_tbx = comet_tbx
 
-        if not self.comet_tbx.use_anatomy == "fsaverage":
+        if self.comet_tbx.use_anatomy != "fsaverage":
             self.subjects_dir = self.comet_tbx.individual_subjects_dir
         else:
             fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
@@ -50,24 +50,25 @@ class SourceVisualizationWindow(QDialog):
     def locate_subjects_dir(self):
         self.ui.subjects_list.clear()
         subjects_dir = os.path.join(self.comet_tbx.localized_sources_path, 'stc')
-        list_subjects = [folder for folder in os.listdir(subjects_dir) if os.path.isdir(os.path.join(subjects_dir, folder))]
-        self.list_subjects = list_subjects
-
-        for i in range(len(list_subjects)):
-            self.ui.subjects_list.addItem(str(list_subjects[i]))
-
+        self.list_subjects = [
+            folder for folder in os.listdir(subjects_dir) if os.path.isdir(os.path.join(subjects_dir, folder))
+        ]
+        for list_subject in self.list_subjects:
+            self.ui.subjects_list.addItem(str(list_subject))
         self.ui.subjects_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
     def handle_new_file_selection(self):
         self.ui.microstates_list_combobox.clear()
         selected_items = self.ui.subjects_list.selectedItems()
         self.selected_subjects = [item.text() for item in selected_items]
-
         self.tess_dir = os.path.join(self.comet_tbx.localized_sources_path, 'tess_sources')
-        list_tess_subjects = [folder for folder in self.selected_subjects if os.path.isdir(os.path.join(self.tess_dir, folder))]
-
+        list_tess_subjects = [
+            folder for folder in self.selected_subjects if os.path.isdir(os.path.join(self.tess_dir, folder))
+        ]
         self.avg_dir = os.path.join(self.comet_tbx.localized_sources_path, 'avg_sources')
-        list_avg_subjects = [folder for folder in self.selected_subjects if os.path.isdir(os.path.join(self.avg_dir, folder))]
+        list_avg_subjects = [
+            folder for folder in self.selected_subjects if os.path.isdir(os.path.join(self.avg_dir, folder))
+        ]
 
         plottable = False
 
