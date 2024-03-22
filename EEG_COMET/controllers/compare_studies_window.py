@@ -40,12 +40,12 @@ class CompareStudiesWindow(QDialog):
         self.ui.correlations_textedit.clear()
         self.ui.stats_textedit.clear()
 
-        study2_widgets = [self.ui.load_study2_button, self.ui.study2_name_label, self.ui.study2_file_list,
-                          self.ui.correlations_textedit, self.canvas_microstates_study2]
         if self.study1_loaded:
             self.ui.study1_name_label.setText(self.comet_tbx_study1.study_name)
             self.feature_list_dictionary = self.comet_tbx_study1.feature_list_dictionary
 
+            study2_widgets = [self.ui.load_study2_button, self.ui.study2_name_label, self.ui.study2_file_list,
+                              self.ui.correlations_textedit, self.canvas_microstates_study2]
             if self.ui.compare_study2_radio.isChecked():
                 set_widgets_status(study2_widgets, mode='enable')
                 set_widgets_status(study2_widgets, mode='show')
@@ -61,7 +61,7 @@ class CompareStudiesWindow(QDialog):
                     common_features = [feat for feat in self.comet_tbx_study1.feature_list
                                        if feat in self.comet_tbx_study2.feature_list]
                     self.ui.feature_combo.clear()
-                    self.ui.feature_combo.addItems([i for i in common_features])
+                    self.ui.feature_combo.addItems(list(common_features))
                     self.update_corr_stats()
                 else:
                     set_widgets_status(self.ui.plot_features_button, mode='disable')
@@ -84,8 +84,7 @@ class CompareStudiesWindow(QDialog):
 
     def update_plot_label(self):
         """Updates the plot label based on the selected feature."""
-        selected_feature = self.ui.feature_combo.currentText()
-        if selected_feature:
+        if selected_feature := self.ui.feature_combo.currentText():
             self.ui.plot_label.setText(f"{self.feature_list_dictionary[selected_feature]}")
 
     def connect_ui(self):
@@ -207,7 +206,8 @@ class CompareStudiesWindow(QDialog):
         plot_data.columns = ['Filename', 'Study', 'Feature', selected_feature]
         return plot_data, feature_list
 
-    def plot_microstates_with_labels(self, microstate, micro_label, eeg_info, ax):
+    @staticmethod
+    def plot_microstates_with_labels(microstate, micro_label, eeg_info, ax):
         """Plots microstates with corresponding labels on a given axis."""
 
         # Plot the microstate
@@ -229,9 +229,7 @@ class CompareStudiesWindow(QDialog):
             ax.set_ylabel('')
 
         # Create subplots for each microstate
-        axs = [figure.add_subplot(1, len(tbx.micro_labels), idx + 1) for idx in
-                    range(len(tbx.micro_labels))
-               ]
+        axs = [figure.add_subplot(1, len(tbx.micro_labels), idx + 1) for idx in range(len(tbx.micro_labels))]
 
         for idx, ax_idx in enumerate(range(len(tbx.micro_labels))):
             # Plot the microstate with the corresponding label
@@ -344,7 +342,6 @@ class CompareStudiesWindow(QDialog):
         # Filter DataFrames based on selected feature and study
         selected_feature_study1_df = common_features_df[common_features_df['Study'] == self.comet_tbx_study1.study_name]
         selected_feature_study1_df = selected_feature_study1_df.sort_values(by='Filename')
-
 
         selected_feature_study2_df = common_features_df[common_features_df['Study'] == self.study2_name]
         selected_feature_study2_df = selected_feature_study2_df.sort_values(by='Filename')
