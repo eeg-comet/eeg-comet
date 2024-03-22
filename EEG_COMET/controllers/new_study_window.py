@@ -35,7 +35,7 @@ class NewStudyWindow(QDialog):
         self.ui.step0_template_montage_combobox.addItems(builtin_montages)
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.ui.Figure_Layout.addWidget(self.canvas)
 
     def setup_connections(self):
@@ -79,27 +79,20 @@ class NewStudyWindow(QDialog):
             (self.ui.show_psd_button, self.plot_psd),
             (self.ui.rawdata_plot_button, self.plot_eeg),
         ]
-        for button, action in buttons_actions:
-            if isinstance(button, QComboBox):
-                button.activated.connect(action)
-            else:
-                button.clicked.connect(action)
+        [button.activated.connect(action) if isinstance(button, QComboBox) else button.clicked.connect(action) for
+         button, action in buttons_actions]
 
     def newstudy_controller(self):
         """
         Control the behavior of the New Study window based on user selections.
         """
-
+        common_message = f"Load {self.get_data_type()} EEG data with {self.get_extension()} extension"
         if self.ui.step0_load_all_radio.isChecked():
-            self.ui.step0_import_log_lineedit.setText(
-                f"Load all {self.get_data_type()} EEG data with {self.get_extension()} extension.")
+            self.ui.step0_import_log_lineedit.setText(f"{common_message} all.")
             self.ui.step0_import_pattern_lineedit.clear()
-        if self.ui.step0_load_pattern_radio.isChecked() and self.ui.step0_import_pattern_lineedit.text().strip():
-            self.ui.step0_import_log_lineedit.setText(
-                f"Load {self.get_data_type()} EEG data with {self.get_extension()} extension that contain "
-                f"'{self.ui.step0_import_pattern_lineedit.text()}' in their filenames."
-            )
-
+        elif self.ui.step0_load_pattern_radio.isChecked() and self.ui.step0_import_pattern_lineedit.text().strip():
+            pattern = self.ui.step0_import_pattern_lineedit.text()
+            self.ui.step0_import_log_lineedit.setText(f"{common_message} that contain '{pattern}' in their filenames.")
         plot_widgets = [
             self.ui.rawdata_plot_button,
             self.ui.show_montage_button,
@@ -113,7 +106,6 @@ class NewStudyWindow(QDialog):
             self.ui.rawdata_range_hz1,
             self.ui.rawdata_range_hz2
         ]
-
         import_data_widgets = [
             self.ui.step0_input_path_label,
             self.ui.step0_study_name_label,
@@ -130,7 +122,6 @@ class NewStudyWindow(QDialog):
             self.ui.step0_load_pattern_radio,
             self.ui.step0_import_log_lineedit
         ]
-
         preprocessing_widgets = [
             self.ui.step0_montage_label,
             self.ui.step0_load_montage_radio,
@@ -147,7 +138,6 @@ class NewStudyWindow(QDialog):
             self.ui.step0_save_path_lineedit,
             self.ui.step0_preprocess_data_button
         ]
-
         filter_sub_widgets = [
             self.ui.step0_filter_method_label,
             self.ui.step0_fir_filtermethod_radio,
@@ -159,13 +149,11 @@ class NewStudyWindow(QDialog):
             self.ui.step0_highcut_freq_input,
             self.ui.step0_filt_hz2
         ]
-
         downsample_sub_widgets = [
             self.ui.step0_downsamp_freq_label,
             self.ui.step0_downsamp_freq_input,
             self.ui.step0_downsamp_hz
         ]
-
         if self.ui.step0_import_data_radio.isChecked():
             widgets_to_rm = (
                     preprocessing_widgets +
@@ -177,116 +165,82 @@ class NewStudyWindow(QDialog):
             set_widgets_status(self.ui.step0_import_raw_button, mode='show')
             set_widgets_status(widgets_to_rm, mode='disable')
             set_widgets_status(widgets_to_rm, mode='hide')
-
             set_widgets_status(
                 self.ui.step0_import_pattern_lineedit,
                 'enable' if self.ui.step0_load_pattern_radio.isChecked()
                 else 'disable')
-
             if (self.ui.step0_study_name_lineedit.text()
                     and self.ui.step0_input_path_lineedit):
-
-                set_widgets_status(self.ui.step0_import_raw_button, mode='enable')
-                self.ui.step0_remove_file_button.setEnabled(True)
-                self.ui.step0_clear_files_button.setEnabled(True)
-                # Enable Preprocessing Options
-                set_widgets_status(preprocessing_widgets, mode='enable')
-
+                widgets_to_enable = [self.ui.step0_import_raw_button, self.ui.step0_remove_file_button,
+                                     self.ui.step0_clear_files_button] + preprocessing_widgets
+                set_widgets_status(widgets_to_enable, mode='enable')
             else:
-                # Disable Next Steps
-                self.ui.step0_remove_file_button.setDisabled(True)
-                self.ui.step0_clear_files_button.setDisabled(True)
-                # Disable Plot Options
-                set_widgets_status(plot_widgets, mode='disable')
-                # Disable Preprocessing Options
-                set_widgets_status(preprocessing_widgets, mode='disable')
-
-        if not self.ui.step0_selected_files_list.count() == 0:
+                widgets_to_disable = [self.ui.step0_remove_file_button,
+                                      self.ui.step0_clear_files_button] + plot_widgets + preprocessing_widgets
+                set_widgets_status(widgets_to_disable, mode='disable')
+        if self.ui.step0_selected_files_list.count() != 0:
             set_widgets_status(self.ui.step0_preprocess_radio, mode='enable')
-
-            # Enable Plot Options
             if self.ui.step0_selected_files_list.currentItem():
                 set_widgets_status(plot_widgets, mode='enable')
         else:
             set_widgets_status(self.ui.step0_preprocess_radio, mode='disable')
-
         if self.ui.step0_preprocess_radio.isChecked():
-            widgets_to_show = (
-                    preprocessing_widgets +
-                    filter_sub_widgets +
-                    downsample_sub_widgets
-            )
+            widgets_to_show = preprocessing_widgets + filter_sub_widgets + downsample_sub_widgets
+            widgets_to_hide_or_disable = [self.ui.step0_import_raw_button] + import_data_widgets
             set_widgets_status(widgets_to_show, mode='show')
-            set_widgets_status(self.ui.step0_import_raw_button, mode='disable')
-            set_widgets_status(self.ui.step0_import_raw_button, mode='hide')
-            set_widgets_status(import_data_widgets, mode='disable')
-            set_widgets_status(import_data_widgets, mode='hide')
-
-            set_widgets_status(
-                self.ui.step0_template_montage_combobox,
-                'enable' if self.ui.step0_use_template_montage_radio.isChecked()
-                else 'disable')
-
-            set_widgets_status(
-                self.ui.step0_chanloc_path_lineedit,
-                'enable' if self.ui.step0_load_montage_radio.isChecked()
-                else 'disable')
-
-            set_widgets_status(
-                self.ui.step0_ch2rm_combobox,
-                'enable' if self.ui.step0_ch2rm_radio.isChecked()
-                else 'disable')
-
+            set_widgets_status(widgets_to_hide_or_disable, mode='disable')
+            set_widgets_status(widgets_to_hide_or_disable, mode='hide')
+            widget_conditions = [
+                (self.ui.step0_template_montage_combobox, self.ui.step0_use_template_montage_radio.isChecked()),
+                (self.ui.step0_chanloc_path_lineedit, self.ui.step0_load_montage_radio.isChecked()),
+                (self.ui.step0_ch2rm_combobox, self.ui.step0_ch2rm_radio.isChecked())
+            ]
+            for widget, condition in widget_conditions:
+                set_widgets_status(widget, 'enable' if condition else 'disable')
             if self.ui.step0_ch2rm_missing_radio.isChecked():
                 self.ui.step0_ch2rm_combobox.deselectAllItems()
-
-            if self.ui.step0_filter_option_checkbox.isChecked():
-                self.filter_data = True
-                set_widgets_status(filter_sub_widgets, mode='enable')
-            else:
-                self.filter_data = False
+            self.filter_data = self.ui.step0_filter_option_checkbox.isChecked()
+            set_widgets_status(filter_sub_widgets, mode='enable' if self.filter_data else 'disable')
+            if not self.filter_data:
                 self.lowcut_freq = ''
                 self.highcut_freq = ''
-                set_widgets_status(filter_sub_widgets, mode='disable')
-            if self.ui.step0_downsamp_option_checkbox.isChecked():
-                self.ui.downsample_data = True
-                set_widgets_status(downsample_sub_widgets, mode='enable')
-            else:
-                self.downsample_data = False
-                set_widgets_status(downsample_sub_widgets, mode='disable')
-
-            set_widgets_status(
-                self.ui.step0_preprocess_data_button, 'enable' if self.ui.step0_save_path_lineedit.text()
-                else 'disable')
+            self.downsample_data = self.ui.step0_downsamp_option_checkbox.isChecked()
+            set_widgets_status(downsample_sub_widgets, mode='enable' if self.downsample_data else 'disable')
+            set_widgets_status(self.ui.step0_preprocess_data_button,
+                               'enable' if self.ui.step0_save_path_lineedit.text() else 'disable')
 
     def choose_input(self):
         """
         Open a file dialog to select the folder containing raw data
         """
-        fname = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
-        self.input_folder = fname
-        self.ui.step0_input_path_lineedit.setText(fname)
+        self.input_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
+        self.ui.step0_input_path_lineedit.setText(self.input_folder)
         self.newstudy_controller()
 
     def load_custom_montage(self):
         """
         Load a custom montage file and set the channel location directory.
         """
-        fname, _ = QFileDialog.getOpenFileName(self, "Select the file containing the channel locations")
-        if os.path.isfile(fname):
-            chan_loc_extension = os.path.basename(fname).split('.')[-1]
-            valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
-                                         'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
-            if chan_loc_extension not in valid_chan_loc_extensions:
-                QMessageBox.information(
-                    self, "Load error",
-                    "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
-                    "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
-                    "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)",  QMessageBox.Ok)
-                self.comet_tbx.channel_location_dir = ''
-            else:
-                self.comet_tbx.channel_location_dir = fname
-                self.ui.step0_chanloc_path_lineedit.setText(fname)
+        file_dialog = QFileDialog()
+        file_dialog.setFileMode(QFileDialog.ExistingFiles)
+        file_dialog.setWindowTitle("Select the file(s) containing the channel locations")
+        if file_dialog.exec_():
+            file_names = file_dialog.selectedFiles()
+            for fname in file_names:
+                chan_loc_extension = os.path.basename(fname).split('.')[-1]
+                valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
+                                             'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
+                if chan_loc_extension not in valid_chan_loc_extensions:
+                    QMessageBox.information(
+                        self, "Load error",
+                        "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
+                        "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
+                        "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)", QMessageBox.Ok)
+                    self.comet_tbx.channel_location_dir = ''
+                    return
+                else:
+                    self.comet_tbx.channel_location_dir = fname
+                    self.ui.step0_chanloc_path_lineedit.setText(fname)
 
     def load_template_montage(self):
         """
@@ -309,21 +263,14 @@ class NewStudyWindow(QDialog):
         """
         Get the selected data type based on the radio button.
         """
-        if self.ui.step0_import_raw_radio.isChecked():
-            data_type = "raw"
-        elif self.ui.step0_import_epoched_radio.isChecked():
-            data_type = "epoched"
-        else:
-            raise ValueError("Failed to match data_type")
-        return data_type
+        return "epoched" if self.ui.step0_import_epoched_radio.isChecked() else "raw"
 
     def update_channel_names(self):
         """
         Update the channel names based on the selected EEG file.
         """
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        data_io = DataIO()
-        eeg = data_io.load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
+        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
         if not np.isnan(eeg.info['chs'][0]['loc'][0]):
             montage = eeg.get_montage()
             channel_names = montage.ch_names
@@ -340,7 +287,6 @@ class NewStudyWindow(QDialog):
         Load raw EEG data and update the selected files list.
         """
         self.ui.step0_selected_files_list.clear()
-
         self.comet_tbx.load_all_files = self.ui.step0_load_all_radio.isChecked()
         self.comet_tbx.pattern_content = self.ui.step0_import_pattern_lineedit.text()
         self.comet_tbx.input_folder = self.input_folder
@@ -349,7 +295,9 @@ class NewStudyWindow(QDialog):
         self.comet_tbx.load_raw()
         for i in range(len(self.comet_tbx.list_eegs_path)):
             self.ui.step0_selected_files_list.addItem(str(self.comet_tbx.list_eegs_path[i]))
-        self.ui.step0_import_log_lineedit.setText(f"{str(len(self.comet_tbx.list_eegs_path))} EEG data were detected.")
+        self.ui.step0_import_log_lineedit.setText(
+            f"{len(self.comet_tbx.list_eegs_path)} EEG data were detected."
+        )
         if len(self.comet_tbx.list_eegs_path) > 0:
             self.ui.step0_preprocess_radio.setChecked(True)
         self.newstudy_controller()
@@ -361,17 +309,13 @@ class NewStudyWindow(QDialog):
         save_parent_directory = QFileDialog.getExistingDirectory(
             self, "Select a parent folder to create a new study folder within.")
         self.study_name = self.ui.step0_study_name_lineedit.text()
-
         if not os.path.exists(save_parent_directory):
             print("Unable to find selected directory")
             return
-
         if not self.study_name:
             self.study_name = "EEG_COMET_NEW_STUDY"
             self.ui.step0_study_name_lineedit.setText(self.study_name)
-
         save_directory = os.path.join(save_parent_directory, self.study_name)
-
         if os.path.exists(save_directory):
             QMessageBox.information(self, "A folder with the same study name already exists!",
                                     "Please choose another directory or rename your study.",
@@ -379,18 +323,16 @@ class NewStudyWindow(QDialog):
         else:
             self.save_dir = save_directory
             self.ui.step0_save_path_lineedit.setText(self.save_dir)
-
         self.newstudy_controller()
 
     def remove_file(self):
         """
         Remove the selected files from the selected files list.
         """
-        list_items = self.step0_selected_files_list.selectedItems()
-        if not list_items: return
-        for item in list_items:
-            # To remove items from the list, use takeItem() .
-            self.step0_selected_files_list.takeItem(self.step0_selected_files_list.row(item))
+        selected_items = self.step0_selected_files_list.selectedItems()
+        if not selected_items:
+            return
+        [self.step0_selected_files_list.takeItem(self.step0_selected_files_list.row(item)) for item in selected_items]
         self.newstudy_controller()
 
     def clear_files(self):
@@ -406,66 +348,36 @@ class NewStudyWindow(QDialog):
         Perform data preprocessing based on user-selected options.
         """
         os.makedirs(self.save_dir)
-        self.preprocessed_data_path = os.path.join(self.save_dir, self.study_name+'_preprocessed_data')
-
-        if self.ui.step0_filter_option_checkbox.isChecked():
-            self.filter_data = True
+        self.preprocessed_data_path = os.path.join(
+            self.save_dir, f'{self.study_name}_preprocessed_data'
+        )
+        self.filter_data = self.ui.step0_filter_option_checkbox.isChecked()
+        if self.filter_data:
             if self.ui.step0_lowcut_freq_input.text() >= self.ui.step0_highcut_freq_input.text():
                 QMessageBox.information(self, "Filter Error",
                                         "Please modify the filter range!",
                                         QMessageBox.Ok)
-            if self.ui.step0_fir_filtermethod_radio.isChecked():
-                self.filter_method = 'fir'
-            elif self.ui.step0_iir_filtermethod_radio.isChecked():
-                self.filter_method = 'iir'
-
+            self.filter_method = 'fir' if self.ui.step0_fir_filtermethod_radio.isChecked() else 'iir'
             self.lowcut_freq = int(self.ui.step0_lowcut_freq_input.text())
             self.highcut_freq = int(self.ui.step0_highcut_freq_input.text())
-
         else:
-            self.filter_data = False
             self.filter_method = ''
             self.lowcut_freq = ''
             self.highcut_freq = ''
-
-        if self.ui.step0_downsamp_option_checkbox.isChecked():
-            self.sample_rate = int(self.ui.step0_downsamp_freq_input.text())
-        else:
-            self.downsample_data = False
-            self.sample_rate = ''
-
-        if self.ui.step0_ch2rm_radio.isChecked():
-            self.chan2rm = self.ui.step0_ch2rm_combobox.currentData()
-        elif self.ui.step0_ch2rm_missing_radio.isChecked():
-            self.chan2rm = 'missing'
-
-        self.comet_tbx.preprocessed_data_path = self.preprocessed_data_path
-        self.comet_tbx.filter_data = self.filter_data
-        self.comet_tbx.filter_method = self.filter_method
-        self.comet_tbx.lowcut_freq = self.lowcut_freq
-        self.comet_tbx.highcut_freq = self.highcut_freq
-        self.comet_tbx.downsample_data = self.downsample_data
-        self.comet_tbx.sample_rate = self.sample_rate
-        self.comet_tbx.chan2rm = self.chan2rm
-        self.comet_tbx.save_dir = self.save_dir
+        self.downsample_data = self.ui.step0_downsamp_option_checkbox.isChecked()
+        self.sample_rate = int(self.ui.step0_downsamp_freq_input.text()) if self.downsample_data else ''
+        self.chan2rm = (self.ui.step0_ch2rm_combobox.currentData() if self.ui.step0_ch2rm_radio.isChecked()
+                        else 'missing')
+        attributes = ['preprocessed_data_path', 'filter_data', 'filter_method', 'lowcut_freq',
+                      'highcut_freq', 'downsample_data', 'sample_rate', 'chan2rm', 'save_dir']
+        for attr in attributes:
+            setattr(self.comet_tbx, attr, getattr(self, attr))
         self.comet_tbx.study_name = self.ui.step0_study_name_lineedit.text()
         self.comet_tbx.eeg_info_path = os.path.join(self.comet_tbx.save_dir, "eeg_info.pkl")
-
-        list_eegs = []
-        for eegpath in self.comet_tbx.list_eegs:
-            eegfilename = os.path.basename(eegpath)
-            eegfilename = os.path.splitext(eegfilename)[0]
-            list_eegs = np.append(list_eegs, eegfilename)
-        #list_eegs = ','.join(map(str, list_eegs))
-
         self.comet_tbx.do_preprocessing()
         self.done_preprocessing = True
         self.comet_tbx.save_tbx()
-
         if self.main_window:
-            # self.main_window.tbx = self.comet_tbx
-            # if hasattr(self.comet_tbx, 'log_text'):
-            #     self.comet_tbx.LogWindow.replace_log(self.comet_tbx.log_text)
             self.main_window.load_study(from_new_study=True)
         self.ui.close()
 
@@ -482,19 +394,11 @@ class NewStudyWindow(QDialog):
                                     "Please ensure they are imported before proceeding.",
                                     QMessageBox.Ok)
         else:
-            #montage = EEG.get_montage()
-            if self.ui.rawdata_show_channel_names_checkbox.isChecked():
-                show_names = True
-            else:
-                show_names = False
-
+            show_names = self.ui.rawdata_show_channel_names_checkbox.isChecked()
             if self.ui.step0_ch2rm_combobox.currentData():
                 self.chan2rm = self.ui.step0_ch2rm_combobox.currentData()
                 eeg.info["bads"].extend(self.chan2rm)
-
             fig, _ = eeg.plot_sensors(kind='select', show_names=show_names, show=False)
-            #fig = montage.plot(show_names=show_names)
-
             self.ui.figure_title_lineedit.setText("EEG Montage")
             self.canvas.figure = fig
             self.canvas.draw()
@@ -512,22 +416,17 @@ class NewStudyWindow(QDialog):
         Plot the Power Spectral Density (PSD) of EEG data.
         """
         self.canvas.figure.clear()
-        # self.ui.MplWidget.canvas.draw()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         eeg = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype,
                                  self.comet_tbx.channel_location_dir, [])
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())
-            if self.ui.step0_fir_filtermethod_radio.isChecked():
-                filter_method = 'fir'
-            elif self.ui.step0_iir_filtermethod_radio.isChecked():
-                filter_method = 'iir'
+            filter_method = 'iir' if self.ui.step0_iir_filtermethod_radio.isChecked() else 'fir'
             eeg = eeg.filter(l_freq=lowcut, h_freq=highcut, method=filter_method, n_jobs=-1)
         fmin_plot = int(self.ui.rawdata_range_psd_min.text())
         fmax_plot = int(self.ui.rawdata_range_psd_max.text())
         fig = eeg.compute_psd(fmin=fmin_plot, fmax=fmax_plot).plot(show=False)
-        #mne.viz.plot_raw_psd(EEG, fmin=fmin_plot, fmax=fmax_plot, ax=ax)
         self.canvas.figure = fig
         self.ui.figure_title_lineedit.setText("Power Spectral Density (PSD) using Multitapers")
         self.canvas.draw()
