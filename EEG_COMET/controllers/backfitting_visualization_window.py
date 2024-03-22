@@ -73,7 +73,8 @@ class BackfittingVisualizationWindow(QDialog):
             selected_file_name = self.ui.eeg_filenames_combobox.currentText()
             files = os.listdir(self.segmentation_path)
             # Count the files that start with the specified prefix
-            num_trials = sum(1 for file in files if file.startswith(selected_file_name))
+            num_trials = sum(bool(file.startswith(selected_file_name))
+                             for file in files)
             self.ui.num_trials_spinbox.setRange(0, num_trials - 1)
         else:
             set_widgets_status(epoched_data_widgets, mode='disable')
@@ -173,7 +174,7 @@ class BackfittingVisualizationWindow(QDialog):
         unique_labels = sorted(set(segmentation_data))
         cm = plt.get_cmap(colormap)
         unique_colors = [cm(1. * i / len(unique_labels)) for i in range(len(unique_labels))]
-        color_map = {label: color for label, color in zip(unique_labels, unique_colors)}
+        color_map = dict(zip(unique_labels, unique_colors))
         legend_elements = [Patch(facecolor=color, edgecolor='none', label=label) for
                            label, color in zip(unique_labels, unique_colors)]
         return legend_elements, color_map
