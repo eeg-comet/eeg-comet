@@ -1,6 +1,8 @@
 
 import numpy as np
 import collections
+from mne.preprocessing import ICA
+from mne_icalabel import label_components
 from data_utils.data_io import DataIO
 
 
@@ -72,6 +74,15 @@ class DataPreprocessor:
         eeg.set_eeg_reference('average', projection=True, verbose=verbose)
         # Apply the added projection
         eeg.apply_proj(verbose=verbose)
+
+        # if ica_bool:
+        ica = ICA(n_components=None, random_state=97, max_iter=800)
+        ica.fit(eeg)
+        ica_labels = label_components(eeg, ica, method='iclabel')
+        non_brain_indices = [i for i, label in enumerate(ica_labels['labels']) if label != 'brain']
+        print(non_brain_indices)
+        ica.exclude = non_brain_indices
+        eeg = ica.apply(eeg)
 
         # Get the raw data or combine epoched data
         eeg_data = DataIO.get_eeg_data(eeg, datatype)
