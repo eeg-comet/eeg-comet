@@ -63,7 +63,7 @@ class DataIO:
             valid_eeg_formats = [
                 ".vhdr", ".edf", ".bdf", ".gdf",
                 ".cnt", ".egi", ".mff", ".set",
-                ".data", ".nxe", ".lay", ".eeg"
+                ".data", ".nxe", ".lay"
             ]
             for path, subdirs, files in os.walk(input_folder):
                 for name in files:
@@ -102,7 +102,8 @@ class DataIO:
             if datatype == 'raw':
                 eeg = mne.io.read_raw(eeg_path, preload=True, verbose=False)
             elif datatype == 'epoched':
-                eeg = mne.io.read_epochs(eeg_path, verbose=False)
+                eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=False)
+                # eeg = mne.io.read_epochs(eeg_path, verbose=False)
             try:
                 if os.path.isfile(channel_location_dir):
                     montage = mne.channels.read_custom_montage(channel_location_dir)

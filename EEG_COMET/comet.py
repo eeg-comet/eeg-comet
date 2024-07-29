@@ -100,6 +100,7 @@ class COMET:
         self.downsample_data = preprocessing_config.getboolean("downsample_data", True)
         if self.downsample_data:
             self.sample_rate = preprocessing_config.getint("sample_rate", 250)
+        self.iclabel_data = preprocessing_config.getboolean("iclabel_data", False)
         self.remove_channels = preprocessing_config.getboolean("remove_channels", False)
         if self.remove_channels:
             self.chan2rm = preprocessing_config.get("ch2rm", "")
@@ -253,6 +254,7 @@ class COMET:
                 lowcut=self.lowcut_freq,
                 highcut=self.highcut_freq,
                 downsample_bool=self.downsample_data,
+                iclabel_bool=self.iclabel_data,
                 sampling_rate=self.sample_rate,
                 chan2rm=self.chan2rm
             )
@@ -319,6 +321,7 @@ class COMET:
         # Check if clustering method is supported
         available_methods = [
             'Modified K-Means Clustering',
+            'My Clustering',
             'K-Means Clustering',
             'PCA + K-Means Clustering',
             'Autoencoder + K-Means Clustering',
@@ -467,6 +470,15 @@ class COMET:
             # self.best_maps = modified_kmeans_results['best']['maps']
             # self.best_gev = modified_kmeans_results['best']['gev']
             # self.best_residual = modified_kmeans_results['best']['residual']
+
+        elif self.clustering_method == 'My Clustering':
+
+            self.best_maps = microstate_clusterer.my_cluster(
+                data=self.maps2use,
+                eeg_info=self.eeg_info,
+                n_states=self.number_of_maps
+            )
+            self.best_gev = microstate_clusterer.compute_gev(data=all_data, maps=self.best_maps)
 
         else:
             initial_maps = data_initializer.initialize_cluster_centers(
@@ -954,6 +966,7 @@ class COMET:
         self.config["preprocessing_config"]["lowcut_freq"] = str(self.lowcut_freq)
         self.config["preprocessing_config"]["highcut_freq"] = str(self.highcut_freq)
         self.config["preprocessing_config"]["downsample_data"] = str(self.downsample_data)
+        self.config["preprocessing_config"]["iclabel_data"] = str(self.iclabel_data)
         self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
         self.config["preprocessing_config"]["chan2rm"] = str(self.chan2rm)

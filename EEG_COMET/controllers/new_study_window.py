@@ -33,6 +33,7 @@ class NewStudyWindow(QDialog):
         self.CheckableComboBox_Layout.addWidget(self.ui.step0_ch2rm_combobox)
         builtin_montages = mne.channels.get_builtin_montages()
         self.ui.step0_template_montage_combobox.addItems(builtin_montages)
+        self.ui.step0_template_montage_combobox.setCurrentText("standard_1020")
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
@@ -54,6 +55,7 @@ class NewStudyWindow(QDialog):
             self.ui.step0_use_template_montage_radio,
             self.ui.step0_filter_option_checkbox,
             self.ui.step0_downsamp_option_checkbox,
+            self.ui.step0_iclabel_option_checkbox,
             self.ui.step0_ch2rm_radio,
             self.ui.step0_ch2rm_missing_radio,
         ]
@@ -130,6 +132,7 @@ class NewStudyWindow(QDialog):
             self.step0_template_montage_combobox,
             self.ui.step0_filter_option_checkbox,
             self.ui.step0_downsamp_option_checkbox,
+            self.ui.step0_iclabel_option_checkbox,
             self.ui.step0_ch2rm_label,
             self.ui.step0_ch2rm_radio,
             self.ui.step0_ch2rm_combobox,
@@ -208,6 +211,7 @@ class NewStudyWindow(QDialog):
             set_widgets_status(downsample_sub_widgets, mode='enable' if self.downsample_data else 'disable')
             set_widgets_status(self.ui.step0_preprocess_data_button,
                                'enable' if self.ui.step0_save_path_lineedit.text() else 'disable')
+            self.iclabel_data = self.ui.step0_iclabel_option_checkbox.isChecked()
 
     def choose_input(self):
         """
@@ -271,16 +275,19 @@ class NewStudyWindow(QDialog):
         """
         filename = self.ui.step0_selected_files_list.currentItem().text()
         eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
+        data_channel_names = eeg.info['ch_names']
+        self.ui.step0_ch2rm_combobox.addItems(data_channel_names)
+        montage = None
         if not np.isnan(eeg.info['chs'][0]['loc'][0]):
             montage = eeg.get_montage()
-            channel_names = montage.ch_names
-        elif self.ui.step0_load_montage_radio.isChecked() and os.path.isfile(self.ui.step0_chanloc_path_lineedit):
-            montage = mne.channels.read_custom_montage(self.comet_tbx.channel_location_dir)
-            channel_names = montage.ch_names
+        elif self.ui.step0_load_montage_radio.isChecked() and os.path.isfile(
+                self.ui.step0_chanloc_path_lineedit.text()):
+            montage = mne.channels.read_custom_montage(self.ui.step0_chanloc_path_lineedit.text())
         elif self.ui.step0_use_template_montage_radio.isChecked():
+            if not self.comet_tbx.channel_location_dir:
+                self.comet_tbx.channel_location_dir = "standard_1020"
             montage = mne.channels.make_standard_montage(self.comet_tbx.channel_location_dir)
-            channel_names = montage.ch_names
-        self.ui.step0_ch2rm_combobox.addItems(channel_names)
+        eeg.set_montage(montage, match_case=False, on_missing='warn')
 
     def load_raw(self):
         """
@@ -366,6 +373,7 @@ class NewStudyWindow(QDialog):
             self.highcut_freq = ''
         self.downsample_data = self.ui.step0_downsamp_option_checkbox.isChecked()
         self.sample_rate = int(self.ui.step0_downsamp_freq_input.text()) if self.downsample_data else ''
+        self.iclabel_data = self.ui.step0_iclabel_option_checkbox.isChecked()
         self.chan2rm = (self.ui.step0_ch2rm_combobox.currentData() if self.ui.step0_ch2rm_radio.isChecked()
                         else 'missing')
         attributes = ['preprocessed_data_path', 'filter_data', 'filter_method', 'lowcut_freq',

@@ -14,8 +14,10 @@ class DataPreprocessor:
         pass
 
     @staticmethod
-    def preprocess_eegs(eeg_path, list_eegs, datatype, channel_location_dir,
-                        filter_bool, filtermethod, lowcut, highcut, downsample_bool, sampling_rate, chan2rm):
+    def preprocess_eegs(
+            eeg_path, list_eegs, datatype, channel_location_dir, filter_bool, filtermethod, lowcut, highcut,
+            downsample_bool, iclabel_bool, sampling_rate, chan2rm
+    ):
         """
         Preprocess EEG data.
 
@@ -75,14 +77,14 @@ class DataPreprocessor:
         # Apply the added projection
         eeg.apply_proj(verbose=verbose)
 
-        # if ica_bool:
-        ica = ICA(n_components=None, random_state=97, max_iter=800)
-        ica.fit(eeg)
-        ica_labels = label_components(eeg, ica, method='iclabel')
-        non_brain_indices = [i for i, label in enumerate(ica_labels['labels']) if label != 'brain']
-        print(non_brain_indices)
-        ica.exclude = non_brain_indices
-        eeg = ica.apply(eeg)
+        if iclabel_bool:
+            ica = ICA(n_components=None, random_state=97, method='fastica', verbose=verbose)
+            ica.fit(eeg)
+            ica_labels = label_components(eeg, ica, method='iclabel')
+            non_brain_indices = [i for i, label in enumerate(ica_labels['labels']) if label != 'brain']
+            print(non_brain_indices)
+            ica.exclude = non_brain_indices
+            eeg = ica.apply(eeg)
 
         # Get the raw data or combine epoched data
         eeg_data = DataIO.get_eeg_data(eeg, datatype)
