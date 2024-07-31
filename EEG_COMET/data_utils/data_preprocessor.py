@@ -69,10 +69,11 @@ class DataPreprocessor:
         if prep_data_bool:
             with use_log_level(verbose):
                 warnings.filterwarnings('ignore')
-                nd = NoisyChannels(eeg, random_state=1337)
-                bad_channels = nd.find_all_bads()
-                eeg.info['bads'] = bad_channels
-                eeg.interpolate_bads(reset_bads=False, verbose=verbose)
+                nd = NoisyChannels(eeg, random_state=1337).find_all_bads()
+                if nd:
+                    bad_channels = nd.get_bads()
+                    eeg.info['bads'] = bad_channels
+                    eeg.interpolate_bads(reset_bads=False, verbose=verbose)
 
         # Apply filtering if specified
         if filter_bool:
