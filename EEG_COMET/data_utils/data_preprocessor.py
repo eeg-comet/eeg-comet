@@ -1,8 +1,11 @@
 
 import numpy as np
 import collections
+from mne import use_log_level
+from pyprep.find_noisy_channels import NoisyChannels
 from mne.preprocessing import ICA
 from mne_icalabel import label_components
+import warnings
 from data_utils.data_io import DataIO
 
 
@@ -16,7 +19,7 @@ class DataPreprocessor:
     @staticmethod
     def preprocess_eegs(
             eeg_path, list_eegs, datatype, channel_location_dir, filter_bool, filtermethod, lowcut, highcut,
-            downsample_bool, iclabel_bool, sampling_rate, chan2rm
+            downsample_bool, sampling_rate, chan2rm, prep_data_bool, iclabel_bool
     ):
         """
         Preprocess EEG data.
@@ -33,6 +36,8 @@ class DataPreprocessor:
             downsample_bool (bool): Whether to apply downsampling.
             sampling_rate (float): The target sampling rate.
             chan2rm (str or list): The channels to remove.
+            prep_data_bool (bool): Whether to detect noisy channels using pyprep.
+            iclabel_bool (bool): Whether to apply ica and remove artifacts using iclabel.
 
         Returns:
             tuple: A tuple containing the preprocessed EEG data, data length, EEG info, and channels to remove.
@@ -41,8 +46,8 @@ class DataPreprocessor:
         verbose = 'ERROR'
         channels2remove = ['']
 
+        # Determine channels to remove and standardize channels across all files
         if chan2rm == 'missing':
-            # Automatic detection of missing channels to remove
             for file in range(len(list_eegs)):
                 filename = list_eegs[file]
                 # Load the EEG data
@@ -51,7 +56,6 @@ class DataPreprocessor:
                     channels = eeg.info['ch_names']
                 else:
                     channels = np.append(channels, eeg.info['ch_names'])
-            # Count channel occurrences
             counter = collections.Counter(channels)
             counter = np.array(list(counter.items()))
             channels2remove = counter[np.where(counter[:, 1].astype(float) < len(list_eegs)), 0].tolist()
@@ -61,28 +65,36 @@ class DataPreprocessor:
         # Load the EEG data
         eeg = DataIO().load_eegs(eeg_path, datatype, channel_location_dir, channels2remove[0])
 
-        # Apply filtering
+        # Find and interpolate bad channels
+        if prep_data_bool:
+            with use_log_level(verbose):
+                warnings.filterwarnings('ignore')
+                nd = NoisyChannels(eeg, random_state=1337)
+                bad_channels = nd.find_all_bads()
+                eeg.info['bads'] = bad_channels
+                eeg.interpolate_bads(reset_bads=False, verbose=verbose)
+
+        # Apply filtering if specified
         if filter_bool:
             eeg = eeg.filter(
                 l_freq=lowcut, h_freq=highcut, method=filtermethod, phase='zero', n_jobs=-1, verbose=verbose)
 
+        # Downsample if specified
         if downsample_bool:
-            # Apply downsampling
             sfreq = eeg.info['sfreq']
             if sfreq != sampling_rate:
                 eeg = eeg.resample(sampling_rate, verbose=verbose)
 
         # Add average reference projection
         eeg.set_eeg_reference('average', projection=True, verbose=verbose)
-        # Apply the added projection
         eeg.apply_proj(verbose=verbose)
 
+        # # ICA and artifact removal using ICLabel
         if iclabel_bool:
             ica = ICA(n_components=None, random_state=97, method='fastica', verbose=verbose)
             ica.fit(eeg)
             ica_labels = label_components(eeg, ica, method='iclabel')
             non_brain_indices = [i for i, label in enumerate(ica_labels['labels']) if label != 'brain']
-            print(non_brain_indices)
             ica.exclude = non_brain_indices
             eeg = ica.apply(eeg)
 

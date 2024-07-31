@@ -104,6 +104,7 @@ class COMET:
         self.remove_channels = preprocessing_config.getboolean("remove_channels", False)
         if self.remove_channels:
             self.chan2rm = preprocessing_config.get("ch2rm", "")
+        self.prep_data = preprocessing_config.getboolean("prep_data", False)
 
         # Clustering Configs
         clustering_config = config["clustering_config"]
@@ -254,9 +255,10 @@ class COMET:
                 lowcut=self.lowcut_freq,
                 highcut=self.highcut_freq,
                 downsample_bool=self.downsample_data,
-                iclabel_bool=self.iclabel_data,
                 sampling_rate=self.sample_rate,
-                chan2rm=self.chan2rm
+                chan2rm=self.chan2rm,
+                prep_data_bool=self.prep_data,
+                iclabel_bool=self.iclabel_data
             )
 
             # Save EEG info
@@ -970,6 +972,7 @@ class COMET:
         self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
         self.config["preprocessing_config"]["chan2rm"] = str(self.chan2rm)
+        self.config["preprocessing_config"]["prep_data"] = str(self.prep_data)
 
         self.config["clustering_config"]["smoothing_gfp"] = str(self.smoothing_gfp)
         self.config["clustering_config"]["smoothing_distance"] = str(self.smoothing_distance)

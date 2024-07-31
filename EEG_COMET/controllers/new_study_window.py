@@ -58,6 +58,7 @@ class NewStudyWindow(QDialog):
             self.ui.step0_iclabel_option_checkbox,
             self.ui.step0_ch2rm_radio,
             self.ui.step0_ch2rm_missing_radio,
+            self.ui.step0_prep_option_checkbox
         ]
         for item in control_items:
             item.clicked.connect(self.newstudy_controller)
@@ -137,6 +138,7 @@ class NewStudyWindow(QDialog):
             self.ui.step0_ch2rm_radio,
             self.ui.step0_ch2rm_combobox,
             self.ui.step0_ch2rm_missing_radio,
+            self.ui.step0_prep_option_checkbox,
             self.ui.step0_save_path_button,
             self.ui.step0_save_path_lineedit,
             self.ui.step0_preprocess_data_button
@@ -202,6 +204,7 @@ class NewStudyWindow(QDialog):
                 set_widgets_status(widget, 'enable' if condition else 'disable')
             if self.ui.step0_ch2rm_missing_radio.isChecked():
                 self.ui.step0_ch2rm_combobox.deselectAllItems()
+            self.prep_data = self.ui.step0_prep_option_checkbox.isChecked()
             self.filter_data = self.ui.step0_filter_option_checkbox.isChecked()
             set_widgets_status(filter_sub_widgets, mode='enable' if self.filter_data else 'disable')
             if not self.filter_data:
@@ -376,8 +379,9 @@ class NewStudyWindow(QDialog):
         self.iclabel_data = self.ui.step0_iclabel_option_checkbox.isChecked()
         self.chan2rm = (self.ui.step0_ch2rm_combobox.currentData() if self.ui.step0_ch2rm_radio.isChecked()
                         else 'missing')
-        attributes = ['preprocessed_data_path', 'filter_data', 'filter_method', 'lowcut_freq',
-                      'highcut_freq', 'downsample_data', 'sample_rate', 'chan2rm', 'save_dir']
+        self.prep_data = self.ui.step0_prep_option_checkbox.isChecked()
+        attributes = ['preprocessed_data_path', 'filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
+                      'downsample_data', 'sample_rate', 'chan2rm', 'iclabel_data', 'prep_data', 'save_dir']
         for attr in attributes:
             setattr(self.comet_tbx, attr, getattr(self, attr))
         self.comet_tbx.study_name = self.ui.step0_study_name_lineedit.text()

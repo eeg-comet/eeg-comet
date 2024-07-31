@@ -641,36 +641,6 @@
        </item>
        <item row="16" column="1" rowspan="2">
         <layout class="QGridLayout" name="gridLayout_5">
-         <item row="1" column="0">
-          <widget class="QRadioButton" name="step0_ch2rm_missing_radio">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Detect and remove absent EEG channels across all datasets&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Detect and Remove Absent EEG Channels Across All Files</string>
-           </property>
-           <property name="checked">
-            <bool>false</bool>
-           </property>
-           <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_4</string>
-           </attribute>
-          </widget>
-         </item>
          <item row="0" column="0">
           <layout class="QVBoxLayout" name="CheckableComboBox_Layout">
            <item>
@@ -704,6 +674,52 @@
             </widget>
            </item>
           </layout>
+         </item>
+         <item row="1" column="0">
+          <widget class="QRadioButton" name="step0_ch2rm_missing_radio">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Detect and remove absent EEG channels across all datasets&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="text">
+            <string>Detect and Remove Absent EEG Channels Across All Files</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_4</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QCheckBox" name="step0_prep_option_checkbox">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="text">
+            <string>Automatically Detect and Interpolate Noisy Channels</string>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
@@ -1532,11 +1548,11 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup_6"/>
  </buttongroups>
 </ui>
