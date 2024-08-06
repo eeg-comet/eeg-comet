@@ -92,6 +92,8 @@ class DataIO:
             mne.channels.DigMontage: A montage object containing the channel locations.
         """
 
+        if not channel_location_dir:
+            channel_location_dir = "standard_1020"
         try:
             if os.path.isfile(channel_location_dir):
                 if channel_location_dir.endswith('.mat'):
@@ -109,8 +111,6 @@ class DataIO:
                     montage = mne.channels.read_custom_montage(channel_location_dir)
             elif channel_location_dir in mne.channels.get_builtin_montages():
                 montage = mne.channels.make_standard_montage(channel_location_dir)
-            else:
-                raise ValueError(f'Invalid montage name or file path: {channel_location_dir}')
         except FileNotFoundError:
             raise FileNotFoundError(f'File not found: {channel_location_dir}')
         except ValueError as ve:

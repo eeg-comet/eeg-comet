@@ -236,13 +236,17 @@ class NewStudyWindow(QDialog):
             for fname in file_names:
                 chan_loc_extension = os.path.basename(fname).split('.')[-1]
                 valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
-                                             'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz']
+                                             'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz', 'mat']
                 if chan_loc_extension not in valid_chan_loc_extensions:
                     QMessageBox.information(
                         self, "Load error",
-                        "File extension is expected to be: ‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
+                        "File extension is expected to be:"
+                        "‘.loc’ or ‘.locs’ or ‘.eloc’ (for EEGLAB files),"
                         "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
-                        "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates)", QMessageBox.Ok)
+                        "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates),"
+                        "‘.mat’ (for Brainstorm files)",
+                        QMessageBox.Ok
+                    )
                     self.comet_tbx.channel_location_dir = ''
                     return
                 else:
