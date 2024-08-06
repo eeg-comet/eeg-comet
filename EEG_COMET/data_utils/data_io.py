@@ -4,6 +4,7 @@ import pickle
 from fnmatch import fnmatch
 import numpy as np
 import mne
+from scipy.io import loadmat
 import warnings
 
 
@@ -80,7 +81,45 @@ class DataIO:
         return list_path, list_filename
 
     @staticmethod
-    def load_eegs(eeg_path, datatype, channel_location_dir='', chan2rm=None, verbose='CRITICAL'):
+    def load_montage(channel_location_dir):
+        """
+        Load a montage from a file or a standard montage name.
+
+        Args:
+            channel_location_dir (str): Path to the channel location file or the name of a standard montage.
+
+        Returns:
+            mne.channels.DigMontage: A montage object containing the channel locations.
+        """
+
+        try:
+            if os.path.isfile(channel_location_dir):
+                if channel_location_dir.endswith('.mat'):
+                    mat = loadmat(channel_location_dir)
+                    if 'Channel' not in mat:
+                        raise ValueError('MAT file does not contain "Channel" key.')
+                    channel_data = mat['Channel'][0]
+                    ch_pos = {}
+                    for ch in channel_data:
+                        name = ch['Name'][0]
+                        loc = ch['Loc'].flatten() if ch['Loc'].shape == (3, 1) else ch['Loc']
+                        ch_pos[name] = [loc[1], loc[0], loc[2]]  # Switch x and y
+                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
+                else:
+                    montage = mne.channels.read_custom_montage(channel_location_dir)
+            elif channel_location_dir in mne.channels.get_builtin_montages():
+                montage = mne.channels.make_standard_montage(channel_location_dir)
+            else:
+                raise ValueError(f'Invalid montage name or file path: {channel_location_dir}')
+        except FileNotFoundError:
+            raise FileNotFoundError(f'File not found: {channel_location_dir}')
+        except ValueError as ve:
+            raise ve
+        except Exception as e:
+            raise ValueError(f'An error occurred while loading the montage: {e}')
+        return montage
+
+    def load_eegs(self, eeg_path, datatype, channel_location_dir='', chan2rm=None, verbose='CRITICAL'):
         """
         Load EEG data from different formats and preprocess if needed.
 
@@ -104,15 +143,8 @@ class DataIO:
             elif datatype == 'epoched':
                 eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=False)
                 # eeg = mne.io.read_epochs(eeg_path, verbose=False)
-            try:
-                if os.path.isfile(channel_location_dir):
-                    montage = mne.channels.read_custom_montage(channel_location_dir)
-                    eeg.set_montage(montage, match_case=False, on_missing='warn')
-                elif channel_location_dir in mne.channels.get_builtin_montages():
-                    montage = mne.channels.make_standard_montage(channel_location_dir)
-                    eeg.set_montage(montage, match_case=False, on_missing='warn')
-            except Exception as e:
-                print(f'Invalid File, Try Loading Again. Details:{e}')
+            montage = self.load_montage(channel_location_dir)
+            eeg.set_montage(montage, match_case=False, on_missing='warn')
             channel_names = eeg.info['ch_names']
             if (
                 any(chan2rm)
