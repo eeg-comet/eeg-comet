@@ -95,8 +95,9 @@ class DataPreprocessor:
             ica = ICA(n_components=None, random_state=97, method='fastica', verbose=verbose)
             ica.fit(eeg)
             ica_labels = label_components(eeg, ica, method='iclabel')
-            non_brain_indices = [i for i, label in enumerate(ica_labels['labels']) if label != 'brain']
-            ica.exclude = non_brain_indices
+            artifact_labels = {'eye blink', 'muscle artifact'}
+            artifact_indices = [i for i, label in enumerate(ica_labels['labels']) if label in artifact_labels]
+            ica.exclude = artifact_indices
             eeg = ica.apply(eeg)
 
         # Get the raw data or combine epoched data

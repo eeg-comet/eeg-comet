@@ -1196,7 +1196,7 @@
           </sizepolicy>
          </property>
          <property name="text">
-          <string>Automatically Remove Artifacts with ICA</string>
+          <string>Automatically Remove Eye Blink and Muscle Artifacts with ICA</string>
          </property>
         </widget>
        </item>
@@ -1548,11 +1548,11 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_6"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_2"/>
  </buttongroups>
 </ui>
