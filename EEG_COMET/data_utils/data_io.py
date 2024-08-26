@@ -92,6 +92,7 @@ class DataIO:
             mne.channels.DigMontage: A montage object containing the channel locations.
         """
 
+        montage = None
         if not channel_location_dir:
             channel_location_dir = "standard_1020"
         try:
@@ -111,12 +112,16 @@ class DataIO:
                     montage = mne.channels.read_custom_montage(channel_location_dir)
             elif channel_location_dir in mne.channels.get_builtin_montages():
                 montage = mne.channels.make_standard_montage(channel_location_dir)
+            else:
+                raise ValueError(f'Unknown montage: {channel_location_dir}')
         except FileNotFoundError:
             raise FileNotFoundError(f'File not found: {channel_location_dir}')
         except ValueError as ve:
             raise ve
         except Exception as e:
             raise ValueError(f'An error occurred while loading the montage: {e}')
+        if montage is None:
+            raise ValueError(f'Could not create a montage from the provided directory or name: {channel_location_dir}')
         return montage
 
     def load_eegs(self, eeg_path, datatype, channel_location_dir='', chan2rm=None, verbose='CRITICAL'):
