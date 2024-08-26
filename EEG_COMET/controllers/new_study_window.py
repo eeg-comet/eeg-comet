@@ -283,7 +283,7 @@ class NewStudyWindow(QDialog):
         Update the channel names based on the selected EEG file.
         """
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
+        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
         data_channel_names = eeg.info['ch_names']
         self.ui.step0_ch2rm_combobox.addItems(data_channel_names)
         montage = None
@@ -405,7 +405,7 @@ class NewStudyWindow(QDialog):
         """
         self.canvas.figure.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, [])
+        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
         if eeg.info['dig'] is None:
             QMessageBox.information(self, "Load error",
                                     "Unable to retrieve channel locations."
@@ -470,7 +470,7 @@ class NewStudyWindow(QDialog):
         self.canvas.figure.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         eeg = DataIO().load_eegs(filename, self.comet_tbx.extension, self.comet_tbx.datatype,
-                                 self.comet_tbx.channel_location_dir, [])
+                                 self.comet_tbx.channel_location_dir)
         if self.ui.step0_filter_option_checkbox.isChecked():
             lowcut = int(self.ui.step0_lowcut_freq_input.text())
             highcut = int(self.ui.step0_highcut_freq_input.text())
