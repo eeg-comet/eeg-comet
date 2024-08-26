@@ -476,7 +476,7 @@ class NewStudyWindow(QDialog):
             # Set axis labels and title with increased font sizes
             ax_main.set_xlabel('Time (ms)', fontsize=18)
             ax_main.set_ylabel('Amplitude (μV)', fontsize=18)
-            ax_main.set_title('f{filename}', fontsize=20)
+            ax_main.set_title(f'{filename}', fontsize=20)
             ax_main.tick_params(axis='both', which='major', labelsize=16)
 
             # Draw the updated figure on the canvas
