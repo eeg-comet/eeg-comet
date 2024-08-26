@@ -55,10 +55,9 @@ class NewStudyWindow(QDialog):
             self.ui.step0_use_template_montage_radio,
             self.ui.step0_filter_option_checkbox,
             self.ui.step0_downsamp_option_checkbox,
-            self.ui.step0_iclabel_option_checkbox,
             self.ui.step0_ch2rm_radio,
             self.ui.step0_ch2rm_missing_radio,
-            self.ui.step0_prep_option_checkbox
+            self.ui.step0_auto_clean_option_checkbox
         ]
         for item in control_items:
             item.clicked.connect(self.newstudy_controller)
@@ -133,7 +132,7 @@ class NewStudyWindow(QDialog):
             self.step0_template_montage_combobox,
             self.ui.step0_filter_option_checkbox,
             self.ui.step0_downsamp_option_checkbox,
-            self.ui.step0_iclabel_option_checkbox,
+            self.ui.step0_auto_clean_option_checkbox,
             self.ui.step0_ch2rm_label,
             self.ui.step0_ch2rm_radio,
             self.ui.step0_ch2rm_combobox,
@@ -204,7 +203,10 @@ class NewStudyWindow(QDialog):
                 set_widgets_status(widget, 'enable' if condition else 'disable')
             if self.ui.step0_ch2rm_missing_radio.isChecked():
                 self.ui.step0_ch2rm_combobox.deselectAllItems()
-            self.prep_data = self.ui.step0_prep_option_checkbox.isChecked()
+            self.auto_clean_data = self.ui.step0_auto_clean_option_checkbox.isChecked()
+            set_widgets_status(self.ui.step0_prep_option_checkbox, 'disable' if self.auto_clean_data else 'enable')
+            if self.auto_clean_data:
+                self.prep_data = self.ui.step0_prep_option_checkbox.isChecked()
             self.filter_data = self.ui.step0_filter_option_checkbox.isChecked()
             set_widgets_status(filter_sub_widgets, mode='enable' if self.filter_data else 'disable')
             if not self.filter_data:
@@ -214,7 +216,6 @@ class NewStudyWindow(QDialog):
             set_widgets_status(downsample_sub_widgets, mode='enable' if self.downsample_data else 'disable')
             set_widgets_status(self.ui.step0_preprocess_data_button,
                                'enable' if self.ui.step0_save_path_lineedit.text() else 'disable')
-            self.iclabel_data = self.ui.step0_iclabel_option_checkbox.isChecked()
 
     def choose_input(self):
         """
@@ -380,12 +381,12 @@ class NewStudyWindow(QDialog):
             self.highcut_freq = ''
         self.downsample_data = self.ui.step0_downsamp_option_checkbox.isChecked()
         self.sample_rate = int(self.ui.step0_downsamp_freq_input.text()) if self.downsample_data else ''
-        self.iclabel_data = self.ui.step0_iclabel_option_checkbox.isChecked()
+        self.auto_clean_data = self.ui.step0_auto_clean_option_checkbox.isChecked()
         self.chan2rm = (self.ui.step0_ch2rm_combobox.currentData() if self.ui.step0_ch2rm_radio.isChecked()
                         else 'missing')
         self.prep_data = self.ui.step0_prep_option_checkbox.isChecked()
         attributes = ['preprocessed_data_path', 'filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
-                      'downsample_data', 'sample_rate', 'chan2rm', 'iclabel_data', 'prep_data', 'save_dir']
+                      'downsample_data', 'sample_rate', 'chan2rm', 'auto_clean_data', 'prep_data', 'save_dir']
         for attr in attributes:
             setattr(self.comet_tbx, attr, getattr(self, attr))
         self.comet_tbx.study_name = self.ui.step0_study_name_lineedit.text()
