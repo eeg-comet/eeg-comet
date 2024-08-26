@@ -425,64 +425,42 @@ class NewStudyWindow(QDialog):
         """
         Plot the EEG data using the PyQt application canvas.
         """
-        self.canvas.figure.clear()  # Clear the canvas figure before plotting
+        self.canvas.figure.clear()
         filename = self.ui.step0_selected_files_list.currentItem().text()
         eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
 
-        print(self.comet_tbx.datatype)
         if self.comet_tbx.datatype == "epoched":
             tmin = -0.2
             tmax = 0.4
             time_points = [30, 45, 60, 100, 180, 280]
-            # Convert time points from ms to seconds
             time_points_sec = np.array(time_points) / 1000.0
-
-            # Get the time indices corresponding to the specified time window
             times = eeg.times
             tmin_idx = np.searchsorted(times, tmin)
             tmax_idx = np.searchsorted(times, tmax)
-
-            # Get the data and average across epochs
-            epoched_data = eeg.get_data(copy=True)  # shape: (n_epochs, n_channels, n_times)
-            avg_data = epoched_data.mean(axis=0)  # shape: (n_channels, n_times)
-
-            # Create a figure with subplots using the PyQt canvas
-            fig = self.canvas.figure  # Use the figure associated with the canvas
+            epoched_data = eeg.get_data(copy=True)
+            avg_data = epoched_data.mean(axis=0)
+            fig = self.canvas.figure
             gs = fig.add_gridspec(2, len(time_points), height_ratios=[1, 2])
-
-            # Plot topoplots at specified time points
             for i, time_point in enumerate(time_points_sec):
                 ax_topo = fig.add_subplot(gs[0, i])
                 plot_topomap(avg_data[:, np.searchsorted(times, time_point)], eeg.info,
                              axes=ax_topo, show=False)
-                ax_topo.set_title(f'{time_point * 1000:.0f} ms', fontsize=16)  # Increase title font size
-
-            # Plot each channel's data within the specified time window
+                ax_topo.set_title(f'{time_point * 1000:.0f} ms', fontsize=16)
             ax_main = fig.add_subplot(gs[1, :])
             for i, channel_data in enumerate(avg_data):
                 ax_main.plot(times[tmin_idx:tmax_idx] * 1000, channel_data[tmin_idx:tmax_idx] * 1e6)
-            ax_main.axvline(0, color='k', linestyle='--', label='Event Onset')  # Mark time 0
-
-            # Set x-ticks from tmin to tmax with 50 ms intervals and include time points
-            xticks = np.arange(int(tmin * 1000), int(tmax * 1000) + 1, 50)  # Use integer steps for accuracy
-            xticks = np.unique(np.concatenate((xticks, time_points)))  # Ensure time points are included
+            ax_main.axvline(0, color='k', linestyle='--', label='Event Onset')
+            xticks = np.arange(int(tmin * 1000), int(tmax * 1000) + 1, 50)
+            xticks = np.unique(np.concatenate((xticks, time_points)))
             ax_main.set_xticks(xticks)
-            ax_main.set_xticklabels([f'{int(x)}' for x in xticks])  # Format tick labels as integers
-
-            # Add vertical lines for each time point
+            ax_main.set_xticklabels([f'{int(x)}' for x in xticks])
             for time_point in time_points:
                 ax_main.axvline(time_point, color='r', linestyle='--', alpha=0.7)
-
-            # Set axis labels and title with increased font sizes
             ax_main.set_xlabel('Time (ms)', fontsize=18)
             ax_main.set_ylabel('Amplitude (μV)', fontsize=18)
-            ax_main.set_title(f'{filename}', fontsize=20)
+            ax_main.set_title(f'{os.path.splitext(os.path.basename(filename))[0]}', fontsize=20)
             ax_main.tick_params(axis='both', which='major', labelsize=16)
-
-            # Draw the updated figure on the canvas
             self.canvas.draw()
-
-            # Set the figure title in the UI
             self.ui.figure_title_lineedit.setText("Butterfly plot of TMS‐evoked potentials")
 
     def plot_psd(self):
