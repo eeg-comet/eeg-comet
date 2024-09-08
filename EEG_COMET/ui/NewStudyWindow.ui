@@ -25,16 +25,16 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout_2">
+  <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
-    <widget class="QSplitter" name="splitter">
+    <widget class="QSplitter" name="splitter_2">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
      <widget class="QWidget" name="layoutWidget">
-      <layout class="QGridLayout" name="gridLayout">
+      <layout class="QGridLayout" name="Steps_HLine">
        <item row="5" column="0">
-        <widget class="QLabel" name="step0_import_format_label">
+        <widget class="QLabel" name="step1_import_format_label">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -55,7 +55,7 @@
         </widget>
        </item>
        <item row="16" column="0" rowspan="2">
-        <widget class="QLabel" name="step0_ch2rm_label">
+        <widget class="QLabel" name="step2_ch2rm_label">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -71,7 +71,7 @@
         </widget>
        </item>
        <item row="23" column="0" colspan="2">
-        <widget class="QCheckBox" name="step0_downsamp_option_checkbox">
+        <widget class="QCheckBox" name="step2_downsamp_option_checkbox">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -98,7 +98,7 @@
         </widget>
        </item>
        <item row="24" column="0">
-        <widget class="QLabel" name="step0_downsamp_freq_label">
+        <widget class="QLabel" name="step2_downsamp_freq_label">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -114,7 +114,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Sampling rate:</string>
+          <string>Sampling Rate:</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -122,9 +122,9 @@
         </widget>
        </item>
        <item row="6" column="1">
-        <layout class="QHBoxLayout" name="horizontalLayout_7">
+        <layout class="QHBoxLayout" name="DataType_HLayout">
          <item>
-          <widget class="QRadioButton" name="step0_import_raw_radio">
+          <widget class="QRadioButton" name="step1_import_raw_radio">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -143,12 +143,12 @@
             <bool>true</bool>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup</string>
+            <string notr="true">DataType_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
          <item>
-          <widget class="QRadioButton" name="step0_import_epoched_radio">
+          <widget class="QRadioButton" name="step1_import_epoched_radio">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -167,21 +167,21 @@
             <string>TMS-EEG (Epoched Data)</string>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup</string>
+            <string notr="true">DataType_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
         </layout>
        </item>
        <item row="0" column="2" rowspan="27">
-        <widget class="Line" name="line_3">
+        <widget class="Line" name="Split_VLine">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
         </widget>
        </item>
        <item row="9" column="0" colspan="2">
-        <widget class="QLineEdit" name="step0_import_log_lineedit">
+        <widget class="QLineEdit" name="step1_import_log_lineedit">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -205,7 +205,7 @@
         </widget>
        </item>
        <item row="6" column="0">
-        <widget class="QLabel" name="step0_import_type_label">
+        <widget class="QLabel" name="step1_import_type_label">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -226,11 +226,11 @@
         </widget>
        </item>
        <item row="16" column="1" rowspan="2">
-        <layout class="QGridLayout" name="gridLayout_5">
+        <layout class="QGridLayout" name="Channels_GLayout">
          <item row="0" column="0">
           <layout class="QVBoxLayout" name="CheckableComboBox_Layout">
            <item>
-            <widget class="QRadioButton" name="step0_ch2rm_radio">
+            <widget class="QRadioButton" name="step2_ch2rm_radio">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -255,14 +255,14 @@
               <bool>true</bool>
              </property>
              <attribute name="buttonGroup">
-              <string notr="true">buttonGroup_4</string>
+              <string notr="true">Ch2Rm_ButtonGroup</string>
              </attribute>
             </widget>
            </item>
           </layout>
          </item>
          <item row="1" column="0">
-          <widget class="QRadioButton" name="step0_ch2rm_missing_radio">
+          <widget class="QRadioButton" name="step2_ch2rm_missing_radio">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -287,12 +287,12 @@
             <bool>false</bool>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_4</string>
+            <string notr="true">Ch2Rm_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
          <item row="2" column="0">
-          <widget class="QCheckBox" name="step0_prep_option_checkbox">
+          <widget class="QCheckBox" name="step2_prep_option_checkbox">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -310,7 +310,7 @@
         </layout>
        </item>
        <item row="26" column="0" colspan="2">
-        <widget class="QPushButton" name="step0_preprocess_data_button">
+        <widget class="QPushButton" name="step2_preprocess_data_button">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -333,7 +333,7 @@
         </widget>
        </item>
        <item row="22" column="0">
-        <widget class="QLabel" name="step0_highcut_freq_label">
+        <widget class="QLabel" name="step2_highcut_freq_label">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -354,7 +354,7 @@
         </widget>
        </item>
        <item row="4" column="0">
-        <widget class="QLabel" name="step0_study_name_label">
+        <widget class="QLabel" name="step1_study_name_label">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -375,7 +375,7 @@
         </widget>
        </item>
        <item row="2" column="0" colspan="2">
-        <widget class="QPushButton" name="step0_input_path_button">
+        <widget class="QPushButton" name="step1_input_path_button">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -393,7 +393,7 @@
         </widget>
        </item>
        <item row="21" column="0">
-        <widget class="QLabel" name="step0_lowcut_freq_label">
+        <widget class="QLabel" name="step2_lowcut_freq_label">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -414,7 +414,7 @@
         </widget>
        </item>
        <item row="20" column="0">
-        <widget class="QLabel" name="step0_filter_method_label">
+        <widget class="QLabel" name="step2_filter_method_label">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -435,7 +435,7 @@
         </widget>
        </item>
        <item row="25" column="1">
-        <widget class="QLineEdit" name="step0_save_path_lineedit">
+        <widget class="QLineEdit" name="step2_save_path_lineedit">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -460,7 +460,7 @@
         </widget>
        </item>
        <item row="3" column="1">
-        <widget class="QLineEdit" name="step0_input_path_lineedit">
+        <widget class="QLineEdit" name="step1_input_path_lineedit">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -482,7 +482,7 @@
         </widget>
        </item>
        <item row="5" column="1">
-        <widget class="QComboBox" name="step0_import_format_combobox">
+        <widget class="QComboBox" name="step1_import_format_combobox">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -563,7 +563,7 @@
         </widget>
        </item>
        <item row="3" column="0">
-        <widget class="QLabel" name="step0_input_path_label">
+        <widget class="QLabel" name="step1_input_path_label">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -576,7 +576,7 @@
         </widget>
        </item>
        <item row="11" column="0" colspan="2">
-        <widget class="QRadioButton" name="step0_preprocess_radio">
+        <widget class="QRadioButton" name="step2_preprocess_radio">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -596,14 +596,14 @@
           <string>Step 2. Preprocess Data</string>
          </property>
          <attribute name="buttonGroup">
-          <string notr="true">buttonGroup_6</string>
+          <string notr="true">Steps_ButtonGroup</string>
          </attribute>
         </widget>
        </item>
        <item row="20" column="1">
-        <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <layout class="QHBoxLayout" name="FilterMethod_HLayout">
          <item>
-          <widget class="QRadioButton" name="step0_fir_filtermethod_radio">
+          <widget class="QRadioButton" name="step2_fir_filtermethod_radio">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -628,12 +628,12 @@
             <bool>true</bool>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_3</string>
+            <string notr="true">FilterMethod_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
          <item>
-          <widget class="QRadioButton" name="step0_iir_filtermethod_radio">
+          <widget class="QRadioButton" name="step2_iir_filtermethod_radio">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -655,14 +655,14 @@
             <string>IIR</string>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_3</string>
+            <string notr="true">FilterMethod_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
         </layout>
        </item>
        <item row="19" column="0" colspan="2">
-        <widget class="QCheckBox" name="step0_filter_option_checkbox">
+        <widget class="QCheckBox" name="step2_filter_option_checkbox">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -689,7 +689,7 @@
         </widget>
        </item>
        <item row="12" column="0" colspan="2">
-        <widget class="Line" name="line">
+        <widget class="Line" name="step2_HLine">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -702,9 +702,9 @@
         </widget>
        </item>
        <item row="22" column="1">
-        <layout class="QHBoxLayout" name="horizontalLayout_6">
+        <layout class="QHBoxLayout" name="HighFreq_HLayout">
          <item>
-          <widget class="QLineEdit" name="step0_highcut_freq_input">
+          <widget class="QLineEdit" name="step2_highcut_freq_input">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -734,7 +734,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="step0_filt_hz2">
+          <widget class="QLabel" name="step2_filt_hz2">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -757,7 +757,7 @@
         </layout>
        </item>
        <item row="7" column="0" rowspan="2">
-        <widget class="QLabel" name="step0_import_pattern_label">
+        <widget class="QLabel" name="step1_import_pattern_label">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -773,7 +773,7 @@
         </widget>
        </item>
        <item row="25" column="0">
-        <widget class="QPushButton" name="step0_save_path_button">
+        <widget class="QPushButton" name="step2_save_path_button">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -794,7 +794,7 @@
         </widget>
        </item>
        <item row="1" column="0" colspan="2">
-        <widget class="Line" name="line_2">
+        <widget class="Line" name="step1_HLine">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -807,9 +807,9 @@
         </widget>
        </item>
        <item row="7" column="1" rowspan="2">
-        <layout class="QGridLayout" name="gridLayout_4">
+        <layout class="QGridLayout" name="FindData_GLayout">
          <item row="1" column="0">
-          <widget class="QRadioButton" name="step0_load_pattern_radio">
+          <widget class="QRadioButton" name="step1_load_pattern_radio">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -825,12 +825,12 @@
             <string>Find EEG Data with Specific Naming Convention</string>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_2</string>
+            <string notr="true">FindData_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
          <item row="2" column="0">
-          <widget class="QLineEdit" name="step0_import_pattern_lineedit">
+          <widget class="QLineEdit" name="step1_import_pattern_lineedit">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -860,7 +860,7 @@
           </widget>
          </item>
          <item row="0" column="0">
-          <widget class="QRadioButton" name="step0_load_all_radio">
+          <widget class="QRadioButton" name="step1_load_all_radio">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -882,16 +882,16 @@
             <bool>true</bool>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_2</string>
+            <string notr="true">FindData_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
         </layout>
        </item>
        <item row="24" column="1">
-        <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <layout class="QHBoxLayout" name="SamplingRate_HLayout">
          <item>
-          <widget class="QLineEdit" name="step0_downsamp_freq_input">
+          <widget class="QLineEdit" name="step2_downsamp_freq_input">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -924,7 +924,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="step0_downsamp_hz">
+          <widget class="QLabel" name="step2_downsamp_hz">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -947,7 +947,7 @@
         </layout>
        </item>
        <item row="10" column="0" colspan="2">
-        <widget class="QPushButton" name="step0_import_raw_button">
+        <widget class="QPushButton" name="step1_import_raw_button">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -976,7 +976,7 @@
         </widget>
        </item>
        <item row="0" column="0" colspan="2">
-        <widget class="QRadioButton" name="step0_import_data_radio">
+        <widget class="QRadioButton" name="step1_import_data_radio">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -996,12 +996,12 @@
           <bool>true</bool>
          </property>
          <attribute name="buttonGroup">
-          <string notr="true">buttonGroup_6</string>
+          <string notr="true">Steps_ButtonGroup</string>
          </attribute>
         </widget>
        </item>
        <item row="4" column="1">
-        <widget class="QLineEdit" name="step0_study_name_lineedit">
+        <widget class="QLineEdit" name="step1_study_name_lineedit">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
            <horstretch>0</horstretch>
@@ -1019,9 +1019,9 @@
         </widget>
        </item>
        <item row="21" column="1">
-        <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <layout class="QHBoxLayout" name="LowFreq_HLayout">
          <item>
-          <widget class="QLineEdit" name="step0_lowcut_freq_input">
+          <widget class="QLineEdit" name="step2_lowcut_freq_input">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -1051,7 +1051,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="step0_filt_hz1">
+          <widget class="QLabel" name="step2_filt_hz1">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -1073,26 +1073,10 @@
          </item>
         </layout>
        </item>
-       <item row="18" column="0" colspan="2">
-        <widget class="QCheckBox" name="step0_auto_clean_option_checkbox">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>Auto-Clean Resting-State EEG</string>
-         </property>
-        </widget>
-       </item>
        <item row="13" column="1" rowspan="3">
-        <layout class="QGridLayout" name="gridLayout_3">
+        <layout class="QGridLayout" name="Montage_GLayout">
          <item row="3" column="0">
-          <widget class="QComboBox" name="step0_template_montage_combobox">
+          <widget class="QComboBox" name="step2_template_montage_combobox">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -1110,7 +1094,7 @@
           </widget>
          </item>
          <item row="1" column="0">
-          <widget class="QLineEdit" name="step0_chanloc_path_lineedit">
+          <widget class="QLineEdit" name="step2_chanloc_path_lineedit">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -1132,7 +1116,7 @@
           </widget>
          </item>
          <item row="2" column="0">
-          <widget class="QRadioButton" name="step0_use_template_montage_radio">
+          <widget class="QRadioButton" name="step2_use_template_montage_radio">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -1154,12 +1138,12 @@
             <bool>true</bool>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_5</string>
+            <string notr="true">Montage_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
          <item row="0" column="0">
-          <widget class="QRadioButton" name="step0_load_montage_radio">
+          <widget class="QRadioButton" name="step2_load_montage_radio">
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -1181,14 +1165,14 @@
             <bool>false</bool>
            </property>
            <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_5</string>
+            <string notr="true">Montage_ButtonGroup</string>
            </attribute>
           </widget>
          </item>
         </layout>
        </item>
        <item row="13" column="0" rowspan="3">
-        <widget class="QLabel" name="step0_montage_label">
+        <widget class="QLabel" name="step2_montage_label">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -1203,323 +1187,8 @@
          </property>
         </widget>
        </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="verticalLayoutWidget">
-      <layout class="QVBoxLayout" name="Figure_Layout">
-       <item>
-        <layout class="QGridLayout" name="gridLayout_7">
-         <item row="5" column="1">
-          <layout class="QGridLayout" name="gridLayout_13">
-           <item row="0" column="1">
-            <widget class="QLabel" name="rawdata_range_psd_min_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Min</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLabel" name="rawdata_range_psd_max_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Max</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QLineEdit" name="rawdata_range_psd_min">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>2</string>
-             </property>
-             <property name="maxLength">
-              <number>2</number>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="2">
-            <widget class="QLineEdit" name="rawdata_range_psd_max">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>40</string>
-             </property>
-             <property name="maxLength">
-              <number>3</number>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="3">
-            <widget class="QLabel" name="rawdata_range_hz1">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Hz</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="3">
-            <widget class="QLabel" name="rawdata_range_hz2">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Hz</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="0" rowspan="2">
-            <widget class="QLabel" name="rawdata_range_psd_label">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Range</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item row="2" column="0">
-          <widget class="QPushButton" name="step0_remove_file_button">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="text">
-            <string>Remove the selected file</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0" colspan="2">
-          <widget class="QPushButton" name="rawdata_plot_button">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="text">
-            <string>Plot the selected file</string>
-           </property>
-          </widget>
-         </item>
-         <item row="5" column="0">
-          <widget class="QCheckBox" name="rawdata_show_channel_names_checkbox">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="text">
-            <string>Show channel names</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="QPushButton" name="step0_clear_files_button">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="text">
-            <string>Clear all files</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="0">
-          <widget class="QPushButton" name="show_montage_button">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="text">
-            <string>Show Montage</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="1">
-          <widget class="QPushButton" name="show_psd_button">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="text">
-            <string>Show Power Spectral Density</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0" colspan="2">
-          <widget class="QLabel" name="step0_selectedfiles_label">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-             <weight>75</weight>
-             <bold>true</bold>
-            </font>
-           </property>
-           <property name="text">
-            <string>List of loaded data</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0" colspan="2">
-          <widget class="QListWidget" name="step0_selected_files_list">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-             <italic>true</italic>
-            </font>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <widget class="QLineEdit" name="figure_title_lineedit">
+       <item row="18" column="0" colspan="2">
+        <widget class="QCheckBox" name="step2_auto_clean_option_checkbox">
          <property name="enabled">
           <bool>false</bool>
          </property>
@@ -1529,20 +1198,385 @@
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <property name="font">
-          <font>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-         <property name="readOnly">
-          <bool>true</bool>
+         <property name="text">
+          <string>Auto-Clean Resting-State EEG</string>
          </property>
         </widget>
        </item>
       </layout>
+     </widget>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <widget class="QWidget" name="">
+       <layout class="QGridLayout" name="List_GLayout">
+        <item row="0" column="0" colspan="2">
+         <widget class="QLabel" name="loaded_selectedfiles_label">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>List of loaded data</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" colspan="2">
+         <widget class="QListWidget" name="loaded_selected_files_list">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+            <italic>true</italic>
+           </font>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QPushButton" name="loaded_remove_file_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Remove the selected file</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QPushButton" name="loaded_clear_files_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Clear all files</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="2">
+         <widget class="Line" name="list_HLine">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="gridLayoutWidget">
+       <layout class="QGridLayout" name="Figure_GLayout">
+        <item row="0" column="0" colspan="2">
+         <widget class="QLabel" name="vis_label">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Visualize Data</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QPushButton" name="vis_montage_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Show Montage</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QPushButton" name="vis_psd_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Show Power Spectral Density</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <layout class="QGridLayout" name="Vis_range_psd_GLayout">
+          <item row="1" column="3">
+           <widget class="QLabel" name="vis_range_hz2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Hz</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLabel" name="vis_range_hz1">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Hz</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0" rowspan="2">
+           <widget class="QLabel" name="vis_range_psd_label">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Range</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLineEdit" name="vis_range_psd_min">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>2</string>
+            </property>
+            <property name="maxLength">
+             <number>2</number>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLineEdit" name="vis_range_psd_max">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>40</string>
+            </property>
+            <property name="maxLength">
+             <number>3</number>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="vis_range_psd_min_label">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Min</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="vis_range_psd_max_label">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Max</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="4" column="0" colspan="2">
+         <widget class="QLineEdit" name="vis_figure_title_lineedit">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QCheckBox" name="vis_channel_names_checkbox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Show channel names</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" colspan="2">
+         <widget class="QPushButton" name="vis_plot_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Plot the selected file</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0" colspan="2">
+         <layout class="QVBoxLayout" name="Figure_Layout"/>
+        </item>
+       </layout>
+      </widget>
      </widget>
     </widget>
    </item>
@@ -1551,11 +1585,11 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup"/>
+  <buttongroup name="FindData_ButtonGroup"/>
+  <buttongroup name="Ch2Rm_ButtonGroup"/>
+  <buttongroup name="DataType_ButtonGroup"/>
+  <buttongroup name="FilterMethod_ButtonGroup"/>
+  <buttongroup name="Steps_ButtonGroup"/>
+  <buttongroup name="Montage_ButtonGroup"/>
  </buttongroups>
 </ui>
