@@ -1209,7 +1209,7 @@
       <property name="orientation">
        <enum>Qt::Vertical</enum>
       </property>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QGridLayout" name="List_GLayout">
         <item row="0" column="0" colspan="2">
          <widget class="QLabel" name="loaded_selectedfiles_label">
@@ -1306,6 +1306,64 @@
       </widget>
       <widget class="QWidget" name="gridLayoutWidget">
        <layout class="QGridLayout" name="Figure_GLayout">
+        <item row="1" column="0">
+         <widget class="QPushButton" name="vis_plot_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Plot</string>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="0" colspan="2">
+         <widget class="QLineEdit" name="vis_figure_filename_lineedit">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QCheckBox" name="vis_channel_names_checkbox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Show channel names</string>
+          </property>
+         </widget>
+        </item>
         <item row="0" column="0" colspan="2">
          <widget class="QLabel" name="vis_label">
           <property name="sizePolicy">
@@ -1321,7 +1379,7 @@
            </font>
           </property>
           <property name="text">
-           <string>Visualize Data</string>
+           <string>Inspect Data</string>
           </property>
          </widget>
         </item>
@@ -1329,6 +1387,12 @@
          <widget class="QPushButton" name="vis_montage_button">
           <property name="enabled">
            <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
           <property name="font">
            <font>
@@ -1340,22 +1404,79 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="1">
-         <widget class="QPushButton" name="vis_psd_button">
+        <item row="7" column="0" colspan="2">
+         <layout class="QVBoxLayout" name="Figure_Layout"/>
+        </item>
+        <item row="5" column="0" colspan="2">
+         <widget class="QLineEdit" name="vis_figure_title_lineedit">
           <property name="enabled">
            <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
           <property name="font">
            <font>
             <pointsize>14</pointsize>
            </font>
           </property>
-          <property name="text">
-           <string>Show Power Spectral Density</string>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
-        <item row="3" column="1">
+        <item row="1" column="1">
+         <layout class="QHBoxLayout" name="Plot_HLayout">
+          <item>
+           <widget class="QRadioButton" name="viz_plot_time_radio">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Time-Series</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+            <attribute name="buttonGroup">
+             <string notr="true">Plot_ButtonGroup</string>
+            </attribute>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="viz_plot_event_radio">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Event-Related</string>
+            </property>
+            <attribute name="buttonGroup">
+             <string notr="true">Plot_ButtonGroup</string>
+            </attribute>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="3" column="1" rowspan="2">
          <layout class="QGridLayout" name="Vis_range_psd_GLayout">
           <item row="1" column="3">
            <widget class="QLabel" name="vis_range_hz2">
@@ -1384,27 +1505,6 @@
             </property>
             <property name="text">
              <string>Hz</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0" rowspan="2">
-           <widget class="QLabel" name="vis_range_psd_label">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Range</string>
             </property>
            </widget>
           </item>
@@ -1504,39 +1604,36 @@
             </property>
            </widget>
           </item>
+          <item row="0" column="0" rowspan="2">
+           <widget class="QLabel" name="vis_range_psd_label">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Range</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </item>
-        <item row="4" column="0" colspan="2">
-         <widget class="QLineEdit" name="vis_figure_title_lineedit">
+        <item row="3" column="0" rowspan="2">
+         <widget class="QPushButton" name="vis_psd_button">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0">
-         <widget class="QCheckBox" name="vis_channel_names_checkbox">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -1547,33 +1644,9 @@
            </font>
           </property>
           <property name="text">
-           <string>Show channel names</string>
+           <string>Show Power Spectral Density</string>
           </property>
          </widget>
-        </item>
-        <item row="1" column="0" colspan="2">
-         <widget class="QPushButton" name="vis_plot_button">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Plot the selected file</string>
-          </property>
-         </widget>
-        </item>
-        <item row="5" column="0" colspan="2">
-         <layout class="QVBoxLayout" name="Figure_Layout"/>
         </item>
        </layout>
       </widget>
@@ -1585,11 +1658,12 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="FindData_ButtonGroup"/>
-  <buttongroup name="Ch2Rm_ButtonGroup"/>
   <buttongroup name="DataType_ButtonGroup"/>
-  <buttongroup name="FilterMethod_ButtonGroup"/>
-  <buttongroup name="Steps_ButtonGroup"/>
   <buttongroup name="Montage_ButtonGroup"/>
+  <buttongroup name="Ch2Rm_ButtonGroup"/>
+  <buttongroup name="Steps_ButtonGroup"/>
+  <buttongroup name="FilterMethod_ButtonGroup"/>
+  <buttongroup name="FindData_ButtonGroup"/>
+  <buttongroup name="Plot_ButtonGroup"/>
  </buttongroups>
 </ui>

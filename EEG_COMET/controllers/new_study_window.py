@@ -26,6 +26,26 @@ class NewStudyWindow(QDialog):
         self.comet_tbx.channel_location_dir = ""
         self.newstudy_controller()
 
+    def clean_figure_layout(self):
+        """
+        Clear and delete all widgets from the figure layout to reset it.
+        """
+        while self.ui.Figure_Layout.count() > 0:
+            item = self.ui.Figure_Layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def init_canvas(self):
+        """
+        Initialize Canvas, replacing the existing one if it already exists.
+        """
+        self.clean_figure_layout()
+        self.figure = Figure(tight_layout=True)
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.ui.Figure_Layout.addWidget(self.canvas)
+
     def init_ui_components(self):
         """
         Initialize UI components.
@@ -35,10 +55,7 @@ class NewStudyWindow(QDialog):
         builtin_montages = get_builtin_montages()
         self.ui.step2_template_montage_combobox.addItems(builtin_montages)
         self.ui.step2_template_montage_combobox.setCurrentText("standard_1020")
-        self.figure = Figure(tight_layout=True)
-        self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        self.ui.Figure_Layout.addWidget(self.canvas)
+        self.init_canvas()
 
     def setup_connections(self):
         """
@@ -98,6 +115,8 @@ class NewStudyWindow(QDialog):
             self.ui.step1_import_log_lineedit.setText(f"{common_message} that contain '{pattern}' in their filenames.")
         plot_widgets = [
             self.ui.vis_plot_button,
+            self.ui.viz_plot_time_radio,
+            self.ui.viz_plot_event_radio,
             self.ui.vis_montage_button,
             self.ui.vis_psd_button,
             self.ui.vis_channel_names_checkbox,
@@ -188,6 +207,11 @@ class NewStudyWindow(QDialog):
             set_widgets_status(self.ui.step2_preprocess_radio, mode='enable')
             if self.ui.loaded_selected_files_list.currentItem():
                 set_widgets_status(plot_widgets, mode='enable')
+                set_widgets_status(
+                    self.ui.viz_plot_event_radio, 'enable' if
+                    self.ui.step1_import_epoched_radio.isChecked() else 'disable'
+                )
+
         else:
             set_widgets_status(self.ui.step2_preprocess_radio, mode='disable')
         if self.ui.step2_preprocess_radio.isChecked():
@@ -401,13 +425,22 @@ class NewStudyWindow(QDialog):
             self.main_window.load_study(from_new_study=True)
         self.ui.close()
 
+    def item_selected(self):
+        """
+        Retrieve the full file path and name from the selected item.
+        """
+        filepath = self.ui.loaded_selected_files_list.currentItem().text()
+        filename = os.path.splitext(os.path.basename(filepath))[0]
+        self.ui.vis_figure_filename_lineedit.setText(filename)
+        return filepath, filename
+
     def plot_montage(self):
         """
         Plot EEG montage and display channel names if selected.
         """
-        self.canvas.figure.clear()
-        filename = self.ui.loaded_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
+        self.init_canvas()
+        filepath, filename = self.item_selected()
+        eeg = DataIO().load_eegs(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, preload=False)
         if eeg.info['dig'] is None:
             QMessageBox.information(self, "Load error",
                                     "Unable to retrieve channel locations."
@@ -427,11 +460,17 @@ class NewStudyWindow(QDialog):
         """
         Plot the EEG data using the PyQt application canvas.
         """
-        self.canvas.figure.clear()
-        filename = self.ui.loaded_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
+        filepath, filename = self.item_selected()
+        eeg = DataIO().load_eegs(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
 
-        if self.comet_tbx.datatype == "epoched":
+        if self.ui.viz_plot_time_radio.isChecked():
+            self.clean_figure_layout()
+            fig = eeg.plot(verbose='ERROR')
+            fig.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+            self.ui.Figure_Layout.addWidget(fig)
+
+        if self.ui.viz_plot_event_radio.isChecked():
+            self.init_canvas()
             tmin = -0.2
             tmax = 0.4
             time_points = [30, 45, 60, 100, 180, 280]
@@ -460,7 +499,7 @@ class NewStudyWindow(QDialog):
                 ax_main.axvline(time_point, color='r', linestyle='--', alpha=0.7)
             ax_main.set_xlabel('Time (ms)', fontsize=18)
             ax_main.set_ylabel('Amplitude (μV)', fontsize=18)
-            ax_main.set_title(f'{os.path.splitext(os.path.basename(filename))[0]}', fontsize=20)
+            ax_main.set_title(f'{filename}', fontsize=20)
             ax_main.tick_params(axis='both', which='major', labelsize=16)
             self.canvas.draw()
             self.ui.vis_figure_title_lineedit.setText("Butterfly plot of TMS‐evoked potentials")
@@ -469,17 +508,12 @@ class NewStudyWindow(QDialog):
         """
         Plot the Power Spectral Density (PSD) of EEG data.
         """
-        self.canvas.figure.clear()
-        filename = self.ui.loaded_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
-        if self.ui.step2_filter_option_checkbox.isChecked():
-            lowcut = int(self.ui.step2_lowcut_freq_input.text())
-            highcut = int(self.ui.step2_highcut_freq_input.text())
-            filter_method = 'iir' if self.ui.step2_iir_filtermethod_radio.isChecked() else 'fir'
-            eeg = eeg.filter(l_freq=lowcut, h_freq=highcut, method=filter_method, n_jobs=-1)
+        self.init_canvas()
+        filepath, filename = self.item_selected()
+        eeg = DataIO().load_eegs(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, preload=False)
         fmin_plot = int(self.ui.vis_range_psd_min.text())
         fmax_plot = int(self.ui.vis_range_psd_max.text())
-        fig = eeg.compute_psd(fmin=fmin_plot, fmax=fmax_plot).plot(show=False)
+        fig = eeg.compute_psd(fmin=fmin_plot, fmax=fmax_plot, verbose='ERROR').plot(show=False)
         self.canvas.figure = fig
         self.ui.vis_figure_title_lineedit.setText("Power Spectral Density (PSD) using Multitapers")
         self.canvas.draw()
