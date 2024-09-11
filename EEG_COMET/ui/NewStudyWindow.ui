@@ -54,22 +54,6 @@
          </property>
         </widget>
        </item>
-       <item row="16" column="0" rowspan="2">
-        <widget class="QLabel" name="step2_ch2rm_label">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>Channels to Remove</string>
-         </property>
-        </widget>
-       </item>
        <item row="23" column="0" colspan="2">
         <widget class="QCheckBox" name="step2_downsamp_option_checkbox">
          <property name="enabled">
@@ -227,6 +211,22 @@
        </item>
        <item row="16" column="1" rowspan="2">
         <layout class="QGridLayout" name="Channels_GLayout">
+         <item row="1" column="0">
+          <widget class="QCheckBox" name="step2_prep_option_checkbox">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="text">
+            <string>Automatically Detect and Interpolate Noisy Channels</string>
+           </property>
+          </widget>
+         </item>
          <item row="0" column="0">
           <layout class="QVBoxLayout" name="CheckableComboBox_Layout">
            <item>
@@ -260,52 +260,6 @@
             </widget>
            </item>
           </layout>
-         </item>
-         <item row="1" column="0">
-          <widget class="QRadioButton" name="step2_ch2rm_missing_radio">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Detect and remove absent EEG channels across all datasets&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Detect and Remove Absent EEG Channels Across All Files</string>
-           </property>
-           <property name="checked">
-            <bool>false</bool>
-           </property>
-           <attribute name="buttonGroup">
-            <string notr="true">Ch2Rm_ButtonGroup</string>
-           </attribute>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QCheckBox" name="step2_prep_option_checkbox">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="text">
-            <string>Automatically Detect and Interpolate Noisy Channels</string>
-           </property>
-          </widget>
          </item>
         </layout>
        </item>
@@ -1200,6 +1154,22 @@
          </property>
          <property name="text">
           <string>Auto-Clean Resting-State EEG</string>
+         </property>
+        </widget>
+       </item>
+       <item row="16" column="0" rowspan="2">
+        <widget class="QLabel" name="step2_ch2rm_label">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Channels to Remove</string>
          </property>
         </widget>
        </item>

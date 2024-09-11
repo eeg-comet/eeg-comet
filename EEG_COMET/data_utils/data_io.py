@@ -1,6 +1,7 @@
 
 import os.path
 import pickle
+import collections
 from fnmatch import fnmatch
 import numpy as np
 import mne
@@ -124,7 +125,24 @@ class DataIO:
             raise ValueError(f'Could not create a montage from the provided directory or name: {channel_location_dir}')
         return montage
 
-    def load_eegs(self, eeg_path, datatype, channel_location_dir='', chan2rm=None, verbose='CRITICAL'):
+    def check_chan2rm(self, list_eegs_path, datatype, channel_location_dir):
+        """
+        Check for channel consistency across all datasets and identify channels that are missing
+        from any file, marking them for removal.
+        """
+        channels = ['']
+        for i, filename in enumerate(list_eegs_path):
+            eeg = self.load_eeg(filename, datatype, channel_location_dir, preload=False)
+            if i == 0:
+                channels = eeg.info['ch_names']
+            else:
+                channels.extend(eeg.info['ch_names'])
+        counter = collections.Counter(channels)
+        total_files = len(list_eegs_path)
+        missing_channels = [chan for chan, count in counter.items() if count < total_files]
+        return missing_channels
+
+    def load_eeg(self, eeg_path, datatype, channel_location_dir='', chan2rm=None, preload=True, verbose='CRITICAL'):
         """
         Load EEG data from different formats and preprocess if needed.
 
@@ -133,31 +151,32 @@ class DataIO:
             datatype (str): The type of the EEG data ('raw' or 'epoched').
             channel_location_dir (str, optional): The path to the channel location file. Defaults to ''.
             chan2rm (list, optional): The list of channels to remove. Defaults to [].
+            preload (bool, optional): Whether to preload the data. Defaults to True.
             verbose (str, optional): The verbosity level. Defaults to 'CRITICAL'.
 
         Returns:
             object: The loaded EEG data object.
         """
 
-        if chan2rm is None:
-            chan2rm = []
         with mne.use_log_level(verbose):
             warnings.filterwarnings('ignore')
             if datatype == 'raw':
-                eeg = mne.io.read_raw(eeg_path, preload=True, verbose=False)
+                eeg = mne.io.read_raw(eeg_path, preload=preload, verbose=verbose)
             elif datatype == 'epoched':
-                eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=False)
+                eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=verbose)
                 # eeg = mne.io.read_epochs(eeg_path, verbose=False)
             montage = self.load_montage(channel_location_dir)
             eeg.set_montage(montage, match_case=False, on_missing='warn')
-            channel_names = eeg.info['ch_names']
+            ch_names = eeg.info['ch_names']
+            if chan2rm is None:
+                chan2rm = []
             if (
-                any(chan2rm)
-                and any(elem != '' for elem in chan2rm)
-                and chan2rm in channel_names
+                    any(chan2rm)
+                    and any(elem != '' for elem in chan2rm)
+                    and chan2rm in ch_names
             ):
                 eeg = eeg.drop_channels(chan2rm)
-            if 'TRIGGER' in channel_names:
+            if 'TRIGGER' in ch_names:
                 eeg = eeg.drop_channels('TRIGGER')
             eeg.set_eeg_reference('average', projection=True)
             eeg.apply_proj()

@@ -100,7 +100,7 @@ class COMET:
         self.downsample_data = preprocessing_config.getboolean("downsample_data", True)
         if self.downsample_data:
             self.sample_rate = preprocessing_config.getint("sample_rate", 250)
-        self.iclabel_data = preprocessing_config.getboolean("iclabel_data", False)
+        self.auto_clean_data = preprocessing_config.getboolean("auto_clean_data", False)
         self.remove_channels = preprocessing_config.getboolean("remove_channels", False)
         if self.remove_channels:
             self.chan2rm = preprocessing_config.get("ch2rm", "")
@@ -189,6 +189,14 @@ class COMET:
             input_folder=self.input_folder, extension=self.extension, pattern=self.pattern
         )
 
+    def load_clean(self):
+        """
+        Locate EEG file paths that automatically cleaned.
+        """
+        self.list_eegs_path, self.list_eegs = DataIO().find_data(
+            input_folder=self.preprocessed_data_path, extension=self.extension, pattern='*'
+        )
+
     def do_preprocessing(self):
         print('\nPreprocessing ...')
 
@@ -240,33 +248,69 @@ class COMET:
         preprocessor = DataPreprocessor()
 
         # Iterate through EEG files
+        self.load_raw()
+
+        # Checking the consistency of EEG channels across all data
+        missing_channels = data_io.check_chan2rm(
+            self.list_eegs_path,
+            datatype=self.datatype,
+            channel_location_dir=self.channel_location_dir
+        )
+        self.chan2rm = list(set(self.chan2rm).union(set(missing_channels)))
+
+        if self.auto_clean_data:
+            for eeg_idx, (eeg_path, eeg_name) in tqdm(enumerate(zip(self.list_eegs_path, self.list_eegs)),
+                                                      total=len(self.list_eegs_path)):
+                self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
+
+                # Preprocess EEG data
+                eeg = data_io.load_eeg(
+                    eeg_path=eeg_path,
+                    datatype=self.datatype,
+                    channel_location_dir=self.channel_location_dir,
+                    chan2rm=self.chan2rm
+                )
+                eeg = preprocessor.auto_clean_raw_eeg(eeg)
+
+                name = os.path.splitext(eeg_name)[0]
+                save_path = os.path.join(self.preprocessed_data_path, name)
+                data_io.export_eegs(eeg=eeg, save_path=save_path, extension=self.extension, datatype=self.datatype)
+
+            self.load_clean()
+
         for eeg_idx, (eeg_path, eeg_name) in tqdm(enumerate(zip(self.list_eegs_path, self.list_eegs)),
                                                   total=len(self.list_eegs_path)):
             self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
             # Preprocess EEG data
-            eeg, preprocessed_data, length_data, eeg_info, channels2remove = preprocessor.preprocess_eegs(
+            eeg = data_io.load_eeg(
                 eeg_path=eeg_path,
-                list_eegs=self.list_eegs_path,
                 datatype=self.datatype,
                 channel_location_dir=self.channel_location_dir,
+                chan2rm=self.chan2rm
+            )
+
+            if self.prep_data:
+                eeg = preprocessor.identify_bad_channels(eeg)
+                eeg.interpolate_bads(reset_bads=False)
+
+            eeg = preprocessor.preprocess_eeg(
+                eeg=eeg,
                 filter_bool=self.filter_data,
                 filtermethod=self.filter_method,
                 lowcut=self.lowcut_freq,
                 highcut=self.highcut_freq,
                 downsample_bool=self.downsample_data,
-                sampling_rate=self.sample_rate,
-                chan2rm=self.chan2rm,
-                prep_data_bool=self.prep_data,
-                iclabel_bool=self.iclabel_data
+                sampling_rate=self.sample_rate
             )
 
             # Save EEG info
+            eeg_data = data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
+            length_data = eeg_data.shape[1]
             self.eeg_info = eeg.info
             if not self.sample_rate:
                 self.sample_rate = int(self.eeg_info['sfreq'])
-            self.channels2remove = channels2remove
-            data_io.save_eeg_info(eeg_info_path=self.eeg_info_path, eeg_info=eeg_info)
+            data_io.save_eeg_info(eeg_info_path=self.eeg_info_path, eeg_info=self.eeg_info)
 
             # Save EEG object
             ch_names, ch_location = list(self.eeg_info['ch_names']), self.eeg_info['chs']
@@ -280,7 +324,6 @@ class COMET:
             data_io.export_eegs(eeg=eeg, save_path=save_path, extension=self.extension, datatype=self.datatype)
 
             # Log the preprocessing progress
-
             self.LogWindow.append_log(
                 f"EEG Preprocessed [{eeg_idx + 1}/{len(self.list_eegs_path)}]\n"
                 f"✓ Data: {eeg_name} - Length: {int(length_data / self.sample_rate)} sec"
@@ -616,7 +659,7 @@ class COMET:
             for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
                 self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
-                eeg = data_io.load_eegs(eeg_path=eeg_path, datatype=self.datatype)
+                eeg = data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
 
                 # Compute similarity scores for different segment removal lengths
                 for idx_win2rm, len_win2rm in enumerate(len_win2rm_list):
@@ -679,7 +722,7 @@ class COMET:
                                                   total=len(self.list_eegs_path)):
             self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
-            eeg = data_io.load_eegs(eeg_path=eeg_path, datatype=self.datatype)
+            eeg = data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
 
             labeled_segmentation, trial_filename, trial_times, segmentation_fit = microstate_backfitter.\
                 perform_segmentation(eeg=eeg, eeg_name=eeg_name, remove_segments_less_than=remove_segments_less_than)
@@ -778,7 +821,7 @@ class COMET:
                             extension=self.extension,
                             pattern=f"*{segmentation_name}*"
                         )
-                        eeg = data_io.load_eegs(eeg_path=eeg_path[0], datatype=self.datatype)
+                        eeg = data_io.load_eeg(eeg_path=eeg_path[0], datatype=self.datatype)
                         if self.datatype == 'epoched':
                             underscore_index = segmentation_name.rfind('_')
                             trial_number = segmentation_name[underscore_index + 1:]
@@ -816,7 +859,7 @@ class COMET:
                     if 'GEV' in self.feature_list:
                         data_io = DataIO()
                         eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
-                        eeg = data_io.load_eegs(eeg_path=eeg_path, datatype=self.datatype)
+                        eeg = data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
                         eeg_data = data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
                         output_features = feature_extractor.extract_microstate_features(
                             filename=segmentation_name,
@@ -968,7 +1011,7 @@ class COMET:
         self.config["preprocessing_config"]["lowcut_freq"] = str(self.lowcut_freq)
         self.config["preprocessing_config"]["highcut_freq"] = str(self.highcut_freq)
         self.config["preprocessing_config"]["downsample_data"] = str(self.downsample_data)
-        self.config["preprocessing_config"]["iclabel_data"] = str(self.iclabel_data)
+        self.config["preprocessing_config"]["auto_clean_data"] = str(self.auto_clean_data)
         self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
         self.config["preprocessing_config"]["chan2rm"] = str(self.chan2rm)

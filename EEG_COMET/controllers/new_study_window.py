@@ -74,7 +74,6 @@ class NewStudyWindow(QDialog):
             self.ui.step2_filter_option_checkbox,
             self.ui.step2_downsamp_option_checkbox,
             self.ui.step2_ch2rm_radio,
-            self.ui.step2_ch2rm_missing_radio,
             self.ui.step2_auto_clean_option_checkbox
         ]
         for item in control_items:
@@ -156,7 +155,6 @@ class NewStudyWindow(QDialog):
             self.ui.step2_ch2rm_label,
             self.ui.step2_ch2rm_radio,
             self.ui.step2_ch2rm_combobox,
-            self.ui.step2_ch2rm_missing_radio,
             self.ui.step2_prep_option_checkbox,
             self.ui.step2_save_path_button,
             self.ui.step2_save_path_lineedit,
@@ -228,8 +226,6 @@ class NewStudyWindow(QDialog):
             ]
             for widget, condition in widget_conditions:
                 set_widgets_status(widget, 'enable' if condition else 'disable')
-            if self.ui.step2_ch2rm_missing_radio.isChecked():
-                self.ui.step2_ch2rm_combobox.deselectAllItems()
             self.auto_clean_data = self.ui.step2_auto_clean_option_checkbox.isChecked()
             set_widgets_status(self.ui.step2_prep_option_checkbox, 'disable' if self.auto_clean_data else 'enable')
             if self.auto_clean_data:
@@ -309,7 +305,7 @@ class NewStudyWindow(QDialog):
         Update the channel names based on the selected EEG file.
         """
         filename = self.ui.loaded_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eegs(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
+        eeg = DataIO().load_eeg(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
         data_channel_names = eeg.info['ch_names']
         self.ui.step2_ch2rm_combobox.addItems(data_channel_names)
         montage = None
@@ -440,7 +436,7 @@ class NewStudyWindow(QDialog):
         """
         self.init_canvas()
         filepath, filename = self.item_selected()
-        eeg = DataIO().load_eegs(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, preload=False)
+        eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, preload=False)
         if eeg.info['dig'] is None:
             QMessageBox.information(self, "Load error",
                                     "Unable to retrieve channel locations."
@@ -461,7 +457,7 @@ class NewStudyWindow(QDialog):
         Plot the EEG data using the PyQt application canvas.
         """
         filepath, filename = self.item_selected()
-        eeg = DataIO().load_eegs(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
+        eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
 
         if self.ui.viz_plot_time_radio.isChecked():
             self.clean_figure_layout()
@@ -510,7 +506,7 @@ class NewStudyWindow(QDialog):
         """
         self.init_canvas()
         filepath, filename = self.item_selected()
-        eeg = DataIO().load_eegs(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, preload=False)
+        eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, preload=False)
         fmin_plot = int(self.ui.vis_range_psd_min.text())
         fmax_plot = int(self.ui.vis_range_psd_max.text())
         fig = eeg.compute_psd(fmin=fmin_plot, fmax=fmax_plot, verbose='ERROR').plot(show=False)

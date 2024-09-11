@@ -1,12 +1,12 @@
 
 import numpy as np
-import collections
 from mne import use_log_level
 from pyprep.find_noisy_channels import NoisyChannels
+from meegkit import dss
 from mne.preprocessing import ICA
 from mne_icalabel import label_components
+from mne.time_frequency import psd_array_welch
 import warnings
-from data_utils.data_io import DataIO
 
 
 class DataPreprocessor:
@@ -17,94 +17,118 @@ class DataPreprocessor:
         pass
 
     @staticmethod
-    def preprocess_eegs(
-            eeg_path, list_eegs, datatype, channel_location_dir, filter_bool, filtermethod, lowcut, highcut,
-            downsample_bool, sampling_rate, chan2rm, prep_data_bool, iclabel_bool
-    ):
+    def identify_bad_channels(eeg, verbose='ERROR'):
         """
-        Preprocess EEG data.
+        Identify and mark bad channels in the EEG data using NoisyChannels.
 
         Args:
-            eeg_path (str): The path to the EEG data file.
-            list_eegs (list): The list of EEG data files.
-            datatype (str): The type of the EEG data ('raw' or 'epoched').
-            channel_location_dir (str): The path to the channel location file.
-            filter_bool (bool): Whether to apply filtering.
-            filtermethod (str): The filtering method.
-            lowcut (float): The lowcut frequency for filtering.
-            highcut (float): The highcut frequency for filtering.
-            downsample_bool (bool): Whether to apply downsampling.
-            sampling_rate (float): The target sampling rate.
-            chan2rm (str or list): The channels to remove.
-            prep_data_bool (bool): Whether to detect noisy channels using pyprep.
-            iclabel_bool (bool): Whether to apply ica and remove artifacts using iclabel.
+            eeg: Raw EEG data.
+            verbose: Logging verbosity level.
 
         Returns:
-            tuple: A tuple containing the preprocessed EEG data, data length, EEG info, and channels to remove.
+            eeg: EEG data with bad channels marked in 'bads'.
         """
-        
-        verbose = 'ERROR'
-        channels2remove = ['']
+        with use_log_level(verbose):
+            warnings.filterwarnings('ignore')
+            nd = NoisyChannels(eeg, random_state=1337).find_all_bads()
+            if nd:
+                bad_channels = nd.get_bads()
+                eeg.info['bads'] = bad_channels
+        return eeg
 
-        # Determine channels to remove and standardize channels across all files
-        if chan2rm == 'missing':
-            for file in range(len(list_eegs)):
-                filename = list_eegs[file]
-                # Load the EEG data
-                eeg = DataIO().load_eegs(filename, datatype, channel_location_dir, channels2remove)
-                if file == 0:
-                    channels = eeg.info['ch_names']
-                else:
-                    channels = np.append(channels, eeg.info['ch_names'])
-            counter = collections.Counter(channels)
-            counter = np.array(list(counter.items()))
-            channels2remove = counter[np.where(counter[:, 1].astype(float) < len(list_eegs)), 0].tolist()
-        else:
-            channels2remove[0] = chan2rm
+    @staticmethod
+    def preprocess_eeg(eeg, filter_bool, filtermethod, lowcut, highcut, downsample_bool, sampling_rate,
+                        verbose='ERROR'):
+        """
+        Preprocess EEG data with optional filtering, downsampling, and re-referencing.
 
-        # Load the EEG data
-        eeg = DataIO().load_eegs(eeg_path, datatype, channel_location_dir, channels2remove[0])
+        Args:
+            eeg: Raw EEG data.
+            filter_bool (bool): Whether to apply filtering.
+            filtermethod (str): Filtering method (e.g., FIR, IIR).
+            lowcut (float): Low cutoff frequency for filtering.
+            highcut (float): High cutoff frequency for filtering.
+            downsample_bool (bool): Whether to downsample the data.
+            sampling_rate (float): Target sampling rate.
+            verbose (str): Verbosity level for logging.
 
-        # Find and interpolate bad channels
-        if prep_data_bool:
-            with use_log_level(verbose):
-                warnings.filterwarnings('ignore')
-                nd = NoisyChannels(eeg, random_state=1337).find_all_bads()
-                if nd:
-                    bad_channels = nd.get_bads()
-                    eeg.info['bads'] = bad_channels
-                    eeg.interpolate_bads(reset_bads=False, verbose=verbose)
-
-        # Apply filtering if specified
+        Returns:
+            eeg: Preprocessed EEG data.
+        """
         if filter_bool:
             eeg = eeg.filter(
                 l_freq=lowcut, h_freq=highcut, method=filtermethod, phase='zero', n_jobs=-1, verbose=verbose)
-
-        # Downsample if specified
         if downsample_bool:
             sfreq = eeg.info['sfreq']
             if sfreq != sampling_rate:
                 eeg = eeg.resample(sampling_rate, verbose=verbose)
-
-        # Add average reference projection
         eeg.set_eeg_reference('average', projection=True, verbose=verbose)
         eeg.apply_proj(verbose=verbose)
+        return eeg
 
-        # # ICA and artifact removal using ICLabel
-        if iclabel_bool:
-            ica = ICA(n_components=None, random_state=97, method='fastica', verbose=verbose)
-            ica.fit(eeg)
-            ica_labels = label_components(eeg, ica, method='iclabel')
+    @staticmethod
+    def remove_line_noise(eeg, verbose):
+        """
+        Remove line noise from EEG data using DSS line noise removal.
+
+        Args:
+            eeg: Raw EEG data.
+            verbose: Logging verbosity level.
+
+        Returns:
+            eeg: EEG data with line noise removed.
+        """
+        data = eeg.get_data()
+        sfreq = eeg.info['sfreq']
+        psds, freqs = psd_array_welch(data, sfreq, fmin=45, fmax=65, verbose=verbose)
+        line_noise_frequency = freqs[np.argmax(psds.mean(axis=0))]
+        processed_data, _ = dss.dss_line_iter(data.T, line_noise_frequency, eeg.info['sfreq'], show=True)
+        eeg._data = processed_data.T
+        return eeg
+
+    def auto_clean_raw_eeg(self, eeg, verbose='ERROR'):
+        """
+        Automatically clean raw EEG data.
+
+        Steps:
+            0. Downsample the EEG data:
+                Reduce the sampling rate to 1000 Hz for faster processing.
+            1. Remove line noise:
+                Apply DSS line noise removal to eliminate electrical interference.
+            2. High-pass filtering and bad channel detection:
+                Filter out low-frequency noise and identify bad channels for removal.
+            3. Re-reference to average:
+                Set the EEG data to use the average reference for better signal quality.
+            4. Artifact removal using ICA:
+                Perform Independent Component Analysis (ICA) to detect and exclude artifacts such as
+                eye blinks and muscle movements.
+            5. Interpolate bad channels:
+                Replace bad channels with interpolated data from surrounding channels.
+
+        Args:
+            eeg: Raw EEG data.
+            verbose: Logging verbosity level.
+
+        Returns:
+            eeg: Cleaned EEG data.
+        """
+
+        with use_log_level(verbose):
+            warnings.filterwarnings('ignore')
+            eeg = eeg.resample(1000, verbose=verbose)
+            eeg = self.remove_line_noise(eeg, verbose)
+            eeg.filter(l_freq=1, h_freq=None, method='fir', phase='zero')
+            eeg = self.identify_bad_channels(eeg)
+            eeg.pick_types(eeg=True, exclude='bads')
+            eeg.set_eeg_reference('average', projection=True)
+            eeg.apply_proj()
+            ica_eeg = ICA(n_components=None, random_state=97, method='fastica')
+            ica_eeg.fit(eeg)
+            ica_labels_eeg = label_components(eeg, ica_eeg, method='iclabel')
             artifact_labels = {'eye blink', 'muscle artifact'}
-            artifact_indices = [i for i, label in enumerate(ica_labels['labels']) if label in artifact_labels]
-            ica.exclude = artifact_indices
-            eeg = ica.apply(eeg)
-
-        # Get the raw data or combine epoched data
-        eeg_data = DataIO.get_eeg_data(eeg, datatype)
-
-        # Get data length and EEG info
-        length_data = eeg_data.shape[1]
-        eeg_info = eeg.info
-
-        return eeg, eeg_data, length_data, eeg_info, channels2remove
+            artifact_indices_eeg = [i for i, label in enumerate(ica_labels_eeg['labels']) if
+                                          label in artifact_labels]
+            ica_eeg.exclude = artifact_indices_eeg
+            eeg = ica_eeg.apply(eeg)
+            eeg.interpolate_bads(reset_bads=False, verbose=verbose)
+        return eeg
