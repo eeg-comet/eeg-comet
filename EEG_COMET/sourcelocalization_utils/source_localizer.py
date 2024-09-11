@@ -338,7 +338,7 @@ class SourceLocalizer:
             if not os.path.exists(stc_subject_path):
                 os.makedirs(stc_subject_path)
 
-            eeg = self.data_io.load_eegs(eeg_path, self.datatype)
+            eeg = self.data_io.load_eeg(eeg_path, self.datatype)
             eeg_info = eeg.info
 
             if self.use_anatomy == "individual":
@@ -514,7 +514,7 @@ class SourceLocalizer:
             stc_file = self.stc_read(stc_subject_path)
             stc_data = stc_file[0].data.T
 
-            eeg = self.data_io.load_eegs(eeg_path, self.datatype)
+            eeg = self.data_io.load_eeg(eeg_path, self.datatype)
             eeg_data = eeg.get_data()
 
             if source_method == 'tess':

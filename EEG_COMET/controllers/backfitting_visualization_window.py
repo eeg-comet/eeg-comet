@@ -107,7 +107,7 @@ class BackfittingVisualizationWindow(QDialog):
             extension=self.extension,
             pattern=f"*{selected_file_name}*"
         )
-        eeg = data_io.load_eegs(eeg_path=eeg_dir[0], datatype=self.datatype)
+        eeg = data_io.load_eeg(eeg_path=eeg_dir[0], datatype=self.datatype)
         eeg_data = eeg.get_data()
         eeg_times = eeg.times * 1000
 
