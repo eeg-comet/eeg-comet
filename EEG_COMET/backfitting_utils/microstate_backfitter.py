@@ -369,7 +369,6 @@ class MicrostateBackfitter:
         Calculate the similarity score between the microstate maps and the EEG data.
 
         Args:
-            self: The MicrostateBackfitter instance.
             eeg (numpy.ndarray): Array containing the EEG data.
             rm_max_len (int, optional): Maximum length of segments to remove. Defaults to 50.
 
@@ -442,87 +441,87 @@ class MicrostateBackfitter:
 
         return int(np.median(optimal_indices))
 
-    def perform_segmentation(self, eeg, eeg_name, remove_segments_less_than):
+    def backfit2all(self, data, filter_segments_less_than):
+        """
+            Perform segmentation by backfitting microstate maps to all time points in the data.
+
+            Args:
+                data (ndarray): The EEG data (can be from a single trial or continuous data).
+                filter_segments_less_than (int): The threshold for filtering segments shorter than this value.
+
+            Returns:
+                ndarray: The segmentation array where each time point is labeled with a microstate index.
+        """
+        correlation_matrix = np.dot(self.microstate_maps, data) / np.sqrt(
+            np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(data ** 2, axis=0))
+        segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+        if self.filter_segments:
+            segmentation = self.substitude_maps_with_duration(
+                segmentation=segmentation,
+                segments_less_than=filter_segments_less_than,
+                option=self.filter_segments_option,
+                data=data,
+                microstate_maps=self.microstate_maps,
+                n_states=len(self.microstate_labels),
+                smoothing_parameters=[
+                    self.smoothing_parameters[0], filter_segments_less_than, self.smoothing_parameters[2]
+                ]
+            )
+        return segmentation
+
+    def backfit2peaks(self, data):
+        """
+            Perform segmentation by backfitting microstate maps only to the peaks in global field power (GFP).
+
+            Args:
+                data (ndarray): The EEG data (can be from a single trial or continuous data).
+
+            Returns:
+                ndarray: The segmentation array where each time point is labeled with a microstate index.
+        """
+        gfp = np.std(data, axis=0)
+        peaks, _ = find_peaks(gfp)
+        troughs = [0]
+        for p in range(len(peaks) - 1):
+            min_arg = np.argmin(gfp[peaks[p]:peaks[p + 1]])
+            troughs.append(peaks[p] + min_arg)
+        troughs.append(len(gfp))
+        diff_troughs = np.diff(troughs)
+        activation = np.dot(self.microstate_maps, data[:, peaks])
+        segmentation_peaks = np.argmax(np.abs(activation), axis=0)
+        segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
+
+        return segmentation
+
+    def perform_segmentation(self, eeg, filter_segments_less_than):
         """
         Perform segmentation on the EEG data based on the specified backfitting method.
 
         Args:
-            self: The MicrostateBackfitter instance.
             eeg (numpy.ndarray): Array containing the EEG data.
-            eeg_name (str): Name of the EEG data.
-            remove_segments_less_than (int): Threshold for removing segments.
+            filter_segments_less_than (int): The threshold for filtering segments shorter than this value.
 
         Returns:
             tuple: A tuple containing the labeled segmentation, trial filename, trial times, and segmentation
         """
         segmentation_fit = 0
         eeg_data = eeg.get_data()
-        eeg_times = eeg.times * 1000
+        if self.datatype == 'epoched':
+            segmentation_list = []
+            for trial in range(eeg_data.shape[0]):
+                trial_data = eeg_data[trial, :, :]
+                segmentation = self.backfit2peaks(trial_data) if self.backfit_to == 'peaks' else \
+                    self.backfit2all(trial_data, filter_segments_less_than)
+                labeled_segmentation = self.label_segments(segmentation)
+                segmentation_list.append(labeled_segmentation)
+            labeled_segmentation_array = np.vstack(segmentation_list)
+        else:
+            segmentation = self.backfit2peaks(eeg_data) if self.backfit_to == 'peaks' else \
+                self.backfit2all(eeg_data, filter_segments_less_than)
+            labeled_segmentation_array = self.label_segments(segmentation)
 
-        for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
-            if self.datatype == 'epoched':
-                trial_data = np.squeeze(eeg[idx].get_data())
-                trial_times = eeg[idx].times * 1000
-            else:
-                trial_data = eeg_data
-                window_size = 5
-                # Smooth Data
-                weights = np.repeat(1.0, window_size) / window_size
-                trial_data = np.apply_along_axis(
-                    lambda x: np.convolve(x, weights, mode='same'), axis=1, arr=trial_data)
+        # TODO update this
+        # similarity_metric = self.goodness_fit_segmentation(trial_data, labeled_segmentation_array)
+        # segmentation_fit += similarity_metric
 
-                trial_times = eeg_times
-
-        if self.backfit_to == 'all':
-            # Calculate the correlation coefficient between each topography and each time point
-            correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
-                np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
-
-            # Find the time point with the highest correlation coefficient for each topography
-            segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
-
-            # Filter short segments
-            if self.filter_segments:
-                segmentation = self.substitude_maps_with_duration(
-                    segmentation=segmentation,
-                    segments_less_than=remove_segments_less_than,
-                    option=self.filter_segments_option,
-                    data=trial_data,
-                    microstate_maps=self.microstate_maps,
-                    n_states=len(self.microstate_labels),
-                    smoothing_parameters=[
-                        self.smoothing_parameters[0], remove_segments_less_than, self.smoothing_parameters[2]
-                    ]
-                )
-
-        elif self.backfit_to == 'peaks':
-            gfp = np.std(eeg_data, axis=0)
-            peaks, _ = find_peaks(gfp)
-
-            # Define troughs between consecutive peaks
-            troughs = [0]
-            for p in range(len(peaks) - 1):
-                min_arg = np.argmin(gfp[peaks[p]:peaks[p + 1]])
-                troughs.append(peaks[p] + min_arg)
-            troughs.append(len(gfp))
-
-            # Compute the differences between consecutive troughs
-            diff_troughs = np.diff(troughs)
-
-            # Compute the activation of microstate maps with EEG data at identified peaks
-            activation = np.dot(self.microstate_maps, eeg_data[:, peaks])
-
-            # Identify the segmentation based on the highest activation
-            segmentation_peaks = np.argmax(np.abs(activation), axis=0)
-
-            # Repeat the segmentation based on the identified troughs
-            segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
-
-        labeled_segmentation = self.label_segments(segmentation)
-
-        similarity_metric = self.goodness_fit_segmentation(trial_data, labeled_segmentation)
-        segmentation_fit += similarity_metric
-
-        # Call the export_segmentation method
-        trial_filename = f"{eeg_name}_{idx}" if idx is not None else eeg_name
-        return labeled_segmentation, trial_filename, trial_times, segmentation_fit
+        return labeled_segmentation_array, segmentation_fit

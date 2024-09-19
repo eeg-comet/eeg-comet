@@ -137,7 +137,7 @@ class COMET:
         self.identify_short_window = backfitting_config.getboolean("identify_short_window", False)
         self.filter_segments = backfitting_config.getboolean("filter_segments", False)
         if self.filter_segments:
-            self.remove_segments_less_than = backfitting_config.getint("remove_segments_less_than", 20)
+            self.filter_segments_less_than = backfitting_config.getint("filter_segments_less_than", 20)
             self.filter_segments_option = backfitting_config.get("filter_segments_option", "smooth")
         self.epsilon = backfitting_config.getfloat("epsilon", 1e-6)
         self.b = backfitting_config.getint("b", 3)
@@ -671,17 +671,17 @@ class COMET:
                     break
 
             # Identify optimal length filter based on similarity scores
-            remove_segments_less_than = microstate_backfitter.identify_optimal_length_filter(
+            filter_segments_less_than = microstate_backfitter.identify_optimal_length_filter(
                 similarity_scores=similarity_scores
             )
 
         else:
             if self.filter_segments:
-                remove_segments_less_than = self.remove_segments_less_than
+                filter_segments_less_than = self.filter_segments_less_than
             else:
-                remove_segments_less_than = 0
+                filter_segments_less_than = 0
 
-        remove_segments_less_than_ms = remove_segments_less_than * (1000 / self.sample_rate)
+        filter_segments_less_than_ms = filter_segments_less_than * (1000 / self.sample_rate)
 
         if self.backfit_to == 'peaks':
             backfit_to_text = "Backfitting microstates to the local peaks of the global field power."
@@ -690,15 +690,15 @@ class COMET:
 
         if self.filter_segments_option == 'remove':
             filter_segments_option_text = f"Removing segments with less than " \
-                                          f"{remove_segments_less_than_ms}ms in duration."
+                                          f"{filter_segments_less_than_ms}ms in duration."
         elif self.filter_segments_option == 'replace_high':
-            filter_segments_option_text = f"Replacing segments with less than {remove_segments_less_than_ms}ms" \
+            filter_segments_option_text = f"Replacing segments with less than {filter_segments_less_than_ms}ms" \
                 f"by the nearby microstate with higher occurrence."
         elif self.filter_segments_option == 'replace_half':
-            filter_segments_option_text = f"Replacing segments with less than {remove_segments_less_than_ms}ms" \
+            filter_segments_option_text = f"Replacing segments with less than {filter_segments_less_than_ms}ms" \
                 f"by half by the previous and half by the next dominant microstate."
         elif self.filter_segments_option == 'smooth':
-            filter_segments_option_text = f"Smoothing segments with window size {remove_segments_less_than_ms}ms" \
+            filter_segments_option_text = f"Smoothing segments with window size {filter_segments_less_than_ms}ms" \
                                           f" and lambda {self.lamb}."
         else:
             filter_segments_option_text = "No filtering applied to short segments."
@@ -723,15 +723,16 @@ class COMET:
             self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
 
             eeg = data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+            time_array = eeg.times * 1000
 
-            labeled_segmentation, trial_filename, trial_times, segmentation_fit = microstate_backfitter.\
-                perform_segmentation(eeg=eeg, eeg_name=eeg_name, remove_segments_less_than=remove_segments_less_than)
+            labeled_segmentation, segmentation_fit = microstate_backfitter.\
+                perform_segmentation(eeg=eeg, filter_segments_less_than=filter_segments_less_than)
 
             segmentation_io.export_segmentation(
                 output_folder=self.segmentation_path,
-                filename=trial_filename,
+                filename=eeg_name,
                 segmentation_array=labeled_segmentation,
-                time_array=trial_times,
+                time_array=time_array,
                 export_format=self.export_format
             )
 
@@ -796,10 +797,11 @@ class COMET:
 
                 # Load segmentation array
                 segmentation_array = SegmentationIO().load_segmentation(
-                    segmentation_path=segmentation_path, import_format='.csv'
+                    segmentation_path=segmentation_path, import_format=self.export_format
                 )
+
                 if feature_type == 'real':
-                    input_sequence = segmentation_array
+                    input_sequence = segmentation_array.flatten().tolist()
                 else:
                     input_sequence = FeatureHelper().generate_synthetic_sequence(
                         input_sequence=segmentation_array, method=feature_type
@@ -822,17 +824,12 @@ class COMET:
                             pattern=f"*{segmentation_name}*"
                         )
                         eeg = data_io.load_eeg(eeg_path=eeg_path[0], datatype=self.datatype)
-                        if self.datatype == 'epoched':
-                            underscore_index = segmentation_name.rfind('_')
-                            trial_number = segmentation_name[underscore_index + 1:]
-                            trial_data = np.squeeze(eeg[int(trial_number)].get_data())
-                        else:
-                            eeg_data = data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
+                        eeg_data = data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
 
                         output_features = feature_extractor.extract_microstate_features(
                             filename=segmentation_name,
                             feature_list=self.feature_list,
-                            eeg_data=trial_data if self.datatype == 'epoched' else eeg_data,
+                            eeg_data=eeg_data,
                             microstate_maps=self.best_maps,
                             microstate_labels=self.micro_labels,
                             word_size=self.word_size
@@ -1036,7 +1033,7 @@ class COMET:
         self.config["backfitting_config"]["backfit_to"] = self.backfit_to
         self.config["backfitting_config"]["identify_short_window"] = str(self.identify_short_window)
         self.config["backfitting_config"]["filter_segments"] = str(self.filter_segments)
-        self.config["backfitting_config"]["remove_segments_less_than"] = str(self.remove_segments_less_than)
+        self.config["backfitting_config"]["filter_segments_less_than"] = str(self.filter_segments_less_than)
         self.config["backfitting_config"]["filter_segments_option"] = self.filter_segments_option
         self.config["backfitting_config"]["epsilon"] = str(self.epsilon)
         self.config["backfitting_config"]["b"] = str(self.b)

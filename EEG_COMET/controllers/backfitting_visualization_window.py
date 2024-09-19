@@ -12,7 +12,7 @@ from data_utils.data_io import DataIO
 from backfitting_utils.segmentation_io import SegmentationIO
 from gui_utils.set_widgets_status import set_widgets_status
 
-
+# TODO: organize functions and add descriptions
 class BackfittingVisualizationWindow(QDialog):
     def __init__(self, context, parent=None):
         super().__init__(parent)
@@ -68,14 +68,10 @@ class BackfittingVisualizationWindow(QDialog):
         if self.datatype == 'epoched':
             set_widgets_status(epoched_data_widgets, mode='enable')
             set_widgets_status(epoched_data_widgets, mode='show')
-
-            # Get the list of files in the folder
             selected_file_name = self.ui.eeg_filenames_combobox.currentText()
-            files = os.listdir(self.segmentation_path)
-            # Count the files that start with the specified prefix
-            num_trials = sum(bool(file.startswith(selected_file_name))
-                             for file in files)
-            self.ui.num_trials_spinbox.setRange(0, num_trials - 1)
+            _, _, segmentation_data = self._load_data_and_segmentation(selected_file_name)
+            num_trials = len(segmentation_data)
+            self.ui.num_trials_spinbox.setRange(1, num_trials)
         else:
             set_widgets_status(epoched_data_widgets, mode='disable')
             set_widgets_status(epoched_data_widgets, mode='hide')
@@ -94,10 +90,15 @@ class BackfittingVisualizationWindow(QDialog):
 
         # Get time range and other parameters
         time_min, time_max = self._get_time_range()
+        if self.datatype == 'epoched':
+            trial = self.ui.num_trials_spinbox.value()
+            data2plot = segmentation_data[trial - 1, :]
+        else:
+            data2plot = segmentation_data
         fontsize, labelsize, colormap = self._get_plot_parameters()
 
         # Plot the data
-        self._plot_data(eeg_times, eeg_data, segmentation_data, time_min, time_max, fontsize, labelsize, colormap)
+        self._plot_data(eeg_times, eeg_data, data2plot, time_min, time_max, fontsize, labelsize, colormap)
 
     def _load_data_and_segmentation(self, selected_file_name):
         # Load EEG data and segmentation data from files
@@ -114,10 +115,7 @@ class BackfittingVisualizationWindow(QDialog):
         data_to_use = self._get_data_to_use(eeg_data)
 
         segmentation_io = SegmentationIO()
-        if self.datatype == "epoched":
-            segmentation_filename = f"{selected_file_name}_{self.ui.num_trials_spinbox.value()}{self.export_format}"
-        else:
-            segmentation_filename = f"{selected_file_name}{self.export_format}"
+        segmentation_filename = f"{selected_file_name}{self.export_format}"
         segmentation_path = os.path.join(self.segmentation_path, segmentation_filename)
         segmentation_data = segmentation_io.load_segmentation(segmentation_path, import_format=self.export_format)
 
@@ -134,7 +132,7 @@ class BackfittingVisualizationWindow(QDialog):
         # Get the data to use based on the datatype
         if self.datatype == 'epoched':
             trial = self.ui.num_trials_spinbox.value()
-            return np.std(eeg_data[trial, :, :], axis=0)
+            return np.std(eeg_data[trial - 1, :, :], axis=0)
         return np.std(eeg_data, axis=0)
 
     def _get_time_range(self):
