@@ -4,11 +4,13 @@ h5io==0.1.9
 keras==2.14.0
 laura==0.0.2
 matplotlib==3.8.0
+meegkit==0.1.7
 mne==1.5.1
 numpy==1.26.1
 opencv_python==4.8.1.78
 pandas==2.1.1
 pyclustering==0.10.1.2
+pyprep==0.4.3
 PyQt5==5.15.10
 pyvista==0.42.3
 pyvistaqt==0.11.0
