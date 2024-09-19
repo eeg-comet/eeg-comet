@@ -52,94 +52,92 @@ class FeatureExtractor:
                     window_start = window_index * window_size_samples
                     window_end = (window_index + 1) * window_size_samples
                     window_eeg_data = eeg_data[:, window_start:window_end]
-                    # Check if window is empty
                     if window_eeg_data.size == 0:
                         gevs[label].append(0)
                         continue
-                    # Compute GEV using the imported function
                     gev = MicrostateClusterer().compute_gev(window_eeg_data, microstate_maps[i, :])
-                    window_element_gev[window_index][label] = gev
+                    window_element_gev[window_index][label] = gev * 100
             return window_element_gev
         elif self.feature_mode == 'static':
             gevs = {}
             for i, label in enumerate(microstate_labels):
-                # Compute GEV
                 gev = MicrostateClusterer().compute_gev(eeg_data, microstate_maps[i, :])
-                gevs[label] = gev
+                gevs[label] = gev * 100
             return gevs
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
 
     def microstate_coverage(self):
         """
-        Calculate the coverage percentage of each element within windows.
+        Calculate the coverage percentage of each element.
 
         Returns:
-            dict or list: If feature_mode is 'static',
-                            returns a dictionary with the average coverage percentage for each element.
-                          If feature_mode is 'dynamic',
-                            returns a list of dictionaries, where each dictionary represents the coverage percentages
-                            for each element in a window.
+            dict: If feature_mode is 'static', returns a dictionary with the overall coverage percentage for each element.
+                  If feature_mode is 'dynamic', returns a list of dictionaries where each dictionary represents the
+                  coverage percentages for each element in a window.
         """
 
-        window_element_coverage = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
-                                   for _ in range(self.num_windows)]
-
-        for window_index in range(self.num_windows):
-            window_start = window_index * self.window_size * self.sampling_rate
-            window_end = (window_index + 1) * self.window_size * self.sampling_rate
-            window_input_sequence = self.input_sequence[window_start:window_end]
-            element_counts = Counter(window_input_sequence)
-
-            total_elements = sum(element_counts.values())
-            if total_elements > 0:
-                for element, count in element_counts.items():
-                    coverage = count / total_elements * 100
-                    window_element_coverage[window_index][element] = coverage
-
         if self.feature_mode == 'static':
-            total_coverage = Counter()
-            for window_coverage in window_element_coverage:
-                total_coverage |= window_coverage
-            num_windows = len(window_element_coverage)
+            element_counts = Counter(self.input_sequence)
+            total_elements = len(self.input_sequence)
             return {
-                element: min(coverage / num_windows, 100.0)
-                for element, coverage in total_coverage.items()
+                element: (count / total_elements) * 100
+                for element, count in element_counts.items()
             }
+
         elif self.feature_mode == 'dynamic':
+            window_element_coverage = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
+                                       for _ in range(self.num_windows)]
+            for window_index in range(self.num_windows):
+                window_start = window_index * self.window_size * self.sampling_rate
+                window_end = (window_index + 1) * self.window_size * self.sampling_rate
+                window_input_sequence = self.input_sequence[window_start:window_end]
+                element_counts = Counter(window_input_sequence)
+                total_elements = sum(element_counts.values())
+                if total_elements > 0:
+                    for element, count in element_counts.items():
+                        coverage = (count / total_elements) * 100
+                        window_element_coverage[window_index][element] = coverage
+
             return window_element_coverage
+
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
 
     def microstate_occurrence(self):
         """
-        Compute the number of times an element changes from another element within non-overlapping windows.
+        Compute the frequency of occurrence (in Hz) of each element per second.
+
         Returns:
-        dict or list: If feature_mode is 'static',
-                        returns a dictionary with the average occurrence count for each element.
-                      If feature_mode is 'dynamic',
-                        returns a list of dictionaries, where each dictionary represents the occurrence counts
-                        for each element in a window.
+            dict or list:
+                - If feature_mode is 'static', returns a dictionary with the frequency (Hz) of each element
+                  across the entire input_sequence.
+                - If feature_mode is 'dynamic', returns a list of dictionaries, where each dictionary represents
+                  the frequency (Hz) of each element in a 1-second window.
         """
 
-        window_change_counts = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
-                                for _ in range(self.num_windows)]
-        total_element_counts = Counter()
-        for window_index in range(self.num_windows):
-            window_start = window_index * (self.sampling_rate * self.window_size)
-            window_end = window_start + (self.sampling_rate * self.window_size)
-            window_input_sequence = self.input_sequence[window_start:window_end]
-            window_input_sequence = FeatureHelper().remove_repetition_sequence(window_input_sequence)
-            element_counts = Counter(window_input_sequence)
-            window_change_counts[window_index] = element_counts
-            total_element_counts |= element_counts
+        samples_per_second = self.sampling_rate
         if self.feature_mode == 'static':
-            num_windows = len(window_change_counts)
+            sequence_without_repeats = FeatureHelper().remove_repetition_sequence(self.input_sequence)
+            total_element_counts = Counter(sequence_without_repeats)
+            total_duration_seconds = len(self.input_sequence) / samples_per_second
             return {
-                element: count / num_windows
+                element: count / total_duration_seconds
                 for element, count in total_element_counts.items()
             }
         elif self.feature_mode == 'dynamic':
+            num_seconds = len(self.input_sequence) // samples_per_second
+            window_change_counts = []
+            for second in range(num_seconds):
+                window_start = second * samples_per_second
+                window_end = (second + 1) * samples_per_second
+                window_input_sequence = self.input_sequence[window_start:window_end]
+                window_input_sequence = FeatureHelper().remove_repetition_sequence(window_input_sequence)
+                element_counts = Counter(window_input_sequence)
+                window_change_counts.append({
+                    element: count / 1.0
+                    for element, count in element_counts.items()
+                })
             return window_change_counts
         else:
             raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
