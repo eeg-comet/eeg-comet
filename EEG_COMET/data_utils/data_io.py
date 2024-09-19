@@ -82,7 +82,89 @@ class DataIO:
         return list_path, list_filename
 
     @staticmethod
-    def load_montage(channel_location_dir):
+    def _read_mat_locations(fname):
+        """
+        Read channel locations from a .mat Brainstorm file.
+
+        Args:
+            fname (str): Path to the .mat file.
+
+        Returns:
+            dict: Dictionary mapping channel names to their 3D positions.
+        """
+        mat = loadmat(fname)
+        if 'Channel' not in mat:
+            raise ValueError('MAT file does not contain "Channel" key.')
+        channel_data = mat['Channel'][0]
+        ch_pos = {}
+        for ch in channel_data:
+            name = ch['Name'][0]
+            loc = ch['Loc'].flatten() if ch['Loc'].shape == (3, 1) else ch['Loc']
+            if abs(loc[0]) > 0.5 or abs(loc[1]) > 0.5 or abs(loc[2]) > 0.5:
+                loc[0] = loc[0] / 1000.0
+                loc[1] = loc[1] / 1000.0
+                loc[2] = loc[2] / 1000.0
+            ch_pos[name] = [loc[1], loc[0], loc[2]]
+        return ch_pos
+
+    @staticmethod
+    def _read_ced_locations(fname):
+        """
+        Read channel locations from a .ced EEGLAB file.
+
+        Args:
+            fname (str): Path to the .ced file.
+
+        Returns:
+            dict: Dictionary mapping channel names to their 3D positions in meters.
+                  Format: { 'ChannelName': np.array([y, x, z]), ... }
+        """
+        ch_pos = {}
+        if not os.path.isfile(fname):
+            raise FileNotFoundError(f"The file {fname} does not exist.")
+        with open(fname, 'r') as f:
+            lines = f.readlines()
+        if not lines:
+            raise ValueError("The .ced file is empty.")
+        header_line = lines[0].strip()
+        if not header_line:
+            raise ValueError("The .ced file does not contain a header line.")
+        parts = header_line.split('\t')
+        if len(parts) < 4:
+            parts = header_line.split()
+        col_map = {col.strip().lower(): idx for idx, col in enumerate(parts)}
+        required_columns = ['labels', 'x', 'y', 'z']
+        missing_cols = [col for col in required_columns if col not in col_map]
+        if missing_cols:
+            raise ValueError(f"Missing required columns in header: {missing_cols}")
+        label_idx = col_map['labels']
+        x_idx = col_map['x']
+        y_idx = col_map['y']
+        z_idx = col_map['z']
+        for line_num, line in enumerate(lines[1:], start=2):
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split('\t')
+            if len(parts) < len(parts):
+                parts = line.split()
+            if len(parts) <= max(label_idx, x_idx, y_idx, z_idx):
+                raise ValueError(f"Invalid line in CED file at line {line_num}: {line}")
+            label = parts[label_idx].strip()
+            try:
+                x = float(parts[x_idx])
+                y = float(parts[y_idx])
+                z = float(parts[z_idx])
+            except ValueError:
+                raise ValueError(f"Invalid numerical values in line {line_num}: {line}")
+            if abs(x) > 0.5 or abs(y) > 0.5 or abs(z) > 0.5:
+                x = x / 1000.0
+                y = y / 1000.0
+                z = z / 1000.0
+            ch_pos[label] = np.array([y, x, z])
+        return ch_pos
+
+    def load_montage(self, channel_location_dir):
         """
         Load a montage from a file or a standard montage name.
 
@@ -98,16 +180,12 @@ class DataIO:
             channel_location_dir = "standard_1020"
         try:
             if os.path.isfile(channel_location_dir):
-                if channel_location_dir.endswith('.mat'):
-                    mat = loadmat(channel_location_dir)
-                    if 'Channel' not in mat:
-                        raise ValueError('MAT file does not contain "Channel" key.')
-                    channel_data = mat['Channel'][0]
-                    ch_pos = {}
-                    for ch in channel_data:
-                        name = ch['Name'][0]
-                        loc = ch['Loc'].flatten() if ch['Loc'].shape == (3, 1) else ch['Loc']
-                        ch_pos[name] = [loc[1], loc[0], loc[2]]  # Switch x and y
+                file_ext = os.path.splitext(channel_location_dir)[1].lower()
+                if file_ext == '.mat':
+                    ch_pos = self._read_mat_locations(channel_location_dir)
+                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
+                elif file_ext == '.ced':
+                    ch_pos = self._read_ced_locations(channel_location_dir)
                     montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
                 else:
                     montage = mne.channels.read_custom_montage(channel_location_dir)
