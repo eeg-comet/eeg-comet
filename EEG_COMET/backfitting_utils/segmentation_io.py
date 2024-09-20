@@ -96,66 +96,50 @@ class SegmentationIO:
             if import_format == '.csv':
                 df = pd.read_csv(segmentation_path)
                 if 'trial' in df.columns:
-                    # Get unique trials and time points
                     trials = df['trial'].unique()
                     time_points = df['time'].unique()
-
-                    # Create an empty array to store segmentation data (as object type to handle strings)
                     segmentation_array = np.empty((len(trials), len(time_points)), dtype=object)
-
                     for trial in trials:
                         trial_data = df[df['trial'] == trial]
                         segmentation_array[trial - 1, :] = trial_data['label'].values
-
                     return segmentation_array
-
                 else:
-                    # In case there's only one trial (no 'trial' column)
                     return np.array([df['label'].values], dtype=object)
-
             elif import_format == '.pkl':
                 with open(segmentation_path, 'rb') as f:
                     data = pickle.load(f)
                     if 'trial' in data:
                         trials = np.unique(data['trial'])
                         time_points = np.unique(data['time'])
-
                         segmentation_array = np.empty((len(trials), len(time_points)), dtype=object)
                         for i, trial in enumerate(trials):
                             indices = np.where(data['trial'] == trial)
                             segmentation_array[i, :] = np.array(data['label'])[indices]
-
                         return segmentation_array
                     else:
                         return np.array([data['label']], dtype=object)
-
             elif import_format == '.hdf':
                 with h5py.File(segmentation_path, 'r') as h5f:
                     if 'trial' in h5f.keys():
                         trials = np.unique(h5f['trial'])
                         time_points = np.unique(h5f['time'])
-
                         segmentation_array = np.empty((len(trials), len(time_points)), dtype=object)
                         for i, trial in enumerate(trials):
                             indices = np.where(h5f['trial'][:] == trial)
                             segmentation_array[i, :] = h5f['label'][indices].astype(str)
-
                         return segmentation_array
                     else:
                         return np.array([h5f['label'][:].astype(str)], dtype=object)
-
             elif import_format == '.json':
                 with open(segmentation_path, 'r') as f:
                     data = json.load(f)
                     if 'trial' in data:
                         trials = np.unique(data['trial'])
                         time_points = np.unique(data['time'])
-
                         segmentation_array = np.empty((len(trials), len(time_points)), dtype=object)
                         for i, trial in enumerate(trials):
                             indices = np.where(np.array(data['trial']) == trial)
                             segmentation_array[i, :] = np.array(data['label'])[indices].astype(str)
-
                         return segmentation_array
                     else:
                         return np.array([data['label']], dtype=object)
@@ -163,5 +147,3 @@ class SegmentationIO:
         except Exception as e:
             print(f"Import error: {e}")
             return None
-
-
