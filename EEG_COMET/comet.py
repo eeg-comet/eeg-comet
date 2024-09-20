@@ -671,17 +671,15 @@ class COMET:
                     break
 
             # Identify optimal length filter based on similarity scores
-            filter_segments_less_than = microstate_backfitter.identify_optimal_length_filter(
+            filter_segments_less_than_ms = microstate_backfitter.identify_optimal_length_filter(
                 similarity_scores=similarity_scores
             )
 
         else:
             if self.filter_segments:
-                filter_segments_less_than = self.filter_segments_less_than
+                filter_segments_less_than_ms = self.filter_segments_less_than
             else:
-                filter_segments_less_than = 0
-
-        filter_segments_less_than_ms = filter_segments_less_than * (1000 / self.sample_rate)
+                filter_segments_less_than_ms = 0
 
         if self.backfit_to == 'peaks':
             backfit_to_text = "Backfitting microstates to the local peaks of the global field power."
@@ -726,7 +724,9 @@ class COMET:
             time_array = eeg.times * 1000
 
             labeled_segmentation, segmentation_fit = microstate_backfitter.\
-                perform_segmentation(eeg=eeg, filter_segments_less_than=filter_segments_less_than)
+                perform_segmentation(
+                eeg=eeg, filter_segments_less_than=int(filter_segments_less_than_ms/(1000/self.sample_rate))
+            )
 
             segmentation_io.export_segmentation(
                 output_folder=self.segmentation_path,

@@ -153,46 +153,59 @@ class FeatureExtractor:
                             returns a list of dictionaries, where each dictionary represents the average duration
                             for each element in a window.
         """
-        if self.feature_mode == 'static':
+
+        def calculate_average_durations(input_sequence):
+            """Helper function to calculate average durations for a given sequence."""
             durations = {}
-            current_input_sequence = None
+            current_element = None
             current_duration = 0
-            for item in self.input_sequence:
-                if item != current_input_sequence:
-                    if current_input_sequence is not None:
-                        if current_input_sequence not in durations:
-                            durations[current_input_sequence] = []
-                        durations[current_input_sequence].append(current_duration * 1000 / self.sampling_rate)
-                    current_input_sequence = item
+
+            for item in input_sequence:
+                if item != current_element:
+                    if current_element is not None:
+                        if current_element not in durations:
+                            durations[current_element] = []
+                        durations[current_element].append(current_duration)
+                    current_element = item
                     current_duration = 1
                 else:
                     current_duration += 1
-            if current_input_sequence not in durations:
-                durations[current_input_sequence] = []
-            durations[current_input_sequence].append(current_duration * 1000 / self.sampling_rate)
-            average_durations = {key: sum(value) / len(value) for key, value in durations.items()}
+
+            # Handle the last element in the sequence
+            if current_element not in durations:
+                durations[current_element] = []
+            durations[current_element].append(current_duration)
+
+            # Calculate the average duration for each element and convert to milliseconds
+            return {key: (sum(value) / len(value)) * 1000 / self.sampling_rate for key, value in durations.items()}
+
+        if self.feature_mode == 'static':
+            # Static mode: calculate average duration for the whole sequence
+            average_durations = calculate_average_durations(self.input_sequence)
+
         elif self.feature_mode == 'dynamic' and self.window_size is not None:
+            # Dynamic mode: calculate average duration for each window
             windows = []
-            current_window = {}
-            current_window_duration = 0
-            for item in self.input_sequence:
-                if current_window_duration >= self.window_size * self.sampling_rate:
-                    windows.append(current_window.copy())
-                    current_window = {}
-                    current_window_duration = 0
-                if item in current_window:
-                    current_window[item] += 1
-                else:
-                    current_window[item] = 1
-                current_window_duration += 1
-            if current_window:
-                windows.append(current_window)
-            for window in windows:
-                for key in window:
-                    window[key] = window[key] * 1000 / self.sampling_rate
+            window_start = 0
+            window_end = self.window_size * self.sampling_rate
+
+            # Slide through the input sequence in window-sized chunks
+            while window_start < len(self.input_sequence):
+                window_sequence = self.input_sequence[window_start:window_end]
+                if window_sequence:
+                    # Calculate average duration for this window and store the result
+                    window_avg_duration = calculate_average_durations(window_sequence)
+                    windows.append(window_avg_duration)
+
+                # Move to the next window
+                window_start = window_end
+                window_end += self.window_size * self.sampling_rate
+
             average_durations = windows
+
         else:
             raise ValueError("Invalid mode or missing window size for 'dynamic' mode")
+
         return average_durations
 
     def compute_transition_probabilities(self):

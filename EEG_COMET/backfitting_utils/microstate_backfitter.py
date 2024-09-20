@@ -498,7 +498,7 @@ class MicrostateBackfitter:
         Perform segmentation on the EEG data based on the specified backfitting method.
 
         Args:
-            eeg (numpy.ndarray): Array containing the EEG data.
+            eeg (mne.io.Raw | mne.Epochs): An instance of an MNE object, either Raw or Epochs, containing the EEG data.
             filter_segments_less_than (int): The threshold for filtering segments shorter than this value.
 
         Returns:
