@@ -36,7 +36,7 @@ class SegmentationIO:
         output_path = os.path.join(output_folder, f"{filename}{export_format}")
 
         try:
-            if segmentation_array.shape[0] > 1:
+            if len(segmentation_array.shape) == 2:
                 data = {'trial': [], 'time': [], 'label': []}
                 for trial in range(segmentation_array.shape[0]):
                     for time_idx, time_val in enumerate(time_array):
@@ -59,18 +59,18 @@ class SegmentationIO:
                         json.dump(data, f)
             else:
                 if export_format == '.csv':
-                    df = pd.DataFrame({'time': time_array, 'label': segmentation_array[0]})
+                    df = pd.DataFrame({'time': time_array, 'label': segmentation_array})
                     df.to_csv(output_path, index=False)
                 elif export_format == '.pkl':
                     with open(output_path, 'wb') as f:
-                        pickle.dump({'time': time_array, 'label': segmentation_array[0]}, f)
+                        pickle.dump({'time': time_array, 'label': segmentation_array}, f)
                 elif export_format == '.hdf':
                     with h5py.File(output_path, 'w') as f:
                         f.create_dataset('time', data=time_array)
-                        f.create_dataset('label', data=segmentation_array[0])
+                        f.create_dataset('label', data=segmentation_array)
                 elif export_format == '.json':
                     with open(output_path, 'w') as f:
-                        json.dump({'time': time_array.tolist(), 'label': segmentation_array[0].tolist()}, f)
+                        json.dump({'time': time_array.tolist(), 'label': segmentation_array.tolist()}, f)
             return True
         except Exception as e:
             print(f"Export error: {e}")
