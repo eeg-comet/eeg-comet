@@ -163,7 +163,7 @@ class BackfittingVisualizationWindow(QDialog):
             trial = self.ui.num_trials_spinbox.value()
             data2plot = segmentation_data[trial - 1, :]
         else:
-            data2plot = segmentation_data
+            data2plot = segmentation_data[0]
         fontsize, labelsize, colormap = self._get_plot_parameters()
 
         # Plot the data
