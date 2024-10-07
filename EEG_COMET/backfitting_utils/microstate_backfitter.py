@@ -223,39 +223,21 @@ class MicrostateBackfitter:
 
         if smoothing_parameters is None:
             smoothing_parameters = [1e-6, 3, 5]
-        filled_segmentation = np.copy(segmentation)
-        count_dups = [sum(1 for _ in group) for _, group in groupby(filled_segmentation)]
 
-        # Replace short segments if left and right elements are the same
-        for i, count in enumerate(count_dups):
-            if count <= int(segments_less_than):
-                start = int(np.sum(count_dups[:i]))
-                stop = int(start + count)
-                # Check if there is a left and right neighbor to the segment
-                if start > 0 and stop < len(filled_segmentation) and filled_segmentation[start - 1] == \
-                        filled_segmentation[stop]:
-                    filled_segmentation[start:stop] = filled_segmentation[start - 1]
-
-        # Recalculate count_dups after replacing segments with identical neighbors
-        count_dups = [sum(1 for _ in group) for _, group in groupby(filled_segmentation)]
-
-        # Find short segments
-        for C in range(len(count_dups)):
-            if count_dups[C] <= int(segments_less_than):
-                start = int(np.sum(count_dups[:C]))
-                stop = int(start + count_dups[C])
-                filled_segmentation[start:stop] = -1
-
-        filled_segmentation = np.array(filled_segmentation)
-
-        if option == 'remove':
-            return filled_segmentation
-        elif option == 'replace_high':
-            filled_segmentation = self.fill_with_neighbors_with_higher_count(filled_segmentation)
-        elif option == 'replace_half':
-            filled_segmentation = self.fill_with_neighbors_half(filled_segmentation)
-        elif option == 'smooth':
+        if option == 'smooth':
             filled_segmentation = self.segmentation_smooth(data, microstate_maps, n_states, *smoothing_parameters)
+            filled_segmentation = self.mark_short_segments(filled_segmentation, segments_less_than)
+            filled_segmentation = self.fill_with_neighbors_with_higher_count(filled_segmentation)
+        else:
+            filled_segmentation = self.mark_short_segments(segmentation, segments_less_than)
+
+        if option == 'replace_high':
+            filled_segmentation = self.mark_short_segments(segmentation, segments_less_than)
+            filled_segmentation = self.fill_with_neighbors_with_higher_count(filled_segmentation)
+
+        if option == 'replace_half':
+            filled_segmentation = self.mark_short_segments(segmentation, segments_less_than)
+            filled_segmentation = self.fill_with_neighbors_half(filled_segmentation)
 
         return filled_segmentation
 
@@ -343,7 +325,7 @@ class MicrostateBackfitter:
         else:
             new_segmentation.extend([current_element] * current_count)
 
-        return new_segmentation
+        return np.asarray(new_segmentation)
 
     @staticmethod
     def find_optimal_index(values, threshold=0.001):

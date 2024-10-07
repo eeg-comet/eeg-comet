@@ -1,3 +1,4 @@
+import mne
 import os.path
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QFileDialog, QSizePolicy
@@ -82,7 +83,7 @@ class BackfittingVisualizationWindow(QDialog):
             set_widgets_status(epoched_data_widgets, mode='enable')
             set_widgets_status(epoched_data_widgets, mode='show')
             selected_file_name = self.ui.eeg_filenames_combobox.currentText()
-            _, _, segmentation_data = self._load_data_and_segmentation(selected_file_name)
+            segmentation_data = self._load_data_and_segmentation(selected_file_name)[4]
             num_trials = len(segmentation_data)
             self.ui.num_trials_spinbox.setRange(1, num_trials)
         else:
@@ -107,11 +108,12 @@ class BackfittingVisualizationWindow(QDialog):
             pattern=f"*{selected_file_name}*"
         )
         eeg = data_io.load_eeg(eeg_path=eeg_dir[0], datatype=self.datatype)
+        eeg_info = eeg.info
         eeg_data = eeg.get_data()
         eeg_times = eeg.times * 1000  # Convert to milliseconds
 
         # Process EEG data based on datatype
-        data_to_use = self._get_data_to_use(eeg_data)
+        gfp_data = self._get_gfp_data(eeg_data)
 
         # Load segmentation data
         segmentation_io = SegmentationIO()
@@ -119,9 +121,9 @@ class BackfittingVisualizationWindow(QDialog):
         segmentation_path = os.path.join(self.segmentation_path, segmentation_filename)
         segmentation_data = segmentation_io.load_segmentation(segmentation_path, import_format=self.export_format)
 
-        return data_to_use, eeg_times, segmentation_data
+        return eeg_data, eeg_info, gfp_data, eeg_times, segmentation_data
 
-    def _get_data_to_use(self, eeg_data):
+    def _get_gfp_data(self, eeg_data):
         """
         Determine the EEG data to use for plotting based on the current datatype.
         """
@@ -155,31 +157,36 @@ class BackfittingVisualizationWindow(QDialog):
         selected_file_name = self.ui.eeg_filenames_combobox.currentText()
 
         # Load EEG and segmentation data
-        eeg_data, eeg_times, segmentation_data = self._load_data_and_segmentation(selected_file_name)
+        eeg_data, eeg_info, gfp_data, eeg_times, segmentation_data = self._load_data_and_segmentation(selected_file_name)
 
         # Get plot parameters
         time_min, time_max = self._get_time_range()
         if self.datatype == 'epoched':
             trial = self.ui.num_trials_spinbox.value()
-            data2plot = segmentation_data[trial - 1, :]
+            eeg2plot = eeg_data[trial - 1, :, :]
+            segmentation2plot = segmentation_data[trial - 1, :]
         else:
-            data2plot = segmentation_data[0]
+            eeg2plot = eeg_data
+            segmentation2plot = segmentation_data[0]
         fontsize, labelsize, colormap = self._get_plot_parameters()
 
         # Plot the data
-        self._plot_data(eeg_times, eeg_data, data2plot, time_min, time_max, fontsize, labelsize, colormap)
+        self._plot_data(eeg2plot, eeg_info, eeg_times, gfp_data, segmentation2plot, time_min, time_max, fontsize, labelsize, colormap)
 
-    def _plot_data(self, eeg_times, data_to_use, segmentation_data, time_min, time_max, fontsize, labelsize, colormap):
+    def _plot_data(self, eeg_data, eeg_info, eeg_times, gfp_data, segmentation_data, time_min, time_max, fontsize, labelsize,
+                   colormap):
         """
-        Plot the EEG data along with segmentation overlays using matplotlib.
+        Plot the EEG data along with segmentation overlays and averaged EEG data where segmentation remains the same.
+        Also, plot topographies for each segment directly on the same figure.
         """
         # Determine indices for the specified time range
         xmin = np.argmin(np.abs(eeg_times - time_min))
         xmax = np.argmin(np.abs(eeg_times - time_max))
 
         # Slice data and time arrays to the desired range
+        eeg_to_use = eeg_data[:, xmin:xmax]
         times_to_use = eeg_times[xmin:xmax]
-        data_to_use = data_to_use[xmin:xmax]
+        gfp_to_use = gfp_data[xmin:xmax]
         segmentation_to_use = segmentation_data[xmin:xmax]
 
         # Clear the previous plot
@@ -190,7 +197,23 @@ class BackfittingVisualizationWindow(QDialog):
         legend_elements, color_map = self._prepare_legend_and_colors(segmentation_to_use, colormap)
 
         # Fill the plot with data and segmentation overlays
-        self._fill_plot(ax, times_to_use, data_to_use, segmentation_to_use, color_map)
+        self._fill_plot(ax, times_to_use, gfp_to_use, segmentation_to_use, color_map)
+
+        # Initialize topography plotting for each averaged EEG segment
+        avg_eeg_data = []
+        prev_label = segmentation_to_use[0]
+        prev_index = 0
+        for idx, label in enumerate(segmentation_to_use[1:], start=1):
+            if label != prev_label:
+                # Average the EEG data for the previous segment
+                segment_avg = np.mean(eeg_to_use[:, prev_index:idx], axis=1)
+                avg_eeg_data.append((times_to_use[prev_index:idx], segment_avg, prev_label))
+                prev_label = label
+                prev_index = idx
+
+        # Handle the last segment
+        segment_avg = np.mean(eeg_to_use[:, prev_index:], axis=1)
+        avg_eeg_data.append((times_to_use[prev_index:], segment_avg, prev_label))
 
         # Customize plot appearance
         ax.set_xlabel('Time (ms)', fontsize=fontsize)
@@ -198,6 +221,18 @@ class BackfittingVisualizationWindow(QDialog):
         ax.tick_params(axis='both', which='major', labelsize=labelsize)
         ax.set_xlim([time_min, time_max])
         ax.legend(handles=legend_elements, loc='upper right', fontsize=fontsize)
+
+        # Now, plot the topography for each averaged segment using MNE, directly on the same plot
+        for i, (times, avg_data, label) in enumerate(avg_eeg_data):
+            # Determine the center of the time window for placing the topography
+            mid_time = times[len(times) // 2]
+
+            # Create a small inset axis for the topography
+            inset_ax = ax.inset_axes(
+                [mid_time / (time_max - time_min), 0.8, 0.1, 0.1])  # Adjust inset position and size as needed
+
+            # Plot the topography for the segment
+            mne.viz.plot_topomap(avg_data, eeg_info, axes=inset_ax, show=False)
 
         # Render the plot on the canvas
         self.canvas.draw()
