@@ -153,6 +153,7 @@ class COMET:
 
         # Source Localization Configs
         source_config = config["source_config"]
+        self.use_anatomy = source_config.get("use_anatomy", "fsaverage")
         self.inverse_method = source_config.get("inverse_method", "dSPM")
         self.nperm = source_config.getint("nperm", 2000)
         self.spacing = source_config.get("spacing", "ico3")
@@ -916,11 +917,24 @@ class COMET:
         print("\nCalculating Source Time Series ...")
 
         # Determine the subjects directory based on the anatomy choice
-        if self.use_anatomy == "fsaverage":
+        if self.use_anatomy == "individual":
+            self.anatomy_subjects_dir = self.individual_subjects_dir
+        else:  # use_anatomy == "fsaverage"
             fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
             self.anatomy_subjects_dir = os.path.dirname(fs_dir)
-        elif self.use_anatomy == "individual":
-            self.anatomy_subjects_dir = self.individual_subjects_dir
+
+        # Create an instance of the progress dialog
+        # self.LogWindow.setup_progress_dialog(
+        #     window_title="Estimating Microstates Sources ...",
+        #     label_text="Extracting features for data ...",
+        #     max_value=len(segmentation_list_path)
+        # )
+
+        # self.LogWindow.append_log(
+        #     f"Source Localization Settings:\n"
+        #     f"* Features to Extract: {self.feature_list}\n"
+        #     f"* Feature Type: {self.feature_mode}", log_type='settings'
+        # )
 
         # Initialize the source localizer
         source_localizer = SourceLocalizer(

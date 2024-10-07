@@ -323,17 +323,8 @@ class SourceLocalizer:
 
         # Create an instance of the progress dialog
         # TODO: Log the process in the COMET
-        progress_dialog = LogWindow()
-        progress_dialog.set_window_title("Source Localization ...")
-        progress_dialog.set_label_text(
-            f"Running source localization using {self.inverse_method} method")
-        progress_dialog.show()
-        progress_dialog.start_process(len(list_eeg_path))
-        progress_dialog.update_progress(0)
         for idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_name)):
             print(f"Source Localizing {eeg_name} ({idx + 1}/{len(list_eeg_path)})")
-            progress_dialog.set_line_edit_text(f"{eeg_name}")
-            progress_dialog.update_progress(idx)
             stc_subject_path = os.path.join(self.stc_path, list_eeg_name[idx])
             if not os.path.exists(stc_subject_path):
                 os.makedirs(stc_subject_path)
@@ -371,13 +362,8 @@ class SourceLocalizer:
                 self.export_src_bem_trans('fsaverage', src, bem, trans)
                 stc_file = self.compute_stc(src, bem, trans, eeg, eeg_info)
 
-            if not progress_dialog.running:  # Check if the process should be stopped
-                break
-            else:
-                progress_dialog.update_progress(idx + 1)
             print(f"\nExporting Source Time Courses: {eeg_name}")
             self.stc_write(stc_subject_path, stc_file)
-        progress_dialog.close()
 
     @staticmethod
     def find_t_coeff(sample, maps):

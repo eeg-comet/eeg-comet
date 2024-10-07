@@ -12,6 +12,7 @@ from controllers.microstate_visualization_window import MicrostateVisualizationW
 from controllers.optimizer_visualization_window import OptimizerVisualizationWindow
 from controllers.backfitting_visualization_window import BackfittingVisualizationWindow
 from controllers.feature_visualization_window import FeatureVisualizationWindow
+from controllers.coregistration_window import CoregistrationWindow
 from controllers.source_visualization_window import SourceVisualizationWindow
 from gui_utils.set_widgets_status import set_widgets_status
 from comet import COMET
@@ -92,6 +93,11 @@ class MainMicrostateWindow(QMainWindow):
             self.context,
             tbx=self.comet_tbx
         )
+        # Create and initialize CoregistrationWindow
+        self.ui.CoregistrationWindow = CoregistrationWindow(
+            self.context,
+            tbx=self.comet_tbx
+        )
 
     def reset_processing_flags(self, processing_flags, value=False):
         """
@@ -141,6 +147,7 @@ class MainMicrostateWindow(QMainWindow):
              self.ui.step3_backfit_visualization_button,
              self.ui.step4_extractfeatures_button,
              self.ui.step4_visualizefeatures_button,
+             self.ui.step5_coreg_button,
              self.ui.step5_estimate_sources_button,
              self.ui.step5_compute_source_microstate_correlation_button,
              self.ui.step5_visualize_sources_button], mode='hide')
@@ -200,6 +207,7 @@ class MainMicrostateWindow(QMainWindow):
             (self.ui.step4_extractfeatures_button, self.extract_features),
             (self.ui.step4_visualizefeatures_button, self.visualize_microstate_features),
             (self.ui.step3_backfit_visualization_button, self.visualize_microstate_segmentation),
+            (self.ui.step5_coreg_button, self.coregister),# TODO
             (self.ui.step5_estimate_sources_button, self.source_localize_microstates),
             (self.ui.step5_compute_source_microstate_correlation_button, self.source_microstates_correlation),
             (self.ui.step5_visualize_sources_button, self.visualize_source_localized_microstates),
@@ -476,6 +484,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_use_avg_radio,
             self.ui.step5_spacing_label,
             self.ui.step5_spacing_combobox,
+            self.ui.step5_coreg_button,
             self.ui.step5_estimate_sources_button,
             self.ui.step5_source_microstate_correlation_label,
             self.ui.step5_compute_source_microstate_correlation_button
@@ -836,6 +845,16 @@ class MainMicrostateWindow(QMainWindow):
                                     self.ui.step4_extractfeatures_button,
                                     self.ui.step4_visualizefeatures_button], mode='hide')
 
+                # Determine whether to use fsaverage or individual anatomy
+                if self.step5_use_individual_radio.isChecked():
+                    self.comet_tbx.use_anatomy = "individual"
+                else:
+                    self.comet_tbx.use_anatomy = "fsaverage"
+                    # self.comet_tbx.individual_subjects_dir = QFileDialog.getExistingDirectory(
+                    #     self,
+                    #     "Locate Folder with Individual Anatomical Reconstructions"
+                    # )
+
                 if self.comet_tbx.done_source_localization:
                     self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
                     set_widgets_status(source_microstates_widgets, mode='enable')
@@ -1163,16 +1182,23 @@ class MainMicrostateWindow(QMainWindow):
         Open FeatureVisualizationWindow to visualize microstate features.
         """
         # Set relevant paths and parameters for visualization
-        self.FeatureVisualizationWindow.extracted_features_path = self.comet_tbx.extracted_features_path
-        self.FeatureVisualizationWindow.export_format = self.comet_tbx.export_format
-        self.FeatureVisualizationWindow.feature_mode = self.comet_tbx.feature_mode
-        self.FeatureVisualizationWindow.feature_combo.clear()
-        self.FeatureVisualizationWindow.feature_combo.addItems([i for i in self.comet_tbx.feature_list])
-        self.FeatureVisualizationWindow.list_eegs = self.comet_tbx.list_eegs
-        self.FeatureVisualizationWindow.reset_groups()
+        self.ui.FeatureVisualizationWindow.extracted_features_path = self.comet_tbx.extracted_features_path
+        self.ui.FeatureVisualizationWindow.export_format = self.comet_tbx.export_format
+        self.ui.FeatureVisualizationWindow.feature_mode = self.comet_tbx.feature_mode
+        self.ui.FeatureVisualizationWindow.feature_combo.clear()
+        self.ui.FeatureVisualizationWindow.feature_combo.addItems([i for i in self.comet_tbx.feature_list])
+        self.ui.FeatureVisualizationWindow.list_eegs = self.comet_tbx.list_eegs
+        self.ui.FeatureVisualizationWindow.reset_groups()
         # Display the Feature Visualization Dialog
-        self.FeatureVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.FeatureVisualizationWindow.showMaximized()
+        self.ui.FeatureVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.ui.FeatureVisualizationWindow.showMaximized()
+
+    def coregister(self):
+        """
+        Open CoregistrationWindow to align EEG Sensors to head source space.
+        """
+        self.ui.CoregistrationWindow = CoregistrationWindow(self.context, tbx=self.comet_tbx)
+        self.ui.CoregistrationWindow.showMaximized()
 
     def source_localize_microstates(self):
         """
