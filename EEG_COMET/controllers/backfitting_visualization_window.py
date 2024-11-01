@@ -193,6 +193,10 @@ class BackfittingVisualizationWindow(QDialog):
         ax = self.canvas.figure.gca()
         ax.clear()
 
+        # Add a dashed horizontal line at y=0 if self.datatype is 'epoched'
+        if self.datatype == 'epoched':
+            ax.axvline(0, color='red', linestyle='--')
+
         # Prepare legend and color mapping
         legend_elements, color_map = self._prepare_legend_and_colors(segmentation_to_use, colormap)
 
@@ -222,6 +226,7 @@ class BackfittingVisualizationWindow(QDialog):
         ax.set_xlim([time_min, time_max])
         ax.legend(handles=legend_elements, loc='upper right', fontsize=fontsize)
 
+        """
         # Now, plot the topography for each averaged segment using MNE, directly on the same plot
         for i, (times, avg_data, label) in enumerate(avg_eeg_data):
             # Determine the center of the time window for placing the topography
@@ -233,6 +238,7 @@ class BackfittingVisualizationWindow(QDialog):
 
             # Plot the topography for the segment
             mne.viz.plot_topomap(avg_data, eeg_info, axes=inset_ax, show=False)
+        """
 
         # Render the plot on the canvas
         self.canvas.draw()
@@ -246,8 +252,10 @@ class BackfittingVisualizationWindow(QDialog):
         cm = plt.get_cmap(colormap)
         unique_colors = [cm(1.0 * i / len(unique_labels)) for i in range(len(unique_labels))]
         color_map = dict(zip(unique_labels, unique_colors))
-        legend_elements = [Patch(facecolor=color, edgecolor='none', label=label) for
-                           label, color in zip(unique_labels, unique_colors)]
+        legend_elements = [
+            Patch(facecolor=color, edgecolor='none', label=f"Microstate {label}")
+            for label, color in zip(unique_labels, unique_colors)
+        ]
         return legend_elements, color_map
 
     @staticmethod
