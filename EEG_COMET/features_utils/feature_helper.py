@@ -2,6 +2,8 @@
 import math
 import random
 import itertools
+import numpy as np
+from scipy.stats import gmean
 from collections import Counter
 
 
@@ -128,6 +130,64 @@ class FeatureHelper:
         b = 1.0 * n / math.log(n, 2)
         # Return the normalized complexity
         return c / b
+
+    @staticmethod
+    def compute_relative_occurrence_frequency(input_sequence):
+        """
+        Computes the relative occurrence frequency of each unique element in the input sequence over time,
+        followed by a centered log-ratio (CLR) transformation.
+        """
+        # Step 1: Identify unique elements across the entire input_sequence
+        unique_elements = np.unique(input_sequence)
+        num_elements = len(unique_elements)
+
+        # Step 2: Initialize array to store occurrences of each element at each time point
+        # Averaging over trials gives us a (num_elements, num_times) array
+        num_times = input_sequence.shape[1]
+        occurrence_counts = np.zeros((num_elements, num_times))
+
+        # Step 3: Count occurrences of each element at each time point
+        for i, element in enumerate(unique_elements):
+            occurrence_counts[i] = np.mean(input_sequence == element, axis=0)
+
+        # Step 4: Sum occurrences across elements for each time point to get relative frequencies
+        relative_frequencies = np.sum(occurrence_counts, axis=0)
+
+        # Step 5: Apply CLR transformation
+        # This requires dividing by the geometric mean, then taking log
+        geometric_mean = gmean(relative_frequencies[relative_frequencies > 0])  # Avoid zero values
+        clr_transformed = np.log(relative_frequencies / geometric_mean)
+
+        return clr_transformed
+
+    @staticmethod
+    def compute_relative_transition_frequency(input_sequence):
+        """
+        Computes the relative transition frequency between each pair of microstates
+        by identifying exact times and indices where transitions occur, then averages
+        these over all trials within each subject.
+        """
+
+        # Find unique microstates
+        unique_states = np.unique(input_sequence)
+
+        # Initialize a dictionary to hold transition counts
+        transition_counts = {f"{state1}->{state2}": 0 for state1 in unique_states for state2 in unique_states if
+                             state1 != state2}
+        num_trials = input_sequence.shape[0]
+
+        # Iterate over each trial
+        for trial in input_sequence:
+            # Iterate through each time point and identify transitions
+            for i in range(1, len(trial)):
+                if trial[i] != trial[i - 1]:  # Transition found
+                    transition = f"{trial[i - 1]}->{trial[i]}"
+                    transition_counts[transition] += 1  # Increment the transition count
+
+        # Average transition counts over the number of trials
+        transition_frequencies = {key: count / num_trials for key, count in transition_counts.items()}
+
+        return transition_frequencies
 
     @staticmethod
     def generate_synthetic_sequence(input_sequence, method='random'):

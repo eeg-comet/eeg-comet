@@ -181,8 +181,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_se_checkbox,
             self.ui.step4_feature_lzc_checkbox,
             self.ui.step4_feature_er_checkbox,
-            self.ui.step4_static_features_checkbox,
-            self.ui.step4_dynamic_features_checkbox,
+            self.ui.step4_feature_rof_checkbox,
+            self.ui.step4_feature_rtf_checkbox,
+            self.ui.step4_averaged_features_checkbox,
+            self.ui.step4_sliding_features_checkbox,
             self.ui.step5_use_tess_radio,
             self.ui.step5_use_avg_radio
         ]
@@ -448,12 +450,20 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_se_checkbox,
             self.ui.step4_feature_lzc_checkbox,
             self.ui.step4_feature_er_checkbox,
-            self.ui.step4_static_features_checkbox,
-            self.ui.step4_dynamic_features_checkbox,
+            self.ui.step4_features_epoched_label,
+            self.ui.step4_feature_rof_checkbox,
+            self.ui.step4_feature_rtf_checkbox,
+            self.ui.step4_averaged_features_checkbox,
+            self.ui.step4_sliding_features_checkbox,
             self.ui.step4_synthetic_checkbox,
-            self.ui.step4_sliding_window_label,
-            self.ui.step4_sliding_window_label_2,
-            self.ui.step4_sliding_window_input,
+            self.ui.step4_sliding_window_raw_label_0,
+            self.ui.step4_sliding_window_raw_label_1,
+            self.ui.step4_sliding_window_raw_input,
+            self.ui.step4_sliding_window_epoched_label_0,
+            self.ui.step4_sliding_window_epoched_label_1,
+            self.ui.step4_sliding_window_epoched_label_2,
+            self.ui.step4_sliding_window_epoched_input_pre,
+            self.ui.step4_sliding_window_epoched_input_post,
             self.step4_word_size_label1,
             self.step4_word_size_label2,
             self.step4_word_size_label3,
@@ -763,15 +773,47 @@ class MainMicrostateWindow(QMainWindow):
                                     self.ui.step5_compute_source_microstate_correlation_button,
                                     self.ui.step5_visualize_sources_button], mode='hide')
 
-                sliding_feature_extraction_widgets = [
-                    self.ui.step4_sliding_window_label,
-                    self.ui.step4_sliding_window_label_2,
-                    self.ui.step4_sliding_window_input
+                sliding_feature_extraction_raw_widgets = [
+                    self.ui.step4_sliding_window_raw_label_0,
+                    self.ui.step4_sliding_window_raw_label_1,
+                    self.ui.step4_sliding_window_raw_input
                 ]
-                if self.ui.step4_dynamic_features_checkbox.isChecked():
-                    set_widgets_status(sliding_feature_extraction_widgets, mode='enable')
+
+                feature_extraction_epoched_widgets = [
+                    self.ui.step4_features_epoched_label,
+                    self.ui.step4_feature_rof_checkbox,
+                    self.ui.step4_feature_rtf_checkbox
+                ]
+
+                sliding_feature_extraction_epoched_widgets = [
+                    self.ui.step4_sliding_window_epoched_label_0,
+                    self.ui.step4_sliding_window_epoched_label_1,
+                    self.ui.step4_sliding_window_epoched_label_2,
+                    self.ui.step4_sliding_window_epoched_input_pre,
+                    self.ui.step4_sliding_window_epoched_input_post
+                ]
+
+                if self.comet_tbx.datatype == 'epoched':
+                    self.ui.step4_sliding_features_checkbox.setText("Extract Features Before and After TMS per Subject")
+                    set_widgets_status(feature_extraction_epoched_widgets, mode='enable')
+                    self.ui.step4_feature_rof_checkbox.setChecked(True)
+                    self.ui.step4_feature_rtf_checkbox.setChecked(True)
+                    set_widgets_status(sliding_feature_extraction_raw_widgets, mode='disable')
+                    set_widgets_status(sliding_feature_extraction_raw_widgets, mode='hide')
+                    if self.ui.step4_sliding_features_checkbox.isChecked():
+                        set_widgets_status(sliding_feature_extraction_epoched_widgets, mode='enable')
+                    else:
+                        set_widgets_status(sliding_feature_extraction_epoched_widgets, mode='disable')
                 else:
-                    set_widgets_status(sliding_feature_extraction_widgets, mode='disable')
+                    set_widgets_status(feature_extraction_epoched_widgets, mode='disable')
+                    self.ui.step4_feature_rof_checkbox.setChecked(False)
+                    self.ui.step4_feature_rtf_checkbox.setChecked(False)
+                    set_widgets_status(sliding_feature_extraction_epoched_widgets, mode='disable')
+                    set_widgets_status(sliding_feature_extraction_epoched_widgets, mode='hide')
+                    if self.ui.step4_sliding_features_checkbox.isChecked():
+                        set_widgets_status(sliding_feature_extraction_raw_widgets, mode='enable')
+                    else:
+                        set_widgets_status(sliding_feature_extraction_raw_widgets, mode='disable')
 
                 microsynt_feature_extraction_widgets = [
                     self.step4_word_size_label1,
@@ -793,11 +835,13 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_feature_tp_checkbox,
                     self.ui.step4_feature_se_checkbox,
                     self.ui.step4_feature_lzc_checkbox,
-                    self.ui.step4_feature_er_checkbox
+                    self.ui.step4_feature_er_checkbox,
+                    self.ui.step4_feature_rof_checkbox,
+                    self.ui.step4_feature_rtf_checkbox
                 ]
                 feature_checkboxes2 = [
-                    self.ui.step4_static_features_checkbox,
-                    self.ui.step4_dynamic_features_checkbox,
+                    self.ui.step4_averaged_features_checkbox,
+                    self.ui.step4_sliding_features_checkbox,
                     self.ui.step4_synthetic_checkbox
                 ]
                 self.ui.step4_extractfeatures_button.setDisabled(
@@ -1159,16 +1203,26 @@ class MainMicrostateWindow(QMainWindow):
 
             # Define feature extraction modes
             self.comet_tbx.feature_mode = []
-            if self.ui.step4_static_features_checkbox.isChecked():
-                self.comet_tbx.feature_mode.append("static")
-            if self.ui.step4_dynamic_features_checkbox.isChecked():
-                self.comet_tbx.feature_mode.append("dynamic")
+            if self.ui.step4_averaged_features_checkbox.isChecked():
+                self.comet_tbx.feature_mode.append("averaged")
+            if self.ui.step4_sliding_features_checkbox.isChecked():
+                self.comet_tbx.feature_mode.append("sliding")
             if self.ui.step4_synthetic_checkbox.isChecked():
                 self.comet_tbx.feature_types = ['real', 'surrogate', 'random']
             else:
                 self.comet_tbx.feature_types = ['real']
-            # Set window size for dynamic features
-            self.comet_tbx.window_size = int(self.ui.step4_sliding_window_input.text())
+
+            if self.comet_tbx.datatype == 'epoched':
+                # Set window size for pre post features
+                self.comet_tbx.pre_window_size = int(self.ui.step4_sliding_window_epoched_input_pre.text())
+                self.comet_tbx.post_window_size = int(self.ui.step4_sliding_window_epoched_input_post.text())
+                if self.ui.step4_feature_rof_checkbox.isChecked():
+                    self.comet_tbx.feature_list.append("ROF")
+                if self.ui.step4_feature_rtf_checkbox.isChecked():
+                    self.comet_tbx.feature_list.append("RTF")
+            else:
+                # Set sliding window size for dynamic features
+                self.comet_tbx.sliding_window_size = int(self.ui.step4_sliding_window_raw_input.text())
             # Log and perform feature extraction
             self.comet_tbx.extract_features()
             # Update flags and save the state

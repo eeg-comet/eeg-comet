@@ -149,7 +149,9 @@ class COMET:
         self.feature_list = [x.strip() for x in features_config.get("feature_list", "").split(",")]
         self.feature_mode = [x.strip() for x in features_config.get("feature_mode", "").split(",")]
         self.feature_types = [x.strip() for x in features_config.get("feature_types", "").split(",")]
-        self.window_size = features_config.getint("window_size", 1) if "OCC" in self.feature_list else ""
+        self.sliding_window_size = features_config.getint("sliding_window_size", 1) if "OCC" in self.feature_list else ""
+        self.pre_window_size = features_config.getint("pre_window_size", 1)
+        self.post_window_size = features_config.getint("post_window_size", 1)
 
         # Source Localization Configs
         source_config = config["source_config"]
@@ -763,7 +765,8 @@ class COMET:
             "OCC": "Frequency of Occurrence (Hz)", "DUR": "Mean Microstate Duration (ms)",
             "COV": "Microstate Coverage (%)", "GEV": "Microstate Global Explained Variance (%)",
             "TP": "Transition Probability", "SE": "Sequence Entropy", "LZC": "Sequence Lempel-Ziv Complexity",
-            "ER": "Sequence Entropy Representation"
+            "ER": "Sequence Entropy Representation", "ROF": "Relative Occurrence Frequency",
+            "RTF": "Relative Transition Frequency"
         }
         self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
         if not os.path.exists(self.extracted_features_path):
@@ -789,8 +792,8 @@ class COMET:
         )
 
         for feature_type in self.feature_types:
-            static_features_dfs = pd.DataFrame()
-            dynamic_features_dfs = pd.DataFrame()
+            averaged_features_dfs = pd.DataFrame()
+            sliding_features_dfs = pd.DataFrame()
             for segmentation_idx, (segmentation_path, segmentation_name) in tqdm(
                     enumerate(zip(segmentation_list_path, segmentation_list_filename)),
                     total=len(segmentation_list_path)):
@@ -808,14 +811,14 @@ class COMET:
                         input_sequence=segmentation_array, method=feature_type
                     )
 
-                # Extract static features
-                if 'static' in self.feature_mode:
-                    feature_extractor = FeatureExtractor(
-                        input_sequence=input_sequence,
-                        sampling_rate=self.sample_rate,
-                        window_size=self.window_size,
-                        feature_mode='static'
-                    )
+                # Extract Averaged Features
+                if 'averaged' in self.feature_mode:
+                    params = {
+                        "input_sequence": input_sequence,
+                        "sampling_rate": self.sample_rate,
+                        "feature_mode": "averaged"
+                    }
+                    feature_extractor = FeatureExtractor(**params)
 
                     if 'GEV' in self.feature_list:
                         data_io = DataIO()
@@ -841,18 +844,24 @@ class COMET:
                         )
 
                     if segmentation_idx == 0:
-                        static_features_dfs = output_features
+                        averaged_features_dfs = output_features
                     else:
-                        static_features_dfs = pd.concat([static_features_dfs, output_features], ignore_index=True)
+                        averaged_features_dfs = pd.concat([averaged_features_dfs, output_features], ignore_index=True)
 
-                # Extract dynamic features
-                if 'dynamic' in self.feature_mode:
-                    feature_extractor = FeatureExtractor(
-                        input_sequence=input_sequence,
-                        sampling_rate=self.sample_rate,
-                        window_size=self.window_size,
-                        feature_mode='dynamic'
-                    )
+                # Extract Sliding Features
+                if 'sliding' in self.feature_mode:
+                    params = {
+                        "input_sequence": input_sequence,
+                        "sampling_rate": self.sample_rate,
+                        "feature_mode": "averaged"
+                    }
+                    if hasattr(self, "sliding_window_size") and self.sliding_window_size is not None:
+                        params["sliding_window_size"] = self.sliding_window_size
+                    if hasattr(self, "pre_window_size") and self.pre_window_size is not None:
+                        params["pre_window_size"] = self.pre_window_size
+                    if hasattr(self, "post_window_size") and self.post_window_size is not None:
+                        params["post_window_size"] = self.post_window_size
+                    feature_extractor = FeatureExtractor(**params)
 
                     if 'GEV' in self.feature_list:
                         data_io = DataIO()
@@ -872,9 +881,9 @@ class COMET:
                         )
 
                     if segmentation_idx == 0:
-                        dynamic_features_dfs = output_features
+                        sliding_features_dfs = output_features
                     else:
-                        dynamic_features_dfs = pd.concat([dynamic_features_dfs, output_features], ignore_index=True)
+                        sliding_features_dfs = pd.concat([sliding_features_dfs, output_features], ignore_index=True)
 
                 # Log the feature extraction progress
                 self.LogWindow.append_log(
@@ -887,19 +896,19 @@ class COMET:
 
             # Export extracted features
             feature_io = FeatureIO()
-            if 'static' in self.feature_mode:
+            if 'averaged' in self.feature_mode:
                 feature_io.export_features(
-                    features_df=static_features_dfs,
+                    features_df=averaged_features_dfs,
                     feature_type=feature_type,
-                    feature_mode='static',
+                    feature_mode='averaged',
                     output_folder=self.extracted_features_path,
                     export_format=self.export_format
                 )
-            if 'dynamic' in self.feature_mode:
+            if 'sliding' in self.feature_mode:
                 feature_io.export_features(
-                    features_df=dynamic_features_dfs,
+                    features_df=sliding_features_dfs,
                     feature_type=feature_type,
-                    feature_mode='dynamic',
+                    feature_mode='sliding',
                     output_folder=self.extracted_features_path,
                     export_format=self.export_format
                 )
@@ -1057,7 +1066,9 @@ class COMET:
         self.config["features_config"]["feature_list"] = ', '.join(self.feature_list)
         self.config["features_config"]["feature_mode"] = ', '.join(self.feature_mode)
         self.config["features_config"]["feature_types"] = ', '.join(self.feature_types)
-        self.config["features_config"]["window_size"] = str(self.window_size)
+        self.config["features_config"]["sliding_window_size"] = str(self.sliding_window_size)
+        self.config["features_config"]["pre_window_size"] = str(self.pre_window_size)
+        self.config["features_config"]["post_window_size"] = str(self.post_window_size)
 
         self.config["source_config"]["inverse_method"] = self.inverse_method
         self.config["source_config"]["nperm"] = str(self.nperm)
