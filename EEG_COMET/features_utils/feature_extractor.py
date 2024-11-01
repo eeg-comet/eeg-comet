@@ -9,22 +9,22 @@ class FeatureExtractor:
     """
     The FeatureExtractor class provides methods for extracting microstate features from EEG data.
     """
-    def __init__(self, input_sequence, sampling_rate, window_size, feature_mode='static'):
+    def __init__(self, input_sequence, sampling_rate, sliding_window_size, feature_mode='averaged'):
         """
         Initialize the FeatureExtractor class.
 
         Args:
             input_sequence (list): The input sequence of EEG data.
             sampling_rate (int): The sampling rate of the EEG data.
-            window_size (int): The window size in seconds.
-            feature_mode (str, optional): The feature extraction mode ('static' or 'dynamic'). Defaults to 'static'.
+            sliding_window_size (int): The sliding window size in seconds.
+            feature_mode (str, optional): The feature extraction mode ('averaged' or 'sliding'). Defaults to 'averaged'.
         """
 
         self.input_sequence = input_sequence
         self.sampling_rate = sampling_rate
-        self.window_size = window_size
+        self.sliding_window_size = sliding_window_size
         self.feature_mode = feature_mode
-        self.num_windows = len(input_sequence) // (sampling_rate * window_size)
+        self.num_windows = len(input_sequence) // (sampling_rate * sliding_window_size)
 
     def global_explained_variance(self, eeg_data, microstate_maps, microstate_labels=None):
         """
@@ -43,9 +43,9 @@ class FeatureExtractor:
             raise ValueError("Length of microstate_labels must match the number of microstate maps.")
         window_element_gev = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
                               for _ in range(self.num_windows)]
-        if self.feature_mode == 'dynamic':
+        if self.feature_mode == 'sliding':
             gevs = {}
-            window_size_samples = self.window_size * self.sampling_rate
+            window_size_samples = self.sliding_window_size * self.sampling_rate
             for i, label in enumerate(microstate_labels):
                 gevs[label] = []
                 for window_index in range(self.num_windows):
@@ -58,26 +58,26 @@ class FeatureExtractor:
                     gev = MicrostateClusterer().compute_gev(window_eeg_data, microstate_maps[i, :])
                     window_element_gev[window_index][label] = gev * 100
             return window_element_gev
-        elif self.feature_mode == 'static':
+        elif self.feature_mode == 'averaged':
             gevs = {}
             for i, label in enumerate(microstate_labels):
                 gev = MicrostateClusterer().compute_gev(eeg_data, microstate_maps[i, :])
                 gevs[label] = gev * 100
             return gevs
         else:
-            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
+            raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
     def microstate_coverage(self):
         """
         Calculate the coverage percentage of each element.
 
         Returns:
-            dict: If feature_mode is 'static', returns a dictionary with the overall coverage percentage for each element.
-                  If feature_mode is 'dynamic', returns a list of dictionaries where each dictionary represents the
+            dict: If feature_mode is 'averaged', returns a dictionary with the overall coverage percentage for each element.
+                  If feature_mode is 'sliding', returns a list of dictionaries where each dictionary represents the
                   coverage percentages for each element in a window.
         """
 
-        if self.feature_mode == 'static':
+        if self.feature_mode == 'averaged':
             element_counts = Counter(self.input_sequence)
             total_elements = len(self.input_sequence)
             return {
@@ -85,12 +85,12 @@ class FeatureExtractor:
                 for element, count in element_counts.items()
             }
 
-        elif self.feature_mode == 'dynamic':
+        elif self.feature_mode == 'sliding':
             window_element_coverage = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
                                        for _ in range(self.num_windows)]
             for window_index in range(self.num_windows):
-                window_start = window_index * self.window_size * self.sampling_rate
-                window_end = (window_index + 1) * self.window_size * self.sampling_rate
+                window_start = window_index * self.sliding_window_size * self.sampling_rate
+                window_end = (window_index + 1) * self.sliding_window_size * self.sampling_rate
                 window_input_sequence = self.input_sequence[window_start:window_end]
                 element_counts = Counter(window_input_sequence)
                 total_elements = sum(element_counts.values())
@@ -102,7 +102,7 @@ class FeatureExtractor:
             return window_element_coverage
 
         else:
-            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
+            raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
     def microstate_occurrence(self):
         """
@@ -110,14 +110,14 @@ class FeatureExtractor:
 
         Returns:
             dict or list:
-                - If feature_mode is 'static', returns a dictionary with the frequency (Hz) of each element
+                - If feature_mode is 'averaged', returns a dictionary with the frequency (Hz) of each element
                   across the entire input_sequence.
-                - If feature_mode is 'dynamic', returns a list of dictionaries, where each dictionary represents
+                - If feature_mode is 'sliding', returns a list of dictionaries, where each dictionary represents
                   the frequency (Hz) of each element in a 1-second window.
         """
 
         samples_per_second = self.sampling_rate
-        if self.feature_mode == 'static':
+        if self.feature_mode == 'averaged':
             sequence_without_repeats = FeatureHelper().remove_repetition_sequence(self.input_sequence)
             total_element_counts = Counter(sequence_without_repeats)
             total_duration_seconds = len(self.input_sequence) / samples_per_second
@@ -125,7 +125,7 @@ class FeatureExtractor:
                 element: count / total_duration_seconds
                 for element, count in total_element_counts.items()
             }
-        elif self.feature_mode == 'dynamic':
+        elif self.feature_mode == 'sliding':
             num_seconds = len(self.input_sequence) // samples_per_second
             window_change_counts = []
             for second in range(num_seconds):
@@ -140,16 +140,16 @@ class FeatureExtractor:
                 })
             return window_change_counts
         else:
-            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
+            raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
     def microstate_duration(self):
         """
         Compute the average duration of each element uninterrupted in the data.
 
         Returns:
-            dict or list: If feature_mode is 'static',
+            dict or list: If feature_mode is 'averaged',
                             returns a dictionary with the average duration for each element.
-                          If feature_mode is 'dynamic' and window_size is not None,
+                          If feature_mode is 'sliding' and window_size is not None,
                             returns a list of dictionaries, where each dictionary represents the average duration
                             for each element in a window.
         """
@@ -179,15 +179,15 @@ class FeatureExtractor:
             # Calculate the average duration for each element and convert to milliseconds
             return {key: (sum(value) / len(value)) * 1000 / self.sampling_rate for key, value in durations.items()}
 
-        if self.feature_mode == 'static':
+        if self.feature_mode == 'averaged':
             # Static mode: calculate average duration for the whole sequence
             average_durations = calculate_average_durations(self.input_sequence)
 
-        elif self.feature_mode == 'dynamic' and self.window_size is not None:
+        elif self.feature_mode == 'sliding' and self.sliding_window_size is not None:
             # Dynamic mode: calculate average duration for each window
             windows = []
             window_start = 0
-            window_end = self.window_size * self.sampling_rate
+            window_end = self.sliding_window_size * self.sampling_rate
 
             # Slide through the input sequence in window-sized chunks
             while window_start < len(self.input_sequence):
@@ -199,12 +199,12 @@ class FeatureExtractor:
 
                 # Move to the next window
                 window_start = window_end
-                window_end += self.window_size * self.sampling_rate
+                window_end += self.sliding_window_size * self.sampling_rate
 
             average_durations = windows
 
         else:
-            raise ValueError("Invalid mode or missing window size for 'dynamic' mode")
+            raise ValueError("Invalid mode or missing window size for 'sliding' mode")
 
         return average_durations
 
@@ -234,12 +234,12 @@ class FeatureExtractor:
         Calculate Shannon entropy.
 
         Returns:
-            float or list: If feature_mode is 'static', returns the Shannon entropy of the entire input_sequence.
-                           If feature_mode is 'dynamic', returns a list of Shannon entropies for each window.
+            float or list: If feature_mode is 'averaged', returns the Shannon entropy of the entire input_sequence.
+                           If feature_mode is 'sliding', returns a list of Shannon entropies for each window.
         """
 
-        window_entropies, window_size_samples = FeatureHelper().initialize_dynamic_windows(
-            self.input_sequence, self.sampling_rate, self.window_size
+        window_entropies, window_size_samples = FeatureHelper().initialize_sliding_windows(
+            self.input_sequence, self.sampling_rate, self.sliding_window_size
         )
 
         for window_index in range(len(window_entropies)):
@@ -248,12 +248,12 @@ class FeatureExtractor:
             window_input_sequence = self.input_sequence[window_start:window_end]
             window_entropies[window_index] = FeatureHelper().calculate_entropy(window_input_sequence)
 
-        if self.feature_mode == 'static':
+        if self.feature_mode == 'averaged':
             return FeatureHelper().calculate_entropy(self.input_sequence)
-        elif self.feature_mode == 'dynamic':
+        elif self.feature_mode == 'sliding':
             return window_entropies
         else:
-            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
+            raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
     def lempel_ziv_complexity(self):
         """
@@ -273,39 +273,52 @@ class FeatureExtractor:
             word_size (int): The size of the word for entropy calculation.
 
         Returns:
-            dict or list: If feature_mode is 'static',
+            dict or list: If feature_mode is 'averaged',
                             returns a dictionary with the entropy representation for each entropy class.
-                          If feature_mode is 'dynamic',
+                          If feature_mode is 'sliding',
                             returns a list of dictionaries, where each dictionary represents the entropy representation
                             for each entropy class in a window.
         """
         # TODO: not completed
         # word_size = 5
-        window_entropy_representations, window_size_samples = FeatureHelper().initialize_dynamic_windows(
-            self.input_sequence, self.sampling_rate, self.window_size
+        window_entropy_representations, window_size_samples = FeatureHelper().initialize_sliding_windows(
+            self.input_sequence, self.sampling_rate, self.sliding_window_size
         )
         for window_index in range(len(window_entropy_representations)):
             window_start = window_index * window_size_samples
             window_end = window_start + window_size_samples
             window_input_sequence = self.input_sequence[window_start:window_end]
             window_entropy_representations[window_index] = FeatureHelper().calculate_entropy(window_input_sequence)
-        if self.feature_mode == 'static':
+        if self.feature_mode == 'averaged':
             overall_entropy_representations, _ = MicroSynt().sequence_analysis(self.input_sequence, word_size)
             return overall_entropy_representations
-        elif self.feature_mode == 'dynamic':
+        elif self.feature_mode == 'sliding':
             return window_entropy_representations
 
         else:
-            raise ValueError("Invalid mode. Supported modes are 'static' and 'dynamic'.")
+            raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
+
+    def relative_occurrence_frequency(self):
+        """
+        Computes the time-based relative occurrence frequency of each microstate, averaged across all trials per subject.
+        """
+        return FeatureHelper().compute_relative_occurrence_frequency(self.input_sequence)
+
+    def relative_transition_frequency(self):
+        """
+        Computes the time-based relative transition frequency between each pair of microstates, averaged across all
+        trials per subject.
+        """
+        return FeatureHelper().compute_relative_transition_frequency(self.input_sequence)
 
     def extract_microstate_features(
             self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None, word_size=2):
         """
         Extracts a set of microstate features from EEG data input_sequences, given a list of feature identifiers.
-        The function operates in two modes: 'static' and 'dynamic'.
+        The function operates in two modes: 'averaged' and 'sliding'.
 
-        In 'static' mode, the function returns aggregated feature values over the entire input_sequence for each feature.
-        In 'dynamic' mode, it returns features calculated over a set of windows within the input_sequence.
+        In 'averaged' mode, the function returns aggregated feature values over the entire input_sequence for each feature.
+        In 'sliding' mode, it returns features calculated over a set of windows within the input_sequence.
 
         Args:
             filename (str): The filename of the EEG data.
@@ -340,11 +353,11 @@ class FeatureExtractor:
             extracted_entropy_representation = self.entropy_representation(word_size)
             features_dict.append(('ER', extracted_entropy_representation))
 
-        # Only add TP and LZC if the mode is not dynamic
-        if 'LZC' in feature_list and self.feature_mode != 'dynamic':
+        # Only add TP and LZC if the mode is not sliding
+        if 'LZC' in feature_list and self.feature_mode != 'sliding':
             extracted_microstate_complexity = self.lempel_ziv_complexity()
             features_dict.append(('LZC', extracted_microstate_complexity))
-        if 'TP' in feature_list and self.feature_mode != 'dynamic':
+        if 'TP' in feature_list and self.feature_mode != 'sliding':
             extracted_microstate_transition_probability = self.compute_transition_probabilities()
             features_dict.append(('TP', extracted_microstate_transition_probability))
 
@@ -352,15 +365,8 @@ class FeatureExtractor:
         output_features_data = []
 
         for feature, feature_data in features_dict:
-            if self.feature_mode == 'static':
-                if isinstance(feature_data, dict):
-                    output_features_data.extend(
-                        [filename, f"{feature}_{element}", value]
-                        for element, value in feature_data.items()
-                    )
-                else:
-                    output_features_data.append([filename, feature, feature_data])
-            elif self.feature_mode == 'dynamic':
+
+            if self.feature_mode == 'sliding':
                 if not isinstance(feature_data, (list, tuple)):
                     feature_data = [feature_data]
                 for window_index, window_data in enumerate(feature_data):
@@ -371,20 +377,25 @@ class FeatureExtractor:
                         )
                     else:
                         output_features_data.append([filename, window_index, feature, window_data])
+            else:  # self.feature_mode == 'averaged'
+                if isinstance(feature_data, dict):
+                    output_features_data.extend(
+                        [filename, f"{feature}_{element}", value]
+                        for element, value in feature_data.items()
+                    )
+                else:
+                    output_features_data.append([filename, feature, feature_data])
 
-        if self.feature_mode == 'dynamic':
+        if self.feature_mode == 'sliding':
             columns = ["Filename", "Window_index", "Feature", "Value"]
-
-        elif self.feature_mode == 'static':
-            columns = ['Filename', 'Feature', 'Value']
-        output_features_df = pd.DataFrame(output_features_data, columns=columns)
-
-        if self.feature_mode == 'static':
-            output_features_df = output_features_df.pivot_table(
-                index='Filename', columns='Feature', values='Value').reset_index()
-        elif self.feature_mode == 'dynamic':
+            output_features_df = pd.DataFrame(output_features_data, columns=columns)
             output_features_df = output_features_df.pivot_table(
                 index=["Filename", "Window_index"], columns="Feature", values="Value").reset_index()
+        else:  # self.feature_mode == 'averaged'
+            columns = ['Filename', 'Feature', 'Value']
+            output_features_df = pd.DataFrame(output_features_data, columns=columns)
+            output_features_df = output_features_df.pivot_table(
+                index='Filename', columns='Feature', values='Value').reset_index()
 
         return output_features_df
 
