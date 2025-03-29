@@ -63,16 +63,15 @@ class NewStudyWindow(QDialog):
         """
         # Controlling the visibility and state of various UI components based on user interactions
         control_items = [
-            self.ui.step1_import_data_radio,
             self.ui.step1_import_epoched_radio,
             self.ui.step1_import_raw_radio,
             self.ui.step1_load_all_radio,
             self.ui.step1_load_pattern_radio,
-            self.ui.step2_preprocess_radio,
             self.ui.step2_load_montage_radio,
             self.ui.step2_use_template_montage_radio,
-            self.ui.step2_filter_option_checkbox,
+            self.ui.step2_temporal_filter_option_checkbox,
             self.ui.step2_downsamp_option_checkbox,
+            self.ui.step2_spatial_filter_option_checkbox,
             self.ui.step2_ch2rm_radio,
             self.ui.step2_auto_clean_option_checkbox
         ]
@@ -149,9 +148,12 @@ class NewStudyWindow(QDialog):
             self.ui.step2_chanloc_path_lineedit,
             self.ui.step2_use_template_montage_radio,
             self.ui.step2_template_montage_combobox,
-            self.ui.step2_filter_option_checkbox,
+            self.ui.step2_temporal_filter_option_checkbox,
             self.ui.step2_downsamp_option_checkbox,
+            self.ui.step2_spatial_filter_option_checkbox,
+            self.ui.step2_auto_clean_label,
             self.ui.step2_auto_clean_option_checkbox,
+            self.ui.step2_preprocess_label,
             self.ui.step2_ch2rm_label,
             self.ui.step2_ch2rm_radio,
             self.ui.step2_ch2rm_combobox,
@@ -160,7 +162,7 @@ class NewStudyWindow(QDialog):
             self.ui.step2_save_path_lineedit,
             self.ui.step2_preprocess_data_button
         ]
-        filter_sub_widgets = [
+        temporal_filter_sub_widgets = [
             self.ui.step2_filter_method_label,
             self.ui.step2_fir_filtermethod_radio,
             self.ui.step2_iir_filtermethod_radio,
@@ -176,17 +178,16 @@ class NewStudyWindow(QDialog):
             self.ui.step2_downsamp_freq_input,
             self.ui.step2_downsamp_hz
         ]
-        if self.ui.step1_import_data_radio.isChecked():
+        if self.ui.new_study_tab_widget.currentIndex() == 0:
             widgets_to_rm = (
                     preprocessing_widgets +
-                    filter_sub_widgets +
+                    temporal_filter_sub_widgets +
                     downsample_sub_widgets
             )
             set_widgets_status(import_data_widgets, mode='show')
             set_widgets_status(import_data_widgets, mode='enable')
             set_widgets_status(self.ui.step1_import_raw_button, mode='show')
             set_widgets_status(widgets_to_rm, mode='disable')
-            set_widgets_status(widgets_to_rm, mode='hide')
             set_widgets_status(
                 self.ui.step1_import_pattern_lineedit,
                 'enable' if self.ui.step1_load_pattern_radio.isChecked()
@@ -202,7 +203,7 @@ class NewStudyWindow(QDialog):
                                       self.ui.loaded_clear_files_button] + plot_widgets + preprocessing_widgets
                 set_widgets_status(widgets_to_disable, mode='disable')
         if self.ui.loaded_selected_files_list.count() != 0:
-            set_widgets_status(self.ui.step2_preprocess_radio, mode='enable')
+            self.ui.new_study_tab_widget.setTabEnabled(1, True)
             if self.ui.loaded_selected_files_list.currentItem():
                 set_widgets_status(plot_widgets, mode='enable')
                 set_widgets_status(
@@ -211,13 +212,12 @@ class NewStudyWindow(QDialog):
                 )
 
         else:
-            set_widgets_status(self.ui.step2_preprocess_radio, mode='disable')
-        if self.ui.step2_preprocess_radio.isChecked():
-            widgets_to_show = preprocessing_widgets + filter_sub_widgets + downsample_sub_widgets
+            self.ui.new_study_tab_widget.setTabEnabled(1, False)
+        if self.ui.new_study_tab_widget.currentIndex() == 1:
+            widgets_to_show = preprocessing_widgets + temporal_filter_sub_widgets + downsample_sub_widgets
             widgets_to_hide_or_disable = [self.ui.step1_import_raw_button] + import_data_widgets
             set_widgets_status(widgets_to_show, mode='show')
             set_widgets_status(widgets_to_hide_or_disable, mode='disable')
-            set_widgets_status(widgets_to_hide_or_disable, mode='hide')
             widget_conditions = [
                 (self.ui.step2_template_montage_combobox, self.ui.step2_use_template_montage_radio.isChecked()),
                 (self.ui.step2_chanloc_path_lineedit, self.ui.step2_load_montage_radio.isChecked()),
@@ -230,13 +230,14 @@ class NewStudyWindow(QDialog):
             set_widgets_status(self.ui.step2_prep_option_checkbox, 'disable' if self.auto_clean_data else 'enable')
             if self.auto_clean_data:
                 self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
-            self.filter_data = self.ui.step2_filter_option_checkbox.isChecked()
-            set_widgets_status(filter_sub_widgets, mode='enable' if self.filter_data else 'disable')
-            if not self.filter_data:
+            self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
+            set_widgets_status(temporal_filter_sub_widgets, mode='enable' if self.temporal_filter_data else 'disable')
+            if not self.temporal_filter_data:
                 self.lowcut_freq = ''
                 self.highcut_freq = ''
             self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
             set_widgets_status(downsample_sub_widgets, mode='enable' if self.downsample_data else 'disable')
+            self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
             set_widgets_status(self.ui.step2_preprocess_data_button,
                                'enable' if self.ui.step2_save_path_lineedit.text() else 'disable')
 
@@ -337,7 +338,7 @@ class NewStudyWindow(QDialog):
             f"{len(self.comet_tbx.list_eegs_path)} EEG data were detected."
         )
         if len(self.comet_tbx.list_eegs_path) > 0:
-            self.ui.step2_preprocess_radio.setChecked(True)
+            self.ui.new_study_tab_widget.setCurrentIndex(1)
         self.newstudy_controller()
 
     def new_study_save_path(self):
@@ -389,10 +390,10 @@ class NewStudyWindow(QDialog):
         self.preprocessed_data_path = os.path.join(
             self.save_dir, f'{self.study_name}_preprocessed_data'
         )
-        self.filter_data = self.ui.step2_filter_option_checkbox.isChecked()
-        if self.filter_data:
+        self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
+        if self.temporal_filter_data:
             if self.ui.step2_lowcut_freq_input.text() >= self.ui.step2_highcut_freq_input.text():
-                QMessageBox.information(self, "Filter Error",
+                QMessageBox.information(self, "Temporal Filter Error",
                                         "Please modify the filter range!",
                                         QMessageBox.Ok)
             self.filter_method = 'fir' if self.ui.step2_fir_filtermethod_radio.isChecked() else 'iir'
@@ -408,8 +409,10 @@ class NewStudyWindow(QDialog):
         self.chan2rm = (self.ui.step2_ch2rm_combobox.currentData() if self.ui.step2_ch2rm_radio.isChecked()
                         else 'missing')
         self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
-        attributes = ['preprocessed_data_path', 'filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
-                      'downsample_data', 'sample_rate', 'chan2rm', 'auto_clean_data', 'prep_data', 'save_dir']
+        attributes = [
+            'preprocessed_data_path', 'temporal_filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
+            'downsample_data', 'sample_rate', 'spatial_filter_data', 'chan2rm', 'auto_clean_data', 'prep_data', 'save_dir'
+        ]
         for attr in attributes:
             setattr(self.comet_tbx, attr, getattr(self, attr))
         self.comet_tbx.study_name = self.ui.step1_study_name_lineedit.text()
