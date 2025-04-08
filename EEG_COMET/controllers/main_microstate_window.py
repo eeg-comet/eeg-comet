@@ -128,37 +128,11 @@ class MainMicrostateWindow(QMainWindow):
         pixmap = self.pixmap.scaled(512, 512, Qt.KeepAspectRatio)
         self.ui.comet_logo.setPixmap(pixmap)
 
-        # Hide specific UI components initially
-        set_widgets_status(
-            [self.scrollArea,
-             self.ui.line1,
-             self.ui.line2,
-             self.ui.step0_show_clustering_radio,
-             self.ui.step0_show_backfitting_radio,
-             self.ui.step0_show_featureextraction_radio,
-             self.ui.step0_show_sourclocalization_radio], mode='hide')
-
-        set_widgets_status(
-            [self.ui.step0_auto_pilot_button,
-             self.ui.step2_numberofmaps_elbow_button,
-             self.ui.step2_clustering_button,
-             self.ui.step3_label_maps_button,
-             self.ui.step3_backfit_button,
-             self.ui.step3_backfit_visualization_button,
-             self.ui.step4_extractfeatures_button,
-             self.ui.step4_visualizefeatures_button,
-             self.ui.step5_coreg_button,
-             self.ui.step5_estimate_sources_button,
-             self.ui.step5_compute_source_microstate_correlation_button,
-             self.ui.step5_visualize_sources_button], mode='hide')
+        set_widgets_status(self.ui.main_tab, mode='hide')
 
     def setup_connections(self):
         # Controlling the visibility and state of various UI components based on user interactions
         control_items = [
-            self.ui.step0_show_clustering_radio,
-            self.ui.step0_show_backfitting_radio,
-            self.ui.step0_show_featureextraction_radio,
-            self.ui.step0_show_sourclocalization_radio,
             self.ui.step2_auto_k_radio,
             self.ui.step2_user_k_radio,
             self.ui.step2_advanced_checkbox,
@@ -312,12 +286,13 @@ class MainMicrostateWindow(QMainWindow):
         """
         Control the visibility and enable/disable state of UI widgets based on conditions
         """
+        current_tab = self.ui.main_tab.currentWidget().objectName()
+        self.ui.main_tab.setStyleSheet("QTabBar::tab:selected { font-weight: bold; }")
+
         after_preprocessing_widgets = [
-            self.ui.step2_spacer1,
             self.ui.step2_line1,
             self.ui.step2_line2,
-            self.ui.step2_line7,
-            self.ui.step2_line8,
+            self.ui.step2_line3,
             self.ui.step2_number_maps_label,
             self.ui.step0_auto_pilot_button,
             self.ui.step2_clustermethod_combo_label,
@@ -346,15 +321,10 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         advanced_widgets = [
-            self.ui.step2_spacer2,
-            self.ui.step2_spacer3,
-            self.ui.step2_spacer4,
-            self.ui.step2_line3,
             self.ui.step2_line4,
             self.ui.step2_line5,
-            self.ui.step2_line9,
-            self.ui.step2_line10,
-            self.ui.step2_line11,
+            self.ui.step2_line6,
+            self.ui.step2_line7,
             self.ui.step2_other_label,
             self.ui.step2_other_options_combobox,
             self.ui.step2_initializer_label,
@@ -396,7 +366,6 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         after_clustering_widgets = [
-            self.ui.step3_spacer,
             self.ui.step3_line1,
             self.ui.step3_line2,
             self.ui.step3_line3,
@@ -435,7 +404,6 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         feature_extraction_widgets = [
-            self.ui.step4_spacer,
             self.ui.step4_line1,
             self.ui.step4_line2,
             self.ui.step4_line3,
@@ -476,14 +444,10 @@ class MainMicrostateWindow(QMainWindow):
             ]
 
         source_localization_widgets = [
-            self.ui.step5_spacer1,
-            self.ui.step5_spacer2,
             self.ui.step5_line1,
             self.ui.step5_line2,
             self.ui.step5_line3,
             self.ui.step5_line4,
-            self.ui.step5_line5,
-            self.ui.step5_line6,
             self.ui.step5_stc_label,
             self.ui.step5_anatomical_label,
             self.ui.step5_use_fsaverage_radio,
@@ -514,16 +478,17 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_permutations_input,
         ]
 
+
         font_steps = QFont()
         font_steps.setPointSize(16)
         if self.comet_tbx.done_preprocessing:
-            set_widgets_status(self.ui.step0_show_clustering_radio, mode='enable')
-            if self.ui.step0_show_clustering_radio.isChecked():
-                font_steps.setBold(True)
-                self.ui.step0_show_clustering_radio.setFont(font_steps)
+            set_widgets_status(self.ui.main_tab, mode='show')
+            self.ui.main_tab.setTabEnabled(0, True)
+
+            if current_tab == "clustering_tab":
 
                 # Show/Hide Widgets
-                set_widgets_status((after_preprocessing_widgets + user_k_widgets + auto_k_widgets), mode='show')
+                # set_widgets_status((after_preprocessing_widgets + user_k_widgets + auto_k_widgets), mode='show')
                 set_widgets_status(after_preprocessing_widgets, mode='enable')
 
                 widgets_to_rm = (
@@ -534,28 +499,21 @@ class MainMicrostateWindow(QMainWindow):
                         source_localization_widgets +
                         tess_widgets
                 )
-                set_widgets_status(widgets_to_rm, mode='hide')
+                # set_widgets_status(widgets_to_rm, mode='hide')
                 set_widgets_status(widgets_to_rm, mode='disable')
 
                 # Show/Hide Buttons
-                set_widgets_status([self.ui.step2_clustering_button, self.ui.step3_label_maps_button], mode='show')
-                set_widgets_status([self.ui.step3_backfit_button,
-                                    self.ui.step3_backfit_visualization_button,
-                                    self.ui.step4_extractfeatures_button,
-                                    self.ui.step4_visualizefeatures_button,
-                                    self.ui.step5_compute_source_microstate_correlation_button,
-                                    self.ui.step5_visualize_sources_button], mode='hide')
+                # set_widgets_status([self.ui.step2_clustering_button, self.ui.step3_label_maps_button], mode='show')
+                # set_widgets_status([self.ui.step3_backfit_button,
+                #                     self.ui.step3_backfit_visualization_button,
+                #                     self.ui.step4_extractfeatures_button,
+                #                     self.ui.step4_visualizefeatures_button,
+                #                     self.ui.step5_compute_source_microstate_correlation_button,
+                #                     self.ui.step5_visualize_sources_button], mode='hide')
 
                 # Hide the logo and show next steps
                 self.ui.comet_label.setText("EEG-COMET")
                 set_widgets_status(self.ui.comet_logo, mode='hide')
-                set_widgets_status([self.scrollArea,
-                                    self.ui.line1,
-                                    self.ui.line2,
-                                    self.ui.step0_show_clustering_radio,
-                                    self.ui.step0_show_backfitting_radio,
-                                    self.ui.step0_show_featureextraction_radio,
-                                    self.ui.step0_show_sourclocalization_radio], mode='show')
 
                 self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
                 self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
@@ -577,8 +535,8 @@ class MainMicrostateWindow(QMainWindow):
                         step2_auto_target_parameter_text = 'Threshold (%):'
                     else:
                         step2_auto_target_parameter_text = ''
-                        set_widgets_status([self.ui.step2_auto_target_parameter_label,
-                                            self.ui.step2_stopping_threshold_input], mode='hide')
+                        # set_widgets_status([self.ui.step2_auto_target_parameter_label,
+                        #                     self.ui.step2_stopping_threshold_input], mode='hide')
                     #    set_widgets_status(after_preprocessing_widgets, mode='hide')
                     self.ui.step2_auto_target_parameter_label.setText(step2_auto_target_parameter_text)
 
@@ -605,50 +563,41 @@ class MainMicrostateWindow(QMainWindow):
                         self.reset_option_box(self.ui.step2_other_options_combobox, options, 'Spatial Correlation')
                         if self.comet_tbx.clustering_method == 'PCA + K-Means Clustering':
                             set_widgets_status(pca_widgets, mode='enable')
-                            set_widgets_status(pca_widgets, mode='show')
+                            # set_widgets_status(pca_widgets, mode='show')
                         else:
                             set_widgets_status(pca_widgets, mode='disable')
-                            set_widgets_status(pca_widgets, mode='hide')
+                            # set_widgets_status(pca_widgets, mode='hide')
                     elif self.comet_tbx.clustering_method == "X-Means Clustering":
                         self.ui.step2_other_label.setText("X-means splitting criterion:")
                         options = ['Bayesian Information Criterion', 'Minimum Noiseless Description Length']
                         self.reset_option_box(self.ui.step2_other_options_combobox,
                                               options, 'Bayesian Information Criterion')
-                    else:
-                        set_widgets_status([self.ui.step2_other_options_combobox,
-                                            self.ui.step2_other_label], mode='hide')
+                    # else:
+                        # set_widgets_status([self.ui.step2_other_options_combobox,
+                        #                     self.ui.step2_other_label], mode='hide')
 
                 else:
                     set_widgets_status((advanced_widgets + pca_widgets), mode='disable')
                     set_widgets_status((advanced_widgets + pca_widgets), mode='hide')
-            else:
-                font_steps.setBold(False)
-                self.ui.step0_show_clustering_radio.setFont(font_steps)
 
         else:
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
-            set_widgets_status((after_preprocessing_widgets + user_k_widgets + auto_k_widgets), mode='hide')
+            set_widgets_status(self.ui.main_tab, mode='hide')
+            # set_widgets_status((after_preprocessing_widgets + user_k_widgets + auto_k_widgets), mode='hide')
             set_widgets_status(after_preprocessing_widgets, mode='disable')
             # Show/Hide Buttons
-            set_widgets_status([self.ui.step2_clustering_button,
-                                self.ui.step3_label_maps_button
-                                ], mode='hide')
-            set_widgets_status([self.ui.step0_show_backfitting_radio,
-                                self.ui.step0_show_featureextraction_radio,
-                                self.ui.step0_show_sourclocalization_radio
-                                ], mode='disable')
+            # set_widgets_status([self.ui.step2_clustering_button,
+            #                     self.ui.step3_label_maps_button
+            #                     ], mode='hide')
 
         if self.comet_tbx.done_clustering:
-            set_widgets_status(self.ui.step0_show_backfitting_radio, mode='enable')
+            self.ui.main_tab.setTabEnabled(1, True)
             set_widgets_status(self.ui.step3_label_maps_button, mode='enable')
 
-            if self.ui.step0_show_backfitting_radio.isChecked():
+            if current_tab == "backfitting_tab":
                 self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
 
-                font_steps.setBold(True)
-                self.ui.step0_show_backfitting_radio.setFont(font_steps)
-
-                set_widgets_status(after_clustering_widgets, mode='show')
+                # set_widgets_status(after_clustering_widgets, mode='show')
                 set_widgets_status(after_clustering_widgets, mode='enable')
 
                 widgets_to_rm = (
@@ -661,21 +610,21 @@ class MainMicrostateWindow(QMainWindow):
                         source_localization_widgets +
                         tess_widgets
                 )
-                set_widgets_status(widgets_to_rm, mode='hide')
+                # set_widgets_status(widgets_to_rm, mode='hide')
                 set_widgets_status(widgets_to_rm, mode='disable')
 
                 # Show/Hide Buttons
-                set_widgets_status([self.ui.step3_backfit_button,
-                                    self.ui.step3_backfit_visualization_button], mode='show')
-                set_widgets_status(identify_short_widgets, mode='show')
-                set_widgets_status(filter_segments_widgets, mode='show')
-                set_widgets_status(smooth_segments_widgets, mode='show')
-                set_widgets_status([self.ui.step2_clustering_button,
-                                    self.ui.step3_label_maps_button,
-                                    self.ui.step4_extractfeatures_button,
-                                    self.ui.step4_visualizefeatures_button,
-                                    self.ui.step5_compute_source_microstate_correlation_button,
-                                    self.ui.step5_visualize_sources_button], mode='hide')
+                # set_widgets_status([self.ui.step3_backfit_button,
+                #                     self.ui.step3_backfit_visualization_button], mode='show')
+                # set_widgets_status(identify_short_widgets, mode='show')
+                # set_widgets_status(filter_segments_widgets, mode='show')
+                # set_widgets_status(smooth_segments_widgets, mode='show')
+                # set_widgets_status([self.ui.step2_clustering_button,
+                #                     self.ui.step3_label_maps_button,
+                #                     self.ui.step4_extractfeatures_button,
+                #                     self.ui.step4_visualizefeatures_button,
+                #                     self.ui.step5_compute_source_microstate_correlation_button,
+                #                     self.ui.step5_visualize_sources_button], mode='hide')
 
                 outputformat = self.ui.step4_outputformats_combobox.currentText()
                 opening_parenthesis = outputformat.find("(")
@@ -706,9 +655,7 @@ class MainMicrostateWindow(QMainWindow):
                 else:
                     set_widgets_status(filter_segments_widgets, mode='disable')
                     set_widgets_status(smooth_segments_widgets, mode='disable')
-            else:
-                font_steps.setBold(False)
-                self.ui.step0_show_backfitting_radio.setFont(font_steps)
+
         else:
             # Reset next steps processing flags to False
             processing_flags = [
@@ -719,8 +666,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
             self.comet_tbx.best_maps, self.comet_tbx.micro_labels = None, []
             # set ALL disabled
-            set_widgets_status(self.ui.step0_show_featureextraction_radio, mode='disable')
-            set_widgets_status(self.ui.step0_show_sourclocalization_radio, mode='disable')
+            self.ui.main_tab.setTabEnabled(2, False)
+            self.ui.main_tab.setTabEnabled(3, False)
             set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
             set_widgets_status(after_clustering_widgets, mode='disable')
             set_widgets_status(filter_segments_widgets, mode='disable')
@@ -738,15 +685,13 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.comet_tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
-            set_widgets_status(self.ui.step0_show_featureextraction_radio, mode='enable')
-            set_widgets_status(self.ui.step0_show_sourclocalization_radio, mode='enable')
+            self.ui.main_tab.setTabEnabled(2, True)
+            self.ui.main_tab.setTabEnabled(3, True)
             self.ui.step3_backfit_visualization_button.setEnabled(True)
 
-            if self.ui.step0_show_featureextraction_radio.isChecked():
-                font_steps.setBold(True)
-                self.ui.step0_show_featureextraction_radio.setFont(font_steps)
+            if current_tab == "feature_tab":
 
-                set_widgets_status(feature_extraction_widgets, mode='show')
+                # set_widgets_status(feature_extraction_widgets, mode='show')
                 set_widgets_status(feature_extraction_widgets, mode='enable')
 
                 widgets_to_rm = (
@@ -760,18 +705,18 @@ class MainMicrostateWindow(QMainWindow):
                         source_localization_widgets +
                         tess_widgets
                 )
-                set_widgets_status(widgets_to_rm, mode='hide')
+                # set_widgets_status(widgets_to_rm, mode='hide')
                 set_widgets_status(widgets_to_rm, mode='disable')
 
                 # Show/Hide Buttons
-                set_widgets_status([self.ui.step4_extractfeatures_button,
-                                    self.ui.step4_visualizefeatures_button], mode='show')
-                set_widgets_status([self.ui.step2_clustering_button,
-                                    self.ui.step3_label_maps_button,
-                                    self.ui.step3_backfit_button,
-                                    self.ui.step3_backfit_visualization_button,
-                                    self.ui.step5_compute_source_microstate_correlation_button,
-                                    self.ui.step5_visualize_sources_button], mode='hide')
+                # set_widgets_status([self.ui.step4_extractfeatures_button,
+                #                     self.ui.step4_visualizefeatures_button], mode='show')
+                # set_widgets_status([self.ui.step2_clustering_button,
+                #                     self.ui.step3_label_maps_button,
+                #                     self.ui.step3_backfit_button,
+                #                     self.ui.step3_backfit_visualization_button,
+                #                     self.ui.step5_compute_source_microstate_correlation_button,
+                #                     self.ui.step5_visualize_sources_button], mode='hide')
 
                 sliding_feature_extraction_raw_widgets = [
                     self.ui.step4_sliding_window_raw_label_0,
@@ -799,7 +744,7 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_feature_rof_checkbox.setChecked(True)
                     self.ui.step4_feature_rtf_checkbox.setChecked(True)
                     set_widgets_status(sliding_feature_extraction_raw_widgets, mode='disable')
-                    set_widgets_status(sliding_feature_extraction_raw_widgets, mode='hide')
+                    # set_widgets_status(sliding_feature_extraction_raw_widgets, mode='hide')
                     if self.ui.step4_sliding_features_checkbox.isChecked():
                         set_widgets_status(sliding_feature_extraction_epoched_widgets, mode='enable')
                     else:
@@ -809,7 +754,7 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_feature_rof_checkbox.setChecked(False)
                     self.ui.step4_feature_rtf_checkbox.setChecked(False)
                     set_widgets_status(sliding_feature_extraction_epoched_widgets, mode='disable')
-                    set_widgets_status(sliding_feature_extraction_epoched_widgets, mode='hide')
+                    # set_widgets_status(sliding_feature_extraction_epoched_widgets, mode='hide')
                     if self.ui.step4_sliding_features_checkbox.isChecked():
                         set_widgets_status(sliding_feature_extraction_raw_widgets, mode='enable')
                     else:
@@ -855,15 +800,10 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
                     self.ui.step4_visualizefeatures_button.setDisabled(True)
             else:
-                font_steps.setBold(False)
-                self.ui.step0_show_featureextraction_radio.setFont(font_steps)
-                set_widgets_status(feature_extraction_widgets, mode='hide')
                 set_widgets_status(feature_extraction_widgets, mode='disable')
 
-            if self.ui.step0_show_sourclocalization_radio.isChecked():
-                font_steps.setBold(True)
-                self.ui.step0_show_sourclocalization_radio.setFont(font_steps)
-                set_widgets_status((source_localization_widgets + tess_widgets), mode='show')
+            if current_tab == "source_tab":
+                # set_widgets_status((source_localization_widgets + tess_widgets), mode='show')
                 set_widgets_status(source_localization_widgets, mode='enable')
 
                 widgets_to_rm = (
@@ -876,18 +816,18 @@ class MainMicrostateWindow(QMainWindow):
                         smooth_segments_widgets +
                         feature_extraction_widgets
                 )
-                set_widgets_status(widgets_to_rm, mode='hide')
+                # set_widgets_status(widgets_to_rm, mode='hide')
                 set_widgets_status(widgets_to_rm, mode='disable')
 
                 # Show/Hide Buttons
-                set_widgets_status([self.ui.step5_compute_source_microstate_correlation_button,
-                                    self.ui.step5_visualize_sources_button], mode='show')
-                set_widgets_status([self.ui.step2_clustering_button,
-                                    self.ui.step3_label_maps_button,
-                                    self.ui.step3_backfit_button,
-                                    self.ui.step3_backfit_visualization_button,
-                                    self.ui.step4_extractfeatures_button,
-                                    self.ui.step4_visualizefeatures_button], mode='hide')
+                # set_widgets_status([self.ui.step5_compute_source_microstate_correlation_button,
+                #                     self.ui.step5_visualize_sources_button], mode='show')
+                # set_widgets_status([self.ui.step2_clustering_button,
+                #                     self.ui.step3_label_maps_button,
+                #                     self.ui.step3_backfit_button,
+                #                     self.ui.step3_backfit_visualization_button,
+                #                     self.ui.step4_extractfeatures_button,
+                #                     self.ui.step4_visualizefeatures_button], mode='hide')
 
                 # Determine whether to use fsaverage or individual anatomy
                 if self.step5_use_individual_radio.isChecked():
@@ -919,9 +859,7 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step5_visualize_sources_button.setDisabled(True)
 
             else:
-                font_steps.setBold(False)
-                self.ui.step0_show_sourclocalization_radio.setFont(font_steps)
-                set_widgets_status(source_localization_widgets, mode='hide')
+                # set_widgets_status(source_localization_widgets, mode='hide')
                 set_widgets_status(source_localization_widgets, mode='disable')
         else:
             # Reset next steps processing flags to False
@@ -930,8 +868,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step3_backfit_visualization_button.setDisabled(True)
             set_widgets_status((feature_extraction_widgets +
                                 source_localization_widgets), mode='disable')
-            set_widgets_status((feature_extraction_widgets +
-                                source_localization_widgets), mode='hide')
+            # set_widgets_status((feature_extraction_widgets +
+            #                     source_localization_widgets), mode='hide')
 
     def visualize_elbow(self):
         """
@@ -1065,7 +1003,7 @@ class MainMicrostateWindow(QMainWindow):
             self.visualize_microstates()
             self.comet_tbx.save_tbx()
             # Update the main window
-            self.ui.step0_show_backfitting_radio.setChecked(True)
+            self.ui.main_tab.setTabEnabled(1, True)
             self.mainwindow_controller()
 
     def do_backfitting(self):
@@ -1127,7 +1065,7 @@ class MainMicrostateWindow(QMainWindow):
             # Save the state
             self.comet_tbx.save_tbx()
             # Update the main window
-            self.ui.step0_show_featureextraction_radio.setChecked(True)
+            self.ui.main_tab.setTabEnabled(2, True)
             self.mainwindow_controller()
 
     def visualize_microstates(self):
