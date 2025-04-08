@@ -178,11 +178,16 @@ class NewStudyWindow(QDialog):
             self.ui.step2_downsamp_freq_input,
             self.ui.step2_downsamp_hz
         ]
+        spatial_filter_sub_widgets = [
+            self.ui.step2_spatial_neighbors_label,
+            self.ui.step2_spatial_neighbors_input,
+        ]
         if self.ui.new_study_tab_widget.currentIndex() == 0:
             widgets_to_rm = (
                     preprocessing_widgets +
                     temporal_filter_sub_widgets +
-                    downsample_sub_widgets
+                    downsample_sub_widgets +
+                    spatial_filter_sub_widgets
             )
             set_widgets_status(import_data_widgets, mode='show')
             set_widgets_status(import_data_widgets, mode='enable')
@@ -214,7 +219,7 @@ class NewStudyWindow(QDialog):
         else:
             self.ui.new_study_tab_widget.setTabEnabled(1, False)
         if self.ui.new_study_tab_widget.currentIndex() == 1:
-            widgets_to_show = preprocessing_widgets + temporal_filter_sub_widgets + downsample_sub_widgets
+            widgets_to_show = preprocessing_widgets + temporal_filter_sub_widgets + downsample_sub_widgets + spatial_filter_sub_widgets
             widgets_to_hide_or_disable = [self.ui.step1_import_raw_button] + import_data_widgets
             set_widgets_status(widgets_to_show, mode='show')
             set_widgets_status(widgets_to_hide_or_disable, mode='disable')
@@ -238,6 +243,7 @@ class NewStudyWindow(QDialog):
             self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
             set_widgets_status(downsample_sub_widgets, mode='enable' if self.downsample_data else 'disable')
             self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
+            set_widgets_status(spatial_filter_sub_widgets, mode='enable' if self.spatial_filter_data else 'disable')
             set_widgets_status(self.ui.step2_preprocess_data_button,
                                'enable' if self.ui.step2_save_path_lineedit.text() else 'disable')
 
@@ -387,9 +393,7 @@ class NewStudyWindow(QDialog):
         Perform data preprocessing based on user-selected options.
         """
         os.makedirs(self.save_dir)
-        self.preprocessed_data_path = os.path.join(
-            self.save_dir, f'{self.study_name}_preprocessed_data'
-        )
+        self.preprocessed_data_path = os.path.join(self.save_dir, f'{self.study_name}_preprocessed_data')
         self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
         if self.temporal_filter_data:
             if self.ui.step2_lowcut_freq_input.text() >= self.ui.step2_highcut_freq_input.text():
@@ -405,13 +409,16 @@ class NewStudyWindow(QDialog):
             self.highcut_freq = ''
         self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
         self.sample_rate = int(self.ui.step2_downsamp_freq_input.text()) if self.downsample_data else ''
+        self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
+        self.spatial_smooth_k = int(self.ui.step2_spatial_neighbors_input.text()) if self.spatial_filter_data else ''
         self.auto_clean_data = self.ui.step2_auto_clean_option_checkbox.isChecked()
         self.chan2rm = (self.ui.step2_ch2rm_combobox.currentData() if self.ui.step2_ch2rm_radio.isChecked()
                         else 'missing')
         self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
         attributes = [
             'preprocessed_data_path', 'temporal_filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
-            'downsample_data', 'sample_rate', 'spatial_filter_data', 'chan2rm', 'auto_clean_data', 'prep_data', 'save_dir'
+            'downsample_data', 'sample_rate', 'spatial_filter_data', 'spatial_smooth_k', 'chan2rm', 'auto_clean_data',
+            'prep_data', 'save_dir'
         ]
         for attr in attributes:
             setattr(self.comet_tbx, attr, getattr(self, attr))

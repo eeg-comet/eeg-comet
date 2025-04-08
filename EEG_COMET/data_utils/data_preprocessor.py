@@ -1,12 +1,14 @@
 
+import warnings
 import numpy as np
-from mne import use_log_level
-from pyprep.find_noisy_channels import NoisyChannels
-from meegkit import dss
+from scipy.spatial.distance import pdist, squareform
+from mne import use_log_level, pick_types, pick_info
+from mne.io import RawArray
+from mne.time_frequency import psd_array_welch
 from mne.preprocessing import ICA
 from mne_icalabel import label_components
-from mne.time_frequency import psd_array_welch
-import warnings
+from pyprep.find_noisy_channels import NoisyChannels
+from meegkit import dss
 
 
 class DataPreprocessor:
@@ -37,19 +39,51 @@ class DataPreprocessor:
         return eeg
 
     @staticmethod
-    def preprocess_eeg(eeg, filter_bool, filtermethod, lowcut, highcut, downsample_bool, sampling_rate,
-                        verbose='ERROR'):
+    def spatial_smooth_eeg(eeg, k=6, verbose='ERROR'):
+        """
+        Perform spatial smoothing on EEG data using K-nearest neighbors approach.
+
+        Args:
+            eeg: Raw EEG data.
+            k : Number of neighbors to use for smoothing.
+            verbose (str): Verbosity level for logging.
+
+        Returns:
+            smoothed_raw : New Raw object with spatially smoothed EEG data.
+        """
+        picks_eeg = pick_types(info=eeg.info, meg=False, eeg=True, exclude=[])
+        pos = np.array([eeg.info['chs'][i]['loc'][:3] for i in picks_eeg])
+        distances = squareform(pdist(pos))
+        n_channels = distances.shape[0]
+        neighbors = {}
+        for i in range(n_channels):
+            neighbor_idx = np.argsort(distances[i, :])
+            neighbors[i] = neighbor_idx[1:k + 1].tolist()
+        eeg_data = eeg.get_data(picks=picks_eeg)
+        n_channels, n_times = eeg_data.shape
+        smoothed_data = np.zeros_like(eeg_data)
+        for i in range(n_channels):
+            neighborhood = neighbors[i] + [i]
+            smoothed_data[i] = np.mean(eeg_data[neighborhood, :], axis=0)
+        info_eeg = pick_info(info=eeg.info, sel=picks_eeg)
+        smoothed_eeg = RawArray(data=smoothed_data, info=info_eeg, verbose=verbose)
+        return smoothed_eeg
+
+    def preprocess_eeg(self, eeg, filter_bool, filtermethod, lowcut, highcut, downsample_bool, sampling_rate,
+                       spatial_smooth_bool, spatial_smooth_k, verbose='ERROR'):
         """
         Preprocess EEG data with optional filtering, downsampling, and re-referencing.
 
         Args:
             eeg: Raw EEG data.
-            filter_bool (bool): Whether to apply filtering.
+            filter_bool (bool): Whether to apply temporal filtering.
             filtermethod (str): Filtering method (e.g., FIR, IIR).
-            lowcut (float): Low cutoff frequency for filtering.
-            highcut (float): High cutoff frequency for filtering.
+            lowcut (int): Low cutoff frequency for filtering.
+            highcut (int): High cutoff frequency for filtering.
             downsample_bool (bool): Whether to downsample the data.
-            sampling_rate (float): Target sampling rate.
+            sampling_rate (int): Target sampling rate.
+            spatial_smooth_bool (bool): Whether to apply spatial filtering.
+            spatial_smooth_k (int): Number of neighbors to use for spatial smoothing.
             verbose (str): Verbosity level for logging.
 
         Returns:
@@ -62,6 +96,8 @@ class DataPreprocessor:
             sfreq = eeg.info['sfreq']
             if sfreq != sampling_rate:
                 eeg = eeg.resample(sampling_rate, verbose=verbose)
+        if spatial_smooth_bool:
+            eeg = self.spatial_smooth_eeg(eeg=eeg, k=spatial_smooth_k, verbose=verbose)
         eeg.set_eeg_reference('average', projection=True, verbose=verbose)
         eeg.apply_proj(verbose=verbose)
         return eeg

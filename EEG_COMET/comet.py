@@ -38,7 +38,7 @@ class COMET:
         # TODO: Set Default Values
         self.LogWindow = None
         self.log_text = []
-        self.config = {}
+        self.config = config if config is not None else {}
 
         #
         self.comet_data_io = DataIO()
@@ -47,11 +47,9 @@ class COMET:
         self.comet_segmentation_io = SegmentationIO()
         self.comet_feature_io = FeatureIO()
 
+        # if config:
         config_path = "./default_config.ini"
         self.config = self.load_config(config_path)
-
-        # if config:
-        #     self.load_config(config)
 
         # Define global directories based on the study information
         self.save_dir = os.path.join(self.output_folder, self.study_name)
@@ -107,6 +105,9 @@ class COMET:
         self.downsample_data = preprocessing_config.getboolean("downsample_data", True)
         if self.downsample_data:
             self.sample_rate = preprocessing_config.getint("sample_rate", 250)
+        self.spatial_smooth_data = preprocessing_config.getboolean("spatial_smooth_data", True)
+        if self.spatial_smooth_data:
+            self.spatial_smooth_k = preprocessing_config.getint("spatial_smooth_k", 6)
         self.auto_clean_data = preprocessing_config.getboolean("auto_clean_data", False)
         self.remove_channels = preprocessing_config.getboolean("remove_channels", False)
         if self.remove_channels:
@@ -262,7 +263,9 @@ class COMET:
             lowcut=self.lowcut_freq,
             highcut=self.highcut_freq,
             downsample_bool=self.downsample_data,
-            sampling_rate=self.sample_rate
+            sampling_rate=self.sample_rate,
+            spatial_smooth_bool=self.spatial_smooth_data,
+            spatial_smooth_k=self.spatial_smooth_k
         )
         # Save EEG info and export the processed file as needed
         eeg_data = self.comet_data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
@@ -293,6 +296,8 @@ class COMET:
         return self.comet_microstate_clusterer.compute_gev(data=all_data, maps=self.best_maps)
 
     def cluster_eeg_modkmeans(self, init):
+        print(f"Running clustering iteration {init + 1}/{self.number_of_repeats}")
+
         initial_maps = self.comet_data_initializer.initialize_cluster_centers(
             maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
         )
@@ -304,8 +309,9 @@ class COMET:
             max_iter=self.max_iterations,
             thresh=self.clustering_tolerance
         )
-        gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
+        print(f'maps_init: {maps_init}')
 
+        gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
         print(f'Found {self.number_of_maps} Microstate Maps')
         print(f'GEV: {gev_init}')
         self.LogWindow.append_log(
@@ -314,8 +320,10 @@ class COMET:
         )
 
         # Update the best results if current gev is higher
-        if init == 0 or gev_init > self.best_gev:
-            self.best_residual, self.best_gev, self.best_maps = residual_init, gev_init, maps_init
+        if self.best_maps is None or gev_init > self.best_gev:
+            self.best_residual = residual_init.copy() if hasattr(residual_init, 'copy') else residual_init
+            self.best_gev = gev_init
+            self.best_maps = maps_init.copy() if hasattr(maps_init, 'copy') else maps_init
 
     def backfit_eeg(self, eeg_path, eeg_name):
         eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
@@ -342,6 +350,22 @@ class COMET:
     def do_preprocessing(self):
         print('\nPreprocessing ...')
 
+        # Define global directories based on the study information
+        self.tbx_object_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
+        self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
+        self.preprocessed_data_path = os.path.join(
+            self.save_dir, f"{self.study_name}_preprocessed_data")
+        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
+        self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
+        self.extracted_features_path = os.path.join(
+            self.save_dir, f"{self.study_name}_extracted_features")
+        self.segmentation_path = os.path.join(
+            self.save_dir, f"{self.study_name}_segmentation")
+        self.localized_sources_path = os.path.join(
+            self.save_dir, f"{self.study_name}_localized_sources")
+        self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
+        self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
+
         # Create preprocessed data directory if it doesn't exist
         if not os.path.exists(self.preprocessed_data_path):
             os.makedirs(self.preprocessed_data_path)
@@ -358,7 +382,8 @@ class COMET:
             f"EEG Preprocessing Settings:\n"
             f"* Channels to Remove: {self.chan2rm}\n"
             f"* Bandpass Filter: {self.filter_method.upper()} Method ({self.lowcut_freq}Hz and {self.highcut_freq}Hz)\n"
-            f"* Downsampling Rate: {self.sample_rate}Hz", log_type='settings'
+            f"* Downsampling Rate: {self.sample_rate}Hz\n"
+            f"* Spatial Smoothing: {self.spatial_smooth_k} Neighbors\n", log_type='settings'
         )
 
         # Iterate through EEG files
@@ -510,7 +535,7 @@ class COMET:
             self.LogWindow.setup_progress_dialog(
                 window_title="Clustering ...",
                 label_text="Clustering ...",
-                tasks=self.number_of_repeats,
+                tasks=list(range(self.number_of_repeats)),
                 processing_func=self.cluster_eeg_modkmeans
             )
 
@@ -565,22 +590,23 @@ class COMET:
                     self.best_residual = residual_init
 
         # Save Best Maps
-        self.comet_microstate_clusterer.microstates2csv(
-            microstate_maps=self.best_maps, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path)
+        if self.best_maps is not None:
+            self.comet_microstate_clusterer.microstates2csv(
+                microstate_maps=self.best_maps, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path)
 
-        self.best_gev = self.compute_gev_all_data()
-        print(f'Global Explained Variance: {self.best_gev}')
-        # Set clustering flag
-        self.done_clustering = True
-        self.LogWindow.process_finished(
-            f"✓ The data has been successfully clustered into {self.number_of_maps} microstates."
-            f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
-        )
+            self.best_gev = self.compute_gev_all_data()
+            print(f'Global Explained Variance: {self.best_gev}')
+            # Set clustering flag
+            self.done_clustering = True
+            self.LogWindow.process_finished(
+                f"✓ The data has been successfully clustered into {self.number_of_maps} microstates."
+                f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
+            )
 
-        # Optionally save the clustered data
-        if self.auto_save:
-            self.save_config()
-            self.save_tbx()
+            # Optionally save the clustered data
+            if self.auto_save:
+                self.save_config()
+                self.save_tbx()
 
     def do_labeling(self):
         # Initialize microstate labeler
@@ -959,6 +985,8 @@ class COMET:
         self.config["preprocessing_config"]["lowcut_freq"] = str(self.lowcut_freq)
         self.config["preprocessing_config"]["highcut_freq"] = str(self.highcut_freq)
         self.config["preprocessing_config"]["downsample_data"] = str(self.downsample_data)
+        self.config["preprocessing_config"]["spatial_smooth_data"] = str(self.spatial_smooth_data)
+        self.config["preprocessing_config"]["spatial_smooth_k"] = str(self.spatial_smooth_k)
         self.config["preprocessing_config"]["auto_clean_data"] = str(self.auto_clean_data)
         self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
