@@ -4,6 +4,7 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 from mne import use_log_level, pick_types, pick_info
 from mne.io import RawArray
+from mne.epochs import EpochsArray
 from mne.time_frequency import psd_array_welch
 from mne.preprocessing import ICA
 from mne_icalabel import label_components
@@ -24,11 +25,11 @@ class DataPreprocessor:
         Identify and mark bad channels in the EEG data using NoisyChannels.
 
         Args:
-            eeg: Raw EEG data.
-            verbose: Logging verbosity level.
+            eeg (instance of Raw or Epochs): Raw EEG data.
+            verbose (str): Logging verbosity level.
 
         Returns:
-            eeg: EEG data with bad channels marked in 'bads'.
+            eeg (instance of Raw or Epochs): EEG data with bad channels marked in 'bads'.
         """
         with use_log_level(verbose):
             warnings.filterwarnings('ignore')
@@ -42,14 +43,15 @@ class DataPreprocessor:
     def spatial_smooth_eeg(eeg, k=6, verbose='ERROR'):
         """
         Perform spatial smoothing on EEG data using K-nearest neighbors approach.
+        (works with both Raw and Epochs objects)
 
         Args:
-            eeg: Raw EEG data.
-            k : Number of neighbors to use for smoothing.
+            eeg (instance of Raw or Epochs): Raw EEG data.
+            k (int): Number of neighbors to use for smoothing.
             verbose (str): Verbosity level for logging.
 
         Returns:
-            smoothed_raw : New Raw object with spatially smoothed EEG data.
+            smoothed_raw (instance of Raw or Epochs): The spatially smoothed EEG data.
         """
         picks_eeg = pick_types(info=eeg.info, meg=False, eeg=True, exclude=[])
         pos = np.array([eeg.info['chs'][i]['loc'][:3] for i in picks_eeg])
@@ -59,14 +61,30 @@ class DataPreprocessor:
         for i in range(n_channels):
             neighbor_idx = np.argsort(distances[i, :])
             neighbors[i] = neighbor_idx[1:k + 1].tolist()
-        eeg_data = eeg.get_data(picks=picks_eeg)
-        n_channels, n_times = eeg_data.shape
-        smoothed_data = np.zeros_like(eeg_data)
-        for i in range(n_channels):
-            neighborhood = neighbors[i] + [i]
-            smoothed_data[i] = np.mean(eeg_data[neighborhood, :], axis=0)
-        info_eeg = pick_info(info=eeg.info, sel=picks_eeg)
-        smoothed_eeg = RawArray(data=smoothed_data, info=info_eeg, verbose=verbose)
+        is_epochs = hasattr(eeg, 'events')
+        if is_epochs:
+            eeg_data = eeg.get_data(picks=picks_eeg)
+            eeg_data = np.transpose(eeg_data, (1, 2, 0))
+            n_channels, n_times, n_epochs = eeg_data.shape
+            smoothed_data = np.zeros_like(eeg_data)
+            for i in range(n_channels):
+                neighborhood = neighbors[i] + [i]
+                smoothed_data[i] = np.mean(eeg_data[neighborhood, :, :], axis=0)
+            smoothed_data = np.transpose(smoothed_data, (2, 0, 1))
+
+            info_eeg = pick_info(info=eeg.info, sel=picks_eeg)
+            smoothed_eeg = EpochsArray(data=smoothed_data, info=info_eeg,
+                                       events=eeg.events, event_id=eeg.event_id,
+                                       tmin=eeg.tmin, verbose=verbose)
+        else:
+            eeg_data = eeg.get_data(picks=picks_eeg)
+            n_channels, n_times = eeg_data.shape
+            smoothed_data = np.zeros_like(eeg_data)
+            for i in range(n_channels):
+                neighborhood = neighbors[i] + [i]
+                smoothed_data[i] = np.mean(eeg_data[neighborhood, :], axis=0)
+            info_eeg = pick_info(info=eeg.info, sel=picks_eeg)
+            smoothed_eeg = RawArray(data=smoothed_data, info=info_eeg, verbose=verbose)
         return smoothed_eeg
 
     def preprocess_eeg(self, eeg, filter_bool, filtermethod, lowcut, highcut, downsample_bool, sampling_rate,
@@ -75,7 +93,7 @@ class DataPreprocessor:
         Preprocess EEG data with optional filtering, downsampling, and re-referencing.
 
         Args:
-            eeg: Raw EEG data.
+            eeg (instance of Raw or Epochs): Raw EEG data.
             filter_bool (bool): Whether to apply temporal filtering.
             filtermethod (str): Filtering method (e.g., FIR, IIR).
             lowcut (int): Low cutoff frequency for filtering.
@@ -87,7 +105,7 @@ class DataPreprocessor:
             verbose (str): Verbosity level for logging.
 
         Returns:
-            eeg: Preprocessed EEG data.
+            eeg (instance of Raw or Epochs): Preprocessed EEG data.
         """
         if filter_bool:
             eeg = eeg.filter(
@@ -108,11 +126,11 @@ class DataPreprocessor:
         Remove line noise from EEG data using DSS line noise removal.
 
         Args:
-            eeg: Raw EEG data.
-            verbose: Logging verbosity level.
+            eeg (instance of Raw or Epochs): Raw EEG data.
+            verbose (str): Logging verbosity level.
 
         Returns:
-            eeg: EEG data with line noise removed.
+            eeg (instance of Raw or Epochs): EEG data with line noise removed.
         """
         data = eeg.get_data()
         sfreq = eeg.info['sfreq']
@@ -142,11 +160,11 @@ class DataPreprocessor:
                 Replace bad channels with interpolated data from surrounding channels.
 
         Args:
-            eeg: Raw EEG data.
-            verbose: Logging verbosity level.
+            eeg (instance of Raw or Epochs): Raw EEG data.
+            verbose (str): Logging verbosity level.
 
         Returns:
-            eeg: Cleaned EEG data.
+            eeg (instance of Raw or Epochs): Cleaned EEG data.
         """
 
         with use_log_level(verbose):
