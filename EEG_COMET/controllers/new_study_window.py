@@ -19,7 +19,6 @@ class NewStudyWindow(QDialog):
         self.comet_tbx = comet_tbx
         self.ui = uic.loadUi(context.get_resource("NewStudyWindow.ui"), self)
         self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
-        self.done_preprocessing = False
         self.init_ui_components()
         self.setup_connections()
         self.comet_tbx.channel_location_dir = ""
@@ -265,10 +264,10 @@ class NewStudyWindow(QDialog):
                     QMessageBox.information(
                         self, "Load error",
                         "File extension is expected to be:"
-                        "‘.loc’ or ‘.locs’ or ‘.eloc’ or '.ced (for EEGLAB files),"
-                        "‘.sfp’ (BESA/EGI files), ‘.csd’, ‘.elc’, ‘.txt’, ‘.csd’, ‘.elp’ (BESA spherical),"
-                        "‘.bvef’ (BrainVision files), ‘.csv’, ‘.tsv’, ‘.xyz’ (XYZ coordinates),"
-                        "‘.mat’ (for Brainstorm files)'",
+                        "'.loc' or '.locs' or '.eloc' or '.ced (for EEGLAB files),"
+                        "'.sfp' (BESA/EGI files), '.csd', '.elc', '.txt', '.csd', '.elp' (BESA spherical),"
+                        "'.bvef' (BrainVision files), '.csv', '.tsv', '.xyz' (XYZ coordinates),"
+                        "'.mat' (for Brainstorm files)'",
                         QMessageBox.Ok
                     )
                     self.comet_tbx.channel_location_dir = ''
@@ -385,14 +384,23 @@ class NewStudyWindow(QDialog):
         """
         Perform data preprocessing based on user-selected options.
         """
-        os.makedirs(self.save_dir)
-        self.preprocessed_data_path = os.path.join(self.save_dir, f'{self.study_name}_preprocessed_data')
+        # Set critical path parameters first
+        self.study_name = self.ui.step1_study_name_lineedit.text()
+        save_parent_dir = os.path.dirname(self.ui.step2_save_path_lineedit.text())
+
+        # Update COMET critical path parameters first
+        self.comet_tbx.study_name = self.study_name
+        self.comet_tbx.input_folder = self.ui.step1_input_path_lineedit.text()
+        self.comet_tbx.output_folder = save_parent_dir
+
+        # Set preprocessing parameters
         self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
         if self.temporal_filter_data:
             if self.ui.step2_lowcut_freq_input.text() >= self.ui.step2_highcut_freq_input.text():
                 QMessageBox.information(self, "Temporal Filter Error",
                                         "Please modify the filter range!",
                                         QMessageBox.Ok)
+                return
             self.filter_method = 'fir' if self.ui.step2_fir_filtermethod_radio.isChecked() else 'iir'
             self.lowcut_freq = int(self.ui.step2_lowcut_freq_input.text())
             self.highcut_freq = int(self.ui.step2_highcut_freq_input.text())
@@ -400,6 +408,7 @@ class NewStudyWindow(QDialog):
             self.filter_method = ''
             self.lowcut_freq = ''
             self.highcut_freq = ''
+
         self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
         self.sample_rate = int(self.ui.step2_downsamp_freq_input.text()) if self.downsample_data else ''
         self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
@@ -407,21 +416,25 @@ class NewStudyWindow(QDialog):
         self.chan2rm = (self.ui.step2_ch2rm_combobox.currentData() if self.ui.step2_ch2rm_radio.isChecked()
                         else 'missing')
         self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
+
+        # The save_dir should match the one that COMET will compute based on study_name and output_folder
+        self.save_dir = os.path.join(save_parent_dir, self.study_name)
+
+        # Set all processing attributes in COMET
         attributes = [
-            'preprocessed_data_path', 'temporal_filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
+            'temporal_filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
             'downsample_data', 'sample_rate', 'spatial_filter_data', 'chan2rm', 'auto_clean_data',
-            'prep_data', 'save_dir'
+            'prep_data'
         ]
         for attr in attributes:
             setattr(self.comet_tbx, attr, getattr(self, attr))
-        self.comet_tbx.study_name = self.ui.step1_study_name_lineedit.text()
-        self.comet_tbx.eeg_info_path = os.path.join(self.comet_tbx.save_dir, "eeg_info.pkl")
+
+        # Now let COMET handle directory creation and processing
         self.comet_tbx.do_preprocessing()
-        self.done_preprocessing = True
-        self.comet_tbx.save_tbx()
+
         if self.main_window:
             self.main_window.load_study(from_new_study=True)
-        self.ui.close()
+        self.close()
 
     def item_selected(self):
         """
