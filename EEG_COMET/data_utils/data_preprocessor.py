@@ -1,4 +1,3 @@
-
 import warnings
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
@@ -211,8 +210,7 @@ class DataPreprocessor:
             ica_eeg.fit(eeg)
             ica_labels_eeg = label_components(eeg, ica_eeg, method='iclabel')
             artifact_labels = {'eye blink', 'muscle artifact'}
-            artifact_indices_eeg = [i for i, label in enumerate(ica_labels_eeg['labels']) if
-                                          label in artifact_labels]
+            artifact_indices_eeg = [i for i, label in enumerate(ica_labels_eeg['labels']) if label in artifact_labels]
             ica_eeg.exclude = artifact_indices_eeg
             eeg = ica_eeg.apply(eeg)
             eeg.interpolate_bads(reset_bads=False, verbose=verbose)
