@@ -1,5 +1,5 @@
-
 import os.path
+import numpy as np
 from PyQt5 import uic, QtGui, QtCore
 from PyQt5.QtWidgets import QDialog, QLineEdit, QMessageBox, QFileDialog, QSizePolicy
 from PyQt5.QtCore import Qt
@@ -17,7 +17,17 @@ class MicrostateVisualizationWindow(QDialog):
         self.tbx = tbx
         self.current_order_labels = self.tbx.micro_labels
         self.current_order_axs_labels = self.tbx.micro_labels
-        self.current_order_maps = self.tbx.best_maps.copy()
+
+        # Fix: Check if best_maps exists before copying
+        if self.tbx.best_maps is not None:
+            self.current_order_maps = self.tbx.best_maps.copy()
+        else:
+            # Initialize with an empty array of appropriate shape
+            n_maps = self.tbx.number_of_maps
+            n_channels = len(self.tbx.eeg_info['ch_names'])
+            self.current_order_maps = np.zeros((n_maps, n_channels))
+            print("Warning: best_maps is None, initialized empty maps array")
+
         self.setup_ui(context)
         self.create_label_widgets(self.tbx.micro_labels)
         self.connect_ui()
@@ -266,7 +276,14 @@ class MicrostateVisualizationWindow(QDialog):
         """Store the default order of labels, axs labels, and maps"""
         self.current_order_labels.clear()  # Clear previous default order
         self.current_order_axs_labels.clear()  # Clear previous default order
-        self.current_order_maps = self.tbx.best_maps.copy()  # Store default order of maps
+
+        # Fix: Check if best_maps exists before copying
+        if self.tbx.best_maps is not None:
+            self.current_order_maps = self.tbx.best_maps.copy()  # Store default order of maps
+        else:
+            # Keep the current maps as they are, or reinitialize if needed
+            print("Warning: best_maps is None, keeping current maps")
+
         # Reflect the empty default order in the Qt window
         for label_widget in self.micro_label_widgets:
             label_widget.setText("")  # Set labels to empty
