@@ -224,44 +224,60 @@ class MainMicrostateWindow(QMainWindow):
             self, "Please choose the folder where the EEG-COMET study is located."
         )
         # Check if the eeg_comet_parameters.pkl file exists
-        tbx_object_path = os.path.join(self.save_folder, 'eeg_comet_parameters.pkl')
+        params_path = os.path.join(self.save_folder, 'eeg_comet_parameters.pkl')
         # Handle the case where loading the study fails
-        if not os.path.exists(tbx_object_path):
+        if not os.path.exists(params_path):
             QMessageBox.information(self, "Load error",
                                     "The selected folder does not contain a valid study!",
                                     QMessageBox.Ok)
             return
         else:
-            # Load the COMET object
-            self.comet_tbx.load_tbx(tbx_object_path)
-            self.comet_tbx.LogWindow.show()
-            # Update the log window with loaded study information
-            self.comet_tbx.LogWindow.replace_log(self.comet_tbx.log_text)
-            self.comet_tbx.LogWindow.append_log(f"Study Loaded - ✓ Study Name: {self.comet_tbx.study_name}")
+            # Load the COMET parameters
+            if self.comet_tbx.load_params(params_path):
+                # Initialize the log window if needed
+                if not hasattr(self.comet_tbx, 'LogWindow') or self.comet_tbx.LogWindow is None:
+                    self.comet_tbx.initialize_log_window()
+
+                self.comet_tbx.LogWindow.show()
+
+                # Update the log window with loaded study information
+                if hasattr(self.comet_tbx, 'log_text') and self.comet_tbx.log_text:
+                    self.comet_tbx.LogWindow.replace_log(self.comet_tbx.log_text)
+
+                self.comet_tbx.LogWindow.append_log(f"Study Loaded - ✓ Study Name: {self.comet_tbx.study_name}")
+                return True
+            else:
+                QMessageBox.information(self, "Load error",
+                                        "Failed to load study parameters!",
+                                        QMessageBox.Ok)
+                return False
 
     def load_study(self, from_new_study=False):
         if from_new_study:
-            # Define global directories based on the study information
-            self.comet_tbx.preprocessed_data_path = os.path.join(
-                self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_preprocessed_data")
-            self.comet_tbx.extracted_features_path = os.path.join(
-                self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_extracted_features")
-            self.comet_tbx.microstate_maps_path = os.path.join(self.comet_tbx.save_dir, 'microstate_maps.csv')
-            self.comet_tbx.segmentation_path = os.path.join(
-                self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_segmentation")
-            self.comet_tbx.localized_sources_path = os.path.join(
-                self.comet_tbx.save_dir, f"{self.comet_tbx.study_name}_localized_sources")
-            self.comet_tbx.tess_path = os.path.join(self.comet_tbx.localized_sources_path, "tess_sources")
-            self.comet_tbx.avg_sources_path = os.path.join(self.comet_tbx.localized_sources_path, "avg_sources")
+            # No need to manually set paths - COMET already manages them
+            # Just ensure paths are properly set up
+            if hasattr(self.comet_tbx, 'reset_directories'):
+                self.comet_tbx.reset_directories()
+
+            # Initialize log window if needed
+            if not hasattr(self.comet_tbx, 'LogWindow') or self.comet_tbx.LogWindow is None:
+                self.comet_tbx.initialize_log_window()
+
+            self.comet_tbx.LogWindow.show()
+            self.comet_tbx.LogWindow.append_log(f"Study Created - ✓ Study Name: {self.comet_tbx.study_name}")
         else:
             if self.comet_tbx.done_preprocessing:
                 ret = QMessageBox.question(self, 'MessageBox', f"The {self.comet_tbx.study_name} is already loaded,"
                                                                " do you want to load another study?",
                                            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
                 if ret == QMessageBox.Yes:
-                    self.load_study_helper()
+                    if self.load_study_helper():
+                        # Ensure directories are properly set after loading
+                        if hasattr(self.comet_tbx, 'reset_directories'):
+                            self.comet_tbx.reset_directories()
             else:
                 self.load_study_helper()
+
         # Update the main window
         self.mainwindow_controller()
 
@@ -996,12 +1012,9 @@ class MainMicrostateWindow(QMainWindow):
 
             # Perform clustering
             self.comet_tbx.do_clustering()
-            # Update flags and save the state
-            self.comet_tbx.done_clustering = True
-            self.comet_tbx.save_tbx()
             # Label the maps and save the state
             self.visualize_microstates()
-            self.comet_tbx.save_tbx()
+            # self.comet_tbx.save_tbx()
             # Update the main window
             self.ui.main_tab.setTabEnabled(1, True)
             self.mainwindow_controller()
