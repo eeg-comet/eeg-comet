@@ -264,8 +264,7 @@ class COMET:
             highcut=self.highcut_freq,
             downsample_bool=self.downsample_data,
             sampling_rate=self.sample_rate,
-            spatial_smooth_bool=self.spatial_smooth_data,
-            spatial_smooth_k=self.spatial_smooth_k
+            spatial_smooth_bool=self.spatial_smooth_data
         )
         # Save EEG info and export the processed file as needed
         eeg_data = self.comet_data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
