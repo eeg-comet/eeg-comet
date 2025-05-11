@@ -1,4 +1,3 @@
-
 import os.path
 import pickle
 import collections
@@ -10,37 +9,46 @@ import warnings
 
 
 class DataIO:
+    """Provides methods for loading, saving, and manipulating EEG data files.
+
+    This class handles various EEG file formats and provides utilities for
+    working with channel locations, montages, and data extraction. It supports
+    reading and writing different EEG formats and provides helper methods for
+    file discovery and data transformation.
     """
-    The DataIO class provides methods for saving, loading, and manipulating EEG data.
-    """
+
     def __init__(self):
+        """Initialize the DataIO class."""
         pass
 
     @staticmethod
     def save_eeg_info(eeg_info_path, eeg_info):
-        """
-        Save EEG information to a binary file using pickle.
+        """Save EEG information to a binary file using pickle.
 
         Args:
-            eeg_info_path (str): The path to save the EEG information.
-            eeg_info (object): The EEG information object.
+            eeg_info_path (str): Path where the EEG information will be saved
+            eeg_info (object): EEG information object to be serialized
+
+        Raises:
+            IOError: If the file cannot be written to the specified path
         """
-    
         with open(eeg_info_path, 'wb') as f:
             pickle.dump(eeg_info, f)
 
     @staticmethod
     def load_eeg_info(eeg_info_path):
-        """
-        Load EEG information from a binary file using pickle.
+        """Load EEG information from a binary file using pickle.
 
         Args:
-            eeg_info_path (str): The path to load the EEG information from.
+            eeg_info_path (str): Path to the pickle file containing EEG information
 
         Returns:
-            object: The loaded EEG information object.
+            object: Deserialized EEG information object
+
+        Raises:
+            FileNotFoundError: If the specified file does not exist
+            pickle.UnpicklingError: If the file is not a valid pickle file
         """
-    
         with open(eeg_info_path, 'rb') as f:
             eeg_info = pickle.load(f)
         return eeg_info
@@ -58,7 +66,6 @@ class DataIO:
         Returns:
             tuple: A tuple containing the list of matching file paths and the list of matching file names.
         """
-        
         list_path = []
         list_filename = []
         if extension == ".auto":
@@ -83,14 +90,21 @@ class DataIO:
 
     @staticmethod
     def _read_mat_locations(fname):
-        """
-        Read channel locations from a .mat Brainstorm file.
+        """Read channel locations from a Brainstorm .mat file.
+
+        Extracts 3D electrode positions from Brainstorm's channel structure,
+        converting to the MNE coordinate system (y, x, z) in meters.
 
         Args:
-            fname (str): Path to the .mat file.
+            fname (str): Path to the Brainstorm .mat file
 
         Returns:
-            dict: Dictionary mapping channel names to their 3D positions.
+            dict: Dictionary mapping channel names to 3D positions in meters
+                Format: {'ChannelName': [y, x, z], ...}
+
+        Raises:
+            ValueError: If the file does not contain the expected 'Channel' key
+            IOError: If the file cannot be read
         """
         mat = loadmat(fname)
         if 'Channel' not in mat:
@@ -109,15 +123,21 @@ class DataIO:
 
     @staticmethod
     def _read_ced_locations(fname):
-        """
-        Read channel locations from a .ced EEGLAB file.
+        """Read channel locations from an EEGLAB .ced file.
+
+        Parses a .ced file to extract electrode positions, detecting column layout
+        and converting coordinates to meters if necessary.
 
         Args:
-            fname (str): Path to the .ced file.
+            fname (str): Path to the .ced file
 
         Returns:
-            dict: Dictionary mapping channel names to their 3D positions in meters.
-                  Format: { 'ChannelName': np.array([y, x, z]), ... }
+            dict: Dictionary mapping channel names to 3D positions in meters
+                Format: {'ChannelName': np.array([y, x, z]), ...}
+
+        Raises:
+            FileNotFoundError: If the specified file does not exist
+            ValueError: If the file format is invalid or missing required columns
         """
         ch_pos = {}
         if not os.path.isfile(fname):
@@ -165,17 +185,22 @@ class DataIO:
         return ch_pos
 
     def load_montage(self, channel_location_dir):
-        """
-        Load a montage from a file or a standard montage name.
+        """Load electrode positions from a file or built-in montage name.
+
+        Supports multiple file formats (.mat, .ced, standard MNE formats) or
+        built-in standard montages from MNE.
 
         Args:
-            channel_location_dir (str): Path to the channel location file or the name of a standard montage.
+            channel_location_dir (str): Path to channel location file or name of
+                standard montage (e.g., 'standard_1020'). If empty, defaults to 'standard_1020'
 
         Returns:
-            mne.channels.DigMontage: A montage object containing the channel locations.
-        """
+            mne.channels.DigMontage: Montage object containing electrode positions
 
-        montage = None
+        Raises:
+            FileNotFoundError: If the specified file does not exist
+            ValueError: If the montage cannot be created from the provided input
+        """
         if not channel_location_dir:
             channel_location_dir = "standard_1020"
         try:
@@ -204,9 +229,22 @@ class DataIO:
         return montage
 
     def check_chan2rm(self, list_eegs_path, datatype, channel_location_dir):
-        """
-        Check for channel consistency across all datasets and identify channels that are missing
-        from any file, marking them for removal.
+        """Identify channels missing in any file across a dataset collection.
+
+        Checks for channel consistency across multiple EEG files and identifies
+        channels that should be removed to ensure all datasets have the same channels.
+
+        Args:
+            list_eegs_path (list of str): Paths to EEG files to check
+            datatype (str): Type of EEG data ('raw' or 'epoched')
+            channel_location_dir (str): Path to channel locations or name of standard montage
+
+        Returns:
+            list of str: Names of channels that are missing in at least one file
+
+        Notes:
+            This is useful for preprocessing multiple files to ensure channel consistency
+            before combining or comparing data across files.
         """
         channels = ['']
         for i, filename in enumerate(list_eegs_path):
@@ -221,21 +259,30 @@ class DataIO:
         return missing_channels
 
     def load_eeg(self, eeg_path, datatype, channel_location_dir='', chan2rm=None, preload=True, verbose='CRITICAL'):
-        """
-        Load EEG data from different formats and preprocess if needed.
+        """Load EEG data from various file formats with optional preprocessing.
+
+        Loads raw or epoched EEG data, applies channel locations, removes specified
+        channels, and sets up average reference.
 
         Args:
-            eeg_path (str): The path to the EEG data file.
-            datatype (str): The type of the EEG data ('raw' or 'epoched').
-            channel_location_dir (str, optional): The path to the channel location file. Defaults to ''.
-            chan2rm (list, optional): The list of channels to remove. Defaults to [].
-            preload (bool, optional): Whether to preload the data. Defaults to True.
-            verbose (str, optional): The verbosity level. Defaults to 'CRITICAL'.
+            eeg_path (str): Path to the EEG data file
+            datatype (str): Type of EEG data to load ('raw' or 'epoched')
+            channel_location_dir (str, optional): Path to channel locations or name
+                of standard montage. Defaults to '' (uses 'standard_1020')
+            chan2rm (list of str, optional): List of channel names to remove.
+                Defaults to None
+            preload (bool, optional): Whether to load data into memory immediately.
+                Defaults to True
+            verbose (str, optional): MNE verbosity level ('CRITICAL', 'ERROR', etc.).
+                Defaults to 'CRITICAL'
 
         Returns:
-            object: The loaded EEG data object.
-        """
+            mne.io.Raw or mne.Epochs: Loaded EEG data object
 
+        Raises:
+            FileNotFoundError: If the EEG file does not exist
+            ValueError: If the datatype is not supported or montage cannot be loaded
+        """
         with mne.use_log_level(verbose):
             warnings.filterwarnings('ignore')
             if datatype == 'raw':
@@ -262,16 +309,21 @@ class DataIO:
 
     @staticmethod
     def export_eegs(eeg, save_path, extension, datatype):
-        """
-        Export EEG data to a specified file format.
+        """Export EEG data to a specified file format.
+
+        Saves EEG data to common file formats supported by MNE, automatically
+        handling the appropriate export method based on data type.
 
         Args:
-            eeg (object): The EEG data object.
-            save_path (str): The path to save the exported EEG data.
-            extension (str): The file extension of the exported EEG data.
-            datatype (str): The type of the EEG data ('raw' or 'epoched').
-        """
+            eeg (mne.io.Raw or mne.Epochs): EEG data object to export
+            save_path (str): Output path without extension (extension will be added)
+            extension (str): Desired file extension ('.vhdr', '.set', '.edf')
+                If not one of these, defaults to '.set'
+            datatype (str): Type of EEG data ('raw' or 'epoched')
 
+        Notes:
+            Automatically overwrites existing files with the same name.
+        """
         available_extensions = ['.vhdr', '.set', '.edf']
         if extension not in available_extensions:
             extension = '.set'
@@ -282,17 +334,25 @@ class DataIO:
 
     @staticmethod
     def get_eeg_data(eeg, datatype):
-        """
-        Extract EEG data from MNE-Python Epochs or Raw object.
+        """Extract raw NumPy arrays from MNE Raw or Epochs objects.
+
+        Converts MNE objects to NumPy arrays for further processing or analysis.
+        For epoched data, concatenates all epochs along the time dimension.
 
         Args:
-            eeg (object): The EEG data object.
-            datatype (str): The type of the EEG data ('raw' or 'epoched').
+            eeg (mne.io.Raw or mne.Epochs): EEG data object
+            datatype (str): Type of EEG data ('raw' or 'epoched')
 
         Returns:
-            numpy.ndarray: The extracted EEG data.
+            numpy.ndarray: EEG data as a NumPy array
+                For raw data: shape (n_channels, n_times)
+                For epoched data: shape (n_channels, n_times_total)
+                where n_times_total = n_epochs * n_times_per_epoch
+
+        Raises:
+            ValueError: If no data is available (empty epochs object or invalid datatype)
         """
-    
+        eeg_data = None
         if datatype == "epoched":
             for index in range(eeg.__len__()):
                 if index == 0:
@@ -302,5 +362,6 @@ class DataIO:
                     eeg_data = np.append(eeg_data, epoch, axis=1)
         else:
             eeg_data = eeg.get_data()
+        if eeg_data is None:
+            raise ValueError("No data available: empty epochs object or invalid datatype")
         return eeg_data
-    
