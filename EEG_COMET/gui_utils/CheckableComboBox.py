@@ -1,13 +1,14 @@
-
 from PyQt5.QtWidgets import QComboBox, QStyledItemDelegate, qApp
 from PyQt5.QtGui import QPalette, QFontMetrics, QStandardItem
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtCore import Qt, QEvent, pyqtSignal
 
 
 class CheckableComboBox(QComboBox):
     """
     The CheckableComboBox class is a custom QComboBox that allows for selecting multiple items with checkboxes.
     """
+    # Define a custom signal
+    itemCheckedStateChanged = pyqtSignal(int, bool)
 
     class Delegate(QStyledItemDelegate):
         def sizeHint(self, option, index):
@@ -19,7 +20,6 @@ class CheckableComboBox(QComboBox):
         """
         Initialize the CheckableComboBox instance.
         """
-
         super().__init__(*args, **kwargs)
         self.setEditable(True)
         self.lineEdit().setReadOnly(True)
@@ -39,7 +39,6 @@ class CheckableComboBox(QComboBox):
         """
         Reimplement the resizeEvent method to update the displayed text and elide as needed.
         """
-
         self.updateText()
         super().resizeEvent(event)
 
@@ -47,7 +46,6 @@ class CheckableComboBox(QComboBox):
         """
         Reimplement the eventFilter method to handle events on the line edit and the view's viewport.
         """
-
         if object == self.lineEdit():
             if event.type() == QEvent.MouseButtonRelease:
                 if self.closeOnLineEditClick:
@@ -59,11 +57,19 @@ class CheckableComboBox(QComboBox):
         if object == self.view().viewport() and event.type() == QEvent.MouseButtonRelease:
             index = self.view().indexAt(event.pos())
             item = self.model().item(index.row())
-        
+
+            # Store previous state
+            previous_state = item.checkState()
+
             if item.checkState() == Qt.Checked:
                 item.setCheckState(Qt.Unchecked)
             else:
                 item.setCheckState(Qt.Checked)
+
+            # Emit signal with index and new checked state
+            is_checked = (item.checkState() == Qt.Checked)
+            self.itemCheckedStateChanged.emit(index.row(), is_checked)
+
             return True
         return False
 
@@ -71,7 +77,6 @@ class CheckableComboBox(QComboBox):
         """
         Reimplement the showPopup method to show the popup and enable click on the line edit to close it.
         """
-
         super().showPopup()
         self.closeOnLineEditClick = True
 
@@ -79,7 +84,6 @@ class CheckableComboBox(QComboBox):
         """
         Reimplement the hidePopup method to hide the popup and disable immediate reopening.
         """
-
         super().hidePopup()
         self.startTimer(100)
         self.updateText()
@@ -88,7 +92,6 @@ class CheckableComboBox(QComboBox):
         """
         Reimplement the timerEvent method to handle the timer event for delaying reopening the popup.
         """
-
         self.killTimer(event.timerId())
         self.closeOnLineEditClick = False
 
@@ -96,7 +99,6 @@ class CheckableComboBox(QComboBox):
         """
         Update the displayed text in the line edit based on the selected items.
         """
-
         texts = [
             self.model().item(i).text()
             for i in range(self.model().rowCount())
@@ -111,7 +113,6 @@ class CheckableComboBox(QComboBox):
         """
         Add an item to the combo box with the given text and optional data.
         """
-
         item = QStandardItem()
         item.setText(text)
         if data is None:
@@ -126,7 +127,6 @@ class CheckableComboBox(QComboBox):
         """
         Add multiple items to the combo box with the given texts and optional data.
         """
-
         for i, text in enumerate(texts):
             try:
                 data = datalist[i]
@@ -138,7 +138,6 @@ class CheckableComboBox(QComboBox):
         """
         Deselect all items in the combo box.
         """
-
         model = self.model()
         for i in range(model.rowCount()):
             item = model.item(i)
@@ -148,7 +147,6 @@ class CheckableComboBox(QComboBox):
         """
         Get the data of the currently selected items in the combo box.
         """
-
         return [
             self.model().item(i).data()
             for i in range(self.model().rowCount())
