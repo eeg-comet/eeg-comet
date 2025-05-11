@@ -1,4 +1,3 @@
-
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.signal import correlate
@@ -6,38 +5,48 @@ from data_utils.data_io import DataIO
 
 
 class DataInitializer:
+    """Provides methods for initializing and preparing data for microstate analysis.
+
+    This class contains utilities for extracting Global Field Power (GFP) peaks from EEG data,
+    generating microstate maps, and initializing cluster centers for microstate clustering
+    algorithms. It works with both continuous and epoched EEG data formats.
     """
-    The DataInitializer class provides methods for initializing data for microstate analysis.
-    """
+
     def __init__(self):
+        """Initialize the DataInitializer class."""
         pass
 
     @staticmethod
     def initialize_cluster_centers(maps2use, n_states, initializer):
-        """
-        Initialize cluster centers for k-means clustering algorithm.
+        """Initialize cluster centers for k-means clustering in microstate analysis.
+
+        Implements two initialization strategies for microstate clustering:
+        1. 'K-Means++': A smart initialization that chooses initial centers with
+           probability proportional to distance from existing centers
+        2. 'Random': Randomly selects maps as initial centers
+
+        Both methods normalize the resulting centers to unit length.
 
         Args:
-            maps2use (numpy.ndarray): Array containing the microstate maps.
-            n_states (int): Number of microstate states.
-            initializer (str): Initialization method ('K-Means++' or 'Random').
+            maps2use (numpy.ndarray): Array of potential microstate maps with shape (n_channels, n_samples)
+            n_states (int): Number of microstate clusters to identify
+            initializer (str): Initialization method, either 'K-Means++' or 'Random'
 
         Returns:
-            numpy.ndarray: Initialized cluster centers.
-        """
+            numpy.ndarray: Initialized cluster centers with shape (n_states, n_channels),
+                           normalized to unit length
 
+        Notes:
+            For 'K-Means++', distance between maps is calculated using correlation.
+            This implementation follows the standard k-means++ algorithm but adapted
+            for EEG topographies.
+        """
         if initializer == 'K-Means++':
             initial_idx = np.random.choice(np.size(maps2use, 1))
             initial_centers = [maps2use[:, initial_idx]]
             for _ in range(1, n_states):
                 dists = np.array(
-                    [
-                        min(
-                            abs(correlate(d, c, mode='valid')[0])
-                            for c in initial_centers
-                        )
-                        for d in maps2use.T
-                    ]
+                    [min(float(abs(correlate(d, c, mode='valid')[0])) for c in initial_centers) for d in maps2use.T]
                 )
                 probs = dists / dists.sum()
                 next_idx = np.random.choice(np.size(maps2use, 1), p=probs)
@@ -56,16 +65,29 @@ class DataInitializer:
 
     @staticmethod
     def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None):
-        """
-        Extract GFP peaks and maps at peaks from EEG data.
+        """Extract Global Field Power (GFP) peaks and corresponding topographical maps.
+
+        GFP is calculated as the standard deviation across channels at each time point.
+        Peaks in the GFP signal represent moments of highest spatial variability and
+        are commonly used as the basis for microstate analysis.
 
         Args:
-            data (numpy.ndarray): Array containing the EEG data.
-            use_percentages (float, optional): Percentage of data to use for peak extraction. Defaults to None.
-            min_dist (int, optional): Minimum distance between peaks. Defaults to None.
+            data (numpy.ndarray): EEG data array with shape (n_channels, n_timepoints)
+            use_percentages (float, optional): If provided, randomly selects this percentage
+                of timepoints instead of detecting peaks. Value should be between 0-100.
+                Defaults to None (use peak detection)
+            min_dist (int, optional): Minimum distance between peaks in samples.
+                If 0, no minimum distance is enforced. Defaults to None
 
         Returns:
-            tuple: A tuple containing the extracted maps and peak indices.
+            tuple: Contains:
+                - maps (numpy.ndarray): Topographical maps at GFP peaks,
+                  shape (n_channels, n_peaks), normalized to unit length
+                - peaks (numpy.ndarray): Indices of GFP peaks in the original data
+
+        Notes:
+            When use_percentages is provided, peak detection is bypassed and random
+            timepoints are selected instead, which can be useful for large datasets.
         """
         gfp = np.std(data, axis=0)
 
@@ -82,18 +104,29 @@ class DataInitializer:
 
     @staticmethod
     def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percentages=None, min_dist=None):
-        """
-        Generate GFP maps and peak indices from preprocessed EEG data.
+        """Generate GFP maps and peak indices from multiple preprocessed EEG files.
+
+        Loads all EEG files from the specified folder that match the extension,
+        extracts GFP peaks and maps from each file, and concatenates the results.
 
         Args:
-            preprocessed_folder (str): Path to the preprocessed EEG data folder.
-            extension (str): File extension of the preprocessed EEG data files.
-            datatype (str): Data type ('continuous' or 'epoched').
-            use_percentages (float, optional): Percentage of data to use for peak extraction. Defaults to None.
-            min_dist (int, optional): Minimum distance between peaks. Defaults to None.
+            preprocessed_folder (str): Directory containing preprocessed EEG files
+            extension (str): File extension to match (e.g., '.set', '.vhdr')
+            datatype (str): Type of EEG data - 'raw' or 'epoched'
+            use_percentages (float, optional): Percentage of data points to randomly
+                select instead of using peak detection (0-100). Defaults to None
+            min_dist (int, optional): Minimum distance between peaks in samples.
+                Defaults to None
 
         Returns:
-            tuple: A tuple containing the generated maps and peak indices.
+            tuple: Contains:
+                - maps2use (numpy.ndarray): Concatenated topographical maps from all files,
+                  shape (n_channels, total_peaks)
+                - peaks2use (numpy.ndarray): Concatenated indices of peaks from all files
+
+        Notes:
+            This method is particularly useful for group-level microstate analysis
+            where maps from multiple subjects or recordings need to be combined.
         """
         data_io = DataIO()
         all_preprocessed_paths, _ = data_io.find_data(preprocessed_folder, extension)
