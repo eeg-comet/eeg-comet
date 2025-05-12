@@ -26,7 +26,6 @@ class MicrostateVisualizationWindow(QDialog):
             n_maps = self.tbx.number_of_maps
             n_channels = len(self.tbx.eeg_info['ch_names'])
             self.current_order_maps = np.zeros((n_maps, n_channels))
-            print("Warning: best_maps is None, initialized empty maps array")
 
         self.setup_ui(context)
         self.create_label_widgets(self.tbx.micro_labels)
@@ -280,9 +279,6 @@ class MicrostateVisualizationWindow(QDialog):
         # Fix: Check if best_maps exists before copying
         if self.tbx.best_maps is not None:
             self.current_order_maps = self.tbx.best_maps.copy()  # Store default order of maps
-        else:
-            # Keep the current maps as they are, or reinitialize if needed
-            print("Warning: best_maps is None, keeping current maps")
 
         # Reflect the empty default order in the Qt window
         for label_widget in self.micro_label_widgets:
@@ -306,7 +302,10 @@ class MicrostateVisualizationWindow(QDialog):
         # Check if all label widgets have values
         all_labels_filled = all(label_widget.text() for label_widget in self.micro_label_widgets)
         if all_labels_filled:
-            self.tbx.update_microstates_order(self.current_order_labels, self.current_order_maps)
+            self.tbx.micro_labels = [label_widget.text() for label_widget in self.micro_label_widgets]
+            self.tbx.best_maps = self.current_order_maps
+
+            # Continue with the rest of the function as before
             MicrostateClusterer().microstates2csv(
                 self.current_order_maps, self.tbx.eeg_info, self.tbx.microstate_maps_path, self.current_order_labels)
             self.tbx.done_labeling_microstates = True
