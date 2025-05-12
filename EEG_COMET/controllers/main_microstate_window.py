@@ -239,6 +239,7 @@ class MainMicrostateWindow(QMainWindow):
                     self.comet_tbx.initialize_log_window()
 
                 self.comet_tbx.LogWindow.show()
+                self.comet_tbx.check_eeg_info()
 
                 # Update the log window with loaded study information
                 if hasattr(self.comet_tbx, 'log_text') and self.comet_tbx.log_text:
@@ -499,7 +500,11 @@ class MainMicrostateWindow(QMainWindow):
         font_steps.setPointSize(16)
         if self.comet_tbx.done_preprocessing:
             set_widgets_status(self.ui.main_tab, mode='show')
-            self.ui.main_tab.setTabEnabled(0, True)
+            self.ui.main_tab.setTabEnabled(0, True)  # Clustering tab
+            if not self.comet_tbx.done_clustering:
+                self.ui.main_tab.setTabEnabled(1, False)  # Backfitting tab
+                self.ui.main_tab.setTabEnabled(2, False)  # Feature tab
+                self.ui.main_tab.setTabEnabled(3, False)  # Source tab
 
             if current_tab == "clustering_tab":
 
@@ -507,16 +512,16 @@ class MainMicrostateWindow(QMainWindow):
                 # set_widgets_status((after_preprocessing_widgets + user_k_widgets + auto_k_widgets), mode='show')
                 set_widgets_status(after_preprocessing_widgets, mode='enable')
 
-                widgets_to_rm = (
-                        after_clustering_widgets +
-                        filter_segments_widgets +
-                        smooth_segments_widgets +
-                        feature_extraction_widgets +
-                        source_localization_widgets +
-                        tess_widgets
-                )
+                # widgets_to_rm = (
+                #         after_clustering_widgets +
+                #         filter_segments_widgets +
+                #         smooth_segments_widgets +
+                #         feature_extraction_widgets +
+                #         source_localization_widgets +
+                #         tess_widgets
+                # )
                 # set_widgets_status(widgets_to_rm, mode='hide')
-                set_widgets_status(widgets_to_rm, mode='disable')
+                # set_widgets_status(widgets_to_rm, mode='disable')
 
                 # Show/Hide Buttons
                 # set_widgets_status([self.ui.step2_clustering_button, self.ui.step3_label_maps_button], mode='show')
@@ -601,33 +606,41 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status(self.ui.main_tab, mode='hide')
             # set_widgets_status((after_preprocessing_widgets + user_k_widgets + auto_k_widgets), mode='hide')
             set_widgets_status(after_preprocessing_widgets, mode='disable')
+            self.ui.main_tab.setTabEnabled(0, False)  # Clustering tab
+            self.ui.main_tab.setTabEnabled(1, False)  # Backfitting tab
+            self.ui.main_tab.setTabEnabled(2, False)  # Feature tab
+            self.ui.main_tab.setTabEnabled(3, False)  # Source tab
             # Show/Hide Buttons
             # set_widgets_status([self.ui.step2_clustering_button,
             #                     self.ui.step3_label_maps_button
             #                     ], mode='hide')
 
         if self.comet_tbx.done_clustering:
-            self.ui.main_tab.setTabEnabled(1, True)
             set_widgets_status(self.ui.step3_label_maps_button, mode='enable')
+            self.ui.main_tab.setTabEnabled(1, True)  # Backfitting tab
+            if not self.comet_tbx.done_backfitting:
+                self.ui.main_tab.setTabEnabled(2, False)  # Feature tab
+                self.ui.main_tab.setTabEnabled(3, False)  # Source tab
+                set_widgets_status(after_clustering_widgets, mode='enable')
 
             if current_tab == "backfitting_tab":
                 self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
 
                 # set_widgets_status(after_clustering_widgets, mode='show')
-                set_widgets_status(after_clustering_widgets, mode='enable')
+                # set_widgets_status(after_clustering_widgets, mode='enable')
 
-                widgets_to_rm = (
-                        after_preprocessing_widgets +
-                        pca_widgets +
-                        user_k_widgets +
-                        auto_k_widgets +
-                        advanced_widgets +
-                        feature_extraction_widgets +
-                        source_localization_widgets +
-                        tess_widgets
-                )
+                # widgets_to_rm = (
+                #         after_preprocessing_widgets +
+                #         pca_widgets +
+                #         user_k_widgets +
+                #         auto_k_widgets +
+                #         advanced_widgets +
+                #         feature_extraction_widgets +
+                #         source_localization_widgets +
+                #         tess_widgets
+                # )
                 # set_widgets_status(widgets_to_rm, mode='hide')
-                set_widgets_status(widgets_to_rm, mode='disable')
+                # set_widgets_status(widgets_to_rm, mode='disable')
 
                 # Show/Hide Buttons
                 # set_widgets_status([self.ui.step3_backfit_button,
@@ -682,8 +695,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustering_button.setStyleSheet("background-color: none")
             self.comet_tbx.best_maps, self.comet_tbx.micro_labels = None, []
             # set ALL disabled
-            self.ui.main_tab.setTabEnabled(2, False)
-            self.ui.main_tab.setTabEnabled(3, False)
+            set_widgets_status(self.ui.step3_label_maps_button, mode='disable')
+            self.ui.main_tab.setTabEnabled(1, False)  # Backfitting tab
+            self.ui.main_tab.setTabEnabled(2, False)  # Feature tab
+            self.ui.main_tab.setTabEnabled(3, False)  # Source tab
             set_widgets_status(self.ui.step3_filter_segments_checkbox, mode='disable')
             set_widgets_status(after_clustering_widgets, mode='disable')
             set_widgets_status(filter_segments_widgets, mode='disable')
@@ -701,8 +716,8 @@ class MainMicrostateWindow(QMainWindow):
 
         if self.comet_tbx.done_backfitting:
             self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
-            self.ui.main_tab.setTabEnabled(2, True)
-            self.ui.main_tab.setTabEnabled(3, True)
+            self.ui.main_tab.setTabEnabled(2, True)  # Feature tab
+            self.ui.main_tab.setTabEnabled(3, True)  # Source tab
             self.ui.step3_backfit_visualization_button.setEnabled(True)
 
             if current_tab == "feature_tab":
@@ -817,6 +832,9 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_visualizefeatures_button.setDisabled(True)
             else:
                 set_widgets_status(feature_extraction_widgets, mode='disable')
+                self.ui.main_tab.setTabEnabled(2, False)  # Feature tab
+                self.ui.main_tab.setTabEnabled(3, False)  # Source tab
+
 
             if current_tab == "source_tab":
                 # set_widgets_status((source_localization_widgets + tess_widgets), mode='show')
@@ -1012,10 +1030,8 @@ class MainMicrostateWindow(QMainWindow):
 
             # Perform clustering
             self.comet_tbx.do_clustering()
-            # Label the maps and save the state
-            self.visualize_microstates()
-            # self.comet_tbx.save_tbx()
-            # Update the main window
+
+            # Update the main window to enable the Label Maps button
             self.ui.main_tab.setTabEnabled(1, True)
             self.mainwindow_controller()
 
