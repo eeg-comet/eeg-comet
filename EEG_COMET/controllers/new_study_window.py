@@ -59,44 +59,85 @@ class NewStudyWindow(QDialog):
         """
         Set up signal-slot connections.
         """
-        # Controlling the visibility and state of various UI components based on user interactions
-        control_items = [
-            self.ui.step1_import_epoched_radio,
-            self.ui.step1_import_raw_radio,
-            self.ui.step1_load_all_radio,
-            self.ui.step1_load_pattern_radio,
-            self.ui.step2_load_montage_radio,
-            self.ui.step2_use_template_montage_radio,
-            self.ui.step2_temporal_filter_option_checkbox,
-            self.ui.step2_downsamp_option_checkbox,
-            self.ui.step2_spatial_filter_option_checkbox,
-            self.ui.step2_ch2rm_radio,
-            self.ui.step2_auto_clean_option_checkbox
+        # Group connections by target function
+
+        # 1. Items that trigger newstudy_controller
+        controller_widgets = {
+            # Radio buttons and checkboxes (clicked signal)
+            'clicked': [
+                self.ui.step1_import_epoched_radio,
+                self.ui.step1_import_raw_radio,
+                self.ui.step1_load_all_radio,
+                self.ui.step1_load_pattern_radio,
+                self.ui.step2_load_montage_radio,
+                self.ui.step2_use_template_montage_radio,
+                self.ui.step2_temporal_filter_option_checkbox,
+                self.ui.step2_downsamp_option_checkbox,
+                self.ui.step2_spatial_filter_option_checkbox,
+                self.ui.step2_ch2rm_radio,
+                self.ui.step2_auto_clean_option_checkbox
+            ],
+            # Text inputs (textChanged signal)
+            'textChanged': [
+                self.ui.step1_study_name_lineedit,
+                self.ui.step1_import_pattern_lineedit
+            ],
+            # List widgets (itemClicked signal)
+            'itemClicked': [
+                self.ui.loaded_selected_files_list
+            ]
+        }
+
+        # 2. Items that trigger plot_montage
+        montage_widgets = {
+            'clicked': [
+                self.ui.vis_montage_button,
+                self.ui.vis_channel_names_checkbox
+            ],
+            'itemClicked': [
+                self.ui.loaded_selected_files_list
+            ],
+            'itemCheckedStateChanged': [
+                self.ui.step2_ch2rm_combobox
+            ],
+            'textChanged': [
+                self.ui.step2_chanloc_path_lineedit
+            ],
+            'currentTextChanged': [
+                self.ui.step2_template_montage_combobox
+            ]
+        }
+
+        # 3. Specific button actions
+        action_widgets = [
+            (self.ui.step1_input_path_button, 'clicked', self.choose_input),
+            (self.ui.step1_import_raw_button, 'clicked', self.load_raw),
+            (self.ui.step2_load_montage_radio, 'clicked', self.load_custom_montage),
+            (self.ui.step2_template_montage_combobox, 'activated', self.load_template_montage),
+            (self.ui.step2_save_path_button, 'clicked', self.new_study_save_path),
+            (self.ui.step2_preprocess_data_button, 'clicked', self.preprocess_data),
+            (self.ui.loaded_remove_file_button, 'clicked', self.remove_file),
+            (self.ui.loaded_clear_files_button, 'clicked', self.clear_files),
+            (self.ui.vis_psd_button, 'clicked', self.plot_psd),
+            (self.ui.vis_plot_button, 'clicked', self.plot_eeg),
         ]
-        for item in control_items:
-            item.clicked.connect(self.newstudy_controller)
-        self.ui.step1_study_name_lineedit.textChanged.connect(self.newstudy_controller)
-        self.ui.step1_import_pattern_lineedit.textChanged.connect(self.newstudy_controller)
-        self.ui.loaded_selected_files_list.itemClicked.connect(self.newstudy_controller)
+
+        # Connect widgets that trigger newstudy_controller
+        for signal_name, widgets in controller_widgets.items():
+            for widget in widgets:
+                getattr(widget, signal_name).connect(self.newstudy_controller)
+
+        # Connect widgets that trigger plot_montage
+        for signal_name, widgets in montage_widgets.items():
+            for widget in widgets:
+                getattr(widget, signal_name).connect(self.plot_montage)
+
+        # Connect special cases: update_channel_names
         self.ui.loaded_selected_files_list.itemClicked.connect(self.update_channel_names)
-        self.step2_ch2rm_combobox.itemCheckedStateChanged.connect(self.plot_montage)
-        # Button connections for performing specific tasks
-        buttons_actions = [
-            (self.ui.step1_input_path_button, self.choose_input),
-            (self.ui.step1_import_raw_button, self.load_raw),
-            (self.ui.step2_load_montage_radio, self.load_custom_montage),
-            (self.ui.step2_template_montage_combobox, self.load_template_montage),
-            (self.ui.step2_save_path_button, self.new_study_save_path),
-            (self.ui.step2_preprocess_data_button, self.preprocess_data),
-            (self.ui.loaded_remove_file_button, self.remove_file),
-            (self.ui.loaded_clear_files_button, self.clear_files),
-            (self.ui.vis_montage_button, self.plot_montage),
-            (self.ui.vis_channel_names_checkbox, self.plot_montage),
-            (self.ui.vis_psd_button, self.plot_psd),
-            (self.ui.vis_plot_button, self.plot_eeg),
-        ]
-        [button.activated.connect(action) if isinstance(button, QComboBox) else button.clicked.connect(action) for
-         button, action in buttons_actions]
+
+        # Connect specific actions
+        for widget, signal_name, action in action_widgets:
+            getattr(widget, signal_name).connect(action)
 
     def newstudy_controller(self):
         """
@@ -434,6 +475,7 @@ class NewStudyWindow(QDialog):
 
         if self.main_window:
             self.main_window.load_study(from_new_study=True)
+            self.main_window.main_tab.setCurrentIndex(0)
         self.close()
 
     def item_selected(self):
@@ -451,21 +493,48 @@ class NewStudyWindow(QDialog):
         """
         self.init_canvas()
         filepath, filename = self.item_selected()
-        eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, preload=False)
-        if eeg.info['dig'] is None:
-            QMessageBox.information(self, "Load error",
-                                    "Unable to retrieve channel locations."
-                                    "Please ensure they are imported before proceeding.",
-                                    QMessageBox.Ok)
-        else:
+
+        try:
+            eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir,
+                                    preload=False)
+
+            # Check if digital points exist
+            if eeg.info['dig'] is None:
+                QMessageBox.information(self, "Load error",
+                                        "Unable to retrieve channel locations. "
+                                        "Please ensure they are imported before proceeding.",
+                                        QMessageBox.Ok)
+                return
+
+            # Check if channels actually have positions
+            if not any(ch.get('loc', None) is not None for ch in eeg.info['chs']):
+                QMessageBox.information(self, "Position error",
+                                        "Channel information exists but no valid positions found. "
+                                        "Please check your montage file.",
+                                        QMessageBox.Ok)
+                return
+
+            # Proceed with plotting if we have channel positions
             show_names = self.ui.vis_channel_names_checkbox.isChecked()
             if self.ui.step2_ch2rm_combobox.currentData():
                 self.chan2rm = self.ui.step2_ch2rm_combobox.currentData()
                 eeg.info["bads"].extend(self.chan2rm)
-            fig, _ = eeg.plot_sensors(kind='select', show_names=show_names, show=False)
-            self.ui.vis_figure_title_lineedit.setText("EEG Montage")
-            self.canvas.figure = fig
-            self.canvas.draw()
+
+            try:
+                fig, _ = eeg.plot_sensors(kind='select', show_names=show_names, show=False)
+                self.ui.vis_figure_title_lineedit.setText("EEG Montage")
+                self.canvas.figure = fig
+                self.canvas.draw()
+            except RuntimeError as e:
+                error_msg = str(e)
+                QMessageBox.warning(self, "Plotting Error",
+                                    f"Could not plot montage: {error_msg}\n"
+                                    "Please ensure your data has valid channel positions.",
+                                    QMessageBox.Ok)
+        except Exception as e:
+            QMessageBox.critical(self, "Error",
+                                 f"An unexpected error occurred: {str(e)}",
+                                 QMessageBox.Ok)
 
     def plot_eeg(self):
         """
