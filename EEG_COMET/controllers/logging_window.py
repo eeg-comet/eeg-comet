@@ -18,10 +18,7 @@ class Worker(QThread):
                                 if the task is a tuple or list).
         """
         super().__init__()
-        if isinstance(tasks, int):
-            self.tasks = range(tasks)
-        else:
-            self.tasks = tasks
+        self.tasks = tasks
         self.processing_func = processing_func
         self.stopped = False
 
@@ -32,7 +29,6 @@ class Worker(QThread):
                 self.finished.emit("Process stopped by user!")
                 return
 
-            # If the task is a tuple or list (but not a string), unpack it.
             if isinstance(task, (tuple, list)) and not isinstance(task, str):
                 self.processing_func(*task)
             else:
