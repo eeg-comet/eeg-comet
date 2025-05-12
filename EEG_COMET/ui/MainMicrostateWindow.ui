@@ -239,7 +239,7 @@
          <enum>QTabWidget::North</enum>
         </property>
         <property name="currentIndex">
-         <number>3</number>
+         <number>0</number>
         </property>
         <property name="iconSize">
          <size>
@@ -267,7 +267,7 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-649</y>
+               <y>0</y>
                <width>753</width>
                <height>875</height>
               </rect>
@@ -422,7 +422,7 @@
                    <bool>true</bool>
                   </property>
                   <property name="currentText">
-                   <string>60</string>
+                   <string>20</string>
                   </property>
                   <item>
                    <property name="text">
@@ -1417,8 +1417,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>753</width>
-               <height>328</height>
+               <width>766</width>
+               <height>407</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_5">
@@ -1843,7 +1843,7 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-364</y>
+               <y>0</y>
                <width>753</width>
                <height>590</height>
               </rect>
@@ -2648,8 +2648,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>753</width>
-               <height>325</height>
+               <width>766</width>
+               <height>351</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
@@ -3214,7 +3214,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>24</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -3343,9 +3343,9 @@
  <buttongroups>
   <buttongroup name="buttonGroup_5"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup_3"/>
  </buttongroups>
 </ui>
