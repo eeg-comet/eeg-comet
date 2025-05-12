@@ -39,7 +39,7 @@
        </font>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -1753,6 +1753,9 @@
              <property name="text">
               <string>Show channel names</string>
              </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
             </widget>
            </item>
            <item row="0" column="0" colspan="4">
@@ -1830,11 +1833,11 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="Montage_ButtonGroup"/>
   <buttongroup name="FilterMethod_ButtonGroup"/>
   <buttongroup name="FindData_ButtonGroup"/>
-  <buttongroup name="Plot_ButtonGroup"/>
-  <buttongroup name="Ch2Rm_ButtonGroup"/>
   <buttongroup name="DataType_ButtonGroup"/>
+  <buttongroup name="Ch2Rm_ButtonGroup"/>
+  <buttongroup name="Montage_ButtonGroup"/>
+  <buttongroup name="Plot_ButtonGroup"/>
  </buttongroups>
 </ui>
