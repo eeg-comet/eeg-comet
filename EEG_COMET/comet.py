@@ -1,4 +1,3 @@
-
 import os
 import mne
 import pickle
@@ -29,65 +28,237 @@ class COMET:
     It provides methods to load configuration settings, perform various processes
     such as preprocessing, clustering, labeling, backfitting, feature extraction,
     source localization, and source-microstate correlation.
-    If auto_save is True, the COMET will automatically save itself after each process
+
+    This version uses optimized data storage strategies, saving only critical
+    parameters and metadata in memory while storing large datasets on disk.
+
+    It also eliminates dependency on external configuration files, allowing
+    direct parameter configuration or using optional config files.
     """
 
-    def __init__(self, config: dict = None, auto_save: bool = True):
+    def __init__(self, config=None, config_path=None, study_name=None, input_folder=None, output_folder=None,
+                 auto_save=True):
+        """
+        Initialize COMET with flexible configuration options.
 
+        Parameters:
+        -----------
+        config : dict or ConfigParser, optional
+            Direct configuration object
+        config_path : str, optional
+            Path to a configuration file
+        study_name : str, optional
+            Name of the study (overrides config value)
+        input_folder : str, optional
+            Path to input data (overrides config value)
+        output_folder : str, optional
+            Path to output folder (overrides config value)
+        auto_save : bool, default=True
+            Whether to automatically save after processing steps
+        """
         # Define all instance variables
-        # TODO: Set Default Values
         self.LogWindow = None
         self.log_text = []
-        self.config = config if config is not None else {}
 
-        #
+        # Initialize utility objects
         self.comet_data_io = DataIO()
         self.comet_preprocessor = DataPreprocessor()
         self.comet_data_initializer = DataInitializer()
         self.comet_segmentation_io = SegmentationIO()
         self.comet_feature_io = FeatureIO()
 
-        # if config:
-        config_path = "./default_config.ini"
-        self.config = self.load_config(config_path)
+        # Load or create configuration
+        if config is not None:
+            # Use provided config
+            self.config = config
+        elif config_path is not None:
+            # Load from specified path
+            self.config = self.load_config(config_path)
+        else:
+            # Create default configuration
+            self.config = self.create_default_config()
 
-        # Define global directories based on the study information
-        self.save_dir = os.path.join(self.output_folder, self.study_name)
-        self.tbx_object_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
-        self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
-        self.preprocessed_data_path = os.path.join(
-            self.save_dir, f"{self.study_name}_preprocessed_data")
-        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
-        self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
-        self.extracted_features_path = os.path.join(
-            self.save_dir, f"{self.study_name}_extracted_features")
-        self.segmentation_path = os.path.join(
-            self.save_dir, f"{self.study_name}_segmentation")
-        self.localized_sources_path = os.path.join(
-            self.save_dir, f"{self.study_name}_localized_sources")
-        self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
-        self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
+        # Override config values with directly provided parameters
+        if study_name:
+            self.config["io_config"]["study_name"] = study_name
+        if input_folder:
+            self.config["io_config"]["input_folder"] = input_folder
+        if output_folder:
+            self.config["io_config"]["output_folder"] = output_folder
 
-        # Initialize boolean flags indicating if the step has been completed
-        self.done_preprocessing: bool = False
-        self.done_clustering: bool = False
-        self.done_labeling_microstates: bool = False
-        self.done_backfitting: bool = False
-        self.done_extracting_features: bool = False
-        self.done_source_localization: bool = False
-        self.done_source_microstate_correlation: bool = False
+        # Load configuration values into instance variables
+        self.load_config_values()
+
+        # Set up directories
+        self.setup_directories()
+
+        # Initialize flags and data holders
+        self.done_preprocessing = False
+        self.done_clustering = False
+        self.done_labeling_microstates = False
+        self.done_backfitting = False
+        self.done_extracting_features = False
+        self.done_source_localization = False
+        self.done_source_microstate_correlation = False
         self.auto_save = auto_save
+
+        self._best_maps = None
+        self._micro_labels = None
+
+        @property
+        def study_name(self):
+            return self._study_name
+
+        @study_name.setter
+        def study_name(self, value):
+            self._study_name = value
+            self.reset_directories()
+
+        @property
+        def output_folder(self):
+            return self._output_folder
+
+        @output_folder.setter
+        def output_folder(self, value):
+            self._output_folder = value
+            self.reset_directories()
+
+        @property
+        def input_folder(self):
+            return self._input_folder
+
+        @input_folder.setter
+        def input_folder(self, value):
+            self._input_folder = value
+
+    def create_default_config(self):
+        """
+        Create a default configuration without loading from a file.
+        These defaults are intended to be overridden by user inputs.
+        """
+        config = ConfigParser()
+
+        # Create default sections
+        config.add_section("io_config")
+        config.add_section("preprocessing_config")
+        config.add_section("clustering_config")
+        config.add_section("backfitting_config")
+        config.add_section("features_config")
+        config.add_section("source_config")
+
+        # Set default values for IO section - these must be updated from UI
+        config["io_config"]["study_name"] = "my_study"
+        config["io_config"]["input_folder"] = ""
+        config["io_config"]["channel_location_dir"] = ""
+        config["io_config"]["extension"] = ".set"
+        config["io_config"]["pattern"] = "*"
+        config["io_config"]["datatype"] = "raw"
+        config["io_config"]["output_folder"] = ""
+
+        # Set default preprocessing values
+        config["preprocessing_config"]["filter_data"] = "True"
+        config["preprocessing_config"]["filter_method"] = "fir"
+        config["preprocessing_config"]["lowcut_freq"] = "2"
+        config["preprocessing_config"]["highcut_freq"] = "20"
+        config["preprocessing_config"]["downsample_data"] = "True"
+        config["preprocessing_config"]["sample_rate"] = "250"
+        config["preprocessing_config"]["spatial_smooth_data"] = "True"
+        config["preprocessing_config"]["auto_clean_data"] = "False"
+        config["preprocessing_config"]["remove_channels"] = "False"
+        config["preprocessing_config"]["ch2rm"] = ""
+        config["preprocessing_config"]["prep_data"] = "False"
+
+        # Set default clustering values
+        config["clustering_config"]["smoothing_gfp"] = "False"
+        config["clustering_config"]["smoothing_distance"] = "10"
+        config["clustering_config"]["number_of_maps"] = "4"
+        config["clustering_config"]["kmin"] = "2"
+        config["clustering_config"]["kmax"] = "10"
+        config["clustering_config"]["stopping_mode"] = "gev"
+        config["clustering_config"]["stopping_parameter"] = "10"
+        config["clustering_config"]["use_percentages"] = "100"
+        config["clustering_config"]["initializer"] = "Random"
+        config["clustering_config"]["clustering_method"] = "Modified K-Means Clustering"
+        config["clustering_config"]["max_iterations"] = "500"
+        config["clustering_config"]["clustering_tolerance"] = "1e-6"
+        config["clustering_config"]["clustering_option"] = ""
+        config["clustering_config"]["number_of_repeats"] = "5"
+
+        # Set default backfitting values
+        config["backfitting_config"]["backfit_to"] = "all"
+        config["backfitting_config"]["identify_short_window"] = "False"
+        config["backfitting_config"]["filter_segments"] = "False"
+        config["backfitting_config"]["filter_segments_less_than"] = "20"
+        config["backfitting_config"]["filter_segments_option"] = "smooth"
+        config["backfitting_config"]["epsilon"] = "1e-6"
+        config["backfitting_config"]["b"] = "3"
+        config["backfitting_config"]["lamb"] = "5"
+
+        # Set default feature extraction values
+        config["features_config"]["export_format"] = ".csv"
+        config["features_config"]["feature_list"] = "OCC, DUR, COV"
+        config["features_config"]["feature_mode"] = "averaged"
+        config["features_config"]["feature_types"] = "real"
+        config["features_config"]["sliding_window_size"] = "1"
+        config["features_config"]["pre_window_size"] = "1"
+        config["features_config"]["post_window_size"] = "1"
+
+        # Set default source localization values
+        config["source_config"]["use_anatomy"] = "fsaverage"
+        config["source_config"]["inverse_method"] = "dSPM"
+        config["source_config"]["nperm"] = "2000"
+        config["source_config"]["spacing"] = "ico3"
+        config["source_config"]["source_localization_method"] = "tess"
+        config["source_config"]["anatomy_subjects_dir"] = ""
+
+        return config
+
+    def reset_directories(self):
+        """
+        Reset and recreate directory structure when critical parameters change.
+        Call this whenever study_name or output_folder are changed.
+        """
+        # Set up the save_dir based on output_folder and study_name
+        if self.output_folder and self.study_name:
+            self.save_dir = os.path.join(self.output_folder, self.study_name)
+
+            # Update all paths relative to save_dir
+            self.params_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
+            self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
+            self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
+            self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
+            self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
+            self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
+            self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
+            self.localized_sources_path = os.path.join(self.save_dir, f"{self.study_name}_localized_sources")
+            self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
+            self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
 
     def load_config(self, config_path):
         """
-        Load configuration settings from a dictionary.
+        Load configuration from a file path.
         """
-        config = ConfigParser()
-        config.read(config_path)
+        if not os.path.exists(config_path):
+            print(f"Warning: Config file {config_path} not found. Using default configuration.")
+            return self.create_default_config()
 
+        config = ConfigParser()
+        try:
+            config.read(config_path)
+            print(f"Configuration loaded from {config_path}")
+            return config
+        except Exception as e:
+            print(f"Error loading configuration: {e}")
+            print("Using default configuration")
+            return self.create_default_config()
+
+    def load_config_values(self):
+        """
+        Load configuration values from self.config into instance variables.
+        """
         # Input/Output Configs
-        io_config = config["io_config"]
-        self.study_name = io_config.get("study_name", "")
+        io_config = self.config["io_config"]
+        self.study_name = io_config.get("study_name", "my_study")
         self.input_folder = io_config.get("input_folder", "")
         self.channel_location_dir = io_config.get("channel_location_dir", "")
         self.extension = io_config.get("extension", ".auto")
@@ -96,73 +267,123 @@ class COMET:
         self.output_folder = io_config.get("output_folder", "")
 
         # Preprocessing Configs
-        preprocessing_config = config["preprocessing_config"]
+        preprocessing_config = self.config["preprocessing_config"]
         self.filter_data = preprocessing_config.getboolean("filter_data", True)
         if self.filter_data:
             self.filter_method = preprocessing_config.get("filter_method", "fir")
             self.lowcut_freq = preprocessing_config.getint("lowcut_freq", 2)
             self.highcut_freq = preprocessing_config.getint("highcut_freq", 20)
+        else:
+            self.filter_method = "fir"
+            self.lowcut_freq = 2
+            self.highcut_freq = 20
+
         self.downsample_data = preprocessing_config.getboolean("downsample_data", True)
         if self.downsample_data:
             self.sample_rate = preprocessing_config.getint("sample_rate", 250)
+        else:
+            self.sample_rate = 250
+
         self.spatial_smooth_data = preprocessing_config.getboolean("spatial_smooth_data", True)
-        if self.spatial_smooth_data:
-            self.spatial_smooth_k = preprocessing_config.getint("spatial_smooth_k", 6)
         self.auto_clean_data = preprocessing_config.getboolean("auto_clean_data", False)
         self.remove_channels = preprocessing_config.getboolean("remove_channels", False)
         if self.remove_channels:
             self.chan2rm = preprocessing_config.get("ch2rm", "")
+        else:
+            self.chan2rm = ""
         self.prep_data = preprocessing_config.getboolean("prep_data", False)
 
         # Clustering Configs
-        clustering_config = config["clustering_config"]
+        clustering_config = self.config["clustering_config"]
         self.smoothing_gfp = clustering_config.getboolean("smoothing_gfp", False)
         if self.smoothing_gfp:
             self.smoothing_distance = clustering_config.getint("smoothing_distance", 10)
-        number_of_maps = clustering_config.get("number_of_maps", 4)
+        else:
+            self.smoothing_distance = 10
+
+        number_of_maps = clustering_config.get("number_of_maps", "4")
         self.number_of_maps = number_of_maps if number_of_maps == "auto" else int(number_of_maps)
         self.choose_number_of_maps = "Auto" if number_of_maps == "auto" else "User"
+
         if self.number_of_maps == "auto":
             self.stopping_mode = clustering_config.get("stopping_mode", "gev")
             self.stopping_parameter = clustering_config.getfloat("stopping_parameter", 10)
             self.kmin = clustering_config.getint("kmin", 2)
             self.kmax = clustering_config.getint("kmax", 10)
+        else:
+            self.stopping_mode = "gev"
+            self.stopping_parameter = 10
+            self.kmin = 2
+            self.kmax = 10
+
         self.initializer = clustering_config.get("initializer", "Random")
         self.clustering_method = clustering_config.get("clustering_method", "Modified K-Means Clustering")
         self.max_iterations = clustering_config.getint("max_iterations", 500)
         self.clustering_tolerance = clustering_config.getfloat("clustering_tolerance", 1e-6)
+
         need_options = ["X-Means Clustering", "Agglomerative Hierarchical Clustering",
                         "K-Means Clustering", "PCA + K-Means Clustering",
                         "Autoencoder + K-Means Clustering", ]
         self.clustering_option = clustering_config.get("clustering_option",
                                                        "") if self.clustering_method in need_options else ""
         self.number_of_repeats = clustering_config.getint("number_of_repeats", 5)
-        self.use_percentages = clustering_config.getint("use_percentages", "")
+
+        # Handle use_percentages - this could be an int or empty string
+        try:
+            self.use_percentages = clustering_config.getint("use_percentages", 100)
+        except ValueError:
+            self.use_percentages = 100
 
         # Backfitting Configs
-        backfitting_config = config["backfitting_config"]
-        self.backfit_to = backfitting_config.get("backfit_to", "")
+        backfitting_config = self.config["backfitting_config"]
+        self.backfit_to = backfitting_config.get("backfit_to", "all")
         self.identify_short_window = backfitting_config.getboolean("identify_short_window", False)
         self.filter_segments = backfitting_config.getboolean("filter_segments", False)
+
         if self.filter_segments:
             self.filter_segments_less_than = backfitting_config.getint("filter_segments_less_than", 20)
             self.filter_segments_option = backfitting_config.get("filter_segments_option", "smooth")
+        else:
+            self.filter_segments_less_than = 20
+            self.filter_segments_option = "smooth"
+
         self.epsilon = backfitting_config.getfloat("epsilon", 1e-6)
         self.b = backfitting_config.getint("b", 3)
         self.lamb = backfitting_config.getint("lamb", 5)
 
         # Feature Extraction Configs
-        features_config = config["features_config"]
+        features_config = self.config["features_config"]
         self.export_format = features_config.get("export_format", ".csv")
-        self.feature_list = [x.strip() for x in features_config.get("feature_list", "").split(",")]
-        self.feature_mode = [x.strip() for x in features_config.get("feature_mode", "").split(",")]
-        self.feature_types = [x.strip() for x in features_config.get("feature_types", "").split(",")]
-        self.sliding_window_size = features_config.getint("sliding_window_size", 1) if "OCC" in self.feature_list else ""
-        self.pre_window_size = features_config.getint("pre_window_size", 1)
-        self.post_window_size = features_config.getint("post_window_size", 1)
+
+        feature_list_str = features_config.get("feature_list", "OCC, DUR, COV")
+        self.feature_list = [x.strip() for x in feature_list_str.split(",")]
+
+        feature_mode_str = features_config.get("feature_mode", "averaged")
+        self.feature_mode = [x.strip() for x in feature_mode_str.split(",")]
+
+        feature_types_str = features_config.get("feature_types", "real")
+        self.feature_types = [x.strip() for x in feature_types_str.split(",")]
+
+        if "OCC" in self.feature_list:
+            try:
+                self.sliding_window_size = features_config.getint("sliding_window_size", 1)
+            except ValueError:
+                self.sliding_window_size = 1
+        else:
+            self.sliding_window_size = 1
+
+        try:
+            self.pre_window_size = features_config.getint("pre_window_size", 1)
+        except ValueError:
+            self.pre_window_size = 1
+
+        try:
+            self.post_window_size = features_config.getint("post_window_size", 1)
+        except ValueError:
+            self.post_window_size = 1
 
         # Source Localization Configs
-        source_config = config["source_config"]
+        source_config = self.config["source_config"]
         self.use_anatomy = source_config.get("use_anatomy", "fsaverage")
         self.inverse_method = source_config.get("inverse_method", "dSPM")
         self.nperm = source_config.getint("nperm", 2000)
@@ -170,31 +391,200 @@ class COMET:
         self.source_localization_method = source_config.get("source_localization_method", "tess")
         self.anatomy_subjects_dir = source_config.get("anatomy_subjects_dir", "")
 
-        return config
+    def ensure_directory(self, path):
+        """
+        Ensures a directory exists and is writable.
 
-    def load_tbx(self, tbx_object_path):
-        # Load the TBX object from the file
-        with open(tbx_object_path, 'rb') as input_file:
-            loaded_object = pickle.load(input_file)
-        # Restore the attributes of the current object from the loaded object
-        for attr, value in loaded_object.__dict__.items():
-            # Exclude loading LogWindow
-            if attr == 'LogWindow' and value is None:
-                continue
-            setattr(self, attr, value)
+        Parameters:
+        -----------
+        path : str
+            Directory path to check/create
+
+        Returns:
+        --------
+        bool
+            True if directory exists and is writable, False otherwise
+        """
+        if not path:
+            return False
+
+        try:
+            os.makedirs(path, exist_ok=True)
+            # Test if we can write to this directory
+            test_file = os.path.join(path, ".test_write_access")
+            with open(test_file, 'w') as f:
+                f.write("test")
+            os.remove(test_file)
+            return True
+        except (PermissionError, OSError) as e:
+            print(f"Warning: Cannot access directory {path}: {str(e)}")
+            return False
+
+    def setup_directories(self):
+        """
+        Set up all required directories based on user configuration.
+        """
+        # Check if output_folder and study_name are set before proceeding
+        if not self.output_folder:
+            self.output_folder = os.path.expanduser("~/EEG-COMET_Data")
+
+        if not self.study_name:
+            self.study_name = "my_study"
+            print(f"No study name specified, using: {self.study_name}")
+
+        # Create output folder if it doesn't exist
+        if not self.ensure_directory(self.output_folder):
+            old_output = self.output_folder
+            self.output_folder = os.path.expanduser("~/EEG-COMET_Data")
+            print(f"Cannot access {old_output}, falling back to: {self.output_folder}")
+            self.ensure_directory(self.output_folder)
+
+        # Setup study directory
+        self.save_dir = os.path.join(self.output_folder, self.study_name)
+        self.ensure_directory(self.save_dir)
+
+        # Define all paths relative to save_dir
+        self.params_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
+        self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
+        self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
+        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
+        self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
+        self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
+        self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
+        self.localized_sources_path = os.path.join(self.save_dir, f"{self.study_name}_localized_sources")
+        self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
+        self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
+
+    def load_params(self, params_path=None):
+        """
+        Load only critical parameters from the saved file.
+        """
+        if params_path is None:
+            params_path = self.params_path
+
+        if not os.path.exists(params_path):
+            print(f"Warning: Parameters file {params_path} not found.")
+            return False
+
+        try:
+            with open(params_path, 'rb') as input_file:
+                params = pickle.load(input_file)
+
+            # Update attributes from the loaded parameters
+            for attr, value in params.items():
+                setattr(self, attr, value)
+
+            return True
+
+        except Exception as e:
+            print(f"Error loading parameters: {e}")
+            return False
 
     def initialize_log_window(self):
+        """
+        Initialize the logging window
+        """
         self.LogWindow = LogWindow()
         self.LogWindow.append_log("Welcome to EEG-COMET!")
 
-    def update_microstates_order(self, current_order_labels, current_order_maps):
-        self.micro_labels = current_order_labels
-        self.best_maps = current_order_maps
+    @property
+    def best_maps(self):
+        """
+        Getter for best_maps - loads from CSV file if not in memory
+        """
+        if self._best_maps is None and os.path.exists(self.microstate_maps_path):
+            try:
+                # Load CSV with first row as header
+                df = pd.read_csv(self.microstate_maps_path, index_col=0)
+
+                # Store the channel names (first column values, now index)
+                self._channel_names = df.index.tolist()
+
+                # Store the microstate labels (column names)
+                self._micro_labels = df.columns.tolist()
+
+                # Store the actual map values (excluding headers and channel names)
+                self._best_maps = np.transpose(df.values)
+
+            except Exception as e:
+                print(f"Error loading maps from CSV: {e}")
+        return self._best_maps
+
+    @best_maps.setter
+    def best_maps(self, value):
+        """
+        Setter for best_maps - stores in memory and saves to file
+        """
+        self._best_maps = value
+        if value is not None and self.auto_save:
+            self.save_microstate_maps(value)
+
+    @property
+    def micro_labels(self):
+        """
+        Getter for micro_labels - gets from memory or from CSV header
+        """
+        # If labels are already in memory, return them
+        if self._micro_labels is not None:
+            return self._micro_labels
+
+        # Otherwise, try to extract from the CSV header
+        if os.path.exists(self.microstate_maps_path):
+            try:
+                df = pd.read_csv(self.microstate_maps_path)
+                # Check if columns are not default numeric indices
+                if not df.columns.equals(pd.RangeIndex(start=0, stop=len(df.columns))):
+                    self._micro_labels = df.columns.tolist()
+            except Exception as e:
+                print(f"Error loading labels from CSV header: {e}")
+
+        return self._micro_labels
+
+    @micro_labels.setter
+    def micro_labels(self, value):
+        """
+        Setter for micro_labels - stores in memory and updates CSV with labels in header
+        """
+        self._micro_labels = value
+        if value is not None and self.auto_save and self._best_maps is not None:
+            self.save_microstate_maps(self._best_maps)
+
+    def save_microstate_maps(self, maps, labels=None):
+        """
+        Save microstate maps in CSV format with labels as headers if available.
+        No separate metadata or label files are created.
+        """
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(self.microstate_maps_path), exist_ok=True)
+
+        try:
+            # Create DataFrame from maps
+            df = pd.DataFrame(maps)
+
+            # Add labels as column names if available
+            if labels is not None:
+                # Use labels as column headers if provided directly
+                df.columns = labels
+            elif self._micro_labels is not None:
+                # Otherwise use the stored labels if they exist
+                if len(self._micro_labels) == df.shape[1]:
+                    df.columns = self._micro_labels
+
+            # Save to CSV
+            df.to_csv(self.microstate_maps_path, index=False)
+
+        except Exception as e:
+            print(f"Error saving microstate maps: {e}")
+            print("Could not save microstate maps. Check directory permissions.")
 
     def load_raw(self):
         """
         Locate EEG file paths.
         """
+        # Check if load_all_files attribute exists, set it to True if not
+        if not hasattr(self, 'load_all_files'):
+            self.load_all_files = True
+
         self.pattern = '*' if self.load_all_files else '*' + self.pattern_content + '*'
         self.list_eegs_path, self.list_eegs = self.comet_data_io.find_data(
             input_folder=self.input_folder, extension=self.extension, pattern=self.pattern
@@ -202,14 +592,16 @@ class COMET:
 
     def load_clean(self):
         """
-        Locate EEG file paths that automatically cleaned.
+        Locate EEG file paths that were automatically cleaned.
         """
         self.list_eegs_path, self.list_eegs = self.comet_data_io.find_data(
             input_folder=self.preprocessed_data_path, extension=self.extension, pattern='*'
         )
 
     def check_chan2rm(self):
-        # Checking the consistency of EEG channels across all data
+        """
+        Check the consistency of EEG channels across all data
+        """
         missing_channels = self.comet_data_io.check_chan2rm(
             self.list_eegs_path,
             datatype=self.datatype,
@@ -217,17 +609,55 @@ class COMET:
         )
         self.chan2rm = list(set(self.chan2rm).union(set(missing_channels)))
 
+    def load_eeg_info(self):
+        """
+        Load EEG info from file instead of keeping it in memory
+        """
+        if os.path.exists(self.eeg_info_path):
+            try:
+                with open(self.eeg_info_path, 'rb') as f:
+                    return pickle.load(f)
+            except Exception as e:
+                print(f"Error loading EEG info: {e}")
+                return None
+        return None
+
     def check_eeg_info(self):
-        if not hasattr(self, 'eeg_info'):
-            # Find processed EEG file paths in the designated folder.
+        """
+        Check if EEG info is available, load from file if needed
+        """
+        # First try to load from file
+        self.eeg_info = self.load_eeg_info()
+
+        # If not available, create it from a preprocessed file
+        if self.eeg_info is None:
+            # Find processed EEG file paths
             list_processed_path, _ = self.comet_data_io.find_data(
                 input_folder=self.preprocessed_data_path, extension=self.extension
             )
-            # Load the first processed EEG file (or choose randomly, if desired).
-            eeg = self.comet_data_io.load_eeg(eeg_path=list_processed_path[0], datatype=self.datatype)
-            self.eeg_info = eeg.info
+
+            if list_processed_path:
+                # Load the first processed EEG file
+                eeg = self.comet_data_io.load_eeg(eeg_path=list_processed_path[0], datatype=self.datatype)
+                self.eeg_info = eeg.info
+
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(self.eeg_info_path), exist_ok=True)
+
+                # Save the info for future use
+                try:
+                    with open(self.eeg_info_path, 'wb') as f:
+                        pickle.dump(self.eeg_info, f)
+                    print(f"EEG info saved to {self.eeg_info_path}")
+                except Exception as e:
+                    print(f"Warning: Could not save EEG info: {e}")
+            else:
+                print("Warning: No processed EEG files found to extract info from.")
 
     def autoclean_rseeg(self, eeg_path, eeg_name):
+        """
+        Auto-clean a raw EEG file and save the result
+        """
         # Load the EEG
         eeg = self.comet_data_io.load_eeg(
             eeg_path=eeg_path,
@@ -244,6 +674,9 @@ class COMET:
         self.comet_data_io.export_eegs(eeg=eeg, save_path=save_path, extension=self.extension, datatype=self.datatype)
 
     def preprocess_eeg(self, eeg_path, eeg_name):
+        """
+        Preprocess an EEG file and save the result
+        """
         # Load the EEG
         eeg = self.comet_data_io.load_eeg(
             eeg_path=eeg_path,
@@ -251,10 +684,12 @@ class COMET:
             channel_location_dir=self.channel_location_dir,
             chan2rm=self.chan2rm
         )
+
         # If desired, do pre-processing
         if self.prep_data:
             eeg = self.comet_preprocessor.identify_bad_channels(eeg)
             eeg.interpolate_bads(reset_bads=False)
+
         # Preprocess the EEG data
         eeg = self.comet_preprocessor.preprocess_eeg(
             eeg=eeg,
@@ -266,13 +701,23 @@ class COMET:
             sampling_rate=self.sample_rate,
             spatial_smooth_bool=self.spatial_smooth_data
         )
-        # Save EEG info and export the processed file as needed
+
+        # Extract and save EEG info
         eeg_data = self.comet_data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
         length_data = eeg_data.shape[1]
         self.eeg_info = eeg.info
+
         if not self.sample_rate:
             self.sample_rate = int(self.eeg_info['sfreq'])
-        self.comet_data_io.save_eeg_info(eeg_info_path=self.eeg_info_path, eeg_info=self.eeg_info)
+
+        # Save EEG info for future use
+        os.makedirs(os.path.dirname(self.eeg_info_path), exist_ok=True)
+
+        try:
+            with open(self.eeg_info_path, 'wb') as f:
+                pickle.dump(self.eeg_info, f)
+        except Exception as e:
+            print(f"Warning: Could not save EEG info: {e}")
 
         # Prepare saving path and export EEG
         name = os.path.splitext(eeg_name)[0]
@@ -280,12 +725,22 @@ class COMET:
         self.comet_data_io.export_eegs(eeg=eeg, save_path=save_path, extension=self.extension, datatype=self.datatype)
 
         # (Optional) Append a log for each file processed.
-        self.LogWindow.append_log(
-            f"EEG Preprocessed: {eeg_name} - Length: {int(length_data / self.sample_rate)} sec"
-        )
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"EEG Preprocessed: {eeg_name} - Length: {int(length_data / self.sample_rate)} sec"
+            )
+
+    def get_preprocessed_eeg(self, subject_name):
+        """
+        Load a preprocessed EEG file on demand instead of keeping it in memory
+        """
+        eeg_path = os.path.join(self.preprocessed_data_path, f"{subject_name}{self.extension}")
+        return self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
 
     def compute_gev_all_data(self):
-
+        """
+        Compute Global Explained Variance for all data
+        """
         all_data, _ = self.comet_data_initializer.generate_maps_and_peaks(
             preprocessed_folder=self.preprocessed_data_path,
             extension=self.extension,
@@ -295,6 +750,9 @@ class COMET:
         return self.comet_microstate_clusterer.compute_gev(data=all_data, maps=self.best_maps)
 
     def cluster_eeg_modkmeans(self, init):
+        """
+        Perform modified K-means clustering iteration
+        """
         print(f"Running clustering iteration {init + 1}/{self.number_of_repeats}")
 
         initial_maps = self.comet_data_initializer.initialize_cluster_centers(
@@ -308,15 +766,15 @@ class COMET:
             max_iter=self.max_iterations,
             thresh=self.clustering_tolerance
         )
-        print(f'maps_init: {maps_init}')
 
         gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
         print(f'Found {self.number_of_maps} Microstate Maps')
         print(f'GEV: {gev_init}')
-        self.LogWindow.append_log(
-            f"Data Clustered [{init + 1}/{self.number_of_repeats}]\n"
-            f"✓ Global Explained Variance: {100 * gev_init}%"
-        )
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Data Clustered [{init + 1}/{self.number_of_repeats}]\n"
+                f"✓ Global Explained Variance: {100 * gev_init}%"
+            )
 
         # Update the best results if current gev is higher
         if self.best_maps is None or gev_init > self.best_gev:
@@ -324,13 +782,20 @@ class COMET:
             self.best_gev = gev_init
             self.best_maps = maps_init.copy() if hasattr(maps_init, 'copy') else maps_init
 
+            # Save the best maps immediately
+            if self.auto_save:
+                self.save_microstate_maps(self.best_maps)
+
     def backfit_eeg(self, eeg_path, eeg_name):
+        """
+        Backfit microstate maps to an EEG file
+        """
         eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
         time_array = eeg.times * 1000
 
-        labeled_segmentation, segmentation_fit = self.comet_microstate_backfitter.\
+        labeled_segmentation, segmentation_fit = self.comet_microstate_backfitter. \
             perform_segmentation(
-            eeg=eeg, filter_segments_less_than=int(self.filter_segments_less_than_ms/(1000/self.sample_rate))
+            eeg=eeg, filter_segments_less_than=int(self.filter_segments_less_than_ms / (1000 / self.sample_rate))
         )
 
         self.comet_segmentation_io.export_segmentation(
@@ -342,84 +807,117 @@ class COMET:
         )
 
         # Log the backfitting progress
-        self.LogWindow.append_log(
-            f"Microstates Backfitted: {eeg_name}"
-        )   
-    
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Microstates Backfitted: {eeg_name}"
+            )
+
+    def get_segmentation(self, subject_name):
+        """
+        Load a segmentation file on demand
+        """
+        seg_path = os.path.join(self.segmentation_path, f"{subject_name}{self.export_format}")
+        return self.comet_segmentation_io.load_segmentation(
+            segmentation_path=seg_path,
+            import_format=self.export_format
+        )
+
     def do_preprocessing(self):
+        """
+        Preprocess all EEG files in the input folder
+        """
         print('\nPreprocessing ...')
 
-        # Define global directories based on the study information
-        self.tbx_object_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
-        self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
-        self.preprocessed_data_path = os.path.join(
-            self.save_dir, f"{self.study_name}_preprocessed_data")
-        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
-        self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
-        self.extracted_features_path = os.path.join(
-            self.save_dir, f"{self.study_name}_extracted_features")
-        self.segmentation_path = os.path.join(
-            self.save_dir, f"{self.study_name}_segmentation")
-        self.localized_sources_path = os.path.join(
-            self.save_dir, f"{self.study_name}_localized_sources")
-        self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
-        self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
+        # Reset directories based on current parameters
+        self.reset_directories()
 
-        # Create preprocessed data directory if it doesn't exist
-        if not os.path.exists(self.preprocessed_data_path):
-            os.makedirs(self.preprocessed_data_path)
-
-        # Log the preprocessing progress
-        self.LogWindow.append_log(
-            f"Study Created\n"
-            f"✓ Study Name: {self.study_name}\n"
-            f"✓ Input Path: {self.input_folder}\n"
-            f"✓ Found {len(self.list_eegs_path)} {self.datatype} EEG data with {self.extension} extension."
-        )
-
-        self.LogWindow.append_log(
-            f"EEG Preprocessing Settings:\n"
-            f"* Channels to Remove: {self.chan2rm}\n"
-            f"* Bandpass Filter: {self.filter_method.upper()} Method ({self.lowcut_freq}Hz and {self.highcut_freq}Hz)\n"
-            f"* Downsampling Rate: {self.sample_rate}Hz\n"
-            f"* Spatial Smoothing: {self.spatial_smooth_k} Neighbors\n", log_type='settings'
-        )
+        # Ensure directories exist
+        os.makedirs(self.save_dir, exist_ok=True)
+        os.makedirs(self.preprocessed_data_path, exist_ok=True)
 
         # Iterate through EEG files
         self.load_raw()
 
-        # Build a list of EEG files (for example, by zipping your paths and names)
+        # Check if any files were found
+        if not hasattr(self, 'list_eegs_path') or len(self.list_eegs_path) == 0:
+            print(f"Error: No EEG files found in {self.input_folder} with extension {self.extension}")
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"Error: No EEG files found in {self.input_folder} with extension {self.extension}"
+                )
+            return
+
+        # Log the preprocessing progress
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Study Created\n"
+                f"✓ Study Name: {self.study_name}\n"
+                f"✓ Input Path: {self.input_folder}\n"
+                f"✓ Output Path: {self.save_dir}\n"
+                f"✓ Found {len(self.list_eegs_path)} {self.datatype} EEG data with {self.extension} extension."
+            )
+
+            self.LogWindow.append_log(
+                f"EEG Preprocessing Settings:\n"
+                f"* Channels to Remove: {self.chan2rm}\n"
+                f"* Bandpass Filter: {self.filter_method.upper()} Method ({self.lowcut_freq}Hz and {self.highcut_freq}Hz)\n"
+                f"* Downsampling Rate: {self.sample_rate}Hz\n",
+                log_type='settings'
+            )
+
+        # Build a list of EEG files
         self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
 
-        # Checking the consistency of EEG channels across all data
+        # Check channel consistency
         self.check_chan2rm()
 
         if self.auto_clean_data:
-            self.LogWindow.setup_progress_dialog(
-                window_title="Preprocessing ...",
-                label_text="Cleaning file ...",
-                tasks=self.zipped_eeg_files,
-                processing_func=self.autoclean_rseeg
-            )
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(f"Auto-cleaning EEG data...")
+                self.LogWindow.setup_progress_dialog(
+                    window_title="Preprocessing ...",
+                    label_text="Cleaning file ...",
+                    tasks=self.zipped_eeg_files,
+                    processing_func=self.autoclean_rseeg
+                )
+            else:
+                print("Auto-cleaning EEG data...")
+                for eeg_path, eeg_name in self.zipped_eeg_files:
+                    self.autoclean_rseeg(eeg_path, eeg_name)
+
             self.load_clean()
 
-        # Then start the progress dialog and processing:
-        self.LogWindow.setup_progress_dialog(
-            window_title="Preprocessing ...",
-            label_text="Preprocessing file ...",
-            tasks=self.zipped_eeg_files,
-            processing_func=self.preprocess_eeg
-        )
+        # Start preprocessing
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(f"Preprocessing {len(self.zipped_eeg_files)} EEG files...")
+            self.LogWindow.setup_progress_dialog(
+                window_title="Preprocessing ...",
+                label_text="Preprocessing file ...",
+                tasks=self.zipped_eeg_files,
+                processing_func=self.preprocess_eeg
+            )
+        else:
+            print(f"Preprocessing {len(self.zipped_eeg_files)} EEG files...")
+            for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Preprocessing"):
+                self.preprocess_eeg(eeg_path, eeg_name)
 
         # Set preprocessing flag
         self.done_preprocessing = True
 
-        # Optionally save the preprocessed data
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(f"Preprocessing completed. Data saved to {self.preprocessed_data_path}")
+        else:
+            print(f"Preprocessing completed. Data saved to {self.preprocessed_data_path}")
+
+        # Save configuration and parameters
         if self.auto_save:
             self.save_config()
-            self.save_tbx()
+            self.save_params()
 
     def do_autopilot(self):
+        """
+        Run autopilot clustering
+        """
         # TODO: not completed!
         autopilot_clusterer = AutopilotClusterer(
             self.save_dir, self.study_name, self.extension, self.datatype
@@ -433,6 +931,9 @@ class COMET:
         min_distance_size = [0, 10, 20, 40]
 
     def do_clustering(self):
+        """
+        Perform clustering on preprocessed EEG data
+        """
         print('\nClustering ...')
 
         self.check_eeg_info()
@@ -452,7 +953,12 @@ class COMET:
             'X-Means Clustering',
             'Agglomerative Hierarchical Clustering',
         ]
-        assert self.clustering_method in available_methods, "Clustering method not supported"
+        if self.clustering_method not in available_methods:
+            error_msg = f"Clustering method '{self.clustering_method}' not supported. Available methods: {', '.join(available_methods)}"
+            print(error_msg)
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg)
+            return
 
         # Initialize microstate clusterer
         self.comet_microstate_clusterer = MicrostateClusterer(
@@ -500,7 +1006,11 @@ class COMET:
         )
 
         if self.clustering_method == 'PCA + K-Means Clustering':
-            # Extract features using PCA
+            # Check if n_pca is set, otherwise set a default value
+            if not hasattr(self, 'n_pca'):
+                self.n_pca = 10
+                print(f"Setting default PCA components to {self.n_pca}")
+
             self.maps2use = self.comet_microstate_clusterer.extract_features_with_pca(
                 eeg_data=np.transpose(self.maps2use), pca_components=self.n_pca
             )
@@ -521,23 +1031,30 @@ class COMET:
         else:
             cluster_data_log = 'the local peaks of the global field power.'
 
-        self.LogWindow.append_log(
-            f"Clustering Settings:\n"
-            f"* Clustering algorithm: {self.clustering_method}\n"
-            f"* The number of maps to extract {k_log}\n"
-            f"* Clustering will be performed on {cluster_data_log}", log_type='settings'
-        )
-
-        self.best_residual, self.best_maps = None, None
-        self.best_gev, self.best_confidence = 0, 0
-        if self.clustering_method == 'Modified K-Means Clustering':
-            self.LogWindow.setup_progress_dialog(
-                window_title="Clustering ...",
-                label_text="Clustering ...",
-                tasks=list(range(self.number_of_repeats)),
-                processing_func=self.cluster_eeg_modkmeans
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Clustering Settings:\n"
+                f"* Clustering algorithm: {self.clustering_method}\n"
+                f"* The number of maps to extract {k_log}\n"
+                f"* Clustering will be performed on {cluster_data_log}", log_type='settings'
             )
 
+        # Reset best values
+        self.best_residual, self._best_maps = None, None
+        self.best_gev, self.best_confidence = 0, 0
+
+        if self.clustering_method == 'Modified K-Means Clustering':
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.setup_progress_dialog(
+                    window_title="Clustering ...",
+                    label_text="Clustering ...",
+                    tasks=list(range(self.number_of_repeats)),
+                    processing_func=self.cluster_eeg_modkmeans
+                )
+            else:
+                print(f"Running {self.number_of_repeats} clustering iterations...")
+                for init in tqdm(range(self.number_of_repeats), desc="Clustering"):
+                    self.cluster_eeg_modkmeans(init)
         else:
             initial_maps = self.comet_data_initializer.initialize_cluster_centers(
                 maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
@@ -551,11 +1068,15 @@ class COMET:
             )
 
             for init in range(self.number_of_repeats):
-                self.LogWindow.update_progress(
-                    value=init,
-                    text=f"Clustering [{init + 1}/{self.number_of_repeats}] - "
-                    f"Best Global Explained Variance: {100 * self.best_gev:.3f}%"
-                )
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.update_progress(
+                        value=init,
+                        text=f"Clustering [{init + 1}/{self.number_of_repeats}] - "
+                             f"Best Global Explained Variance: {100 * self.best_gev:.3f}%"
+                    )
+                else:
+                    print(
+                        f"Clustering iteration {init + 1}/{self.number_of_repeats} - Best GEV: {100 * self.best_gev:.3f}%")
 
                 if self.clustering_method in ['K-Means Clustering', 'X-Means Clustering']:
                     clustering_instance.process()
@@ -578,62 +1099,104 @@ class COMET:
                 gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
 
                 self.comet_microstate_labeler = MicrostateLabeler(
-                    microstate_maps=maps_init, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path
+                    microstate_maps=maps_init, eeg_info=self.eeg_info,
+                    microstate_maps_path=self.microstate_maps_path
                 )
                 micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
 
-                # if gev_r > best_gev:
+                # Update best results based on confidence score
                 if labels_overall_confidence > self.best_confidence:
                     self.best_gev = gev_init
                     self.best_maps = maps_init
                     self.best_residual = residual_init
+                    self.best_confidence = labels_overall_confidence
 
-        # Save Best Maps
+                    # Save best maps and labels immediately
+                    if self.auto_save:
+                        self.save_microstate_maps(maps_init, micro_labels)
+
+        # Compute GEV for all data using best maps
         if self.best_maps is not None:
-            self.comet_microstate_clusterer.microstates2csv(
-                microstate_maps=self.best_maps, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path)
-
             self.best_gev = self.compute_gev_all_data()
             print(f'Global Explained Variance: {self.best_gev}')
+
             # Set clustering flag
             self.done_clustering = True
-            self.LogWindow.process_finished(
-                f"✓ The data has been successfully clustered into {self.number_of_maps} microstates."
-                f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
-            )
 
-            # Optionally save the clustered data
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.process_finished(
+                    f"✓ The data has been successfully clustered into {self.number_of_maps} microstates."
+                    f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
+                )
+            else:
+                print(f"✓ The data has been successfully clustered into {self.number_of_maps} microstates.")
+                print(f"Best Global Explained Variance Achieved: {100 * self.best_gev:.3f}%")
+
+            # Save updated configuration and parameters
             if self.auto_save:
                 self.save_config()
-                self.save_tbx()
+                self.save_params()
 
     def do_labeling(self):
+        """
+        Label microstate maps
+        """
+        # Check if best maps are available
+        if self.best_maps is None:
+            print("Error: No microstate maps available for labeling.")
+            return
+
         # Initialize microstate labeler
         self.comet_microstate_labeler = MicrostateLabeler(
             microstate_maps=self.best_maps, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path
         )
 
         # Perform labeling
-        self.LogWindow.setup_progress_dialog(
-            window_title="Labeling ...",
-            label_text="Labeling microstates ...",
-            max_value=1
-        )
-        self.micro_labels, self.labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.setup_progress_dialog(
+                window_title="Labeling ...",
+                label_text="Labeling microstates ...",
+                max_value=1
+            )
+
+        print("Labeling microstates...")
+        micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
+
+        # Update and save labels
+        self.micro_labels = micro_labels
+        self.labels_overall_confidence = labels_overall_confidence
+
+        # Save updated microstate maps with labels
+        if self.auto_save:
+            self.save_microstate_maps(self.best_maps, micro_labels)
 
         # Set labeling flag
         self.done_labeling_microstates = True
-        self.LogWindow.process_finished("✓ Microstates have been successfully labeled!")
+
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.process_finished("✓ Microstates have been successfully labeled!")
+        else:
+            print("✓ Microstates have been successfully labeled!")
+
+        # Save parameters
+        if self.auto_save:
+            self.save_params()
 
     def do_backfitting(self):
+        """
+        Backfit microstate maps to all EEG files
+        """
         print('\nBackfitting ...')
 
-        # Create segmentation directory if it doesn't exist
-        self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
-        if not os.path.exists(self.segmentation_path):
-            os.makedirs(self.segmentation_path)
+        # Check if best maps are available
+        if self.best_maps is None:
+            print("Error: No microstate maps available for backfitting.")
+            return
 
-        # Create an instance of the SegmentationIO class
+        # Create segmentation directory
+        os.makedirs(self.segmentation_path, exist_ok=True)
+
+        # Create an instance of the microstate backfitter
         self.comet_microstate_backfitter = MicrostateBackfitter(
             study_name=self.study_name,
             preprocessed_data_path=self.preprocessed_data_path,
@@ -651,14 +1214,17 @@ class COMET:
             export_format=self.export_format,
         )
 
-        # Perform segmentation
+        # Identify optimal window size if requested
         if self.identify_short_window:
-            # Create an instance of the progress dialog
-            self.LogWindow.setup_progress_dialog(
-                window_title="Backfitting ...",
-                label_text="Identifying the optimal length of the smoothing window ...",
-                max_value=len(self.list_eegs_path)
-            )
+            # Create progress dialog
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.setup_progress_dialog(
+                    window_title="Backfitting ...",
+                    label_text="Identifying the optimal length of the smoothing window ...",
+                    max_value=len(self.list_eegs_path)
+                )
+            else:
+                print("Identifying the optimal length of the smoothing window...")
 
             rm_max_len = 50
             len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
@@ -666,7 +1232,10 @@ class COMET:
 
             # Iterate through EEG files
             for eeg_idx, (eeg_path, eeg_name) in enumerate(zip(self.list_eegs_path, self.list_eegs)):
-                self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
+                else:
+                    print(f"Processing {eeg_name} ({eeg_idx + 1}/{len(self.list_eegs_path)})")
 
                 eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
 
@@ -676,17 +1245,18 @@ class COMET:
                         eeg=eeg, rm_max_len=len_win2rm
                     )
 
-            # Identify optimal length filter based on similarity scores
+            # Identify optimal length filter
             self.filter_segments_less_than_ms = self.comet_microstate_backfitter.identify_optimal_length_filter(
                 similarity_scores=similarity_scores
             )
-
+            print(f"Optimal filter length: {self.filter_segments_less_than_ms} ms")
         else:
             if self.filter_segments:
                 self.filter_segments_less_than_ms = self.filter_segments_less_than
             else:
                 self.filter_segments_less_than_ms = 0
 
+        # Log backfitting settings
         if self.backfit_to == 'peaks':
             backfit_to_text = "Backfitting microstates to the local peaks of the global field power."
         else:
@@ -697,44 +1267,65 @@ class COMET:
                                           f"{self.filter_segments_less_than_ms}ms in duration."
         elif self.filter_segments_option == 'replace_high':
             filter_segments_option_text = f"Replacing segments with less than {self.filter_segments_less_than_ms}ms" \
-                f"by the nearby microstate with higher occurrence."
+                                          f"by the nearby microstate with higher occurrence."
         elif self.filter_segments_option == 'replace_half':
             filter_segments_option_text = f"Replacing segments with less than {self.filter_segments_less_than_ms}ms" \
-                f"by half by the previous and half by the next dominant microstate."
+                                          f"by half by the previous and half by the next dominant microstate."
         elif self.filter_segments_option == 'smooth':
             filter_segments_option_text = f"Smoothing segments with window size {self.filter_segments_less_than_ms}ms" \
                                           f" and lambda {self.lamb}."
         else:
             filter_segments_option_text = "No filtering applied to short segments."
 
-        # Log the backfitting progress
-        self.LogWindow.append_log(
-            f"Microstates Backfitting Settings:\n"
-            f"* {backfit_to_text}\n"
-            f"* {filter_segments_option_text}", log_type='settings'
-        )
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Microstates Backfitting Settings:\n"
+                f"* {backfit_to_text}\n"
+                f"* {filter_segments_option_text}", log_type='settings'
+            )
+        else:
+            print(f"Microstates Backfitting Settings:")
+            print(f"* {backfit_to_text}")
+            print(f"* {filter_segments_option_text}")
 
-        # Iterate through EEG files
-        self.LogWindow.setup_progress_dialog(
-            window_title="Backfitting ...",
-            label_text="Backfitting microstates to data ...",
-            tasks=self.zipped_eeg_files,
-            processing_func=self.backfit_eeg
-        )
+        # Perform backfitting on all files
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.setup_progress_dialog(
+                window_title="Backfitting ...",
+                label_text="Backfitting microstates to data ...",
+                tasks=self.zipped_eeg_files,
+                processing_func=self.backfit_eeg
+            )
+        else:
+            print(f"Backfitting microstates to {len(self.zipped_eeg_files)} EEG files...")
+            for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Backfitting"):
+                self.backfit_eeg(eeg_path, eeg_name)
 
         # Set backfitting flag
         self.done_backfitting = True
-        self.LogWindow.process_finished("✓ Microstates have been successfully backfitted to the data!")
 
-        # Optionally save the results
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.process_finished("✓ Microstates have been successfully backfitted to the data!")
+        else:
+            print("✓ Microstates have been successfully backfitted to the data!")
+
+        # Save parameters
         if self.auto_save:
             self.save_config()
-            self.save_tbx()
+            self.save_params()
 
     def extract_features(self):
+        """
+        Extract features from segmentation data
+        """
         print('\nExtracting Features ...')
 
-        # Create directory for extracted features if it doesn't exist
+        # Check if backfitting has been done
+        if not self.done_backfitting:
+            print("Error: Backfitting must be completed before extracting features.")
+            return
+
+        # Create directory for extracted features
         self.feature_list_dictionary = {
             "OCC": "Frequency of Occurrence (Hz)", "DUR": "Mean Microstate Duration (ms)",
             "COV": "Microstate Coverage (%)", "GEV": "Microstate Global Explained Variance (%)",
@@ -742,9 +1333,7 @@ class COMET:
             "ER": "Sequence Entropy Representation", "ROF": "Relative Occurrence Frequency",
             "RTF": "Relative Transition Frequency"
         }
-        self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
-        if not os.path.exists(self.extracted_features_path):
-            os.makedirs(self.extracted_features_path)
+        os.makedirs(self.extracted_features_path, exist_ok=True)
 
         # Find segmentation files
         segmentation_list_path, segmentation_list_filename = self.comet_data_io.find_data(
@@ -752,26 +1341,43 @@ class COMET:
             extension=self.export_format
         )
 
-        # Create an instance of the progress dialog
-        self.LogWindow.setup_progress_dialog(
-            window_title="Extracting Features ...",
-            label_text="Extracting features for data ...",
-            max_value=len(segmentation_list_path)
-        )
+        # Create progress dialog
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.setup_progress_dialog(
+                window_title="Extracting Features ...",
+                label_text="Extracting features for data ...",
+                max_value=len(segmentation_list_path)
+            )
 
-        self.LogWindow.append_log(
-            f"Feature Extraction Settings:\n"
-            f"* Features to Extract: {self.feature_list}\n"
-            f"* Feature Type: {self.feature_mode}", log_type='settings'
-        )
+            self.LogWindow.append_log(
+                f"Feature Extraction Settings:\n"
+                f"* Features to Extract: {self.feature_list}\n"
+                f"* Feature Type: {self.feature_mode}", log_type='settings'
+            )
+        else:
+            print(f"Feature Extraction Settings:")
+            print(f"* Features to Extract: {self.feature_list}")
+            print(f"* Feature Type: {self.feature_mode}")
 
+        # Make sure word_size is set if not already
+        if not hasattr(self, 'word_size'):
+            self.word_size = 3
+            print(f"Setting default word size to {self.word_size}")
+
+        # Process each feature type
         for feature_type in self.feature_types:
             averaged_features_dfs = pd.DataFrame()
             sliding_features_dfs = pd.DataFrame()
+
+            # Process each segmentation file
             for segmentation_idx, (segmentation_path, segmentation_name) in tqdm(
                     enumerate(zip(segmentation_list_path, segmentation_list_filename)),
                     total=len(segmentation_list_path)):
-                self.LogWindow.update_progress(value=segmentation_idx, text=f"{segmentation_name}")
+
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.update_progress(value=segmentation_idx, text=f"{segmentation_name}")
+                else:
+                    print(f"Processing {segmentation_name} ({segmentation_idx + 1}/{len(segmentation_list_path)})")
 
                 # Load segmentation array
                 segmentation_array = self.comet_segmentation_io.load_segmentation(
@@ -813,7 +1419,9 @@ class COMET:
                         )
                     else:
                         output_features = self.comet_feature_extractor.extract_microstate_features(
-                            filename=segmentation_name, feature_list=self.feature_list, word_size=self.word_size
+                            filename=segmentation_name,
+                            feature_list=self.feature_list,
+                            word_size=self.word_size
                         )
 
                     if segmentation_idx == 0:
@@ -858,13 +1466,14 @@ class COMET:
                         sliding_features_dfs = pd.concat([sliding_features_dfs, output_features], ignore_index=True)
 
                 # Log the feature extraction progress
-                self.LogWindow.append_log(
-                    f"Features Extracted [{segmentation_idx + 1}/{len(self.list_eegs_path)}]\n"
-                    f"✓ Data: {segmentation_name}"
-                )
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(
+                        f"Features Extracted [{segmentation_idx + 1}/{len(segmentation_list_path)}]\n"
+                        f"✓ Data: {segmentation_name}"
+                    )
 
             # Export extracted features
-            if 'averaged' in self.feature_mode:
+            if 'averaged' in self.feature_mode and not averaged_features_dfs.empty:
                 self.comet_feature_io.export_features(
                     features_df=averaged_features_dfs,
                     feature_type=feature_type,
@@ -872,7 +1481,9 @@ class COMET:
                     output_folder=self.extracted_features_path,
                     export_format=self.export_format
                 )
-            if 'sliding' in self.feature_mode:
+                print(f"Exported averaged features for feature type: {feature_type}")
+
+            if 'sliding' in self.feature_mode and not sliding_features_dfs.empty:
                 self.comet_feature_io.export_features(
                     features_df=sliding_features_dfs,
                     feature_type=feature_type,
@@ -880,38 +1491,47 @@ class COMET:
                     output_folder=self.extracted_features_path,
                     export_format=self.export_format
                 )
+                print(f"Exported sliding features for feature type: {feature_type}")
 
-        # Set extracting features flag
+        # Set feature extraction flag
         self.done_extracting_features = True
-        self.LogWindow.process_finished("✓ All features have been successfully extracted!")
 
-        # Optionally save the results
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.process_finished("✓ All features have been successfully extracted!")
+        else:
+            print("✓ All features have been successfully extracted!")
+
+        # Save parameters
         if self.auto_save:
             self.save_config()
-            self.save_tbx()
+            self.save_params()
 
     def source_localize_microstates(self):
+        """
+        Perform source localization for microstates
+        """
         print("\nCalculating Source Time Series ...")
 
-        # Determine the subjects directory based on the anatomy choice
+        # Check if backfitting has been done
+        if not self.done_backfitting:
+            print("Error: Backfitting must be completed before source localization.")
+            return
+
+        # Determine the subjects directory
         if self.use_anatomy == "individual":
-            self.anatomy_subjects_dir = self.individual_subjects_dir
+            if hasattr(self, 'individual_subjects_dir'):
+                self.anatomy_subjects_dir = self.individual_subjects_dir
+            else:
+                print("Error: individual_subjects_dir not set for individual anatomy")
+                return
         else:  # use_anatomy == "fsaverage"
             fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
             self.anatomy_subjects_dir = os.path.dirname(fs_dir)
 
-        # Create an instance of the progress dialog
-        # self.LogWindow.setup_progress_dialog(
-        #     window_title="Estimating Microstates Sources ...",
-        #     label_text="Extracting features for data ...",
-        #     max_value=len(segmentation_list_path)
-        # )
-
-        # self.LogWindow.append_log(
-        #     f"Source Localization Settings:\n"
-        #     f"* Features to Extract: {self.feature_list}\n"
-        #     f"* Feature Type: {self.feature_mode}", log_type='settings'
-        # )
+        # Create directories for source localization results
+        os.makedirs(self.localized_sources_path, exist_ok=True)
+        os.makedirs(self.tess_path, exist_ok=True)
+        os.makedirs(self.avg_sources_path, exist_ok=True)
 
         # Initialize the source localizer
         self.comet_source_localizer = SourceLocalizer(
@@ -927,50 +1547,55 @@ class COMET:
             microstate_maps=self.best_maps,
             nperm=self.nperm
         )
+
         # Perform source localization
         self.comet_source_localizer.run_source_localization()
 
         # Set source localization flag
         self.done_source_localization = True
+        print("✓ Source localization completed")
 
-        # Optionally save the results
+        # Save parameters
         if self.auto_save:
             self.save_config()
-            self.save_tbx()
+            self.save_params()
 
     def source_microstate_correlation(self, method='tess'):
+        """
+        Correlate sources and microstates
+        """
         print("\nCorrelating sources and microstates ...")
 
-        # Check if anatomy subjects directory is available; if not, fetch the fsaverage directory
+        # Check if source localization has been done
+        if not self.done_source_localization:
+            print("Error: Source localization must be completed before correlation.")
+            return
+
+        # Check if anatomy subjects directory is available
         try:
-            print(self.anatomy_subjects_dir)
+            print(f"Using anatomy directory: {self.anatomy_subjects_dir}")
         except AttributeError:
             fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
             self.anatomy_subjects_dir = os.path.dirname(fs_dir)
+            print(f"Using default anatomy directory: {self.anatomy_subjects_dir}")
 
-        # Identify microstates sources using the specified method
+        # Identify microstates sources
         self.comet_source_localizer.identify_microstates_sources(source_method=method)
 
         # Set source-microstate correlation flag
         self.done_source_microstate_correlation = True
+        print(f"✓ Source-microstate correlation completed using {method} method")
 
-        # Optionally save the results
+        # Save parameters
         if self.auto_save:
             self.save_config()
-            self.save_tbx()
-
-    # 	TODO: Need to expand this function to include the following:
-    # 	1. Load the source localized time series
-    # 	2. Load the microstates
-    # 	3. Run TESS and Averaging based on the user input
-    # 	4. Save the results
+            self.save_params()
 
     def save_config(self):
         """
-        Update and save the current configuration settings based on the COMET object attributes.
+        Update and save the current configuration settings to save_dir
         """
-
-        # Update the config dictionary with the current attribute values
+        # Update the config dictionary with current attributes
         self.config["io_config"]["study_name"] = self.study_name
         self.config["io_config"]["input_folder"] = self.input_folder
         self.config["io_config"]["channel_location_dir"] = self.channel_location_dir
@@ -985,11 +1610,10 @@ class COMET:
         self.config["preprocessing_config"]["highcut_freq"] = str(self.highcut_freq)
         self.config["preprocessing_config"]["downsample_data"] = str(self.downsample_data)
         self.config["preprocessing_config"]["spatial_smooth_data"] = str(self.spatial_smooth_data)
-        self.config["preprocessing_config"]["spatial_smooth_k"] = str(self.spatial_smooth_k)
         self.config["preprocessing_config"]["auto_clean_data"] = str(self.auto_clean_data)
         self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
-        self.config["preprocessing_config"]["chan2rm"] = str(self.chan2rm)
+        self.config["preprocessing_config"]["ch2rm"] = str(self.chan2rm)
         self.config["preprocessing_config"]["prep_data"] = str(self.prep_data)
 
         self.config["clustering_config"]["smoothing_gfp"] = str(self.smoothing_gfp)
@@ -1031,21 +1655,140 @@ class COMET:
         self.config["source_config"]["source_localization_method"] = self.source_localization_method
         self.config["source_config"]["anatomy_subjects_dir"] = self.anatomy_subjects_dir
 
-        with open(self.config_path, 'w+') as configfile:
-            self.config.write(configfile)
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
 
-    def save_tbx(self):
+        try:
+            # Write config to file in save_dir
+            with open(self.config_path, 'w+') as configfile:
+                self.config.write(configfile)
+        except Exception as e:
+            print(f"Error saving configuration: {e}")
+            print("Check directory permissions.")
+
+    def save_params(self):
         """
-        Save current EEG-COMET parameters for future use.
+        Save critical parameters to a pickle file in save_dir.
         """
-        # Exclude LogWindow from pickling
-        self.log_text = self.LogWindow.ui.log_text_area.toPlainText()
-        log_window = self.LogWindow
-        self.LogWindow = None
+        # Create a dictionary of critical parameters
+        critical_params = {
+            # File paths
+            'save_dir': self.save_dir,
+            'params_path': self.params_path,
+            'config_path': self.config_path,
+            'preprocessed_data_path': self.preprocessed_data_path,
+            'eeg_info_path': self.eeg_info_path,
+            'microstate_maps_path': self.microstate_maps_path,
+            'extracted_features_path': self.extracted_features_path,
+            'segmentation_path': self.segmentation_path,
+            'localized_sources_path': self.localized_sources_path,
+            'tess_path': self.tess_path,
+            'avg_sources_path': self.avg_sources_path,
 
-        # Serialize and save the TBX object
-        with open(self.tbx_object_path, 'wb') as output:
-            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+            # Configuration parameters
+            'study_name': self.study_name,
+            'input_folder': self.input_folder,
+            'output_folder': self.output_folder,
+            'extension': self.extension,
+            'datatype': self.datatype,
+            'channel_location_dir': self.channel_location_dir,
 
-        # Restore LogWindow after pickling
-        self.LogWindow = log_window
+            # Processing parameters
+            'filter_data': self.filter_data,
+            'filter_method': self.filter_method,
+            'lowcut_freq': self.lowcut_freq,
+            'highcut_freq': self.highcut_freq,
+            'downsample_data': self.downsample_data,
+            'sample_rate': self.sample_rate,
+            'spatial_smooth_data': self.spatial_smooth_data,
+            'clustering_method': self.clustering_method,
+            'number_of_maps': self.number_of_maps,
+            'initializer': self.initializer,
+            'backfit_to': self.backfit_to,
+            'filter_segments_option': self.filter_segments_option,
+            'filter_segments_less_than_ms': self.filter_segments_less_than_ms if hasattr(self,
+                                                                                         'filter_segments_less_than_ms') else None,
+            'export_format': self.export_format,
+            'feature_list': self.feature_list,
+            'feature_mode': self.feature_mode,
+            'feature_types': self.feature_types,
+            'use_anatomy': self.use_anatomy,
+            'inverse_method': self.inverse_method,
+            'spacing': self.spacing,
+
+            # Computational parameters
+            'clustering_tolerance': self.clustering_tolerance,
+            'max_iterations': self.max_iterations,
+            'number_of_repeats': self.number_of_repeats,
+            'epsilon': self.epsilon,
+            'b': self.b,
+            'lamb': self.lamb,
+            'nperm': self.nperm,
+
+            # State flags
+            'done_preprocessing': self.done_preprocessing,
+            'done_clustering': self.done_clustering,
+            'done_labeling_microstates': self.done_labeling_microstates,
+            'done_backfitting': self.done_backfitting,
+            'done_extracting_features': self.done_extracting_features,
+            'done_source_localization': self.done_source_localization,
+            'done_source_microstate_correlation': self.done_source_microstate_correlation,
+
+            # Critical computed values (these are small)
+            'best_gev': self.best_gev if hasattr(self, 'best_gev') else None,
+            'best_confidence': self.best_confidence if hasattr(self, 'best_confidence') else None,
+            'labels_overall_confidence': self.labels_overall_confidence if hasattr(self,
+                                                                                   'labels_overall_confidence') else None,
+        }
+
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.params_path), exist_ok=True)
+
+        try:
+            # Save parameters to save_dir
+            with open(self.params_path, 'wb') as output:
+                pickle.dump(critical_params, output, pickle.HIGHEST_PROTOCOL)
+        except Exception as e:
+            print(f"Error saving parameters: {e}")
+            print("Check directory permissions.")
+
+    def cleanup_intermediate_files(self, keep_preprocessed=True, keep_important=True):
+        """
+        Clean up intermediate files to save disk space.
+
+        Parameters:
+        -----------
+        keep_preprocessed : bool
+            If True, keep preprocessed EEG files
+        keep_important : bool
+            If True, keep final results (maps, features, segmentation)
+        """
+        import shutil
+
+        # Always keep these if keep_important is True
+        important_paths = []
+        if keep_important:
+            important_paths = [
+                self.microstate_maps_path,
+                self.extracted_features_path,
+                self.segmentation_path,
+                self.localized_sources_path
+            ]
+
+        # Add preprocessed data if requested
+        if keep_preprocessed:
+            important_paths.append(self.preprocessed_data_path)
+
+        # Temp paths that could be deleted to save space
+        temp_dirs = []
+
+        # Only delete directories not in important_paths
+        for path in temp_dirs:
+            if path not in important_paths and os.path.exists(path):
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+                print(f"Removed {path}")
+
+        print("Cleanup completed")
