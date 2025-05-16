@@ -12,6 +12,7 @@ from data_utils.data_initializer import DataInitializer
 from clustering_utils.clusterer_optimizer import ClustererOptimizer
 from clustering_utils.microstate_clusterer import MicrostateClusterer
 from clustering_utils.microstate_labeler import MicrostateLabeler
+from clustering_utils.microstate_io import MicrostateIO
 from backfitting_utils.microstate_backfitter import MicrostateBackfitter
 from backfitting_utils.segmentation_io import SegmentationIO
 from features_utils.feature_helper import FeatureHelper
@@ -65,6 +66,7 @@ class COMET:
         self.comet_data_io = DataIO()
         self.comet_preprocessor = DataPreprocessor()
         self.comet_data_initializer = DataInitializer()
+        self.comet_microstate_io = MicrostateIO()
         self.comet_segmentation_io = SegmentationIO()
         self.comet_feature_io = FeatureIO()
 
@@ -102,9 +104,6 @@ class COMET:
         self.done_source_localization = False
         self.done_source_microstate_correlation = False
         self.auto_save = auto_save
-
-        self._best_maps = None
-        self._micro_labels = None
 
         @property
         def study_name(self):
@@ -492,64 +491,6 @@ class COMET:
         self.LogWindow = LogWindow()
         self.LogWindow.append_log("Welcome to EEG-COMET!")
 
-    @property
-    def micro_labels(self):
-        """
-        Getter for micro_labels - gets from memory or from CSV header
-        """
-        # If labels are already in memory, return them
-        if self._micro_labels is not None:
-            return self._micro_labels
-
-        # Otherwise, try to extract from the CSV header
-        if os.path.exists(self.microstate_maps_path):
-            try:
-                df = pd.read_csv(self.microstate_maps_path)
-                # Check if columns are not default numeric indices
-                if not df.columns.equals(pd.RangeIndex(start=0, stop=len(df.columns))):
-                    self._micro_labels = df.columns.tolist()
-            except Exception as e:
-                print(f"Error loading labels from CSV header: {e}")
-
-        return self._micro_labels
-
-    @micro_labels.setter
-    def micro_labels(self, value):
-        """
-        Setter for micro_labels - stores in memory and updates CSV with labels in header
-        """
-        self._micro_labels = value
-        if value is not None and self.auto_save and self._best_maps is not None:
-            self.save_microstate_maps(self._best_maps)
-
-    def save_microstate_maps(self, maps, labels=None):
-        """
-        Save microstate maps in CSV format with labels as headers if available.
-        No separate metadata or label files are created.
-        """
-        # Ensure the directory exists
-        os.makedirs(os.path.dirname(self.microstate_maps_path), exist_ok=True)
-
-        try:
-            # Create DataFrame from maps
-            df = pd.DataFrame(maps)
-
-            # Add labels as column names if available
-            if labels is not None:
-                # Use labels as column headers if provided directly
-                df.columns = labels
-            elif self._micro_labels is not None:
-                # Otherwise use the stored labels if they exist
-                if len(self._micro_labels) == df.shape[1]:
-                    df.columns = self._micro_labels
-
-            # Save to CSV
-            df.to_csv(self.microstate_maps_path, index=False)
-
-        except Exception as e:
-            print(f"Error saving microstate maps: {e}")
-            print("Could not save microstate maps. Check directory permissions.")
-
     def load_raw(self):
         """
         Locate EEG file paths.
@@ -570,6 +511,20 @@ class COMET:
         self.list_eegs_path, self.list_eegs = self.comet_data_io.find_data(
             input_folder=self.preprocessed_data_path, extension=self.extension, pattern='*'
         )
+
+    def load_maps(self):
+        """
+        Load microstate maps from the specified path.
+        """
+        if not os.path.isfile(self.microstate_maps_path):
+            error_msg = f"Microstate maps file not found: {self.microstate_maps_path}"
+            raise FileNotFoundError(error_msg)
+        try:
+            self.best_maps, self.micro_labels = self.comet_microstate_io.load_microstates(self.microstate_maps_path)
+            return True
+        except Exception as e:
+            error_msg = f"Error loading microstate maps: {str(e)}"
+            raise ValueError(error_msg)
 
     def check_chan2rm(self):
         """
@@ -738,8 +693,7 @@ class COMET:
             self.best_maps = maps_init.copy() if hasattr(maps_init, 'copy') else maps_init
 
             # Save the best maps immediately
-            if self.auto_save:
-                self.save_microstate_maps(self.best_maps)
+            self.comet_microstate_io.export_microstates(self.best_maps, self.eeg_info, self.microstate_maps_path)
 
     def backfit_eeg(self, eeg_path, eeg_name):
         """
@@ -967,12 +921,6 @@ class COMET:
             for init in tqdm(range(self.number_of_repeats), desc="Clustering"):
                 self.cluster_eeg_microstates(init)
 
-        # Compute GEV for all data using best maps and set clustering flag
-        # Ensure best_maps exists - if not, use the maps_init from the last iteration
-        # if self._best_maps is None and 'maps_init' in locals():
-        #     print("Warning: No best maps found. Using last iteration maps.")
-        #     self.best_maps = maps_init  # This will use the property setter
-
         if self.best_maps is not None:  # Check the internal variable directly
             self.best_gev = self.compute_gev_all_data()
             print(f'Global Explained Variance: {self.best_gev}')
@@ -1018,13 +966,14 @@ class COMET:
         print("Labeling microstates...")
         micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
 
-        # Update and save labels
-        self.micro_labels = micro_labels
-        self.labels_overall_confidence = labels_overall_confidence
-
         # Save updated microstate maps with labels
-        if self.auto_save:
-            self.save_microstate_maps(self.best_maps, micro_labels)
+        self.comet_microstate_io.export_microstates(
+            self.best_maps, self.eeg_info, self.microstate_maps_path, headers=micro_labels
+        )
+
+        # Update and save labels
+        self.load_maps()
+        self.labels_overall_confidence = labels_overall_confidence
 
         # Set labeling flag
         self.done_labeling_microstates = True
@@ -1578,43 +1527,43 @@ class COMET:
             print(f"Error saving configuration: {e}")
             print("Check directory permissions.")
 
-    def cleanup_intermediate_files(self, keep_preprocessed=True, keep_important=True):
-        """
-        Clean up intermediate files to save disk space.
-
-        Parameters:
-        -----------
-        keep_preprocessed : bool
-            If True, keep preprocessed EEG files
-        keep_important : bool
-            If True, keep final results (maps, features, segmentation)
-        """
-        import shutil
-
-        # Always keep these if keep_important is True
-        important_paths = []
-        if keep_important:
-            important_paths = [
-                self.microstate_maps_path,
-                self.extracted_features_path,
-                self.segmentation_path,
-                self.localized_sources_path
-            ]
-
-        # Add preprocessed data if requested
-        if keep_preprocessed:
-            important_paths.append(self.preprocessed_data_path)
-
-        # Temp paths that could be deleted to save space
-        temp_dirs = []
-
-        # Only delete directories not in important_paths
-        for path in temp_dirs:
-            if path not in important_paths and os.path.exists(path):
-                if os.path.isdir(path):
-                    shutil.rmtree(path)
-                else:
-                    os.remove(path)
-                print(f"Removed {path}")
-
-        print("Cleanup completed")
+    # def cleanup_intermediate_files(self, keep_preprocessed=True, keep_important=True):
+    #     """
+    #     Clean up intermediate files to save disk space.
+    #
+    #     Parameters:
+    #     -----------
+    #     keep_preprocessed : bool
+    #         If True, keep preprocessed EEG files
+    #     keep_important : bool
+    #         If True, keep final results (maps, features, segmentation)
+    #     """
+    #     import shutil
+    #
+    #     # Always keep these if keep_important is True
+    #     important_paths = []
+    #     if keep_important:
+    #         important_paths = [
+    #             self.microstate_maps_path,
+    #             self.extracted_features_path,
+    #             self.segmentation_path,
+    #             self.localized_sources_path
+    #         ]
+    #
+    #     # Add preprocessed data if requested
+    #     if keep_preprocessed:
+    #         important_paths.append(self.preprocessed_data_path)
+    #
+    #     # Temp paths that could be deleted to save space
+    #     temp_dirs = []
+    #
+    #     # Only delete directories not in important_paths
+    #     for path in temp_dirs:
+    #         if path not in important_paths and os.path.exists(path):
+    #             if os.path.isdir(path):
+    #                 shutil.rmtree(path)
+    #             else:
+    #                 os.remove(path)
+    #             print(f"Removed {path}")
+    #
+    #     print("Cleanup completed")

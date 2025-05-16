@@ -238,6 +238,9 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet_tbx.config = self.comet_tbx.load_config(config_path)
                 self.comet_tbx.load_config_values()  # Process config and update instance variables
                 self.comet_tbx.reset_directories()  # Update directory paths based on new config
+                self.comet_tbx.load_eeg_info()
+                self.comet_tbx.load_maps()
+                self.comet_tbx.load_clean()
 
                 # Initialize the log window if needed
                 if not hasattr(self.comet_tbx, 'LogWindow') or self.comet_tbx.LogWindow is None:
@@ -953,7 +956,6 @@ class MainMicrostateWindow(QMainWindow):
         Open BackfittingVisualizationWindow to visualize microstate segmentation.
         """
         # Set relevant paths and parameters for visualization
-        self.comet_tbx.load_clean()
         self.BackfittingVisualizationWindow.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
         self.BackfittingVisualizationWindow.extension = self.comet_tbx.extension
         self.BackfittingVisualizationWindow.datatype = self.comet_tbx.datatype
@@ -1041,7 +1043,6 @@ class MainMicrostateWindow(QMainWindow):
         Open FeatureVisualizationWindow to visualize microstate features.
         """
         # Set relevant paths and parameters for visualization
-        self.comet_tbx.load_clean()
         self.ui.FeatureVisualizationWindow.extracted_features_path = self.comet_tbx.extracted_features_path
         self.ui.FeatureVisualizationWindow.export_format = self.comet_tbx.export_format
         self.ui.FeatureVisualizationWindow.feature_mode = self.comet_tbx.feature_mode
