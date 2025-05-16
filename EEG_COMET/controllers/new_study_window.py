@@ -21,7 +21,7 @@ class NewStudyWindow(QDialog):
         self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
         self.init_ui_components()
         self.setup_connections()
-        self.comet_tbx.channel_location_dir = ""
+        self.comet_tbx.montage = ""
         self.newstudy_controller()
 
     def clean_figure_layout(self):
@@ -311,17 +311,17 @@ class NewStudyWindow(QDialog):
                         "'.mat' (for Brainstorm files)'",
                         QMessageBox.Ok
                     )
-                    self.comet_tbx.channel_location_dir = ''
+                    self.comet_tbx.montage = ''
                     return
                 else:
-                    self.comet_tbx.channel_location_dir = fname
+                    self.comet_tbx.montage = fname
                     self.ui.step2_chanloc_path_lineedit.setText(fname)
 
     def load_template_montage(self):
         """
         Set the channel location using the selected template montage.
         """
-        self.comet_tbx.channel_location_dir = self.ui.step2_template_montage_combobox.currentText()
+        self.comet_tbx.montage = self.ui.step2_template_montage_combobox.currentText()
 
     def get_extension(self):
         """
@@ -345,7 +345,7 @@ class NewStudyWindow(QDialog):
         Update the channel names based on the selected EEG file.
         """
         filename = self.ui.loaded_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eeg(filename, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
+        eeg = DataIO().load_eeg(filename, self.comet_tbx.datatype, self.comet_tbx.montage)
         data_channel_names = eeg.info['ch_names']
         self.ui.step2_ch2rm_combobox.addItems(data_channel_names)
         montage = None
@@ -355,9 +355,9 @@ class NewStudyWindow(QDialog):
                 self.ui.step2_chanloc_path_lineedit.text()):
             montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
         elif self.ui.step2_use_template_montage_radio.isChecked():
-            if not self.comet_tbx.channel_location_dir:
-                self.comet_tbx.channel_location_dir = "standard_1020"
-            montage = make_standard_montage(self.comet_tbx.channel_location_dir)
+            if not self.comet_tbx.montage:
+                self.comet_tbx.montage = "standard_1020"
+            montage = make_standard_montage(self.comet_tbx.montage)
         eeg.set_montage(montage, match_case=False, on_missing='warn')
 
     def load_raw(self):
@@ -495,7 +495,7 @@ class NewStudyWindow(QDialog):
         filepath, filename = self.item_selected()
 
         try:
-            eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir,
+            eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.montage,
                                     preload=False)
 
             # Check if digital points exist
@@ -541,7 +541,7 @@ class NewStudyWindow(QDialog):
         Plot the EEG data using the PyQt application canvas.
         """
         filepath, filename = self.item_selected()
-        eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir)
+        eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.montage)
 
         if self.ui.viz_plot_time_radio.isChecked():
             self.clean_figure_layout()
@@ -590,7 +590,7 @@ class NewStudyWindow(QDialog):
         """
         self.init_canvas()
         filepath, filename = self.item_selected()
-        eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.channel_location_dir, preload=False)
+        eeg = DataIO().load_eeg(filepath, self.comet_tbx.datatype, self.comet_tbx.montage, preload=False)
         fmin_plot = int(self.ui.vis_range_psd_min.text())
         fmax_plot = int(self.ui.vis_range_psd_max.text())
         fig = eeg.compute_psd(fmin=fmin_plot, fmax=fmax_plot, verbose='ERROR').plot(show=False)

@@ -1,11 +1,10 @@
-
 import mne
 import io
 import cv2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from keras.models import load_model
+import onnxruntime as ort
 
 
 class MicrostateLabeler:
@@ -52,12 +51,23 @@ class MicrostateLabeler:
             images.append(image)
         stacked_microstate_images = np.vstack(images)
 
-        # Load model and do inference
+        # Load ONNX model and do inference
         num_classes = self.microstate_maps.shape[0]
         dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
-        model_path = './models/model_v1.22.h5'
-        model = load_model(model_path, compile=False)
-        predictions = model.predict(stacked_microstate_images, verbose=0)
+
+        # Change model path to the ONNX model
+        model_path = './models/model_v1.22.onnx'
+
+        # Initialize ONNX Runtime session
+        session = ort.InferenceSession(model_path)
+
+        # Get input and output names
+        input_name = session.get_inputs()[0].name
+        output_name = session.get_outputs()[0].name
+
+        # Run inference
+        predictions = session.run([output_name], {input_name: stacked_microstate_images.astype(np.float32)})[0]
+
         softmax_predictions = self.softmax(predictions) * 100
         assigned_labels, probabilities = self.get_labels(predictions, softmax_predictions, dictionary2use)
         overall_confidence = sum(probabilities.values()) / len(probabilities)
@@ -74,35 +84,6 @@ class MicrostateLabeler:
                 additional_label = chr(ord(additional_label) + 1)
 
         self.micro_labels = micro_labels
-
-        ### TEMP
-        # Save microstates as image
-        # import os.path
-        # import random
-        # for step in range(15):
-        #     for i in range(self.microstate_maps.shape[0]):
-        #         filename_prefix = os.path.join(
-        #             'C:/Users/amin_/OneDrive - Simon Fraser University (1sfu)/TOOLBOX/TRAIN_MICROSTATE_LABELER/MICROSTATES_AS_IMAGE/NEW/' + self.micro_labels[i], self.micro_labels[i])
-        #         index = 400
-        #         while True:
-        #             filename = f"{filename_prefix}_{index}.png" if index > 1 else f"{filename_prefix}.png"
-        #             if not os.path.exists(filename):
-        #                 break
-        #             index += 1
-        #
-        #         fig, ax = plt.subplots()
-        #         random_contours = random.randint(0, 15)
-        #         random_polarity = random.choice([1, -1])
-        #         random_cmap = random.choice(['RdBu_r', 'coolwarm', 'bwr', 'seismic'])
-        #         random_sensors = random.choice([True, False])
-        #         random_interp = random.choice(['cubic', 'nearest', 'linear'])
-        #         random_sphere = random.choice([None, 'auto', 'eeglab'])
-        #         mne.viz.plot_topomap(random_polarity*self.microstate_maps[i, :], self.eeg_info,
-        #                              contours=random_contours, sensors=random_sensors, axes=ax,
-        #                              cmap=random_cmap, image_interp=random_interp, sphere=random_sphere, show=False)
-        #         plt.savefig(filename, dpi=200, bbox_inches='tight')
-
-        ### TEMP
 
         # Save Best Maps
         maps_df = pd.DataFrame(self.microstate_maps.T, columns=micro_labels, index=self.eeg_info['ch_names'])

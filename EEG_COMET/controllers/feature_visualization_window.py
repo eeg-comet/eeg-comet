@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 import pandas as pd
@@ -72,7 +71,7 @@ class FeatureVisualizationWindow(QDialog):
 
         self.ui.plot_all_static_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
         self.ui.plot_all_dynamic_button.setEnabled(
-            len(self.ui.all_files_list.selectedItems()) == 1 and "dynamic" in self.feature_mode)
+            len(self.ui.all_files_list.selectedItems()) == 1 and "sliding" in self.feature_mode)
 
         if self.feature_combo.currentText() == 'TP':
             set_widgets_status(self.ui.plot_heatmap_button, mode='enable')
@@ -167,7 +166,7 @@ class FeatureVisualizationWindow(QDialog):
         # Get the selected files from the all_files_list
         selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
         # Load all features
-        all_features_df = self.load_features("static")
+        all_features_df = self.load_features("averaged")
         # Filter features_df based on selected files
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
         fontsize, labelsize, colormap = self.get_plot_parameters()
@@ -179,7 +178,7 @@ class FeatureVisualizationWindow(QDialog):
         """
         selected_feature = self.ui.feature_combo.currentText()
         selected_file = self.ui.all_files_list.currentItem().text()
-        features_df = self.load_features("dynamic").query(f'Filename == "{selected_file}"')
+        features_df = self.load_features("sliding").query(f'Filename == "{selected_file}"')
         fontsize, labelsize, colormap = self.get_plot_parameters()
         self.plot_line(features_df, selected_feature, fontsize, labelsize, colormap)
 
@@ -190,7 +189,7 @@ class FeatureVisualizationWindow(QDialog):
         # Get the selected files from the all_files_list
         selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
         # Load all features
-        all_features_df = self.load_features("static")
+        all_features_df = self.load_features("averaged")
         # Filter features_df based on selected files
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
         fontsize, labelsize, colormap = self.get_plot_parameters()
@@ -203,7 +202,7 @@ class FeatureVisualizationWindow(QDialog):
         """
         selected_feature = self.ui.feature_combo.currentText()
         group_a_name, group_b_name = self.get_group_names()
-        features_df = self.load_features("static")
+        features_df = self.load_features("averaged")
         fontsize, labelsize, colormap = self.get_plot_parameters()
         self.plot_group_comparison(
             features_df, selected_feature, group_a_name, group_b_name, fontsize, labelsize, colormap

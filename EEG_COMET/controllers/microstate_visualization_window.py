@@ -306,7 +306,7 @@ class MicrostateVisualizationWindow(QDialog):
             self.tbx.best_maps = self.current_order_maps
 
             # Continue with the rest of the function as before
-            MicrostateClusterer().microstates2csv(
+            MicrostateClusterer(n_states=self.tbx.number_of_maps).microstates2csv(
                 self.current_order_maps, self.tbx.eeg_info, self.tbx.microstate_maps_path, self.current_order_labels)
             self.tbx.done_labeling_microstates = True
             # Update MainWindow's log if necessary

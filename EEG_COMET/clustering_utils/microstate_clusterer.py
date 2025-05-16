@@ -1,36 +1,585 @@
-
 import numpy as np
 import pandas as pd
-from scipy import spatial
-from pyclustering.cluster import kmeans, xmeans
-from pyclustering.utils.metric import distance_metric, type_metric
-from keras.layers import Flatten, Dense, Reshape, Input
-from keras.models import Model
-from sklearn.decomposition import PCA
-from joblib import Parallel, delayed
-from data_utils.data_initializer import DataInitializer
+from scipy.spatial.distance import cdist
 
 
 class MicrostateClusterer:
-    def __init__(self, n_inits=10, max_iter=500, tolerance=1e-6):
-        """
-        Initializes the MicrostateClusterer.
+    """A class for clustering EEG data into microstates using various algorithms.
+
+    This class implements several microstate clustering algorithms including Modified K-means,
+    Modified K-means with similarity metrics, and Topographic Atomize and Agglomerate
+    Hierarchical Clustering (TAAHC). These algorithms are specifically designed for EEG
+    topography analysis.
+
+    Attributes:
+        n_states (int): Number of microstate maps to identify.
+        batch_size (int, optional): Number of samples to process at once for memory optimization.
+        number_of_repeats (int): Number of clustering initializations to try.
+        max_iterations (int): Maximum number of iterations per clustering attempt.
+        clustering_tolerance (float): Convergence tolerance threshold.
+        best_maps (ndarray, optional): Best microstate maps found during clustering.
+    """
+
+    def __init__(self, n_states, batch_size=None, n_inits=10, max_iter=500, tolerance=1e-6):
+        """Initialize the MicrostateClusterer with clustering parameters.
 
         Args:
-            n_inits (int): Number of clustering initializations.
-            max_iter (int): Maximum number of clustering iterations.
-            tolerance (float): Tolerance for convergence.
+            n_states (int): Number of microstate maps to identify.
+            batch_size (int, optional): Number of samples to process at once for memory optimization.
+                Default is None (process all data at once).
+            n_inits (int, optional): Number of clustering initializations to try. Default is 10.
+            max_iter (int, optional): Maximum number of iterations per clustering attempt. Default is 500.
+            tolerance (float, optional): Convergence tolerance threshold. Default is 1e-6.
         """
-        
+        self.n_states = n_states
+        self.batch_size = batch_size
         self.number_of_repeats = n_inits
         self.max_iterations = max_iter
         self.clustering_tolerance = tolerance
         self.best_maps = None
 
+    # --------------------------------------------------------------------------
+    # CORE CLUSTERING ALGORITHMS
+    # --------------------------------------------------------------------------
+
+    def modified_kmeans(self, data, initial_maps, verbose=True):
+        """Perform topographic clustering of EEG data to identify brain microstates.
+
+        This implements the modified K-means clustering algorithm described by
+        Pascual-Marqui, Michel, and Lehmann (1995). Unlike standard K-means,
+        this algorithm:
+
+        1. Assigns clusters based on maximum correlation (ignoring polarity)
+        2. Updates maps by weighted averaging based on activations
+        3. Enforces map normalization after each update
+        4. Optimizes for explained variance
+
+        Args:
+            data (ndarray): Input EEG data with shape (n_channels, n_samples).
+            initial_maps (ndarray): Initial microstate maps with shape (n_states, n_channels).
+            verbose (bool, optional): Whether to print iteration information. Default is True.
+
+        Returns:
+            tuple:
+                maps (ndarray): Final microstate maps with shape (n_states, n_channels).
+                residual (float): Final residual variance not explained by the model.
+
+        References:
+            Pascual-Marqui, R.D., Michel, C.M., Lehmann, D. (1995). Segmentation of
+            brain electrical activity into microstates: model estimation and validation.
+            IEEE Transactions on Biomedical Engineering, 42(7), 658-665.
+        """
+        # Initial setup
+        n_channels, n_samples = data.shape
+        maps = initial_maps.copy()
+        data_sum_sq = np.sum(data ** 2)
+        prev_residual = np.inf
+
+        # Determine if we use batch processing
+        use_batches = self.batch_size is not None and self.batch_size > 0
+
+        if use_batches and verbose:
+            print(f"Using batch processing with batch size: {self.batch_size}")
+            batch_count = int(np.ceil(n_samples / self.batch_size))
+
+        # Clustering iterations
+        for iteration in range(self.max_iterations):
+            # Initialize arrays for segmentation and activations
+            segmentation = np.zeros(n_samples, dtype=int)
+
+            if use_batches:
+                # Process data in batches
+                map_sums = np.zeros((self.n_states, n_channels))
+                act_sum_sq = 0
+
+                for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
+                    batch_end = min(batch_start + self.batch_size, n_samples)
+                    batch_data = data[:, batch_start:batch_end]
+                    batch_size_actual = batch_end - batch_start
+
+                    if verbose and iteration == 0 and (b % 10 == 0 or b == batch_count - 1):
+                        print(f"Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
+
+                    # Assign each sample in the batch to the best matching microstate
+                    batch_activation = maps.dot(batch_data)
+                    batch_segmentation = np.argmax(np.abs(batch_activation), axis=0)
+
+                    # Store segmentation for this batch
+                    segmentation[batch_start:batch_end] = batch_segmentation
+
+                    # Accumulate map sums for later updates
+                    for state in range(self.n_states):
+                        idx = (batch_segmentation == state)
+                        if np.sum(idx) > 0:
+                            map_sums[state] += np.dot(batch_data[:, idx], batch_activation[state, idx])
+
+                    # Accumulate activation sum squared for residual calculation
+                    batch_act_sum_sq = np.sum(np.sum(maps[batch_segmentation].T * batch_data, axis=0) ** 2)
+                    act_sum_sq += batch_act_sum_sq
+
+                # Update maps after processing all batches
+                for state in range(self.n_states):
+                    if np.linalg.norm(map_sums[state]) > 0:
+                        maps[state] = map_sums[state]
+                        maps[state] /= np.linalg.norm(maps[state])
+
+            else:
+                # Process all data at once (original implementation)
+                activation = maps.dot(data)
+                segmentation = np.argmax(np.abs(activation), axis=0)
+
+                # Update maps
+                for state in range(self.n_states):
+                    idx = (segmentation == state)
+                    if np.sum(idx) > 0:
+                        maps[state] = np.dot(data[:, idx], activation[state, idx])
+                        maps[state] /= np.linalg.norm(maps[state])
+
+                # Calculate activation sum squared
+                act_sum_sq = np.sum(np.sum(maps[segmentation].T * data, axis=0) ** 2)
+
+            # Estimate residual noise
+            residual = abs(data_sum_sq - act_sum_sq) / float(n_samples * (n_channels - 1))
+
+            # Check for convergence
+            if (prev_residual - residual) < (self.clustering_tolerance * residual):
+                if verbose:
+                    print(f'Converged at {iteration} iterations.')
+                break
+
+            prev_residual = residual
+
+        return maps, residual
+
+    def modified_kmeans_similarity(self, data, initial_maps, metric='Cosine Similarity', verbose=True):
+        """Perform K-means clustering using spatial similarity metrics.
+
+        This variant of the modified K-means algorithm uses either cosine similarity
+        or spatial correlation to assign samples to clusters, which better handles
+        the polarity-independent nature of EEG topographies.
+
+        Args:
+            data (ndarray): Input EEG data with shape (n_channels, n_samples).
+            initial_maps (ndarray): Initial microstate maps with shape (n_states, n_channels).
+            metric (str, optional): Similarity metric to use ('Cosine Similarity' or
+                'Spatial Correlation'). Default is 'Cosine Similarity'.
+            verbose (bool, optional): Whether to print iteration information. Default is True.
+
+        Returns:
+            tuple:
+                maps (ndarray): Final microstate maps with shape (n_states, n_channels).
+                residual (float): Final residual variance not explained by the model.
+
+        Raises:
+            ValueError: If an invalid similarity metric is specified.
+
+        Notes:
+            This approach tends to ignore polarity differences, making it suitable
+            for identifying distinct spatial patterns regardless of field orientation.
+        """
+        # Initial setup
+        n_channels, n_samples = data.shape
+        maps = initial_maps.copy()
+        prev_residual = np.inf
+
+        # Validate similarity metric
+        if metric not in ['Cosine Similarity', 'Spatial Correlation']:
+            raise ValueError(
+                "Invalid similarity metric. Valid options are 'Cosine Similarity' and 'Spatial Correlation'.")
+
+        # Determine if we use batch processing
+        use_batches = self.batch_size is not None and self.batch_size > 0
+
+        if use_batches and verbose:
+            print(f"Using batch processing with batch size: {self.batch_size}")
+            print(f"Similarity metric: {metric}")
+            batch_count = int(np.ceil(n_samples / self.batch_size))
+
+        # Clustering iterations
+        for iteration in range(self.max_iterations):
+            # Initialize arrays for segmentation and best similarities
+            segmentation = np.zeros(n_samples, dtype=int)
+            best_similarities = np.zeros(n_samples)
+
+            if use_batches:
+                # Process data in batches
+                map_updates = np.zeros((self.n_states, n_channels))
+                map_weights = np.zeros(self.n_states)
+
+                for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
+                    batch_end = min(batch_start + self.batch_size, n_samples)
+                    batch_data = data[:, batch_start:batch_end]
+                    batch_size_actual = batch_end - batch_start
+
+                    if verbose and iteration == 0 and (b % 10 == 0 or b == batch_count - 1):
+                        print(f"Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
+
+                    # Calculate similarities between maps and data samples
+                    if metric == 'Cosine Similarity':
+                        # Normalize maps and data for cosine similarity
+                        maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
+                        batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
+                        similarities = np.abs(np.dot(maps_norm, batch_norm))
+                    else:  # Spatial Correlation
+                        # Normalize maps for correlation
+                        maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (
+                                    maps.std(axis=1, keepdims=True) + 1e-10)
+                        batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
+                        similarities = np.abs(np.dot(maps_norm, batch_norm))
+
+                    # Assign each sample to the best matching microstate
+                    batch_segmentation = np.argmax(similarities, axis=0)
+                    batch_best_similarities = np.max(similarities, axis=0)
+
+                    # Store segmentation and best similarities for this batch
+                    segmentation[batch_start:batch_end] = batch_segmentation
+                    best_similarities[batch_start:batch_end] = batch_best_similarities
+
+                    # Accumulate weighted data for map updates
+                    for state in range(self.n_states):
+                        idx = (batch_segmentation == state)
+                        if np.sum(idx) > 0:
+                            map_updates[state] += np.dot(batch_data[:, idx], similarities[state, idx])
+                            map_weights[state] += np.sum(similarities[state, idx])
+
+                # Update maps after processing all batches
+                for state in range(self.n_states):
+                    if map_weights[state] > 0:
+                        maps[state] = map_updates[state] / map_weights[state]
+                        maps[state] /= np.linalg.norm(maps[state])
+
+            else:
+                # Process all data at once (original implementation)
+                # Calculate distances/similarities between maps and data
+                if metric == 'Cosine Similarity':
+                    distances = cdist(maps, data.T, 'cosine')
+                else:  # Spatial Correlation
+                    distances = cdist(maps, data.T, 'correlation')
+
+                # Convert distances to similarities (1 - distance)
+                similarities = 1 - np.abs(distances)
+
+                # Assign each sample to the best matching microstate
+                segmentation = np.argmax(similarities, axis=0)
+                best_similarities = np.max(similarities, axis=0)
+
+                # Update maps
+                for state in range(self.n_states):
+                    idx = (segmentation == state)
+                    if np.sum(idx) > 0:
+                        maps[state] = np.dot(data[:, idx], similarities[state, idx])
+                        maps[state] /= np.linalg.norm(maps[state])
+
+            # Calculate residual (1 - average of best similarities)
+            residual = 1 - np.mean(best_similarities)
+
+            # Check for convergence
+            if (prev_residual - residual) < (self.clustering_tolerance * residual):
+                if verbose:
+                    print(f'Converged at {iteration} iterations.')
+                break
+
+            prev_residual = residual
+
+        return maps, residual
+
+    def taahc(self, data, metric='Spatial Correlation', verbose=True):
+        """Perform Topographic Atomize and Agglomerate Hierarchical Clustering (TAAHC) for EEG microstates.
+
+        This memory-optimized implementation of the TAAHC algorithm clusters EEG data
+        by iteratively removing the weakest microstate and reassigning its samples.
+
+        Args:
+            data (ndarray): Input EEG data with shape (n_channels, n_samples).
+            metric (str, optional): Similarity metric to use ('Cosine Similarity' or
+                'Spatial Correlation'). Default is 'Spatial Correlation'.
+            verbose (bool, optional): Whether to print progress information. Default is True.
+
+        Returns:
+            tuple:
+                maps (ndarray): Final microstate maps with shape (n_states, n_channels).
+                residual (float): Final residual variance not explained by the model.
+
+        Raises:
+            ValueError: If an invalid similarity metric is specified.
+
+        Notes:
+            This algorithm starts with each GFP peak as a potential microstate and
+            iteratively merges states until the target number is reached. It's suitable
+            for datasets where the number of GFP peaks is greater than the desired
+            number of microstates.
+        """
+        import time
+
+        if verbose:
+            print(f"Starting TAAHC clustering")
+            print(f"Data shape: {data.shape}, Target states: {self.n_states}, Batch size: {self.batch_size}")
+            print(f"Using similarity metric: {metric}")
+            start_time = time.time()
+
+        # Validate similarity metric
+        if metric not in ['Cosine Similarity', 'Spatial Correlation']:
+            raise ValueError(
+                "Invalid similarity metric. Valid options are 'Cosine Similarity' and 'Spatial Correlation'.")
+
+        n_channels, n_samples = data.shape
+
+        # Calculate GFP (Global Field Power)
+        if verbose:
+            print("Calculating GFP curve...")
+        gfp_curve = np.std(data, axis=0)
+
+        # Find GFP peaks (local maxima)
+        if verbose:
+            print("Detecting GFP peaks...")
+        peaks = np.where((gfp_curve[:-2] < gfp_curve[1:-1]) &
+                         (gfp_curve[1:-1] > gfp_curve[2:]))[0] + 1
+
+        if verbose:
+            print(f"Found {len(peaks)} GFP peaks")
+
+        if len(peaks) < self.n_states:
+            if verbose:
+                print(f"Warning: Only {len(peaks)} GFP peaks found, less than requested {self.n_states} states")
+                print("Adding random samples to reach required number of initial states")
+            # Add random samples if needed
+            additional = np.random.choice(np.arange(n_samples),
+                                          size=max(self.n_states - len(peaks), 0),
+                                          replace=False)
+            peaks = np.concatenate([peaks, additional])
+            if verbose:
+                print(f"Added {len(additional)} random samples as initial states")
+
+        # Initialize with peak maps
+        if verbose:
+            print("Initializing with peak maps...")
+        peak_data = data[:, peaks]
+        maps = peak_data.T.copy()  # Shape: (n_peaks, n_channels)
+        n_maps = maps.shape[0]
+
+        # Normalize maps
+        for i in range(n_maps):
+            maps[i] /= np.linalg.norm(maps[i])
+
+        # Track cluster indices
+        cluster_indices = [[k] for k in range(n_maps)]
+
+        # For GEV calculation
+        data_sum_sq = np.sum(gfp_curve ** 2)
+
+        if verbose:
+            print(f"Starting hierarchical clustering with {n_maps} maps")
+            print(f"Reducing to {self.n_states} states")
+            print("=====================================================")
+
+        iteration = 0
+        while n_maps > self.n_states:
+            iteration += 1
+            if verbose:
+                if n_maps % 10 == 0 or n_maps <= self.n_states + 5 or iteration == 1:
+                    elapsed = time.time() - start_time
+                    print(f"Iteration {iteration}: {n_maps} maps remaining ({elapsed:.1f}s elapsed)")
+
+            # Initialize arrays to store assignments and best correlations
+            assignments = np.zeros(n_samples, dtype=int)
+            best_corrs = np.zeros(n_samples)
+
+            # Normalize maps based on the chosen metric
+            if metric == 'Spatial Correlation':
+                # Normalize for correlation (subtract mean, divide by std)
+                maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (maps.std(axis=1, keepdims=True) + 1e-10)
+            else:  # Cosine Similarity
+                # Normalize for cosine similarity (just divide by norm)
+                maps_norm = maps / np.linalg.norm(maps, axis=1, keepdims=True)
+
+            # Process data in batches
+            if verbose and n_maps <= self.n_states + 10:
+                print(f"  Processing {n_samples} samples in batches of {self.batch_size}...")
+                batch_count = int(np.ceil(n_samples / self.batch_size))
+
+            for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
+                batch_end = min(batch_start + self.batch_size, n_samples)
+
+                if verbose and n_maps <= self.n_states + 10 and (b % 20 == 0 or b == batch_count - 1):
+                    print(f"  Batch {b + 1}/{batch_count}: samples {batch_start}-{batch_end}")
+
+                batch_data = data[:, batch_start:batch_end]
+
+                # Normalize batch data based on the chosen metric
+                if metric == 'Spatial Correlation':
+                    # Normalize for correlation (subtract mean, divide by std)
+                    batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
+                else:  # Cosine Similarity
+                    # Normalize for cosine similarity (just divide by norm)
+                    batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
+
+                # Calculate similarities for this batch
+                batch_corrs = np.abs(np.dot(maps_norm, batch_norm))
+
+                # Store best assignments and correlations
+                batch_assignments = np.argmax(batch_corrs, axis=0)
+                batch_best_corrs = np.max(batch_corrs, axis=0)
+
+                assignments[batch_start:batch_end] = batch_assignments
+                best_corrs[batch_start:batch_end] = batch_best_corrs
+
+            if verbose and n_maps <= self.n_states + 10:
+                print("  Calculating atomization values for each map...")
+
+            # Calculate atomization criterion for each map
+            atomisation_values = np.zeros(n_maps)
+            cluster_sizes = np.zeros(n_maps, dtype=int)
+
+            for k in range(n_maps):
+                mask = assignments == k
+                cluster_sizes[k] = np.sum(mask)
+
+                if cluster_sizes[k] == 0:  # Empty cluster
+                    atomisation_values[k] = 0
+                    continue
+
+                # Correlation-based criterion
+                atomisation_values[k] = np.sum(best_corrs[mask] ** 2)
+
+            # Find worst map to remove
+            worst_idx = np.argmin(atomisation_values)
+
+            if verbose and n_maps <= self.n_states + 10:
+                print(f"  Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}")
+                print(f"  Cluster size: {cluster_sizes[worst_idx]} samples")
+
+            # Remove the worst map
+            maps = np.delete(maps, worst_idx, axis=0)
+
+            # Get and remove indices from the worst cluster
+            removed_indices = cluster_indices.pop(worst_idx)
+
+            if verbose and n_maps <= self.n_states + 5:
+                print(f"  Reassigning {len(removed_indices)} points from removed cluster")
+
+            # Get data points from removed cluster
+            removed_data = peak_data[:, removed_indices].T
+
+            # Normalize based on the chosen metric
+            if metric == 'Spatial Correlation':
+                # Normalize for correlation
+                removed_norm = (removed_data - removed_data.mean(axis=1, keepdims=True)) / (
+                        removed_data.std(axis=1, keepdims=True) + 1e-10)
+                maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (maps.std(axis=1, keepdims=True) + 1e-10)
+            else:  # Cosine Similarity
+                # Normalize for cosine similarity
+                removed_norm = removed_data / (np.linalg.norm(removed_data, axis=1, keepdims=True) + 1e-10)
+                maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
+
+            # Calculate similarity with remaining maps
+            reassign_corr = np.abs(np.dot(removed_norm, maps_norm.T))
+            reassign_idx = np.argmax(reassign_corr, axis=1)
+
+            # Track which clusters were updated
+            updated_clusters = set()
+
+            # Reassign points
+            for i, idx in enumerate(reassign_idx):
+                cluster_indices[idx].append(removed_indices[i])
+                updated_clusters.add(idx)
+
+            if verbose and n_maps <= self.n_states + 5:
+                print(f"  Recalculating {len(updated_clusters)} cluster centers")
+
+            # Recalculate centers for updated clusters
+            for idx in updated_clusters:
+                cluster_data = peak_data[:, cluster_indices[idx]].T
+
+                # Use first principal component as the new map
+                if cluster_data.shape[0] > 1:
+                    # Memory efficient PCA - avoid full covariance matrix if possible
+                    if cluster_data.shape[0] <= cluster_data.shape[1]:  # More features than samples
+                        cov_matrix = np.dot(cluster_data, cluster_data.T)
+                        eigvals, eigvecs = np.linalg.eigh(cov_matrix)
+                        # Get principal component
+                        pc = np.dot(cluster_data.T, eigvecs[:, -1])
+                    else:
+                        cov_matrix = np.dot(cluster_data.T, cluster_data)
+                        eigvals, eigvecs = np.linalg.eigh(cov_matrix)
+                        pc = eigvecs[:, -1]
+
+                    maps[idx] = pc / np.linalg.norm(pc)
+                else:
+                    maps[idx] = cluster_data[0] / np.linalg.norm(cluster_data[0])
+
+            n_maps = len(cluster_indices)
+
+            if verbose and n_maps == self.n_states:
+                print("=====================================================")
+                print(f"Reached target of {self.n_states} states after {iteration} iterations")
+
+        if verbose:
+            print("Calculating final assignments and residual...")
+
+        # Calculate final residual - using batches
+        final_corrs = np.zeros(n_samples)
+
+        # Final normalization based on the chosen metric
+        if metric == 'Spatial Correlation':
+            maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (maps.std(axis=1, keepdims=True) + 1e-10)
+        else:  # Cosine Similarity
+            maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
+
+        batch_count = int(np.ceil(n_samples / self.batch_size))
+        for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
+            if verbose and (b % 20 == 0 or b == batch_count - 1):
+                print(f"Final batch {b + 1}/{batch_count}")
+
+            batch_end = min(batch_start + self.batch_size, n_samples)
+            batch_data = data[:, batch_start:batch_end]
+
+            # Normalize based on the chosen metric
+            if metric == 'Spatial Correlation':
+                batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
+            else:  # Cosine Similarity
+                batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
+
+            batch_corrs = np.abs(np.dot(maps_norm, batch_norm))
+            final_corrs[batch_start:batch_end] = np.max(batch_corrs, axis=0)
+
+        residual = 1 - np.mean(final_corrs)
+
+        # Final statistics for each cluster
+        if verbose:
+            final_assignments = np.zeros(n_samples, dtype=int)
+            for batch_start in range(0, n_samples, self.batch_size):
+                batch_end = min(batch_start + self.batch_size, n_samples)
+                batch_data = data[:, batch_start:batch_end]
+
+                # Final batch normalization for assignments
+                if metric == 'Spatial Correlation':
+                    batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
+                else:  # Cosine Similarity
+                    batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
+
+                batch_corrs = np.abs(np.dot(maps_norm, batch_norm))
+                final_assignments[batch_start:batch_end] = np.argmax(batch_corrs, axis=0)
+
+            print("=====================================================")
+            print(f"TAAHC clustering completed in {time.time() - start_time:.2f} seconds")
+            print(f"Using similarity metric: {metric}")
+            print(f"Final {self.n_states} microstate maps:")
+            for i in range(self.n_states):
+                count = np.sum(final_assignments == i)
+                pct = 100 * count / n_samples
+                print(f"  Map #{i}: {count} samples ({pct:.1f}%)")
+            print(f"Residual: {residual:.6f}")
+
+        return maps, residual
+
+    # --------------------------------------------------------------------------
+    # UTILITY METHODS
+    # --------------------------------------------------------------------------
+
     @staticmethod
     def corr_vectors(array1, array2, axis=0):
         """
-        Computes the Pearson correlation between two matrices A and B along a specified axis.
+        Compute the Pearson correlation between two matrices along a specified axis.
 
         Args:
             array1 (ndarray): First matrix.
@@ -38,42 +587,69 @@ class MicrostateClusterer:
             axis (int): Axis along which to compute the correlation.
 
         Returns:
-            ndarray: Pearson correlation between the two matrices.
+            ndarray: Pearson correlation coefficients.
+
+        Notes:
+            This implementation centers and normalizes the arrays before computing
+            the correlation, making it equivalent to the Pearson correlation coefficient.
         """
-        
         # Center and normalize matrices
         array1n = array1 - np.mean(array1, axis=axis, keepdims=True)
         array1n /= np.linalg.norm(array1n, axis=axis, ord=2, keepdims=True)
         array2n = array2 - np.mean(array2, axis=axis, keepdims=True)
         array2n /= np.linalg.norm(array2n, axis=axis, ord=2, keepdims=True)
+
         return np.sum(array1n * array2n, axis=axis)
 
     def compute_gev(self, data, maps):
         """
-        Calculates the global explained variance (GEV) of microstate maps based on input data.
+        Calculate the global explained variance (GEV) of microstate maps.
+
+        GEV measures how well a set of microstate maps explains the variance
+        in the EEG data, with values ranging from 0 to 1 (higher is better).
 
         Args:
-            data (ndarray): Input data.
-            maps (ndarray): Microstate maps.
+            data (ndarray): Input EEG data with shape (n_channels, n_samples) or
+                (n_samples, n_channels).
+            maps (ndarray): Microstate maps with shape (n_states, n_channels).
 
         Returns:
-            float: Global explained variance.
-        """
+            float: Global explained variance, between 0 and 1.
 
+        Notes:
+            This implementation automatically handles different input orientations.
+            The formula is: GEV = sum((GFP * correlation_to_best_map)²) / sum(GFP²)
+        """
+        # Handle data orientation
         if len(maps.shape) > 1 and data.shape[0] != maps.shape[1]:
             data = data.T
+
+        # Calculate GFP (Global Field Power)
         gfp = np.std(data, axis=0)
+
         # Normalize maps
         if maps.ndim == 1:
             maps = maps / np.linalg.norm(maps)
             maps = np.reshape(maps, (1, -1))
         else:
             maps = maps / np.linalg.norm(maps, axis=1, keepdims=True)
+
+        # Calculate activation and segmentation
         activation = maps.dot(data)
         segmentation = np.argmax(np.abs(activation), axis=0)
+
+        # Get maps for each time point
         selected_maps = maps[segmentation, :]
+
+        # Calculate correlation between data and selected maps
         map_corr = self.corr_vectors(data, selected_maps.T)
+
+        # Calculate GEV
         return np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
+
+    # --------------------------------------------------------------------------
+    # FILE I/O METHODS
+    # --------------------------------------------------------------------------
 
     @staticmethod
     def microstates2csv(microstate_maps, eeg_info, microstate_maps_path, headers=None):
@@ -81,422 +657,33 @@ class MicrostateClusterer:
         Export microstate maps to a CSV file.
 
         Args:
-            microstate_maps (ndarray): Microstate maps.
-            eeg_info (dict): EEG information.
-            microstate_maps_path (str): Path to save the CSV file.
-            headers (list): List of column headers. Defaults to None.
+            microstate_maps (ndarray): Microstate maps with shape (n_states, n_channels)
+                or (n_channels, n_states).
+            eeg_info (dict): Dictionary containing EEG channel information with at least
+                a 'ch_names' key for channel names.
+            microstate_maps_path (str): Path where the CSV file will be saved.
+            headers (list, optional): Column headers for the CSV. If None, columns
+                will be numbered as '1', '2', etc.
+
+        Notes:
+            The function automatically detects map orientation and transposes if needed
+            to ensure channels are on rows and microstate maps are on columns.
         """
-        
+        if not isinstance(microstate_maps, np.ndarray):
+            microstate_maps = np.array(microstate_maps)
+
         # Transpose the microstates array if needed
+        # (ensure channels are on rows and microstates are on columns)
         if microstate_maps.shape[1] == len(eeg_info['ch_names']):
             microstate_maps = microstate_maps.T
-        # Save Best Maps
-        microstate_maps = np.array(microstate_maps)
+
+        # Create DataFrame with channel names as index
         maps_df = pd.DataFrame(microstate_maps, index=eeg_info['ch_names'])
+
+        # Generate column headers if not provided
         if headers is None:
             headers = [f'{i + 1}' for i in range(microstate_maps.shape[1])]
         maps_df.columns = headers
+
+        # Save to CSV
         maps_df.to_csv(microstate_maps_path)
-
-    @staticmethod
-    def calculate_spatial_similarity(metric, point1, point2):
-        """
-        Computes similarity between two points using cosine similarity or spatial correlation.
-
-        Args:
-            metric (str): Similarity metric to use ('Cosine Similarity' or 'Spatial Correlation').
-            point1 (ndarray): First point.
-            point2 (ndarray): Second point.
-
-        Returns:
-            float: Similarity between the two points.
-        """
-
-        if metric == 'Cosine Similarity':
-            # Calculates the cosine similarity
-            dist = spatial.distance.cosine(point1, point2)
-        elif metric == 'Spatial Correlation':
-            # Calculates the spatial correlation
-            dist = spatial.distance.correlation(point1, point2)
-        else:
-            raise ValueError(
-                "Invalid similarity metric. Valid options are 'Cosine Similarity' and 'Spatial Correlation'.")
-        return 1 - abs(dist)
-
-    @staticmethod
-    def modified_kmeans(data, initial_maps, n_states, max_iter=500, thresh=1e-6, verbose=True):
-        """
-        Performs modified K-Means clustering on data with a specified number of microstate maps.
-
-        Args:
-            data (ndarray): Input data.
-            initial_maps (ndarray): Initial microstate maps.
-            n_states (int): Number of microstate maps.
-            max_iter (int): Maximum number of clustering iterations. Defaults to 500.
-            thresh (float): Tolerance for convergence. Defaults to 1e-6.
-            verbose (bool): Whether to print verbose output. Defaults to True.
-
-        Returns:
-            tuple: Tuple containing the final microstate maps and the residual.
-        """
-        
-        # Initial setup
-        n_channels, n_samples = data.shape
-        maps = initial_maps.copy()
-        data_sum_sq = np.sum(data ** 2)
-        prev_residual = np.inf
-        # Clustering iterations
-        for iteration in range(max_iter):
-            # Assign each sample to the best matching microstate
-            activation = maps.dot(data)
-            segmentation = np.argmax(np.abs(activation), axis=0)
-            for state in range(n_states):
-                idx = (segmentation == state)
-                maps[state] = np.dot(data[:, idx], activation[state, idx])
-                maps[state] /= np.linalg.norm(maps[state])
-            # Estimate residual noise
-            act_sum_sq = np.sum(np.sum(maps[segmentation].T * data, axis=0) ** 2)
-            residual = abs(data_sum_sq - act_sum_sq) / float(n_samples * (n_channels - 1))
-            # Check for convergence
-            if (prev_residual - residual) < (thresh * residual):
-                if verbose:
-                    print('Converged at', iteration, 'iterations.')
-                break
-            prev_residual = residual
-        return maps, prev_residual
-
-    def run_modified_kmeans(self, preprocessed_data_path, extension, datatype,
-                            maps2use, n_states, n_inits, initializer='Random', max_iter=500, thresh=1e-6, verbose=True):
-        """
-        Runs modified K-Means clustering with multiple initializations to find the best microstate maps.
-
-        Args:
-            preprocessed_data_path (str): Path to preprocessed data.
-            extension (str): File extension of the preprocessed data.
-            datatype (str): Data type of the preprocessed data.
-            maps2use (ndarray): Microstate maps to use for clustering.
-            n_states (int): Number of microstate maps.
-            n_inits (int): Number of clustering initializations.
-            initializer (str): Initialization method. Defaults to 'Random'.
-            max_iter (int): Maximum number of clustering iterations. Defaults to 500.
-            thresh (float): Tolerance for convergence. Defaults to 1e-6.
-            verbose (bool): Whether to print verbose output. Defaults to True.
-
-        Returns:
-            dict: Dictionary containing the results of each initialization and the best microstate maps.
-        """
-
-        data_initializer = DataInitializer()
-        all_data, _ = data_initializer.generate_maps_and_peaks(
-            preprocessed_data_path, extension, datatype, use_percentages=100
-        )
-        best_residual, best_gev, best_maps = None, 0, None
-        modified_kmeans_results = {}
-
-        for init in range(n_inits):
-            if verbose:
-                print(f'\nClustering #{init + 1} of {n_inits}')
-            initial_maps = data_initializer.initialize_cluster_centers(maps2use, n_states, initializer)
-            maps, residual = self.modified_kmeans(maps2use, initial_maps, n_states, max_iter, thresh, verbose=verbose)
-            gev = self.compute_gev(all_data, maps)
-            # Store the results for this initialization in the dictionary
-            modified_kmeans_results[init] = {
-                'maps': maps,
-                'gev': gev,
-                'residual': residual
-            }
-
-            if verbose:
-                print(f'Found {n_states} Microstate Maps')
-                print(f'GEV: {gev}')
-            # Update the best results if current gev is higher
-            if gev > best_gev:
-                best_residual, best_gev, best_maps = residual, gev, maps
-
-        modified_kmeans_results['best'] = {
-            'maps': best_maps,
-            'gev': best_gev,
-            'residual': best_residual
-        }
-        if verbose:
-            print(f'\nBest GEV: {best_gev}')
-
-        return modified_kmeans_results
-
-    def run_aahc(self, preprocessed_data_path, extension, datatype, maps2use, n_states, n_maps2use=1000, verbose=True):
-        """
-        Performs AAHC clustering on data with a specified number of microstate maps.
-
-        Args:
-            preprocessed_data_path (str): Path to preprocessed data.
-            extension (str): File extension of the preprocessed data.
-            datatype (str): Data type of the preprocessed data.
-            maps2use (ndarray): Microstate maps to use for clustering.
-            n_states (int): Number of microstate maps.
-            n_maps2use (int): Number of maps to use for clustering. Defaults to 1000.
-            verbose (bool): Whether to print verbose output. Defaults to True.
-
-        Returns:
-            tuple: Tuple containing the final microstate maps, the residual, and the best GEV.
-        """
-
-        def select_random_maps_subset(maps2use, n_maps2use):
-            # Generate random indices to select maps
-            random_indices = np.random.choice(maps2use.shape[1], size=n_maps2use, replace=False)
-            # Use the random indices to select maps
-            selected_maps = maps2use[:, random_indices]
-            return selected_maps
-
-        def process_reassignment(cluster_index_to_reassign, c_i, cluster_data, maps):
-            cluster_data_subset = cluster_data[cluster_index_to_reassign, :]
-            mapsn = maps - np.mean(maps, axis=1, keepdims=True)
-            mapsn /= np.linalg.norm(mapsn, axis=1, ord=2, keepdims=True)
-            cluster_data_subsetn = cluster_data_subset - np.mean(cluster_data_subset, axis=0, keepdims=True)
-            cluster_data_subsetn /= np.linalg.norm(cluster_data_subsetn, axis=0, ord=2, keepdims=True)
-            map_corr = np.sum(mapsn * cluster_data_subset, axis=1)
-            new_assignment = np.argmax(np.abs(map_corr), axis=0)
-            c_i[new_assignment].append(cluster_index_to_reassign)
-
-        def process_cluster(cluster_index, c_i, cluster_data, maps):
-            data_indices = c_i[cluster_index]
-            cluster_data_subset = cluster_data[data_indices, :]
-            covariance_matrix = np.dot(cluster_data_subset.T, cluster_data_subset)
-            eigenvalues, eigenvectors = np.linalg.eig(covariance_matrix)
-            principal_component = eigenvectors[:, np.argmax(np.abs(eigenvalues))]
-            principal_component = np.real(principal_component)
-            reconstructed_data = principal_component / np.sqrt(np.sum(principal_component ** 2))
-            # Calculate residual (difference between original and reconstructed data)
-            residual = cluster_data_subset - np.dot(reconstructed_data, cluster_data_subset.T).T
-            maps[cluster_index, :] = principal_component / np.sqrt(np.sum(principal_component ** 2))
-            return residual
-
-        # Initial setup
-        # Number of parallel workers (adjust as needed)
-        n_jobs = -1  # Use all available cores
-        all_data, _ = DataInitializer().generate_maps_and_peaks(
-            preprocessed_data_path, extension, datatype, use_percentages=100
-        )
-        n_channels, n_samples = all_data.shape
-        # Get GFP peaks
-        gfp = all_data.std(axis=0)
-        gfp2 = np.sum(gfp ** 2)
-        # Initial number of clusters and Store original GFP peaks and indices
-        maps2use = select_random_maps_subset(maps2use, n_maps2use)
-        maps = np.transpose(maps2use)
-        n_maps = maps.shape[0]
-        batch_size = int(n_maps/10)
-        cluster_data = maps
-        print(f"Initial number of clusters: {n_maps:d}\n")
-        # Cluster indices w.r.t. original size, normalized GFP peak data
-        c_i = [[k] for k in range(n_maps)]
-        # Main loop: atomize + agglomerate
-        while n_maps > n_states:
-            if verbose:
-                print(f"\r\r\t\tAAHC > n: {n_maps:d} => {n_maps - 1:d}", end="")
-            # Correlations of the data sequence with each cluster
-            # Assuming you initialize 'segmentation' somewhere before the loop
-            segmentation = np.zeros(n_samples, dtype=int)
-            # Memory-efficient normalization
-            maps_norm = np.linalg.norm(maps, axis=1, ord=2, keepdims=True)
-            maps /= maps_norm
-            # Process data in batches for activation
-            activation = np.zeros((n_maps, n_samples))
-            for i in range(0, n_samples, batch_size):
-                data_batch = all_data[:, i:i + batch_size]
-                activation[:, i:i + batch_size] = maps.dot(data_batch)
-            # GEV (global explained variance) of cluster k
-            gev = np.zeros(n_maps)
-            for state in range(n_maps):
-                idx = (segmentation == state)
-                map_corr = self.corr_vectors(all_data[:, idx], maps[segmentation[idx]].T)
-                gev[state] = np.sum((gfp[idx] * map_corr) ** 2) / gfp2
-            # Merge cluster with the minimum GEV
-            imin = np.argmin(gev)
-            # N => N-1
-            maps = np.vstack((maps[:imin, :], maps[imin + 1:, :]))
-            c_i, re_c = c_i[:imin] + c_i[imin + 1:], c_i[imin]
-            re_cluster = []  # indices of updated clusters
-            # Parallelize the loop
-            Parallel(n_jobs=n_jobs)(delayed(process_reassignment)(cluster_index_to_reassign, c_i, cluster_data, maps) for
-                                    cluster_index_to_reassign in re_c)
-            n_maps = len(c_i)
-            # Update clusters
-            re_cluster = list(set(re_cluster))  # unique list of updated clusters
-            # Parallelize the loop
-            residuals = Parallel(n_jobs=n_jobs)(
-                delayed(process_cluster)(cluster_index, c_i, cluster_data, maps) for cluster_index in re_cluster)
-        best_gev = self.compute_gev(all_data, maps)
-        print(f'\nBest GEV: {best_gev}')
-        return maps, np.sum(residuals), best_gev
-
-    @staticmethod
-    def create_eeg_autoencoder(input_shape, encoding_dim):
-        """
-        Creates an autoencoder model for EEG data compression and reconstruction.
-
-        Args:
-            input_shape (tuple): Shape of the input data.
-            encoding_dim (int): Dimension of the encoded representation.
-
-        Returns:
-            tuple: Tuple containing the autoencoder model and the encoder model.
-        """
-        
-        # Encoder
-        input_layer = Input(shape=input_shape, name='input')
-        x = Flatten()(input_layer)
-        encoded = Dense(encoding_dim, activation='relu', name='embedding')(x)
-        # Decoder
-        x = Dense(np.prod(input_shape), activation='relu')(encoded)
-        decoded = Reshape(input_shape)(x)
-        autoencoder = Model(input_layer, decoded, name='autoencoder')
-        encoder = Model(input_layer, encoded, name='encoder')
-        # Compile the autoencoder (you can change the optimizer and loss function if needed)
-        autoencoder.compile(optimizer='adam', loss='mse')
-        return autoencoder, encoder
-
-    @staticmethod
-    def find_original_centroids(eeg_data, cluster_labels, n_clusters):
-        """
-        Determines the original centroids of clustered data points.
-
-        Args:
-            eeg_data (ndarray): EEG data.
-            cluster_labels (ndarray): Cluster labels.
-            n_clusters (int): Number of clusters.
-
-        Returns:
-            ndarray: Original centroids of clustered data points.
-        """
-        
-        original_centroids = []
-        for cluster_id in range(n_clusters):
-            cluster_indices = np.where(cluster_labels == cluster_id)[0]
-            cluster_data = eeg_data[cluster_indices]
-            cluster_mean = np.mean(cluster_data, axis=0)
-            original_centroids.append(cluster_mean)
-        return np.array(original_centroids)
-
-    @staticmethod
-    def calculate_residuals(eeg_data, autoencoder):
-        """
-        Calculates residuals (reconstruction errors) for each data point.
-
-        Args:
-            eeg_data (ndarray): EEG data.
-            autoencoder (Model): Autoencoder model.
-
-        Returns:
-            ndarray: Residuals for each data point.
-        """
-        
-        # Encode and then decode the data to get the reconstructed data
-        reconstructed_data = autoencoder.predict(eeg_data)
-        return np.mean(np.abs(eeg_data - reconstructed_data), axis=1)
-
-    def extract_features_with_autoencoder(self, eeg_data, encoding_dim=10):
-        """
-        Extracts features from EEG data using an autoencoder.
-
-        Args:
-            eeg_data (ndarray): EEG data.
-            encoding_dim (int): Dimension of the encoded representation. Defaults to 10.
-
-        Returns:
-            ndarray: Encoded features.
-        """
-        
-        # Create the autoencoder
-        input_shape = eeg_data.shape[1:]
-        autoencoder, encoder = self.create_eeg_autoencoder(input_shape, encoding_dim)
-        # Train the autoencoder on EEG data
-        autoencoder.fit(eeg_data, eeg_data, epochs=10, batch_size=64, shuffle=True)
-        # Extract features using the encoder
-        encoded_features = encoder.predict(eeg_data)
-        return encoded_features, autoencoder
-
-    @staticmethod
-    def extract_features_with_pca(eeg_data, pca_components=10):
-        """
-        Reduces dimensionality of EEG data using Principal Component Analysis (PCA).
-
-        Args:
-            eeg_data (ndarray): EEG data.
-            pca_components (int): Number of PCA components. Defaults to 10.
-
-        Returns:
-            ndarray: Reduced-dimensional EEG data.
-        """
-        
-        # Perform PCA to reduce dimensionality
-        pca = PCA(n_components=pca_components)
-        return pca.fit_transform(eeg_data)
-
-    def get_clustering_instance(self, maps2use, initial_maps, method, n_states, clustering_option):
-        """
-        Performs clustering on preprocessed data to find microstate maps.
-
-        Args:
-            maps2use (ndarray): Microstate maps to use for clustering.
-            initial_maps (ndarray): Initial microstate maps.
-            method (str): Clustering method to use.
-            n_states (int): Number of microstate maps.
-            clustering_option (str): Clustering option to use.
-
-        Returns:
-            clustering_instance: Clustering instance.
-        """
-
-        def metric_function(point1, point2):
-            return self.calculate_spatial_similarity(clustering_option, point1, point2)
-
-        # Transpose maps2use
-        maps2use = np.transpose(maps2use)
-
-        # Define metric for clustering
-        metric = distance_metric(type_metric.USER_DEFINED, func=metric_function)
-
-        if method == 'K-Means Clustering':
-            clustering_instance = kmeans.kmeans(
-                data=maps2use,
-                initial_centers=initial_maps,
-                tolerance=self.clustering_tolerance,
-                itermax=self.max_iterations,
-                metric=metric
-            )
-        elif method == 'PCA + K-Means Clustering':
-            clustering_instance = kmeans.kmeans(
-                data=maps2use,
-                initial_centers=initial_maps,
-                tolerance=self.clustering_tolerance,
-                itermax=self.max_iterations,
-                metric=metric
-            )
-        elif method == 'Autoencoder + K-Means Clustering':
-            clustering_instance = kmeans.kmeans(
-                data=maps2use,
-                initial_centers=initial_maps,
-                tolerance=self.clustering_tolerance,
-                itermax=self.max_iterations,
-                metric=metric
-            )
-        elif method == 'X-Means Clustering':
-            # Determine the splitting criterion for X-Means
-            if clustering_option == 'Bayesian Information Criterion':
-                criterion = xmeans.splitting_type.BAYESIAN_INFORMATION_CRITERION
-            elif clustering_option == 'Minimum Noiseless Description Length':
-                criterion = xmeans.splitting_type.MINIMUM_NOISELESS_DESCRIPTION_LENGTH
-            else:
-                raise ValueError("Failed to match criterion")
-
-            clustering_instance = xmeans.xmeans(
-                data=maps2use,
-                initial_centers=initial_maps,
-                kmax=n_states,
-                tolerance=self.clustering_tolerance,
-                criterion=criterion
-            )
-        else:
-            raise ValueError("Failed to match method")
-
-        return clustering_instance

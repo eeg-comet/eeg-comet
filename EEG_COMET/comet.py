@@ -1,6 +1,5 @@
 import os
 import mne
-import pickle
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -19,7 +18,6 @@ from features_utils.feature_helper import FeatureHelper
 from features_utils.feature_extractor import FeatureExtractor
 from features_utils.feature_io import FeatureIO
 from sourcelocalization_utils.source_localizer import SourceLocalizer
-from clustering_utils.autopilot_clusterer import AutopilotClusterer
 
 
 class COMET:
@@ -35,6 +33,9 @@ class COMET:
     It also eliminates dependency on external configuration files, allowing
     direct parameter configuration or using optional config files.
     """
+
+    # Class-level shared storage for feature extraction results
+    _shared_feature_results = {}
 
     def __init__(self, config=None, config_path=None, study_name=None, input_folder=None, output_folder=None,
                  auto_save=True):
@@ -149,20 +150,20 @@ class COMET:
         # Set default values for IO section - these must be updated from UI
         config["io_config"]["study_name"] = "my_study"
         config["io_config"]["input_folder"] = ""
-        config["io_config"]["channel_location_dir"] = ""
+        config["io_config"]["montage"] = ""
         config["io_config"]["extension"] = ".set"
         config["io_config"]["pattern"] = "*"
         config["io_config"]["datatype"] = "raw"
         config["io_config"]["output_folder"] = ""
 
         # Set default preprocessing values
-        config["preprocessing_config"]["filter_data"] = "True"
+        config["preprocessing_config"]["temporal_filter_data"] = "True"
         config["preprocessing_config"]["filter_method"] = "fir"
         config["preprocessing_config"]["lowcut_freq"] = "2"
         config["preprocessing_config"]["highcut_freq"] = "20"
         config["preprocessing_config"]["downsample_data"] = "True"
         config["preprocessing_config"]["sample_rate"] = "250"
-        config["preprocessing_config"]["spatial_smooth_data"] = "True"
+        config["preprocessing_config"]["spatial_filter_data"] = "False"
         config["preprocessing_config"]["auto_clean_data"] = "False"
         config["preprocessing_config"]["remove_channels"] = "False"
         config["preprocessing_config"]["ch2rm"] = ""
@@ -178,10 +179,10 @@ class COMET:
         config["clustering_config"]["stopping_parameter"] = "10"
         config["clustering_config"]["use_percentages"] = "100"
         config["clustering_config"]["initializer"] = "Random"
-        config["clustering_config"]["clustering_method"] = "Modified K-Means Clustering"
+        config["clustering_config"]["clustering_method"] = "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
         config["clustering_config"]["max_iterations"] = "500"
         config["clustering_config"]["clustering_tolerance"] = "1e-6"
-        config["clustering_config"]["clustering_option"] = ""
+        config["clustering_config"]["similarity_metric"] = "Spatial Correlation"
         config["clustering_config"]["number_of_repeats"] = "5"
 
         # Set default backfitting values
@@ -223,10 +224,9 @@ class COMET:
             self.save_dir = os.path.join(self.output_folder, self.study_name)
 
             # Update all paths relative to save_dir
-            self.params_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
-            self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
+            self.config_path = os.path.join(self.save_dir, "eeg_comet_config.ini")
             self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
-            self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
+            self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.fif")
             self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
             self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
             self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
@@ -245,7 +245,6 @@ class COMET:
         config = ConfigParser()
         try:
             config.read(config_path)
-            print(f"Configuration loaded from {config_path}")
             return config
         except Exception as e:
             print(f"Error loading configuration: {e}")
@@ -260,7 +259,7 @@ class COMET:
         io_config = self.config["io_config"]
         self.study_name = io_config.get("study_name", "my_study")
         self.input_folder = io_config.get("input_folder", "")
-        self.channel_location_dir = io_config.get("channel_location_dir", "")
+        self.montage = io_config.get("montage", "")
         self.extension = io_config.get("extension", ".auto")
         self.pattern_content = io_config.get("pattern", "*")
         self.datatype = io_config.get("datatype", "raw")
@@ -268,8 +267,8 @@ class COMET:
 
         # Preprocessing Configs
         preprocessing_config = self.config["preprocessing_config"]
-        self.filter_data = preprocessing_config.getboolean("filter_data", True)
-        if self.filter_data:
+        self.temporal_filter_data = preprocessing_config.getboolean("temporal_filter_data", True)
+        if self.temporal_filter_data:
             self.filter_method = preprocessing_config.get("filter_method", "fir")
             self.lowcut_freq = preprocessing_config.getint("lowcut_freq", 2)
             self.highcut_freq = preprocessing_config.getint("highcut_freq", 20)
@@ -284,7 +283,7 @@ class COMET:
         else:
             self.sample_rate = 250
 
-        self.spatial_smooth_data = preprocessing_config.getboolean("spatial_smooth_data", True)
+        self.spatial_filter_data = preprocessing_config.getboolean("spatial_filter_data", False)
         self.auto_clean_data = preprocessing_config.getboolean("auto_clean_data", False)
         self.remove_channels = preprocessing_config.getboolean("remove_channels", False)
         if self.remove_channels:
@@ -317,15 +316,16 @@ class COMET:
             self.kmax = 10
 
         self.initializer = clustering_config.get("initializer", "Random")
-        self.clustering_method = clustering_config.get("clustering_method", "Modified K-Means Clustering")
+        self.clustering_method = clustering_config.get(
+            "clustering_method", "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+        )
         self.max_iterations = clustering_config.getint("max_iterations", 500)
         self.clustering_tolerance = clustering_config.getfloat("clustering_tolerance", 1e-6)
-
-        need_options = ["X-Means Clustering", "Agglomerative Hierarchical Clustering",
-                        "K-Means Clustering", "PCA + K-Means Clustering",
-                        "Autoencoder + K-Means Clustering", ]
-        self.clustering_option = clustering_config.get("clustering_option",
-                                                       "") if self.clustering_method in need_options else ""
+        # self.batch_size
+        self.similarity_metric = clustering_config.get(
+            "similarity_metric",
+            "Spatial Correlation"
+        ) if not self.clustering_method == "Modified K-Means Clustering (Pascual-Marqui et al. 1995)" else ""
         self.number_of_repeats = clustering_config.getint("number_of_repeats", 5)
 
         # Handle use_percentages - this could be an int or empty string
@@ -382,6 +382,15 @@ class COMET:
         except ValueError:
             self.post_window_size = 1
 
+        # Create directory for extracted features
+        self.feature_list_dictionary = {
+            "OCC": "Frequency of Occurrence (Hz)", "DUR": "Mean Microstate Duration (ms)",
+            "COV": "Microstate Coverage (%)", "GEV": "Microstate Global Explained Variance (%)",
+            "TP": "Transition Probability", "SE": "Sequence Entropy", "LZC": "Sequence Lempel-Ziv Complexity",
+            "ER": "Sequence Entropy Representation", "ROF": "Relative Occurrence Frequency",
+            "RTF": "Relative Transition Frequency"
+        }
+
         # Source Localization Configs
         source_config = self.config["source_config"]
         self.use_anatomy = source_config.get("use_anatomy", "fsaverage")
@@ -390,6 +399,28 @@ class COMET:
         self.spacing = source_config.get("spacing", "ico3")
         self.source_localization_method = source_config.get("source_localization_method", "tess")
         self.anatomy_subjects_dir = source_config.get("anatomy_subjects_dir", "")
+
+        # State Flags
+        # Check if the section exists to handle loading from older config files
+        if "state_flags" in self.config:
+            state_flags = self.config["state_flags"]
+            self.done_preprocessing = state_flags.getboolean("done_preprocessing", False)
+            self.done_clustering = state_flags.getboolean("done_clustering", False)
+            self.done_labeling_microstates = state_flags.getboolean("done_labeling_microstates", False)
+            self.done_backfitting = state_flags.getboolean("done_backfitting", False)
+            self.done_extracting_features = state_flags.getboolean("done_extracting_features", False)
+            self.done_source_localization = state_flags.getboolean("done_source_localization", False)
+            self.done_source_microstate_correlation = state_flags.getboolean("done_source_microstate_correlation",
+                                                                             False)
+        else:
+            # Initialize state flags to False if the section doesn't exist
+            self.done_preprocessing = False
+            self.done_clustering = False
+            self.done_labeling_microstates = False
+            self.done_backfitting = False
+            self.done_extracting_features = False
+            self.done_source_localization = False
+            self.done_source_microstate_correlation = False
 
     def ensure_directory(self, path):
         """
@@ -444,10 +475,9 @@ class COMET:
         self.ensure_directory(self.save_dir)
 
         # Define all paths relative to save_dir
-        self.params_path = os.path.join(self.save_dir, "eeg_comet_parameters.pkl")
-        self.config_path = os.path.join(self.save_dir, f"{self.study_name}_config.ini")
+        self.config_path = os.path.join(self.save_dir, "eeg_comet_config.ini")
         self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
-        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.pkl")
+        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.fif")
         self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
         self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
         self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
@@ -455,69 +485,12 @@ class COMET:
         self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
         self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
 
-    def load_params(self, params_path=None):
-        """
-        Load only critical parameters from the saved file.
-        """
-        if params_path is None:
-            params_path = self.params_path
-
-        if not os.path.exists(params_path):
-            print(f"Warning: Parameters file {params_path} not found.")
-            return False
-
-        try:
-            with open(params_path, 'rb') as input_file:
-                params = pickle.load(input_file)
-
-            # Update attributes from the loaded parameters
-            for attr, value in params.items():
-                setattr(self, attr, value)
-
-            return True
-
-        except Exception as e:
-            print(f"Error loading parameters: {e}")
-            return False
-
     def initialize_log_window(self):
         """
         Initialize the logging window
         """
         self.LogWindow = LogWindow()
         self.LogWindow.append_log("Welcome to EEG-COMET!")
-
-    @property
-    def best_maps(self):
-        """
-        Getter for best_maps - loads from CSV file if not in memory
-        """
-        if self._best_maps is None and os.path.exists(self.microstate_maps_path):
-            try:
-                # Load CSV with first row as header
-                df = pd.read_csv(self.microstate_maps_path, index_col=0)
-
-                # Store the channel names (first column values, now index)
-                self._channel_names = df.index.tolist()
-
-                # Store the microstate labels (column names)
-                self._micro_labels = df.columns.tolist()
-
-                # Store the actual map values (excluding headers and channel names)
-                self._best_maps = np.transpose(df.values)
-
-            except Exception as e:
-                print(f"Error loading maps from CSV: {e}")
-        return self._best_maps
-
-    @best_maps.setter
-    def best_maps(self, value):
-        """
-        Setter for best_maps - stores in memory and saves to file
-        """
-        self._best_maps = value
-        if value is not None and self.auto_save:
-            self.save_microstate_maps(value)
 
     @property
     def micro_labels(self):
@@ -602,57 +575,40 @@ class COMET:
         """
         Check the consistency of EEG channels across all data
         """
-        missing_channels = self.comet_data_io.check_chan2rm(
+        consistent_channels, missing_channels = self.comet_data_io.check_chan2rm(
             self.list_eegs_path,
             datatype=self.datatype,
-            channel_location_dir=self.channel_location_dir
+            montage=self.montage
         )
         self.chan2rm = list(set(self.chan2rm).union(set(missing_channels)))
+        self.ch_names = consistent_channels
+
+    def save_eeg_info(self, eeg_info_path):
+        """Save EEG information to a binary file using pickle.
+
+        Args:
+            eeg_info_path (str): Path where the EEG information will be saved
+            eeg_info (object): EEG information object to be serialized
+        """
+        # Create a basic Info object
+        eeg_info = mne.create_info(
+            ch_names=self.ch_names,
+            ch_types=['eeg'] * len(self.ch_names),
+            sfreq=self.sample_rate
+        )
+        eeg_info['description'] = self.study_name
+
+        # Set montage
+        montage = self.comet_data_io.load_montage(self.montage)
+        eeg_info.set_montage(montage)
+
+        mne.io.write_info(eeg_info_path, eeg_info)
 
     def load_eeg_info(self):
         """
         Load EEG info from file instead of keeping it in memory
         """
-        if os.path.exists(self.eeg_info_path):
-            try:
-                with open(self.eeg_info_path, 'rb') as f:
-                    return pickle.load(f)
-            except Exception as e:
-                print(f"Error loading EEG info: {e}")
-                return None
-        return None
-
-    def check_eeg_info(self):
-        """
-        Check if EEG info is available, load from file if needed
-        """
-        # First try to load from file
-        self.eeg_info = self.load_eeg_info()
-
-        # If not available, create it from a preprocessed file
-        if self.eeg_info is None:
-            # Find processed EEG file paths
-            list_processed_path, _ = self.comet_data_io.find_data(
-                input_folder=self.preprocessed_data_path, extension=self.extension
-            )
-
-            if list_processed_path:
-                # Load the first processed EEG file
-                eeg = self.comet_data_io.load_eeg(eeg_path=list_processed_path[0], datatype=self.datatype)
-                self.eeg_info = eeg.info
-
-                # Ensure directory exists
-                os.makedirs(os.path.dirname(self.eeg_info_path), exist_ok=True)
-
-                # Save the info for future use
-                try:
-                    with open(self.eeg_info_path, 'wb') as f:
-                        pickle.dump(self.eeg_info, f)
-                    print(f"EEG info saved to {self.eeg_info_path}")
-                except Exception as e:
-                    print(f"Warning: Could not save EEG info: {e}")
-            else:
-                print("Warning: No processed EEG files found to extract info from.")
+        self.eeg_info = mne.io.read_info(self.eeg_info_path)
 
     def autoclean_rseeg(self, eeg_path, eeg_name):
         """
@@ -662,7 +618,7 @@ class COMET:
         eeg = self.comet_data_io.load_eeg(
             eeg_path=eeg_path,
             datatype=self.datatype,
-            channel_location_dir=self.channel_location_dir,
+            montage=self.montage,
             chan2rm=self.chan2rm
         )
 
@@ -681,7 +637,7 @@ class COMET:
         eeg = self.comet_data_io.load_eeg(
             eeg_path=eeg_path,
             datatype=self.datatype,
-            channel_location_dir=self.channel_location_dir,
+            montage=self.montage,
             chan2rm=self.chan2rm
         )
 
@@ -693,31 +649,21 @@ class COMET:
         # Preprocess the EEG data
         eeg = self.comet_preprocessor.preprocess_eeg(
             eeg=eeg,
-            filter_bool=self.filter_data,
+            filter_bool=self.temporal_filter_data,
             filtermethod=self.filter_method,
             lowcut=self.lowcut_freq,
             highcut=self.highcut_freq,
             downsample_bool=self.downsample_data,
             sampling_rate=self.sample_rate,
-            spatial_smooth_bool=self.spatial_smooth_data
+            spatial_smooth_bool=self.spatial_filter_data
         )
 
         # Extract and save EEG info
         eeg_data = self.comet_data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
         length_data = eeg_data.shape[1]
-        self.eeg_info = eeg.info
 
         if not self.sample_rate:
             self.sample_rate = int(self.eeg_info['sfreq'])
-
-        # Save EEG info for future use
-        os.makedirs(os.path.dirname(self.eeg_info_path), exist_ok=True)
-
-        try:
-            with open(self.eeg_info_path, 'wb') as f:
-                pickle.dump(self.eeg_info, f)
-        except Exception as e:
-            print(f"Warning: Could not save EEG info: {e}")
 
         # Prepare saving path and export EEG
         name = os.path.splitext(eeg_name)[0]
@@ -749,7 +695,7 @@ class COMET:
         )
         return self.comet_microstate_clusterer.compute_gev(data=all_data, maps=self.best_maps)
 
-    def cluster_eeg_modkmeans(self, init):
+    def cluster_eeg_microstates(self, init):
         """
         Perform modified K-means clustering iteration
         """
@@ -759,13 +705,22 @@ class COMET:
             maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
         )
 
-        maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
-            data=self.maps2use,
-            initial_maps=initial_maps,
-            n_states=self.number_of_maps,
-            max_iter=self.max_iterations,
-            thresh=self.clustering_tolerance
-        )
+        if self.clustering_method == "Modified K-Means Clustering (Pascual-Marqui et al. 1995)":
+            maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
+                data=self.maps2use,
+                initial_maps=initial_maps
+            )
+        elif self.clustering_method == "Modified K-Means Clustering with Spatial Similarity":
+            maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans_similarity(
+                data=self.maps2use,
+                initial_maps=initial_maps,
+                metric=self.similarity_metric
+            )
+        elif self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering":
+            maps_init, residual_init = self.comet_microstate_clusterer.taahc(
+                data=self.maps2use,
+                metric=self.similarity_metric
+            )
 
         gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
         print(f'Found {self.number_of_maps} Microstate Maps')
@@ -811,16 +766,6 @@ class COMET:
             self.LogWindow.append_log(
                 f"Microstates Backfitted: {eeg_name}"
             )
-
-    def get_segmentation(self, subject_name):
-        """
-        Load a segmentation file on demand
-        """
-        seg_path = os.path.join(self.segmentation_path, f"{subject_name}{self.export_format}")
-        return self.comet_segmentation_io.load_segmentation(
-            segmentation_path=seg_path,
-            import_format=self.export_format
-        )
 
     def do_preprocessing(self):
         """
@@ -902,6 +847,7 @@ class COMET:
                 self.preprocess_eeg(eeg_path, eeg_name)
 
         # Set preprocessing flag
+        self.save_eeg_info(self.eeg_info_path)
         self.done_preprocessing = True
 
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
@@ -912,23 +858,6 @@ class COMET:
         # Save configuration and parameters
         if self.auto_save:
             self.save_config()
-            self.save_params()
-
-    def do_autopilot(self):
-        """
-        Run autopilot clustering
-        """
-        # TODO: not completed!
-        autopilot_clusterer = AutopilotClusterer(
-            self.save_dir, self.study_name, self.extension, self.datatype
-        )
-        autopilot_clusterer.run_autopilot()
-
-        # Set parameters
-        self.clustering_method = 'Modified K-Means Clustering'
-        self.number_of_repeats = 1
-        use_percentages = [60, 80, 100]
-        min_distance_size = [0, 10, 20, 40]
 
     def do_clustering(self):
         """
@@ -936,7 +865,7 @@ class COMET:
         """
         print('\nClustering ...')
 
-        self.check_eeg_info()
+        self.load_eeg_info()
 
         # Calculate minimum distance size if smoothing GFP is enabled
         if self.smoothing_gfp:
@@ -946,12 +875,9 @@ class COMET:
 
         # Check if clustering method is supported
         available_methods = [
-            'Modified K-Means Clustering',
-            'K-Means Clustering',
-            'PCA + K-Means Clustering',
-            'Autoencoder + K-Means Clustering',
-            'X-Means Clustering',
-            'Agglomerative Hierarchical Clustering',
+            'Modified K-Means Clustering (Pascual-Marqui et al. 1995)',
+            'Modified K-Means Clustering with Spatial Similarity',
+            'Topographic Atomize and Agglomerate Hierarchical Clustering',
         ]
         if self.clustering_method not in available_methods:
             error_msg = f"Clustering method '{self.clustering_method}' not supported. Available methods: {', '.join(available_methods)}"
@@ -962,6 +888,8 @@ class COMET:
 
         # Initialize microstate clusterer
         self.comet_microstate_clusterer = MicrostateClusterer(
+            n_states=self.number_of_maps,
+            batch_size=self.batch_size,
             n_inits=self.number_of_repeats,
             max_iter=self.max_iterations,
             tolerance=self.clustering_tolerance
@@ -1005,22 +933,6 @@ class COMET:
             min_dist=self.min_distance_size
         )
 
-        if self.clustering_method == 'PCA + K-Means Clustering':
-            # Check if n_pca is set, otherwise set a default value
-            if not hasattr(self, 'n_pca'):
-                self.n_pca = 10
-                print(f"Setting default PCA components to {self.n_pca}")
-
-            self.maps2use = self.comet_microstate_clusterer.extract_features_with_pca(
-                eeg_data=np.transpose(self.maps2use), pca_components=self.n_pca
-            )
-
-        if self.clustering_method == 'Autoencoder + K-Means Clustering':
-            # Extract features using Autoencoder
-            self.maps2use, autoencoder = self.comet_microstate_clusterer.extract_features_with_autoencoder(
-                eeg_data=np.transpose(self.maps2use), encoding_dim=10
-            )
-
         if self.choose_number_of_maps == "auto":
             k_log = 'will be automatically determined.'
         else:
@@ -1040,87 +952,32 @@ class COMET:
             )
 
         # Reset best values
-        self.best_residual, self._best_maps = None, None
+        self.best_residual, self.best_maps = None, None
         self.best_gev, self.best_confidence = 0, 0
 
-        if self.clustering_method == 'Modified K-Means Clustering':
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.setup_progress_dialog(
-                    window_title="Clustering ...",
-                    label_text="Clustering ...",
-                    tasks=list(range(self.number_of_repeats)),
-                    processing_func=self.cluster_eeg_modkmeans
-                )
-            else:
-                print(f"Running {self.number_of_repeats} clustering iterations...")
-                for init in tqdm(range(self.number_of_repeats), desc="Clustering"):
-                    self.cluster_eeg_modkmeans(init)
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.setup_progress_dialog(
+                window_title="Clustering ...",
+                label_text="Clustering ...",
+                tasks=list(range(self.number_of_repeats)),
+                processing_func=self.cluster_eeg_microstates
+            )
         else:
-            initial_maps = self.comet_data_initializer.initialize_cluster_centers(
-                maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
-            )
-            clustering_instance = self.comet_microstate_clusterer.get_clustering_instance(
-                maps2use=self.maps2use,
-                initial_maps=initial_maps,
-                method=self.clustering_method,
-                n_states=self.number_of_maps,
-                clustering_option=self.clustering_option
-            )
+            print(f"Running {self.number_of_repeats} clustering iterations...")
+            for init in tqdm(range(self.number_of_repeats), desc="Clustering"):
+                self.cluster_eeg_microstates(init)
 
-            for init in range(self.number_of_repeats):
-                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    self.LogWindow.update_progress(
-                        value=init,
-                        text=f"Clustering [{init + 1}/{self.number_of_repeats}] - "
-                             f"Best Global Explained Variance: {100 * self.best_gev:.3f}%"
-                    )
-                else:
-                    print(
-                        f"Clustering iteration {init + 1}/{self.number_of_repeats} - Best GEV: {100 * self.best_gev:.3f}%")
+        # Compute GEV for all data using best maps and set clustering flag
+        # Ensure best_maps exists - if not, use the maps_init from the last iteration
+        # if self._best_maps is None and 'maps_init' in locals():
+        #     print("Warning: No best maps found. Using last iteration maps.")
+        #     self.best_maps = maps_init  # This will use the property setter
 
-                if self.clustering_method in ['K-Means Clustering', 'X-Means Clustering']:
-                    clustering_instance.process()
-                    residual_init = clustering_instance.get_total_wce()
-                    maps_init = clustering_instance.get_centers()
-                elif self.clustering_method in ['PCA + K-Means Clustering', 'Autoencoder + K-Means Clustering']:
-                    clustering_instance.process()
-                    cluster_labels = clustering_instance.get_clusters()
-                    # Flatten the cluster labels
-                    cluster_labels_flat = np.zeros(len(self.maps2use))
-                    for cluster_id, cluster in enumerate(cluster_labels):
-                        cluster_labels_flat[cluster] = cluster_id
-                    # Find original centroids
-                    maps_init = self.comet_microstate_clusterer.find_original_centroids(
-                        self.maps2use, cluster_labels_flat, self.number_of_maps)
-                    # Calculate residuals
-                    residual_init = 0  # self.calculate_residuals(maps2use, autoencoder)
-
-                maps_init = np.array(maps_init)
-                gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
-
-                self.comet_microstate_labeler = MicrostateLabeler(
-                    microstate_maps=maps_init, eeg_info=self.eeg_info,
-                    microstate_maps_path=self.microstate_maps_path
-                )
-                micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
-
-                # Update best results based on confidence score
-                if labels_overall_confidence > self.best_confidence:
-                    self.best_gev = gev_init
-                    self.best_maps = maps_init
-                    self.best_residual = residual_init
-                    self.best_confidence = labels_overall_confidence
-
-                    # Save best maps and labels immediately
-                    if self.auto_save:
-                        self.save_microstate_maps(maps_init, micro_labels)
-
-        # Compute GEV for all data using best maps
-        if self.best_maps is not None:
+        if self.best_maps is not None:  # Check the internal variable directly
             self.best_gev = self.compute_gev_all_data()
             print(f'Global Explained Variance: {self.best_gev}')
 
-            # Set clustering flag
+            # Always set clustering flag to True if we have maps
             self.done_clustering = True
 
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
@@ -1135,7 +992,6 @@ class COMET:
             # Save updated configuration and parameters
             if self.auto_save:
                 self.save_config()
-                self.save_params()
 
     def do_labeling(self):
         """
@@ -1180,7 +1036,7 @@ class COMET:
 
         # Save parameters
         if self.auto_save:
-            self.save_params()
+            self.save_config()
 
     def do_backfitting(self):
         """
@@ -1288,6 +1144,9 @@ class COMET:
             print(f"* {backfit_to_text}")
             print(f"* {filter_segments_option_text}")
 
+        self.load_clean()
+        self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
+
         # Perform backfitting on all files
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.setup_progress_dialog(
@@ -1312,7 +1171,6 @@ class COMET:
         # Save parameters
         if self.auto_save:
             self.save_config()
-            self.save_params()
 
     def extract_features(self):
         """
@@ -1325,157 +1183,188 @@ class COMET:
             print("Error: Backfitting must be completed before extracting features.")
             return
 
-        # Create directory for extracted features
-        self.feature_list_dictionary = {
-            "OCC": "Frequency of Occurrence (Hz)", "DUR": "Mean Microstate Duration (ms)",
-            "COV": "Microstate Coverage (%)", "GEV": "Microstate Global Explained Variance (%)",
-            "TP": "Transition Probability", "SE": "Sequence Entropy", "LZC": "Sequence Lempel-Ziv Complexity",
-            "ER": "Sequence Entropy Representation", "ROF": "Relative Occurrence Frequency",
-            "RTF": "Relative Transition Frequency"
-        }
         os.makedirs(self.extracted_features_path, exist_ok=True)
 
         # Find segmentation files
-        segmentation_list_path, segmentation_list_filename = self.comet_data_io.find_data(
+        self.segmentation_list_path, self.segmentation_list_filename = self.comet_data_io.find_data(
             input_folder=self.segmentation_path,
             extension=self.export_format
         )
-
-        # Create progress dialog
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.setup_progress_dialog(
-                window_title="Extracting Features ...",
-                label_text="Extracting features for data ...",
-                max_value=len(segmentation_list_path)
-            )
-
-            self.LogWindow.append_log(
-                f"Feature Extraction Settings:\n"
-                f"* Features to Extract: {self.feature_list}\n"
-                f"* Feature Type: {self.feature_mode}", log_type='settings'
-            )
-        else:
-            print(f"Feature Extraction Settings:")
-            print(f"* Features to Extract: {self.feature_list}")
-            print(f"* Feature Type: {self.feature_mode}")
 
         # Make sure word_size is set if not already
         if not hasattr(self, 'word_size'):
             self.word_size = 3
             print(f"Setting default word size to {self.word_size}")
 
+        # Initialize class-level shared storage for feature extraction
+        COMET._shared_feature_results = {
+            'averaged': {feature_type: None for feature_type in self.feature_types},
+            'sliding': {feature_type: None for feature_type in self.feature_types}
+        }
+
+        # Initialize dictionaries to store results (these won't be used by the thread)
+        self.averaged_features_dfs = {feature_type: None for feature_type in self.feature_types}
+        self.sliding_features_dfs = {feature_type: None for feature_type in self.feature_types}
+
+        # Create tasks for worker thread
+        segmentation_tasks = [
+            (idx, path, name) for idx, (path, name) in
+            enumerate(zip(self.segmentation_list_path, self.segmentation_list_filename))
+        ]
+
+        # Log feature extraction settings
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Feature Extraction Settings:\n"
+                f"* Features to Extract: {self.feature_list}\n"
+                f"* Feature Type: {self.feature_mode}", log_type='settings'
+            )
+
+            # Use worker thread via setup_progress_dialog
+            self.LogWindow.setup_progress_dialog(
+                window_title="Extracting Features ...",
+                label_text="Extracting features for data ...",
+                tasks=segmentation_tasks,
+                processing_func=self.extract_features_for_file_threadsafe
+            )
+
+            # Connect to the finished signal to collect results after thread completes
+            self.LogWindow.worker_thread.finished.connect(self.collect_feature_extraction_results)
+        else:
+            # Process in main thread if no GUI
+            print(f"Feature Extraction Settings:")
+            print(f"* Features to Extract: {self.feature_list}")
+            print(f"* Feature Type: {self.feature_mode}")
+
+            for idx, path, name in tqdm(segmentation_tasks, desc="Extracting Features"):
+                self.extract_features_for_file_threadsafe(idx, path, name)
+
+            # Collect results and export in non-GUI mode
+            self.collect_feature_extraction_results()
+
+    def extract_features_for_file_threadsafe(self, segmentation_idx, segmentation_path, segmentation_name):
+        """
+        Thread-safe version of extract_features_for_file that uses class-level shared storage
+        """
+        # Load segmentation array
+        segmentation_array = self.comet_segmentation_io.load_segmentation(
+            segmentation_path=segmentation_path, import_format=self.export_format
+        )
+
         # Process each feature type
         for feature_type in self.feature_types:
-            averaged_features_dfs = pd.DataFrame()
-            sliding_features_dfs = pd.DataFrame()
-
-            # Process each segmentation file
-            for segmentation_idx, (segmentation_path, segmentation_name) in tqdm(
-                    enumerate(zip(segmentation_list_path, segmentation_list_filename)),
-                    total=len(segmentation_list_path)):
-
-                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    self.LogWindow.update_progress(value=segmentation_idx, text=f"{segmentation_name}")
-                else:
-                    print(f"Processing {segmentation_name} ({segmentation_idx + 1}/{len(segmentation_list_path)})")
-
-                # Load segmentation array
-                segmentation_array = self.comet_segmentation_io.load_segmentation(
-                    segmentation_path=segmentation_path, import_format=self.export_format
+            # Process feature extraction based on type
+            if feature_type == 'real':
+                input_sequence = segmentation_array.flatten().tolist()
+            else:
+                input_sequence = FeatureHelper().generate_synthetic_sequence(
+                    input_sequence=segmentation_array, method=feature_type
                 )
 
-                if feature_type == 'real':
-                    input_sequence = segmentation_array.flatten().tolist()
+            # Extract Averaged Features
+            if 'averaged' in self.feature_mode:
+                params = {
+                    "input_sequence": input_sequence,
+                    "sampling_rate": self.sample_rate,
+                    "sliding_window_size": self.sliding_window_size,
+                    "feature_mode": "averaged"
+                }
+                self.comet_feature_extractor = FeatureExtractor(**params)
+
+                if 'GEV' in self.feature_list:
+                    eeg_path, _ = self.comet_data_io.find_data(
+                        input_folder=self.preprocessed_data_path,
+                        extension=self.extension,
+                        pattern=f"*{segmentation_name}*"
+                    )
+                    eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path[0], datatype=self.datatype)
+                    eeg_data = self.comet_data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
+
+                    output_features = self.comet_feature_extractor.extract_microstate_features(
+                        filename=segmentation_name,
+                        feature_list=self.feature_list,
+                        eeg_data=eeg_data,
+                        microstate_maps=self.best_maps,
+                        microstate_labels=self.micro_labels,
+                        word_size=self.word_size
+                    )
                 else:
-                    input_sequence = FeatureHelper().generate_synthetic_sequence(
-                        input_sequence=segmentation_array, method=feature_type
+                    output_features = self.comet_feature_extractor.extract_microstate_features(
+                        filename=segmentation_name,
+                        feature_list=self.feature_list,
+                        word_size=self.word_size
                     )
 
-                # Extract Averaged Features
-                if 'averaged' in self.feature_mode:
-                    params = {
-                        "input_sequence": input_sequence,
-                        "sampling_rate": self.sample_rate,
-                        "feature_mode": "averaged"
-                    }
-                    self.comet_feature_extractor = FeatureExtractor(**params)
-
-                    if 'GEV' in self.feature_list:
-                        eeg_path, _ = self.comet_data_io.find_data(
-                            input_folder=self.preprocessed_data_path,
-                            extension=self.extension,
-                            pattern=f"*{segmentation_name}*"
-                        )
-                        eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path[0], datatype=self.datatype)
-                        eeg_data = self.comet_data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
-
-                        output_features = self.comet_feature_extractor.extract_microstate_features(
-                            filename=segmentation_name,
-                            feature_list=self.feature_list,
-                            eeg_data=eeg_data,
-                            microstate_maps=self.best_maps,
-                            microstate_labels=self.micro_labels,
-                            word_size=self.word_size
-                        )
-                    else:
-                        output_features = self.comet_feature_extractor.extract_microstate_features(
-                            filename=segmentation_name,
-                            feature_list=self.feature_list,
-                            word_size=self.word_size
-                        )
-
-                    if segmentation_idx == 0:
-                        averaged_features_dfs = output_features
-                    else:
-                        averaged_features_dfs = pd.concat([averaged_features_dfs, output_features], ignore_index=True)
-
-                # Extract Sliding Features
-                if 'sliding' in self.feature_mode:
-                    params = {
-                        "input_sequence": input_sequence,
-                        "sampling_rate": self.sample_rate,
-                        "feature_mode": "sliding"
-                    }
-                    if hasattr(self, "sliding_window_size") and self.sliding_window_size is not None:
-                        params["sliding_window_size"] = self.sliding_window_size
-                    if hasattr(self, "pre_window_size") and self.pre_window_size is not None:
-                        params["pre_window_size"] = self.pre_window_size
-                    if hasattr(self, "post_window_size") and self.post_window_size is not None:
-                        params["post_window_size"] = self.post_window_size
-                    self.comet_feature_extractor = FeatureExtractor(**params)
-
-                    if 'GEV' in self.feature_list:
-                        eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
-                        eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
-                        eeg_data = self.comet_data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
-                        output_features = self.comet_feature_extractor.extract_microstate_features(
-                            filename=segmentation_name,
-                            feature_list=self.feature_list,
-                            eeg_data=eeg_data,
-                            microstate_maps=self.best_maps,
-                            microstate_labels=self.micro_labels
-                        )
-                    else:
-                        output_features = self.comet_feature_extractor.extract_microstate_features(
-                            filename=segmentation_name, feature_list=self.feature_list
-                        )
-
-                    if segmentation_idx == 0:
-                        sliding_features_dfs = output_features
-                    else:
-                        sliding_features_dfs = pd.concat([sliding_features_dfs, output_features], ignore_index=True)
-
-                # Log the feature extraction progress
-                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    self.LogWindow.append_log(
-                        f"Features Extracted [{segmentation_idx + 1}/{len(segmentation_list_path)}]\n"
-                        f"✓ Data: {segmentation_name}"
+                # Update shared storage instead of instance variables
+                if segmentation_idx == 0:
+                    COMET._shared_feature_results['averaged'][feature_type] = output_features
+                else:
+                    COMET._shared_feature_results['averaged'][feature_type] = pd.concat(
+                        [COMET._shared_feature_results['averaged'][feature_type], output_features],
+                        ignore_index=True
                     )
 
-            # Export extracted features
-            if 'averaged' in self.feature_mode and not averaged_features_dfs.empty:
+            # Extract Sliding Features
+            if 'sliding' in self.feature_mode:
+                params = {
+                    "input_sequence": input_sequence,
+                    "sampling_rate": self.sample_rate,
+                    "sliding_window_size": self.sliding_window_size,
+                    "feature_mode": "sliding"
+                }
+                if hasattr(self, "pre_window_size") and self.pre_window_size is not None:
+                    params["pre_window_size"] = self.pre_window_size
+                if hasattr(self, "post_window_size") and self.post_window_size is not None:
+                    params["post_window_size"] = self.post_window_size
+
+                self.comet_feature_extractor = FeatureExtractor(**params)
+
+                if 'GEV' in self.feature_list:
+                    eeg_path = os.path.join(self.preprocessed_data_path, f"{segmentation_name}{self.extension}")
+                    eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+                    eeg_data = self.comet_data_io.get_eeg_data(eeg=eeg, datatype=self.datatype)
+                    output_features = self.comet_feature_extractor.extract_microstate_features(
+                        filename=segmentation_name,
+                        feature_list=self.feature_list,
+                        eeg_data=eeg_data,
+                        microstate_maps=self.best_maps,
+                        microstate_labels=self.micro_labels
+                    )
+                else:
+                    output_features = self.comet_feature_extractor.extract_microstate_features(
+                        filename=segmentation_name, feature_list=self.feature_list
+                    )
+
+                # Update shared storage instead of instance variables
+                if segmentation_idx == 0:
+                    COMET._shared_feature_results['sliding'][feature_type] = output_features
+                else:
+                    COMET._shared_feature_results['sliding'][feature_type] = pd.concat(
+                        [COMET._shared_feature_results['sliding'][feature_type], output_features],
+                        ignore_index=True
+                    )
+
+        # Log the feature extraction progress
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Features Extracted [{segmentation_idx + 1}/{len(self.segmentation_list_path)}]\n"
+                f"✓ Data: {segmentation_name}"
+            )
+
+    def collect_feature_extraction_results(self, message=None):
+        """
+        Collect feature extraction results from shared storage and export them
+        This is called when the worker thread finishes
+        """
+        # Transfer results from shared storage to instance variables
+        self.averaged_features_dfs = COMET._shared_feature_results.get('averaged', {})
+        self.sliding_features_dfs = COMET._shared_feature_results.get('sliding', {})
+
+        # Export extracted features
+        for feature_type in self.feature_types:
+            if 'averaged' in self.feature_mode and self.averaged_features_dfs.get(feature_type) is not None:
                 self.comet_feature_io.export_features(
-                    features_df=averaged_features_dfs,
+                    features_df=self.averaged_features_dfs[feature_type],
                     feature_type=feature_type,
                     feature_mode='averaged',
                     output_folder=self.extracted_features_path,
@@ -1483,9 +1372,9 @@ class COMET:
                 )
                 print(f"Exported averaged features for feature type: {feature_type}")
 
-            if 'sliding' in self.feature_mode and not sliding_features_dfs.empty:
+            if 'sliding' in self.feature_mode and self.sliding_features_dfs.get(feature_type) is not None:
                 self.comet_feature_io.export_features(
-                    features_df=sliding_features_dfs,
+                    features_df=self.sliding_features_dfs[feature_type],
                     feature_type=feature_type,
                     feature_mode='sliding',
                     output_folder=self.extracted_features_path,
@@ -1504,7 +1393,19 @@ class COMET:
         # Save parameters
         if self.auto_save:
             self.save_config()
-            self.save_params()
+
+        # Clear the shared storage to free memory
+        COMET._shared_feature_results = {}
+
+    def get_segmentation(self, subject_name):
+        """
+        Load a segmentation file on demand
+        """
+        seg_path = os.path.join(self.segmentation_path, f"{subject_name}{self.export_format}")
+        return self.comet_segmentation_io.load_segmentation(
+            segmentation_path=seg_path,
+            import_format=self.export_format
+        )
 
     def source_localize_microstates(self):
         """
@@ -1558,7 +1459,6 @@ class COMET:
         # Save parameters
         if self.auto_save:
             self.save_config()
-            self.save_params()
 
     def source_microstate_correlation(self, method='tess'):
         """
@@ -1589,27 +1489,26 @@ class COMET:
         # Save parameters
         if self.auto_save:
             self.save_config()
-            self.save_params()
 
     def save_config(self):
         """
-        Update and save the current configuration settings to save_dir
+        Update and save the current configuration settings and program state to save_dir
         """
         # Update the config dictionary with current attributes
         self.config["io_config"]["study_name"] = self.study_name
         self.config["io_config"]["input_folder"] = self.input_folder
-        self.config["io_config"]["channel_location_dir"] = self.channel_location_dir
+        self.config["io_config"]["montage"] = self.montage
         self.config["io_config"]["extension"] = self.extension
         self.config["io_config"]["pattern_content"] = self.pattern_content
         self.config["io_config"]["datatype"] = self.datatype
         self.config["io_config"]["output_folder"] = self.output_folder
 
-        self.config["preprocessing_config"]["filter_data"] = str(self.filter_data)
+        self.config["preprocessing_config"]["temporal_filter_data"] = str(self.temporal_filter_data)
         self.config["preprocessing_config"]["filter_method"] = self.filter_method
         self.config["preprocessing_config"]["lowcut_freq"] = str(self.lowcut_freq)
         self.config["preprocessing_config"]["highcut_freq"] = str(self.highcut_freq)
         self.config["preprocessing_config"]["downsample_data"] = str(self.downsample_data)
-        self.config["preprocessing_config"]["spatial_smooth_data"] = str(self.spatial_smooth_data)
+        self.config["preprocessing_config"]["spatial_filter_data"] = str(self.spatial_filter_data)
         self.config["preprocessing_config"]["auto_clean_data"] = str(self.auto_clean_data)
         self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
@@ -1629,7 +1528,7 @@ class COMET:
         self.config["clustering_config"]["clustering_method"] = self.clustering_method
         self.config["clustering_config"]["max_iterations"] = str(self.max_iterations)
         self.config["clustering_config"]["clustering_tolerance"] = str(self.clustering_tolerance)
-        self.config["clustering_config"]["clustering_option"] = self.clustering_option
+        self.config["clustering_config"]["similarity_metric"] = self.similarity_metric
         self.config["clustering_config"]["number_of_repeats"] = str(self.number_of_repeats)
 
         self.config["backfitting_config"]["backfit_to"] = self.backfit_to
@@ -1655,6 +1554,19 @@ class COMET:
         self.config["source_config"]["source_localization_method"] = self.source_localization_method
         self.config["source_config"]["anatomy_subjects_dir"] = self.anatomy_subjects_dir
 
+        # Add a new section for state flags
+        if "state_flags" not in self.config:
+            self.config.add_section("state_flags")
+
+        # Save the program state
+        self.config["state_flags"]["done_preprocessing"] = str(self.done_preprocessing)
+        self.config["state_flags"]["done_clustering"] = str(self.done_clustering)
+        self.config["state_flags"]["done_labeling_microstates"] = str(self.done_labeling_microstates)
+        self.config["state_flags"]["done_backfitting"] = str(self.done_backfitting)
+        self.config["state_flags"]["done_extracting_features"] = str(self.done_extracting_features)
+        self.config["state_flags"]["done_source_localization"] = str(self.done_source_localization)
+        self.config["state_flags"]["done_source_microstate_correlation"] = str(self.done_source_microstate_correlation)
+
         # Ensure directory exists
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
 
@@ -1664,92 +1576,6 @@ class COMET:
                 self.config.write(configfile)
         except Exception as e:
             print(f"Error saving configuration: {e}")
-            print("Check directory permissions.")
-
-    def save_params(self):
-        """
-        Save critical parameters to a pickle file in save_dir.
-        """
-        # Create a dictionary of critical parameters
-        critical_params = {
-            # File paths
-            'save_dir': self.save_dir,
-            'params_path': self.params_path,
-            'config_path': self.config_path,
-            'preprocessed_data_path': self.preprocessed_data_path,
-            'eeg_info_path': self.eeg_info_path,
-            'microstate_maps_path': self.microstate_maps_path,
-            'extracted_features_path': self.extracted_features_path,
-            'segmentation_path': self.segmentation_path,
-            'localized_sources_path': self.localized_sources_path,
-            'tess_path': self.tess_path,
-            'avg_sources_path': self.avg_sources_path,
-
-            # Configuration parameters
-            'study_name': self.study_name,
-            'input_folder': self.input_folder,
-            'output_folder': self.output_folder,
-            'extension': self.extension,
-            'datatype': self.datatype,
-            'channel_location_dir': self.channel_location_dir,
-
-            # Processing parameters
-            'filter_data': self.filter_data,
-            'filter_method': self.filter_method,
-            'lowcut_freq': self.lowcut_freq,
-            'highcut_freq': self.highcut_freq,
-            'downsample_data': self.downsample_data,
-            'sample_rate': self.sample_rate,
-            'spatial_smooth_data': self.spatial_smooth_data,
-            'clustering_method': self.clustering_method,
-            'number_of_maps': self.number_of_maps,
-            'initializer': self.initializer,
-            'backfit_to': self.backfit_to,
-            'filter_segments_option': self.filter_segments_option,
-            'filter_segments_less_than_ms': self.filter_segments_less_than_ms if hasattr(self,
-                                                                                         'filter_segments_less_than_ms') else None,
-            'export_format': self.export_format,
-            'feature_list': self.feature_list,
-            'feature_mode': self.feature_mode,
-            'feature_types': self.feature_types,
-            'use_anatomy': self.use_anatomy,
-            'inverse_method': self.inverse_method,
-            'spacing': self.spacing,
-
-            # Computational parameters
-            'clustering_tolerance': self.clustering_tolerance,
-            'max_iterations': self.max_iterations,
-            'number_of_repeats': self.number_of_repeats,
-            'epsilon': self.epsilon,
-            'b': self.b,
-            'lamb': self.lamb,
-            'nperm': self.nperm,
-
-            # State flags
-            'done_preprocessing': self.done_preprocessing,
-            'done_clustering': self.done_clustering,
-            'done_labeling_microstates': self.done_labeling_microstates,
-            'done_backfitting': self.done_backfitting,
-            'done_extracting_features': self.done_extracting_features,
-            'done_source_localization': self.done_source_localization,
-            'done_source_microstate_correlation': self.done_source_microstate_correlation,
-
-            # Critical computed values (these are small)
-            'best_gev': self.best_gev if hasattr(self, 'best_gev') else None,
-            'best_confidence': self.best_confidence if hasattr(self, 'best_confidence') else None,
-            'labels_overall_confidence': self.labels_overall_confidence if hasattr(self,
-                                                                                   'labels_overall_confidence') else None,
-        }
-
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(self.params_path), exist_ok=True)
-
-        try:
-            # Save parameters to save_dir
-            with open(self.params_path, 'wb') as output:
-                pickle.dump(critical_params, output, pickle.HIGHEST_PROTOCOL)
-        except Exception as e:
-            print(f"Error saving parameters: {e}")
             print("Check directory permissions.")
 
     def cleanup_intermediate_files(self, keep_preprocessed=True, keep_important=True):

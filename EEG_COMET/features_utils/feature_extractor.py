@@ -9,14 +9,14 @@ class FeatureExtractor:
     """
     The FeatureExtractor class provides methods for extracting microstate features from EEG data.
     """
-    def __init__(self, input_sequence, sampling_rate, sliding_window_size, feature_mode='averaged'):
+    def __init__(self, input_sequence, sampling_rate, sliding_window_size=1, feature_mode='averaged'):
         """
         Initialize the FeatureExtractor class.
 
         Args:
             input_sequence (list): The input sequence of EEG data.
             sampling_rate (int): The sampling rate of the EEG data.
-            sliding_window_size (int): The sliding window size in seconds.
+            sliding_window_size (int): The sliding window size in seconds. Defaults to 1 second.
             feature_mode (str, optional): The feature extraction mode ('averaged' or 'sliding'). Defaults to 'averaged'.
         """
 

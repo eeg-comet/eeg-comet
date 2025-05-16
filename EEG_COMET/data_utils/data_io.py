@@ -1,5 +1,4 @@
 import os.path
-import pickle
 import collections
 from fnmatch import fnmatch
 import numpy as np
@@ -20,38 +19,6 @@ class DataIO:
     def __init__(self):
         """Initialize the DataIO class."""
         pass
-
-    @staticmethod
-    def save_eeg_info(eeg_info_path, eeg_info):
-        """Save EEG information to a binary file using pickle.
-
-        Args:
-            eeg_info_path (str): Path where the EEG information will be saved
-            eeg_info (object): EEG information object to be serialized
-
-        Raises:
-            IOError: If the file cannot be written to the specified path
-        """
-        with open(eeg_info_path, 'wb') as f:
-            pickle.dump(eeg_info, f)
-
-    @staticmethod
-    def load_eeg_info(eeg_info_path):
-        """Load EEG information from a binary file using pickle.
-
-        Args:
-            eeg_info_path (str): Path to the pickle file containing EEG information
-
-        Returns:
-            object: Deserialized EEG information object
-
-        Raises:
-            FileNotFoundError: If the specified file does not exist
-            pickle.UnpicklingError: If the file is not a valid pickle file
-        """
-        with open(eeg_info_path, 'rb') as f:
-            eeg_info = pickle.load(f)
-        return eeg_info
 
     @staticmethod
     def find_data(input_folder, extension, pattern='*'):
@@ -184,14 +151,14 @@ class DataIO:
             ch_pos[label] = np.array([y, x, z])
         return ch_pos
 
-    def load_montage(self, channel_location_dir):
+    def load_montage(self, montage):
         """Load electrode positions from a file or built-in montage name.
 
         Supports multiple file formats (.mat, .ced, standard MNE formats) or
         built-in standard montages from MNE.
 
         Args:
-            channel_location_dir (str): Path to channel location file or name of
+            montage (str): Path to channel location file or name of
                 standard montage (e.g., 'standard_1020'). If empty, defaults to 'standard_1020'
 
         Returns:
@@ -201,64 +168,93 @@ class DataIO:
             FileNotFoundError: If the specified file does not exist
             ValueError: If the montage cannot be created from the provided input
         """
-        if not channel_location_dir:
-            channel_location_dir = "standard_1020"
+        if not montage:
+            montage = "standard_1020"
         try:
-            if os.path.isfile(channel_location_dir):
-                file_ext = os.path.splitext(channel_location_dir)[1].lower()
+            if os.path.isfile(montage):
+                file_ext = os.path.splitext(montage)[1].lower()
                 if file_ext == '.mat':
-                    ch_pos = self._read_mat_locations(channel_location_dir)
+                    ch_pos = self._read_mat_locations(montage)
                     montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
                 elif file_ext == '.ced':
-                    ch_pos = self._read_ced_locations(channel_location_dir)
+                    ch_pos = self._read_ced_locations(montage)
                     montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
                 else:
-                    montage = mne.channels.read_custom_montage(channel_location_dir)
-            elif channel_location_dir in mne.channels.get_builtin_montages():
-                montage = mne.channels.make_standard_montage(channel_location_dir)
+                    montage = mne.channels.read_custom_montage(montage)
+            elif montage in mne.channels.get_builtin_montages():
+                montage = mne.channels.make_standard_montage(montage)
             else:
-                raise ValueError(f'Unknown montage: {channel_location_dir}')
+                raise ValueError(f'Unknown montage: {montage}')
         except FileNotFoundError:
-            raise FileNotFoundError(f'File not found: {channel_location_dir}')
+            raise FileNotFoundError(f'File not found: {montage}')
         except ValueError as ve:
             raise ve
         except Exception as e:
             raise ValueError(f'An error occurred while loading the montage: {e}')
         if montage is None:
-            raise ValueError(f'Could not create a montage from the provided directory or name: {channel_location_dir}')
+            raise ValueError(f'Could not create a montage from the provided directory or name: {montage}')
         return montage
 
-    def check_chan2rm(self, list_eegs_path, datatype, channel_location_dir):
-        """Identify channels missing in any file across a dataset collection.
+    def check_chan2rm(self, list_eegs_path, datatype, montage):
+        """Identify consistent and missing channels across a dataset collection.
 
         Checks for channel consistency across multiple EEG files and identifies
-        channels that should be removed to ensure all datasets have the same channels.
+        channels that are consistent across all files and those missing in some files.
+        Channel names are compared case-insensitively (e.g., 'Fpz', 'FPz', and 'fpz' are treated as the same).
 
         Args:
             list_eegs_path (list of str): Paths to EEG files to check
             datatype (str): Type of EEG data ('raw' or 'epoched')
-            channel_location_dir (str): Path to channel locations or name of standard montage
+            montage (str): Path to channel locations or name of standard montage
 
         Returns:
-            list of str: Names of channels that are missing in at least one file
-
-        Notes:
-            This is useful for preprocessing multiple files to ensure channel consistency
-            before combining or comparing data across files.
+            tuple: (consistent_channels, missing_channels)
+                - consistent_channels (list of str): Names of channels present in all files
+                - missing_channels (list of str): Names of channels missing in at least one file
         """
-        channels = ['']
-        for i, filename in enumerate(list_eegs_path):
-            eeg = self.load_eeg(filename, datatype, channel_location_dir, preload=False)
-            if i == 0:
-                channels = eeg.info['ch_names']
-            else:
-                channels.extend(eeg.info['ch_names'])
-        counter = collections.Counter(channels)
-        total_files = len(list_eegs_path)
-        missing_channels = [chan for chan, count in counter.items() if count < total_files]
-        return missing_channels
+        import collections
 
-    def load_eeg(self, eeg_path, datatype, channel_location_dir='', chan2rm=None, preload=True, verbose='CRITICAL'):
+        # Dictionary to map canonical lowercase names to original name formats
+        channel_name_map = {}
+
+        # Store case-normalized channels from each file
+        all_file_channels = []
+
+        # Get channel names from each file and normalize cases
+        for filename in list_eegs_path:
+            eeg = self.load_eeg(filename, datatype, montage, preload=False)
+
+            # Create normalized version of channel names for this file
+            normalized_channels = []
+            for chan in eeg.info['ch_names']:
+                chan_lower = chan.lower()
+
+                # Store the first encountered version of each channel as canonical
+                if chan_lower not in channel_name_map:
+                    channel_name_map[chan_lower] = chan
+
+                normalized_channels.append(chan_lower)
+
+            all_file_channels.append(normalized_channels)
+
+        # Count occurrences of each normalized channel
+        counter = collections.Counter()
+        for channels in all_file_channels:
+            counter.update(channels)
+
+        total_files = len(list_eegs_path)
+
+        # Get normalized channel names with their counts
+        consistent_norm_channels = [chan for chan, count in counter.items() if count == total_files]
+        missing_norm_channels = [chan for chan, count in counter.items() if count < total_files]
+
+        # Convert back to original casing using the mapping
+        consistent_channels = [channel_name_map[chan] for chan in consistent_norm_channels]
+        missing_channels = [channel_name_map[chan] for chan in missing_norm_channels]
+
+        return consistent_channels, missing_channels
+
+    def load_eeg(self, eeg_path, datatype, montage='', chan2rm=None, preload=True, verbose='CRITICAL'):
         """Load EEG data from various file formats with optional preprocessing.
 
         Loads raw or epoched EEG data, applies channel locations, removes specified
@@ -267,7 +263,7 @@ class DataIO:
         Args:
             eeg_path (str): Path to the EEG data file
             datatype (str): Type of EEG data to load ('raw' or 'epoched')
-            channel_location_dir (str, optional): Path to channel locations or name
+            montage (str, optional): Path to channel locations or name
                 of standard montage. Defaults to '' (uses 'standard_1020')
             chan2rm (list of str, optional): List of channel names to remove.
                 Defaults to None
@@ -290,7 +286,7 @@ class DataIO:
             elif datatype == 'epoched':
                 eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=verbose)
                 # eeg = mne.io.read_epochs(eeg_path, verbose=False)
-            montage = self.load_montage(channel_location_dir)
+            montage = self.load_montage(montage)
             eeg.set_montage(montage, match_case=False, on_missing='warn')
             ch_names = eeg.info['ch_names']
             if chan2rm is None:
