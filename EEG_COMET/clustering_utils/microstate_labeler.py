@@ -56,7 +56,7 @@ class MicrostateLabeler:
         dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
 
         # Change model path to the ONNX model
-        model_path = './models/model_v1.22.onnx'
+        model_path = './models/model_v1.3.onnx'
 
         # Initialize ONNX Runtime session
         session = ort.InferenceSession(model_path)
