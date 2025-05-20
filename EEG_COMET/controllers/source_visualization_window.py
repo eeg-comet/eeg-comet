@@ -14,19 +14,19 @@ class SourceVisualizationWindow(QDialog):
         super(SourceVisualizationWindow, self).__init__(parent)
 
         self.list_subjects = None
-        self.comet_tbx = comet_tbx
+        self.comet = comet_tbx
 
-        if self.comet_tbx.use_anatomy != "fsaverage":
-            self.subjects_dir = self.comet_tbx.individual_subjects_dir
+        if self.comet.use_anatomy != "fsaverage":
+            self.subjects_dir = self.comet.individual_subjects_dir
         else:
             fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
             self.subjects_dir = os.path.dirname(fs_dir)
         print(self.subjects_dir)
 
         self.source_visualizer = SourceVisualizer(
-            self.comet_tbx.anatomy_subjects_dir,
-            self.comet_tbx.spacing,
-            self.comet_tbx.localized_sources_path
+            self.comet.anatomy_subjects_dir,
+            self.comet.spacing,
+            self.comet.localized_sources_path
         )
 
         # load the ui
@@ -34,22 +34,29 @@ class SourceVisualizationWindow(QDialog):
         self.ui = uic.loadUi(context.get_resource("SourceVisualizationWindow.ui"), self)
         self.ui.setWindowTitle("Visualization of the localized sources")
 
-        for m in self.comet_tbx.micro_labels:
+        for m in self.comet.micro_labels:
             self.ui.microstate_combobox.addItem(m)
 
         self.plotter = QtInteractor(self)
         self.Figure_Layout.addWidget(self.plotter)
 
         self.locate_subjects_dir()
-        self.ui.plot_sources_button.clicked.connect(self.show_sources)
-        self.ui.subjects_list.itemSelectionChanged.connect(self.handle_new_file_selection)
-        self.ui.subjects_list.itemClicked.connect(self.show_meshes)
-
+        self.setup_connections()
         self.resize(1000, 800)
+
+    def setup_connections(self):
+        self.ui.stc_time_slider.item.valueChanged.connect(self.source_localization_controller)
+        self.ui.show_stc_button.clicked.connect(self.show_sources)
+        self.ui.show_microstate_sources_button.clicked.connect(self.show_microstate_sources)
+        self.ui.subjects_list.itemSelectionChanged.connect(self.handle_new_file_selection)
+        # self.ui.subjects_list.itemClicked.connect(self.show_meshes)
+
+    def source_localization_controller(self):
+        self.ui.stc_time_input.setText(str(self.ui.stc_time_slider.value()))
 
     def locate_subjects_dir(self):
         self.ui.subjects_list.clear()
-        subjects_dir = os.path.join(self.comet_tbx.localized_sources_path, 'stc')
+        subjects_dir = os.path.join(self.comet.localized_sources_path, 'stc')
         self.list_subjects = [
             folder for folder in os.listdir(subjects_dir) if os.path.isdir(os.path.join(subjects_dir, folder))
         ]
@@ -61,11 +68,11 @@ class SourceVisualizationWindow(QDialog):
         self.ui.microstates_list_combobox.clear()
         selected_items = self.ui.subjects_list.selectedItems()
         self.selected_subjects = [item.text() for item in selected_items]
-        self.tess_dir = os.path.join(self.comet_tbx.localized_sources_path, 'tess_sources')
+        self.tess_dir = os.path.join(self.comet.localized_sources_path, 'tess_sources')
         list_tess_subjects = [
             folder for folder in self.selected_subjects if os.path.isdir(os.path.join(self.tess_dir, folder))
         ]
-        self.avg_dir = os.path.join(self.comet_tbx.localized_sources_path, 'avg_sources')
+        self.avg_dir = os.path.join(self.comet.localized_sources_path, 'avg_sources')
         list_avg_subjects = [
             folder for folder in self.selected_subjects if os.path.isdir(os.path.join(self.avg_dir, folder))
         ]
@@ -96,17 +103,10 @@ class SourceVisualizationWindow(QDialog):
         self.plotter.update()
 
     def show_sources(self):
-
-        if self.ui.microstates_list_combobox.currentText() == "TESS - Filtered Z-Scores":
-            source_mode = "tess_filtered"
-        elif self.ui.microstates_list_combobox.currentText() == "TESS - Raw Z-Scores":
-            source_mode = "tess_raw"
-        elif self.ui.microstates_list_combobox.currentText() == "AVG - Filtered Z-Scores":
-            source_mode = "avg_filtered"
-        elif self.ui.microstates_list_combobox.currentText() == "AVG - Raw Z-Scores":
-            source_mode = "avg_raw"
-
         initial_time = self.ui.microstate_combobox.currentIndex()
         selected_items = self.ui.subjects_list.selectedItems()
-        spacing = self.comet_tbx.spacing
+        spacing = self.comet.spacing
         self.source_visualizer.plot_sources(selected_items, source_mode, initial_time, spacing)
+
+    def show_microstate_sources(self):
+        return

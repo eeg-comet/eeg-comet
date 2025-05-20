@@ -3,6 +3,7 @@ import mne
 import os.path
 import numpy as np
 import pyvista as pv
+from matplotlib import pyplot as plt
 from data_utils.data_io import DataIO
 
 
@@ -85,6 +86,58 @@ class SourceVisualizer:
 
         return mystc, stc_avg
 
+    def plot_stc(self, subject, stc, time_point):
+        """
+        Plot source time course (STC) data on a brain surface at a specific time point.
+
+        Parameters
+        ----------
+        subject : str
+            Subject name
+        stc : instance of SourceEstimate
+            The source estimate to plot
+        time_point : float
+            Time point in seconds to display
+
+        Returns
+        -------
+        brain : instance of Brain
+            The brain visualization object
+
+        Notes
+        -----
+        This function avoids the overflow error by disabling the time_viewer
+        and manually selecting the closest time point to the requested time.
+        """
+
+        # Find the closest time point index
+        time_idx = np.abs(stc.times - time_point).argmin()
+        selected_time = stc.times[time_idx]
+
+        print(f"Displaying time point: {selected_time:.3f}s (requested: {time_point:.3f}s)")
+
+        # Handle potential data scaling issues that could cause overflow
+        data_max = np.max(np.abs(stc.data))
+        if data_max > 1e6:
+            print(f"Warning: Large data values detected (max: {data_max:.2e}). Consider scaling your data.")
+
+        # Safe color limits based on data percentiles
+        vmin, vmid, vmax = np.percentile(stc.data, [70, 85, 99])
+
+        brain = stc.plot(
+            subject=subject,
+            subjects_dir=self.subjects_dir,
+            hemi='both',
+            time_viewer=False,  # Disable time viewer to avoid slider issues
+            views='lateral',
+            initial_time=selected_time,  # Use the selected time point
+            background='white',
+            size=(800, 600),
+            smoothing_steps=10,
+            time_unit='ms',
+            clim=dict(kind='value', lims=[vmin, vmid, vmax])  # Set explicit color limits
+        )
+
     def plot_sources(self, selected_items, source_mode, initial_time, spacing):
         """
         Plot the source data.
@@ -109,6 +162,7 @@ class SourceVisualizer:
 
         print(initial_time)
         # """
+        # 3D
         brain = mystc.plot(subjects_dir=self.subjects_dir,
                            initial_time=initial_time,
                            views=['lateral', 'medial'],
@@ -125,6 +179,13 @@ class SourceVisualizer:
                            colorbar=True
                            )
         # """
+        # 2D
+        brain.add_text(0.1, 0.9, '', 'title', font_size=16)
+        img = brain.screenshot()
+        brain.close()
+        fig = plt.figure()
+        plt.imshow(img)
+        plt.axis("off")
 
         # brain.add_annotation("HCPMMP1_combined", borders=2)
         # brain.save_image(filename=os.path.join(parent_path, f'avg_filtered_zscore_M_{initial_time}.png'))

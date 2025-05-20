@@ -1,4 +1,3 @@
-
 import os.path
 import webbrowser
 from PyQt5 import uic, QtCore
@@ -6,14 +5,14 @@ from PyQt5.QtWidgets import QMainWindow, QFileDialog, QComboBox, QSpinBox, QSlid
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt
 
-from controllers.new_study_window import NewStudyWindow
-from controllers.compare_studies_window import CompareStudiesWindow
-from controllers.microstate_visualization_window import MicrostateVisualizationWindow
-from controllers.optimizer_visualization_window import OptimizerVisualizationWindow
-from controllers.backfitting_visualization_window import BackfittingVisualizationWindow
-from controllers.feature_visualization_window import FeatureVisualizationWindow
-from controllers.coregistration_window import CoregistrationWindow
-from controllers.source_visualization_window import SourceVisualizationWindow
+from .new_study_window import NewStudyWindow
+from .compare_studies_window import CompareStudiesWindow
+from .microstate_visualization_window import MicrostateVisualizationWindow
+from .optimizer_visualization_window import OptimizerVisualizationWindow
+from .backfitting_visualization_window import BackfittingVisualizationWindow
+from .feature_visualization_window import FeatureVisualizationWindow
+from .coregistration_window import CoregistrationWindow
+from .source_visualization_window import SourceVisualizationWindow
 from gui_utils.set_widgets_status import set_widgets_status
 from comet import COMET
 
@@ -23,9 +22,9 @@ class MainMicrostateWindow(QMainWindow):
         super(MainMicrostateWindow, self).__init__(parent)
 
         # Initialize key components
-        self.comet_tbx = COMET()
-        self.comet_tbx.initialize_log_window()
-        self.comet_tbx.LogWindow.show()
+        self.comet = COMET()
+        self.comet.initialize_log_window()
+        self.comet.LogWindow.show()
         self.context = context
         
         # Load the UI from the .ui file
@@ -69,7 +68,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.NewStudyWindow = NewStudyWindow(
             self.context,
             main_window=self,
-            comet_tbx=self.comet_tbx
+            comet_tbx=self.comet
         )
 
         self.ui.CompareStudiesWindow = CompareStudiesWindow(self.context)
@@ -78,7 +77,7 @@ class MainMicrostateWindow(QMainWindow):
         # self.ui.MicrostateVisualizationWindow = MicrostateVisualizationWindow(
         #     self.context,
         #     main_window=self,
-        #     tbx=self.comet_tbx
+        #     tbx=self.comet
         # )
         # Create and initialize OptimizerVisualizationWindow
         self.ui.OptimizerVisualizationWindow = OptimizerVisualizationWindow(
@@ -91,12 +90,12 @@ class MainMicrostateWindow(QMainWindow):
         # Create and initialize FeatureVisualizationWindow
         self.ui.FeatureVisualizationWindow = FeatureVisualizationWindow(
             self.context,
-            tbx=self.comet_tbx
+            tbx=self.comet
         )
         # Create and initialize CoregistrationWindow
         self.ui.CoregistrationWindow = CoregistrationWindow(
             self.context,
-            tbx=self.comet_tbx
+            tbx=self.comet
         )
 
     def reset_processing_flags(self, processing_flags, value=False):
@@ -104,7 +103,7 @@ class MainMicrostateWindow(QMainWindow):
         Set processing flags.
         """
         for flag in processing_flags:
-            setattr(self.comet_tbx, flag, value)
+            setattr(self.comet, flag, value)
 
     def init_flags(self):
         """
@@ -112,9 +111,9 @@ class MainMicrostateWindow(QMainWindow):
         """
         # Reset all processing flags to False
         processing_flags = [
-            'done_preprocessing', 'done_clustering', 'done_labeling_microstates',
+            'done_preprocessing', 'done_clustering', 'done_microstate_labeling',
             'done_backfitting', 'done_extracting_features', 'done_source_localization',
-            'done_source_microstate_correlation'
+            'done_identifying_microstate_sources'
         ]
         self.reset_processing_flags(processing_flags)
         self.ui.foldername_raw_data = ""
@@ -172,7 +171,7 @@ class MainMicrostateWindow(QMainWindow):
                 item.clicked.connect(self.mainwindow_controller)
         # Button connections for performing specific tasks
         click_actions = [
-            (self.ui.step0_show_hide_log_window_button, self.comet_tbx.LogWindow.show_hide_log_window),
+            (self.ui.step0_show_hide_log_window_button, self.comet.LogWindow.show_hide_log_window),
             (self.ui.step0_load_study_button, self.load_study),
             (self.ui.step0_new_study_button, self.open_new_study_dialog),
             (self.ui.step0_compare_studies_button, self.open_compare_studies_window),
@@ -196,7 +195,7 @@ class MainMicrostateWindow(QMainWindow):
             (self.ui.step0_new_study_action, self.open_new_study_dialog),
             (self.ui.step0_load_study_action, self.load_study),
             (self.ui.step0_compare_studies_action, self.open_compare_studies_window),
-            (self.ui.step0_reopen_log_window, self.comet_tbx.LogWindow.show_hide_log_window)
+            (self.ui.step0_reopen_log_window, self.comet.LogWindow.show_hide_log_window)
         ]
         for button, action in click_actions:
             button.clicked.connect(action)
@@ -208,9 +207,9 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step0_study_name_mainwin_lineedit.clear()
         # Reset all processing flags to False
         processing_flags = [
-            'done_preprocessing', 'done_clustering', 'done_labeling_microstates',
+            'done_preprocessing', 'done_clustering', 'done_microstate_labeling',
             'done_backfitting', 'done_extracting_features', 'done_source_localization',
-            'done_source_microstate_correlation'
+            'done_identifying_microstate_sources'
         ]
         self.reset_processing_flags(processing_flags)
         # Set NewStudyWindow modality and show maximized
@@ -235,24 +234,24 @@ class MainMicrostateWindow(QMainWindow):
         else:
             try:
                 # Load the COMET parameters
-                self.comet_tbx.config = self.comet_tbx.load_config(config_path)
-                self.comet_tbx.load_config_values()  # Process config and update instance variables
-                self.comet_tbx.reset_directories()  # Update directory paths based on new config
-                self.comet_tbx.load_eeg_info()
-                self.comet_tbx.load_maps()
-                self.comet_tbx.load_clean()
+                self.comet.config = self.comet.load_config(config_path)
+                self.comet.load_config_values()  # Process config and update instance variables
+                self.comet.reset_directories()  # Update directory paths based on new config
+                self.comet.load_eeg_info()
+                self.comet.load_maps()
+                self.comet.load_clean()
 
                 # Initialize the log window if needed
-                if not hasattr(self.comet_tbx, 'LogWindow') or self.comet_tbx.LogWindow is None:
-                    self.comet_tbx.initialize_log_window()
+                if not hasattr(self.comet, 'LogWindow') or self.comet.LogWindow is None:
+                    self.comet.initialize_log_window()
 
-                self.comet_tbx.LogWindow.show()
+                self.comet.LogWindow.show()
 
                 # Update the log window with loaded study information
-                if hasattr(self.comet_tbx, 'log_text') and self.comet_tbx.log_text:
-                    self.comet_tbx.LogWindow.replace_log(self.comet_tbx.log_text)
+                if hasattr(self.comet, 'log_text') and self.comet.log_text:
+                    self.comet.LogWindow.replace_log(self.comet.log_text)
 
-                self.comet_tbx.LogWindow.append_log(f"Study Loaded - ✓ Study Name: {self.comet_tbx.study_name}")
+                self.comet.LogWindow.append_log(f"Study Loaded - ✓ Study Name: {self.comet.study_name}")
                 return True
             except Exception as e:
                 QMessageBox.information(self, "Load error",
@@ -264,25 +263,25 @@ class MainMicrostateWindow(QMainWindow):
         if from_new_study:
             # No need to manually set paths - COMET already manages them
             # Just ensure paths are properly set up
-            if hasattr(self.comet_tbx, 'reset_directories'):
-                self.comet_tbx.reset_directories()
+            if hasattr(self.comet, 'reset_directories'):
+                self.comet.reset_directories()
 
             # Initialize log window if needed
-            if not hasattr(self.comet_tbx, 'LogWindow') or self.comet_tbx.LogWindow is None:
-                self.comet_tbx.initialize_log_window()
+            if not hasattr(self.comet, 'LogWindow') or self.comet.LogWindow is None:
+                self.comet.initialize_log_window()
 
-            self.comet_tbx.LogWindow.show()
-            self.comet_tbx.LogWindow.append_log(f"Study Created - ✓ Study Name: {self.comet_tbx.study_name}")
+            self.comet.LogWindow.show()
+            self.comet.LogWindow.append_log(f"Study Created - ✓ Study Name: {self.comet.study_name}")
         else:
-            if self.comet_tbx.done_preprocessing:
-                ret = QMessageBox.question(self, 'MessageBox', f"The {self.comet_tbx.study_name} is already loaded,"
+            if self.comet.done_preprocessing:
+                ret = QMessageBox.question(self, 'MessageBox', f"The {self.comet.study_name} is already loaded,"
                                                                " do you want to load another study?",
                                            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
                 if ret == QMessageBox.Yes:
                     if self.load_study_helper():
                         # Ensure directories are properly set after loading
-                        if hasattr(self.comet_tbx, 'reset_directories'):
-                            self.comet_tbx.reset_directories()
+                        if hasattr(self.comet, 'reset_directories'):
+                            self.comet.reset_directories()
             else:
                 self.load_study_helper()
 
@@ -547,7 +546,7 @@ class MainMicrostateWindow(QMainWindow):
         font_steps = QFont()
         font_steps.setPointSize(16)
 
-        if not self.comet_tbx.done_preprocessing:
+        if not self.comet.done_preprocessing:
             # NOT done_preprocessing
             self.ui.main_tab.setTabEnabled(0, False)  # Clustering tab
             self.ui.main_tab.setTabEnabled(1, False)  # Backfitting tab
@@ -565,11 +564,11 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.main_tab.setTabEnabled(0, True)  # Clustering tab
             set_widgets_status(after_preprocessing_widgets, mode='enable')
 
-            self.ui.step0_study_name_mainwin_lineedit.setText(self.comet_tbx.study_name)
+            self.ui.step0_study_name_mainwin_lineedit.setText(self.comet.study_name)
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
-            self.comet_tbx.clustering_method = self.step2_clustermethod_combobox.currentText()
+            self.comet.clustering_method = self.step2_clustermethod_combobox.currentText()
 
-            if not self.comet_tbx.clustering_method == 'Modified K-Means Clustering (Pascual-Marqui et al. 1995)':
+            if not self.comet.clustering_method == 'Modified K-Means Clustering (Pascual-Marqui et al. 1995)':
                 set_widgets_status(similarity_widgets, mode='enable')
                 set_widgets_status(similarity_widgets, mode='show')
             else:
@@ -606,10 +605,10 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(batch_widgets, mode='enable')
                 if not self.ui.step2_batch_input.text():
                     self.ui.step2_batch_input.setText("1000")
-                self.comet_tbx.batch_size = int(self.ui.step2_batch_input.text())
+                self.comet.batch_size = int(self.ui.step2_batch_input.text())
             else:
                 set_widgets_status(batch_widgets, mode='disable')
-                self.comet_tbx.batch_size = None
+                self.comet.batch_size = None
 
             if self.ui.step2_use_peaks_radio.isChecked():
                 set_widgets_status(peaks2use_widgets, mode='enable')
@@ -619,19 +618,19 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(peaks2use_widgets, mode='disable')
                 self.ui.step2_percent_input.setText(str(self.ui.step2_percent_slider.value()))
 
-            if not self.comet_tbx.done_clustering:
+            if not self.comet.done_clustering:
                 self.ui.main_tab.setTabEnabled(1, False)  # Backfitting tab
                 self.ui.main_tab.setTabEnabled(2, False)  # Feature tab
                 self.ui.main_tab.setTabEnabled(3, False)  # Source tab
 
                 # Reset next steps processing flags to False
                 processing_flags = [
-                    'done_labeling_microstates', 'done_backfitting', 'done_extracting_features',
-                    'done_source_localization', 'done_source_microstate_correlation'
+                    'done_microstate_labeling', 'done_backfitting', 'done_extracting_features',
+                    'done_source_localization', 'done_identifying_microstate_sources'
                 ]
                 self.reset_processing_flags(processing_flags)
                 self.ui.step2_clustering_button.setStyleSheet("background-color: none")
-                self.comet_tbx.best_maps, self.comet_tbx.micro_labels = None, []
+                self.comet.best_maps, self.comet.micro_labels = None, []
                 # set ALL disabled
                 set_widgets_status(self.ui.step3_label_maps_button, mode='disable')
                 set_widgets_status(after_clustering_widgets, mode='disable')
@@ -640,17 +639,17 @@ class MainMicrostateWindow(QMainWindow):
                 # done_preprocessing & done_clustering
                 set_widgets_status(self.ui.step3_label_maps_button, mode='enable')
 
-                if not self.comet_tbx.done_labeling_microstates:
+                if not self.comet.done_microstate_labeling:
                     self.ui.step3_label_maps_button.setStyleSheet("background-color: none")
                     # Reset next steps processing flags to False
                     processing_flags = [
                         'done_backfitting', 'done_extracting_features',
-                        'done_source_localization', 'done_source_microstate_correlation'
+                        'done_source_localization', 'done_identifying_microstate_sources'
                     ]
                     self.reset_processing_flags(processing_flags)
 
                 else:
-                    # done_preprocessing & done_clustering & done_labeling_microstates
+                    # done_preprocessing & done_clustering & done_microstate_labeling
                     self.ui.step3_label_maps_button.setStyleSheet("background-color: lightgreen")
                     self.ui.main_tab.setTabEnabled(1, True)  # Backfitting tab
                     set_widgets_status(after_clustering_widgets, mode='enable')
@@ -659,7 +658,7 @@ class MainMicrostateWindow(QMainWindow):
                     opening_parenthesis = outputformat.find("(")
                     closing_parenthesis = outputformat.find(")")
                     if opening_parenthesis != -1 and closing_parenthesis != -1:
-                        self.comet_tbx.export_format = outputformat[opening_parenthesis + 1: closing_parenthesis]
+                        self.comet.export_format = outputformat[opening_parenthesis + 1: closing_parenthesis]
 
                     if self.ui.step3_filter_segments_checkbox.isChecked():
                         set_widgets_status(filter_segments_widgets, mode='enable')
@@ -679,7 +678,7 @@ class MainMicrostateWindow(QMainWindow):
                         set_widgets_status(filter_segments_widgets, mode='disable')
                         set_widgets_status(smooth_segments_widgets, mode='disable')
 
-            if not self.comet_tbx.done_backfitting:
+            if not self.comet.done_backfitting:
                 self.ui.main_tab.setTabEnabled(2, False)  # Feature tab
                 self.ui.main_tab.setTabEnabled(3, False)  # Source tab
                 set_widgets_status((feature_extraction_widgets +
@@ -689,7 +688,7 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step3_backfit_visualization_button.setDisabled(True)
 
             else:
-                # done_preprocessing & done_clustering & done_labeling_microstates & done_backfitting
+                # done_preprocessing & done_clustering & done_microstate_labeling & done_backfitting
                 self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
                 self.ui.main_tab.setTabEnabled(2, True)  # Feature tab
                 self.ui.main_tab.setTabEnabled(3, True)  # Source tab
@@ -697,7 +696,7 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(feature_extraction_widgets, mode='enable')
                 set_widgets_status(source_localization_widgets, mode='enable')
 
-                if self.comet_tbx.datatype == 'epoched':
+                if self.comet.datatype == 'epoched':
                     self.ui.step4_sliding_features_checkbox.setText(
                         "Extract Features Before and After TMS per Subject")
                     set_widgets_status(feature_extraction_epoched_widgets, mode='enable')
@@ -727,7 +726,7 @@ class MainMicrostateWindow(QMainWindow):
                     not any(checkbox.isChecked() for checkbox in feature_checkboxes1) or
                     not any(checkbox.isChecked() for checkbox in feature_checkboxes2))
 
-                if self.comet_tbx.done_extracting_features:
+                if self.comet.done_extracting_features:
                     self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
                     self.ui.step4_visualizefeatures_button.setEnabled(True)
                 else:
@@ -735,22 +734,22 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_visualizefeatures_button.setDisabled(True)
 
                 if self.step5_use_individual_radio.isChecked():
-                    self.comet_tbx.use_anatomy = "individual"
+                    self.comet.use_anatomy = "individual"
                 else:
-                    self.comet_tbx.use_anatomy = "fsaverage"
+                    self.comet.use_anatomy = "fsaverage"
                 if not self.ui.step5_use_tess_radio.isChecked():
                     set_widgets_status(tess_widgets, mode='disable')
                 else:
                     set_widgets_status(tess_widgets, mode='enable')
 
-                if not self.comet_tbx.done_source_localization:
+                if not self.comet.done_source_localization:
                     self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
                     set_widgets_status((source_microstates_widgets + tess_widgets), mode='disable')
                 else:
                     self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
                     set_widgets_status((source_microstates_widgets + tess_widgets), mode='enable')
 
-                    if self.comet_tbx.done_source_microstate_correlation:
+                    if self.comet.done_identifying_microstate_sources:
                         self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet(
                             "background-color: lightgreen")
                         self.ui.step5_visualize_sources_button.setEnabled(True)
@@ -765,37 +764,37 @@ class MainMicrostateWindow(QMainWindow):
         based on clustering results and user-specified parameters.
         """
         # Check if clustering is done and the number of maps is chosen automatically
-        if self.comet_tbx.done_clustering and self.comet_tbx.choose_number_of_maps == "auto":
+        if self.comet.done_clustering and self.comet.choose_number_of_maps == "auto":
             # Set attributes in OptimizerVisualizationWindow to indicate optimization is done
-            setattr(self.OptimizerVisualizationWindow, f'optimizer_{self.comet_tbx.stopping_mode}_done', True)
+            setattr(self.OptimizerVisualizationWindow, f'optimizer_{self.comet.stopping_mode}_done', True)
             # Initialize optimizer_results dictionary if not already done
             self.OptimizerVisualizationWindow.optimizer_results = {}
             # Store clustering results in optimizer_results dictionary
-            self.OptimizerVisualizationWindow.optimizer_results[self.comet_tbx.stopping_mode] = {
-                'optimal_k': self.comet_tbx.optimal_k,
-                'k_values': self.comet_tbx.k_values,
-                'target_values': self.comet_tbx.target_values
+            self.OptimizerVisualizationWindow.optimizer_results[self.comet.stopping_mode] = {
+                'optimal_k': self.comet.optimal_k,
+                'k_values': self.comet.k_values,
+                'target_values': self.comet.target_values
             }
         else:
             # Initialize optimizer_results dictionary if clustering is not done
             self.OptimizerVisualizationWindow.optimizer_results = {}
         # Set attributes in OptimizerVisualizationWindow related to data and visualization
-        self.OptimizerVisualizationWindow.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
-        self.OptimizerVisualizationWindow.extension = self.comet_tbx.extension
-        self.OptimizerVisualizationWindow.datatype = self.comet_tbx.datatype
+        self.OptimizerVisualizationWindow.preprocessed_data_path = self.comet.preprocessed_data_path
+        self.OptimizerVisualizationWindow.extension = self.comet.extension
+        self.OptimizerVisualizationWindow.datatype = self.comet.datatype
         # Check if using percentages and set the value accordingly
         # if self.ui.step2_use_percent_radio.isChecked():
-        #     self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
+        #     self.comet.use_percentages = self.ui.step2_percent_combobox.currentText()
         # else:
-        #     self.comet_tbx.use_percentages = None
+        #     self.comet.use_percentages = None
         # Set attributes in OptimizerVisualizationWindow
-        self.OptimizerVisualizationWindow.use_percentages = self.comet_tbx.use_percentages
+        self.OptimizerVisualizationWindow.use_percentages = self.comet.use_percentages
         self.OptimizerVisualizationWindow.min_distance_size = int(int(self.ui.step2_kernel_size_input.text()) /
-                                                                  (1000/self.comet_tbx.sample_rate))
+                                                                  (1000/self.comet.sample_rate))
         self.OptimizerVisualizationWindow.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
         self.OptimizerVisualizationWindow.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
-        self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
-        self.OptimizerVisualizationWindow.max_iterations = self.comet_tbx.max_iterations
+        self.comet.max_iterations = int(self.ui.step2_maxiter_input.text())
+        self.OptimizerVisualizationWindow.max_iterations = self.comet.max_iterations
         # Set modality and show the OptimizerVisualizationWindow
         self.OptimizerVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
         self.OptimizerVisualizationWindow.showMaximized()
@@ -805,7 +804,7 @@ class MainMicrostateWindow(QMainWindow):
         Initiates the clustering process based on user-specified parameters and performs clustering on EEG data.
         """
         # Check if the analysis is already done.
-        if self.comet_tbx.done_clustering:
+        if self.comet.done_clustering:
             ret = QMessageBox.question(self, 'MessageBox', "Data has been clustered once,"
                                                            " do you want to redo the analysis?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -814,9 +813,9 @@ class MainMicrostateWindow(QMainWindow):
                 self.do_clustering_from_scratch = True
                 # Reset all processing flags to False
                 processing_flags = [
-                    'done_clustering', 'done_labeling_microstates',
+                    'done_clustering', 'done_microstate_labeling',
                     'done_backfitting', 'done_extracting_features', 'done_source_localization',
-                    'done_source_microstate_correlation'
+                    'done_identifying_microstate_sources'
                 ]
                 self.reset_processing_flags(processing_flags)
         else:
@@ -825,58 +824,58 @@ class MainMicrostateWindow(QMainWindow):
         if self.do_clustering_from_scratch:
             # Process user-specified clustering parameters
             if self.ui.step2_kernel_size_input.text():
-                self.comet_tbx.smoothing_gfp = True
-                self.comet_tbx.smoothing_distance = int(self.ui.step2_kernel_size_input.text())
+                self.comet.smoothing_gfp = True
+                self.comet.smoothing_distance = int(self.ui.step2_kernel_size_input.text())
             else:
-                self.comet_tbx.smoothing_gfp = False
-                self.comet_tbx.smoothing_distance = ''
+                self.comet.smoothing_gfp = False
+                self.comet.smoothing_distance = ''
                 # self.min_distance_size = []
             if self.ui.step2_auto_k_radio.isChecked():
-                self.comet_tbx.choose_number_of_maps = "auto"
-                self.comet_tbx.kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
-                self.comet_tbx.kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
+                self.comet.choose_number_of_maps = "auto"
+                self.comet.kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
+                self.comet.kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
                 auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
                 if auto_k_method == 'Gap Statistic':
-                    self.comet_tbx.stopping_mode = 'gs'
+                    self.comet.stopping_mode = 'gs'
                 elif auto_k_method == 'Cross Validation':
-                    self.comet_tbx.stopping_mode = 'cv'
+                    self.comet.stopping_mode = 'cv'
                 elif auto_k_method == 'Elbow - Global Explained Variance':
-                    self.comet_tbx.stopping_mode = 'gev'
+                    self.comet.stopping_mode = 'gev'
                 elif auto_k_method == 'Elbow - Residual Variance':
-                    self.comet_tbx.stopping_mode = 'res'
+                    self.comet.stopping_mode = 'res'
                 elif auto_k_method == 'Silhouette Method':
-                    self.comet_tbx.stopping_mode = 'sil'
+                    self.comet.stopping_mode = 'sil'
                 elif auto_k_method == 'Calinski-Harabasz Method':
-                    self.comet_tbx.stopping_mode = 'ch'
+                    self.comet.stopping_mode = 'ch'
                 elif auto_k_method == 'Davies-Bouldin Method':
-                    self.comet_tbx.stopping_mode = 'db'
-                self.comet_tbx.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
-                self.comet_tbx.number_of_maps = 'auto'
+                    self.comet.stopping_mode = 'db'
+                self.comet.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
+                self.comet.number_of_maps = 'auto'
             elif self.ui.step2_user_k_radio.isChecked():
-                self.comet_tbx.choose_number_of_maps = "user"
-                self.comet_tbx.stopping_mode = ''
-                self.comet_tbx.stopping_parameter = ''
-                self.comet_tbx.kmin = ''
-                self.comet_tbx.kmax = ''
-                self.comet_tbx.number_of_maps = int(self.ui.step2_user_k_input.text())
+                self.comet.choose_number_of_maps = "user"
+                self.comet.stopping_mode = ''
+                self.comet.stopping_parameter = ''
+                self.comet.kmin = ''
+                self.comet.kmax = ''
+                self.comet.number_of_maps = int(self.ui.step2_user_k_input.text())
             if self.ui.step2_random_initializer_radio.isChecked():
-                self.comet_tbx.initializer = "Random"
+                self.comet.initializer = "Random"
             elif self.ui.step2_kmeans_initializer_radio.isChecked():
-                self.comet_tbx.initializer = "K-Means++"
-            self.comet_tbx.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
+                self.comet.initializer = "K-Means++"
+            self.comet.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
             # if self.ui.step2_use_percent_radio.isChecked():
-            #     self.comet_tbx.use_percentages = self.ui.step2_percent_combobox.currentText()
+            #     self.comet.use_percentages = self.ui.step2_percent_combobox.currentText()
             # else:
-            #     self.comet_tbx.use_percentages = None
-            self.comet_tbx.max_iterations = int(self.ui.step2_maxiter_input.text())
-            self.comet_tbx.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-            self.comet_tbx.similarity_metric = self.ui.step2_similarity_combobox.currentText()
-            self.comet_tbx.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
-            self.comet_tbx.microstate_maps_path = os.path.join(self.comet_tbx.save_dir, 'microstate_maps.csv')
+            #     self.comet.use_percentages = None
+            self.comet.max_iterations = int(self.ui.step2_maxiter_input.text())
+            self.comet.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+            self.comet.similarity_metric = self.ui.step2_similarity_combobox.currentText()
+            self.comet.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+            self.comet.microstate_maps_path = os.path.join(self.comet.save_dir, 'microstate_maps.csv')
 
             # Perform clustering
-            self.comet_tbx.do_clustering()
-            self.comet_tbx.done_clustering = True
+            self.comet.run_clustering()
+            self.comet.done_clustering = True
             self.mainwindow_controller()
 
     def do_backfitting(self):
@@ -884,7 +883,7 @@ class MainMicrostateWindow(QMainWindow):
         Perform microstate backfitting.
         """
         # Check if backfitting has already been done
-        if self.comet_tbx.done_backfitting:
+        if self.comet.done_backfitting:
             ret = QMessageBox.question(self, 'MessageBox', "Microstates have been backfitted to data once,"
                                                            " do you want to redo backfitting_utils?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -897,44 +896,44 @@ class MainMicrostateWindow(QMainWindow):
         if self.do_backfitting_from_scratch:
             # Reset next steps processing flags to False
             processing_flags = [
-                'done_extracting_features', 'done_source_localization', 'done_source_microstate_correlation'
+                'done_extracting_features', 'done_source_localization', 'done_identifying_microstate_sources'
             ]
             self.reset_processing_flags(processing_flags)
             # Set backfitting parameters based on user input
             if self.ui.step3_backfit_all_radio.isChecked():
-                self.comet_tbx.backfit_to = 'all'
+                self.comet.backfit_to = 'all'
                 if self.ui.step3_identify_short_checkbox.isChecked():
-                    self.comet_tbx.identify_short_window = True
+                    self.comet.identify_short_window = True
                 else:
-                    self.comet_tbx.identify_short_window = False
+                    self.comet.identify_short_window = False
             elif self.ui.step3_backfit_peaks_radio.isChecked():
-                self.comet_tbx.backfit_to = 'peaks'
-                self.comet_tbx.identify_short_window = False
-            self.comet_tbx.epsilon = ''
-            self.comet_tbx.b = ''
-            self.comet_tbx.lamb = ''
+                self.comet.backfit_to = 'peaks'
+                self.comet.identify_short_window = False
+            self.comet.epsilon = ''
+            self.comet.b = ''
+            self.comet.lamb = ''
             if self.ui.step3_filter_segments_checkbox.isChecked():
-                self.comet_tbx.filter_segments = True
-                self.comet_tbx.remove_segments_less_than = int(int(self.ui.step3_filter_segments_input.text()) /
-                                                               (1000/self.comet_tbx.sample_rate))
+                self.comet.filter_segments = True
+                self.comet.remove_segments_less_than = int(int(self.ui.step3_filter_segments_input.text()) /
+                                                               (1000/self.comet.sample_rate))
                 filter_segments_method = self.ui.step3_filter_segments_method_combobox.currentText()
                 if filter_segments_method == 'Replace short segments: nearby dominant microstate':
-                    self.comet_tbx.filter_segments_option = 'replace_high'
+                    self.comet.filter_segments_option = 'replace_high'
                 elif filter_segments_method == 'Replace short segments: half and half':
-                    self.comet_tbx.filter_segments_option = 'replace_half'
+                    self.comet.filter_segments_option = 'replace_half'
                 elif filter_segments_method == 'Remove short segments':
-                    self.comet_tbx.filter_segments_option = 'remove'
+                    self.comet.filter_segments_option = 'remove'
                 elif filter_segments_method == 'Smooth segments':
-                    self.comet_tbx.filter_segments_option = 'smooth'
-                    self.comet_tbx.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
-                    self.comet_tbx.b = self.comet_tbx.remove_segments_less_than
-                    self.comet_tbx.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
+                    self.comet.filter_segments_option = 'smooth'
+                    self.comet.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
+                    self.comet.b = self.comet.remove_segments_less_than
+                    self.comet.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
             else:
-                self.comet_tbx.filter_segments = False
-                self.comet_tbx.filter_segments_option = ''
-                self.comet_tbx.remove_segments_less_than = []
+                self.comet.filter_segments = False
+                self.comet.filter_segments_option = ''
+                self.comet.remove_segments_less_than = []
             # Log and perform backfitting
-            self.comet_tbx.do_backfitting()
+            self.comet.run_backfitting()
             self.ui.main_tab.setCurrentIndex(2)
             self.mainwindow_controller()
 
@@ -945,7 +944,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.MicrostateVisualizationWindow = MicrostateVisualizationWindow(
             self.context,
             main_window=self,
-            tbx=self.comet_tbx
+            tbx=self.comet
         )
         self.ui.MicrostateVisualizationWindow.plot_maps()
         self.ui.MicrostateVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
@@ -956,12 +955,12 @@ class MainMicrostateWindow(QMainWindow):
         Open BackfittingVisualizationWindow to visualize microstate segmentation.
         """
         # Set relevant paths and parameters for visualization
-        self.BackfittingVisualizationWindow.preprocessed_data_path = self.comet_tbx.preprocessed_data_path
-        self.BackfittingVisualizationWindow.extension = self.comet_tbx.extension
-        self.BackfittingVisualizationWindow.datatype = self.comet_tbx.datatype
-        self.BackfittingVisualizationWindow.eeg_filenames_combobox.addItems([i for i in self.comet_tbx.list_eegs])
-        self.BackfittingVisualizationWindow.segmentation_path = self.comet_tbx.segmentation_path
-        self.BackfittingVisualizationWindow.export_format = self.comet_tbx.export_format
+        self.BackfittingVisualizationWindow.preprocessed_data_path = self.comet.preprocessed_data_path
+        self.BackfittingVisualizationWindow.extension = self.comet.extension
+        self.BackfittingVisualizationWindow.datatype = self.comet.datatype
+        self.BackfittingVisualizationWindow.eeg_filenames_combobox.addItems([i for i in self.comet.list_eegs])
+        self.BackfittingVisualizationWindow.segmentation_path = self.comet.segmentation_path
+        self.BackfittingVisualizationWindow.export_format = self.comet.export_format
         # Display the Backfitting Visualization Dialog
         self.BackfittingVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
         self.BackfittingVisualizationWindow.showMaximized()
@@ -971,7 +970,7 @@ class MainMicrostateWindow(QMainWindow):
         Extract features from the backfitted data.
         """
         # Check if features have been extracted before
-        if self.comet_tbx.done_extracting_features:
+        if self.comet.done_extracting_features:
             ret = QMessageBox.question(self, 'MessageBox', "Features have been extracted once,"
                                                            " do you want to extract features_utils again?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -983,58 +982,58 @@ class MainMicrostateWindow(QMainWindow):
         # Proceed with feature extraction
         if self.do_extracting_features_from_scratch:
             # Reset processing flags and update the main window
-            self.comet_tbx.done_extracting_features = False
+            self.comet.done_extracting_features = False
             self.mainwindow_controller()
 
             # Define features to extract based on user selection
-            self.comet_tbx.feature_list = []
+            self.comet.feature_list = []
             if self.ui.step4_feature_occ_checkbox.isChecked():
-                self.comet_tbx.feature_list.append("OCC")
+                self.comet.feature_list.append("OCC")
             if self.ui.step4_feature_dur_checkbox.isChecked():
-                self.comet_tbx.feature_list.append("DUR")
+                self.comet.feature_list.append("DUR")
             if self.ui.step4_feature_cov_checkbox.isChecked():
-                self.comet_tbx.feature_list.append("COV")
+                self.comet.feature_list.append("COV")
             if self.ui.step4_feature_gev_checkbox.isChecked():
-                self.comet_tbx.feature_list.append("GEV")
+                self.comet.feature_list.append("GEV")
             if self.ui.step4_feature_tp_checkbox.isChecked():
-                self.comet_tbx.feature_list.append("TP")
+                self.comet.feature_list.append("TP")
             if self.ui.step4_feature_se_checkbox.isChecked():
-                self.comet_tbx.feature_list.append("SE")
+                self.comet.feature_list.append("SE")
             if self.ui.step4_feature_lzc_checkbox.isChecked():
-                self.comet_tbx.feature_list.append("LZC")
+                self.comet.feature_list.append("LZC")
             if self.ui.step4_feature_er_checkbox.isChecked():
-                self.comet_tbx.feature_list.append("ER")
-                self.comet_tbx.word_size = int(self.ui.step4_word_size_min_input.text())
+                self.comet.feature_list.append("ER")
+                self.comet.word_size = int(self.ui.step4_word_size_min_input.text())
             else:
-                self.comet_tbx.word_size = 2
+                self.comet.word_size = 2
 
 
             # Define feature extraction modes
-            self.comet_tbx.feature_mode = []
+            self.comet.feature_mode = []
             if self.ui.step4_averaged_features_checkbox.isChecked():
-                self.comet_tbx.feature_mode.append("averaged")
+                self.comet.feature_mode.append("averaged")
             if self.ui.step4_sliding_features_checkbox.isChecked():
-                self.comet_tbx.feature_mode.append("sliding")
+                self.comet.feature_mode.append("sliding")
             if self.ui.step4_synthetic_checkbox.isChecked():
-                self.comet_tbx.feature_types = ['real', 'surrogate', 'random']
+                self.comet.feature_types = ['real', 'surrogate', 'random']
             else:
-                self.comet_tbx.feature_types = ['real']
+                self.comet.feature_types = ['real']
 
-            if self.comet_tbx.datatype == 'epoched':
+            if self.comet.datatype == 'epoched':
                 # Set window size for pre post features
-                self.comet_tbx.pre_window_size = int(self.ui.step4_sliding_window_epoched_input_pre.text())
-                self.comet_tbx.post_window_size = int(self.ui.step4_sliding_window_epoched_input_post.text())
+                self.comet.pre_window_size = int(self.ui.step4_sliding_window_epoched_input_pre.text())
+                self.comet.post_window_size = int(self.ui.step4_sliding_window_epoched_input_post.text())
                 if self.ui.step4_feature_rof_checkbox.isChecked():
-                    self.comet_tbx.feature_list.append("ROF")
+                    self.comet.feature_list.append("ROF")
                 if self.ui.step4_feature_rtf_checkbox.isChecked():
-                    self.comet_tbx.feature_list.append("RTF")
+                    self.comet.feature_list.append("RTF")
             else:
                 # Set sliding window size for dynamic features
-                self.comet_tbx.sliding_window_size = int(self.ui.step4_sliding_window_raw_input.text())
+                self.comet.sliding_window_size = int(self.ui.step4_sliding_window_raw_input.text())
             # Log and perform feature extraction
-            self.comet_tbx.extract_features()
+            self.comet.run_feature_extraction()
             # Update flags and save the state
-            self.comet_tbx.done_extracting_features = True
+            self.comet.done_extracting_features = True
             # Update the main window
             self.mainwindow_controller()
 
@@ -1043,12 +1042,12 @@ class MainMicrostateWindow(QMainWindow):
         Open FeatureVisualizationWindow to visualize microstate features.
         """
         # Set relevant paths and parameters for visualization
-        self.ui.FeatureVisualizationWindow.extracted_features_path = self.comet_tbx.extracted_features_path
-        self.ui.FeatureVisualizationWindow.export_format = self.comet_tbx.export_format
-        self.ui.FeatureVisualizationWindow.feature_mode = self.comet_tbx.feature_mode
+        self.ui.FeatureVisualizationWindow.extracted_features_path = self.comet.extracted_features_path
+        self.ui.FeatureVisualizationWindow.export_format = self.comet.export_format
+        self.ui.FeatureVisualizationWindow.feature_mode = self.comet.feature_mode
         self.ui.FeatureVisualizationWindow.feature_combo.clear()
-        self.ui.FeatureVisualizationWindow.feature_combo.addItems([i for i in self.comet_tbx.feature_list])
-        self.ui.FeatureVisualizationWindow.list_eegs = self.comet_tbx.list_eegs
+        self.ui.FeatureVisualizationWindow.feature_combo.addItems([i for i in self.comet.feature_list])
+        self.ui.FeatureVisualizationWindow.list_eegs = self.comet.list_eegs
         self.ui.FeatureVisualizationWindow.reset_groups()
         # Display the Feature Visualization Dialog
         self.ui.FeatureVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
@@ -1058,7 +1057,7 @@ class MainMicrostateWindow(QMainWindow):
         """
         Open CoregistrationWindow to align EEG Sensors to head source space.
         """
-        self.ui.CoregistrationWindow = CoregistrationWindow(self.context, tbx=self.comet_tbx)
+        self.ui.CoregistrationWindow = CoregistrationWindow(self.context, tbx=self.comet)
         self.ui.CoregistrationWindow.showMaximized()
 
     def source_localize_microstates(self):
@@ -1066,7 +1065,7 @@ class MainMicrostateWindow(QMainWindow):
         Perform source localization of data.
         """
         # Check if source localization is already done
-        if self.comet_tbx.done_source_localization:
+        if self.comet.done_source_localization:
             ret = QMessageBox.question(self, 'MessageBox', "Source time series have been extracted once,"
                                                            " do you want to extract source time series again?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -1080,28 +1079,28 @@ class MainMicrostateWindow(QMainWindow):
         if self.do_source_localization_from_scratch:
             # Reset next steps processing flags to False
             processing_flags = [
-                'done_source_localization', 'done_source_microstate_correlation'
+                'done_source_localization', 'done_identifying_microstate_sources'
             ]
             self.reset_processing_flags(processing_flags)
             # Update the main window
             self.mainwindow_controller()
             # Determine whether to use fsaverage or individual anatomy
             if self.step5_use_fsaverage_radio.isChecked():
-                self.comet_tbx.use_anatomy = "fsaverage"
+                self.comet.use_anatomy = "fsaverage"
             elif self.step5_use_individual_radio.isChecked():
-                self.comet_tbx.use_anatomy = "individual"
-                self.comet_tbx.individual_subjects_dir = QFileDialog.getExistingDirectory(
+                self.comet.use_anatomy = "individual"
+                self.comet.individual_subjects_dir = QFileDialog.getExistingDirectory(
                     self,
                     "Locate Folder with Individual Anatomical Reconstructions"
                 )
             # Get the inverse method and spacing options
             inverse_method = self.ui.step5_inverse_method_combobox.currentText()
-            self.comet_tbx.inverse_method = inverse_method[inverse_method.find("(") + 1:inverse_method.find(")")]
+            self.comet.inverse_method = inverse_method[inverse_method.find("(") + 1:inverse_method.find(")")]
             spacing = self.ui.step5_spacing_combobox.currentText()
-            self.comet_tbx.spacing = spacing[spacing.find("(") + 1:spacing.find(")")].lower()
-            self.comet_tbx.nperm = int(self.ui.step5_permutations_input.text())
+            self.comet.spacing = spacing[spacing.find("(") + 1:spacing.find(")")].lower()
+            self.comet.nperm = int(self.ui.step5_permutations_input.text())
             # Perform the source localization and save the state
-            self.comet_tbx.source_localize_microstates()
+            self.comet.run_source_localization()
             # Update the main window
             self.mainwindow_controller()
 
@@ -1110,23 +1109,23 @@ class MainMicrostateWindow(QMainWindow):
         Identify sources correlated to each microstate.
         """
         # Check if microstate source localization is already done
-        if self.comet_tbx.done_source_microstate_correlation:
+        if self.comet.done_identifying_microstate_sources:
             ret = QMessageBox.question(self, 'MessageBox',
                                        "Source-microstate correlations have already been calculated,"
                                        " do you want to run this step again?",
                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
-            self.do_source_microstate_correlation_from_scratch = False
+            self.do_identifying_microstate_sources_from_scratch = False
             if ret == QMessageBox.Yes:
-                self.do_source_microstate_correlation_from_scratch = True
+                self.do_identifying_microstate_sources_from_scratch = True
         else:
-            self.do_source_microstate_correlation_from_scratch = True
+            self.do_identifying_microstate_sources_from_scratch = True
         # If microstate source localization need to be calculated from scratch
-        if self.do_source_microstate_correlation_from_scratch:
+        if self.do_identifying_microstate_sources_from_scratch:
             # TODO: Add missing options here
-            self.comet_tbx.nperm = int(self.ui.step5_permutations_input.text())
+            self.comet.nperm = int(self.ui.step5_permutations_input.text())
             # Perform the microstate source localization and save the state
-            self.comet_tbx.source_microstate_correlation()
-            self.comet_tbx.done_source_microstate_correlation = True
+            self.comet.run_identifying_microstate_sources()
+            self.comet.done_identifying_microstate_sources = True
             # Update the main window
             self.mainwindow_controller()
 
@@ -1136,8 +1135,8 @@ class MainMicrostateWindow(QMainWindow):
         """
         # TODO
         # Set relevant paths and parameters for visualization
-        self.ui.SourceVisualizationWindow = SourceVisualizationWindow(self.context, comet_tbx=self.comet_tbx)
-        #self.SourceVisualizationWindow.tess_path = os.path.join(self.comet_tbx.localized_sources_path, "tess_sources")
+        self.ui.SourceVisualizationWindow = SourceVisualizationWindow(self.context, comet_tbx=self.comet)
+        #self.SourceVisualizationWindow.tess_path = os.path.join(self.comet.localized_sources_path, "tess_sources")
         # Display the Source Visualization Dialog
         self.SourceVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
         self.SourceVisualizationWindow.showMaximized()
@@ -1154,6 +1153,6 @@ class MainMicrostateWindow(QMainWindow):
         # Check the user's response
         if reply == QMessageBox.Yes:
             # Close the log window
-            self.comet_tbx.LogWindow.close()
+            self.comet.LogWindow.close()
             # Close the main window
             self.close()

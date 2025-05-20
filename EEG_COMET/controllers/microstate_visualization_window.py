@@ -14,21 +14,21 @@ class MicrostateVisualizationWindow(QDialog):
     def __init__(self, context, parent=None, main_window=None, tbx=None):
         super(MicrostateVisualizationWindow, self).__init__(parent)
         self.main_window = main_window
-        self.tbx = tbx
-        self.current_order_labels = self.tbx.micro_labels
-        self.current_order_axs_labels = self.tbx.micro_labels
+        self.comet = tbx
+        self.current_order_labels = self.comet.micro_labels
+        self.current_order_axs_labels = self.comet.micro_labels
 
         # Fix: Check if best_maps exists before copying
-        if self.tbx.best_maps is not None:
-            self.current_order_maps = self.tbx.best_maps.copy()
+        if self.comet.best_maps is not None:
+            self.current_order_maps = self.comet.best_maps.copy()
         else:
             # Initialize with an empty array of appropriate shape
-            n_maps = self.tbx.number_of_maps
-            n_channels = len(self.tbx.eeg_info['ch_names'])
+            n_maps = self.comet.number_of_maps
+            n_channels = len(self.comet.eeg_info['ch_names'])
             self.current_order_maps = np.zeros((n_maps, n_channels))
 
         self.setup_ui(context)
-        self.create_label_widgets(self.tbx.micro_labels)
+        self.create_label_widgets(self.comet.micro_labels)
         self.connect_ui()
         self.create_figure_and_canvas()
 
@@ -69,7 +69,7 @@ class MicrostateVisualizationWindow(QDialog):
     def create_label_widgets(self, micro_labels):
         """Create QLineEdit widgets for microstate labels"""
         self.micro_label_widgets = []  # Store QLineEdit widgets as an attribute
-        for i in range(self.tbx.number_of_maps):
+        for i in range(self.comet.number_of_maps):
             label_widget = QLineEdit(self)
             self.set_label_widget_attributes(label_widget, micro_labels, i)
             setattr(self, f"micro_label_{i}", label_widget)  # Set attribute with unique name
@@ -113,7 +113,7 @@ class MicrostateVisualizationWindow(QDialog):
         cmap = self.ui.colormap_combobox.currentText()
 
         # Plot the microstate
-        show_microstate(microstate, self.tbx.eeg_info, ax,
+        show_microstate(microstate, self.comet.eeg_info, ax,
                         polarity=polarity, sensors=sensors, contours=contours, cmap=cmap)
         # Axis settings
         ax.axis('off')
@@ -123,7 +123,7 @@ class MicrostateVisualizationWindow(QDialog):
 
     def plot_maps(self):
         """Plot microstate maps on canvas"""
-        micro_labels_texts = [getattr(self, f"micro_label_{i}").text() for i in range(self.tbx.number_of_maps)]
+        micro_labels_texts = [getattr(self, f"micro_label_{i}").text() for i in range(self.comet.number_of_maps)]
 
         # Check if any labels are filled
         if any(micro_labels_texts):
@@ -216,14 +216,13 @@ class MicrostateVisualizationWindow(QDialog):
 
     def auto_micro_label(self):
         """Automatically label microstates and update the visualization."""
-        self.tbx.do_labeling()
-        if self.tbx.done_labeling_microstates:
+        self.comet.run_microstate_labeling()
+        if self.comet.done_microstate_labeling:
             for i, label_widget in enumerate(self.micro_label_widgets):
-                label_widget.setText(self.tbx.micro_labels[i])
+                label_widget.setText(self.comet.micro_labels[i])
                 label_widget.setDisabled(True)
             self.reorder_microstates()
             if self.main_window:
-                self.tbx.save_tbx()
                 self.main_window.mainwindow_controller()
 
     def reorder_microstates(self):
@@ -277,8 +276,8 @@ class MicrostateVisualizationWindow(QDialog):
         self.current_order_axs_labels.clear()  # Clear previous default order
 
         # Fix: Check if best_maps exists before copying
-        if self.tbx.best_maps is not None:
-            self.current_order_maps = self.tbx.best_maps.copy()  # Store default order of maps
+        if self.comet.best_maps is not None:
+            self.current_order_maps = self.comet.best_maps.copy()  # Store default order of maps
 
         # Reflect the empty default order in the Qt window
         for label_widget in self.micro_label_widgets:
@@ -291,8 +290,8 @@ class MicrostateVisualizationWindow(QDialog):
         self.reorder_microstates()
         # Reset next steps processing flags to False
         processing_flags = [
-            'done_labeling_microstates', 'done_backfitting', 'done_extracting_features',
-            'done_source_localization', 'done_source_microstate_correlation'
+            'done_microstate_labeling', 'done_backfitting', 'done_extracting_features',
+            'done_source_localization', 'done_identifying_microstate_sources'
         ]
         self.main_window.reset_processing_flags(processing_flags)
         self.main_window.mainwindow_controller()
@@ -302,13 +301,13 @@ class MicrostateVisualizationWindow(QDialog):
         # Check if all label widgets have values
         all_labels_filled = all(label_widget.text() for label_widget in self.micro_label_widgets)
         if all_labels_filled:
-            self.tbx.micro_labels = [label_widget.text() for label_widget in self.micro_label_widgets]
-            self.tbx.best_maps = self.current_order_maps
+            self.comet.micro_labels = [label_widget.text() for label_widget in self.micro_label_widgets]
+            self.comet.best_maps = self.current_order_maps
 
             # Continue with the rest of the function as before
-            MicrostateClusterer(n_states=self.tbx.number_of_maps).microstates2csv(
-                self.current_order_maps, self.tbx.eeg_info, self.tbx.microstate_maps_path, self.current_order_labels)
-            self.tbx.done_labeling_microstates = True
+            MicrostateClusterer(n_states=self.comet.number_of_maps).microstates2csv(
+                self.current_order_maps, self.comet.eeg_info, self.comet.microstate_maps_path, self.current_order_labels)
+            self.comet.done_microstate_labeling = True
             # Update MainWindow's log if necessary
             self.main_window.mainwindow_controller()
             self.close()

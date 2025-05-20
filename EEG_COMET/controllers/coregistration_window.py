@@ -11,10 +11,10 @@ class CoregistrationWindow(QDialog):
     def __init__(self, context, parent=None, tbx=None):
         super(CoregistrationWindow, self).__init__(parent)
 
-        self.comet_tbx = tbx
+        self.comet = tbx
 
-        if self.comet_tbx.use_anatomy != "fsaverage":
-            self.subjects_dir = self.comet_tbx.individual_subjects_dir
+        if self.comet.use_anatomy != "fsaverage":
+            self.subjects_dir = self.comet.individual_subjects_dir
         else:
             fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
             self.subjects_dir = os.path.dirname(fs_dir)
@@ -72,7 +72,7 @@ class CoregistrationWindow(QDialog):
         """
         Perform automatic coregistration.
         """
-        self.coregistration.auto_coreg(self.selected_subject, self.comet_tbx.eeg_info)
+        self.coregistration.auto_coreg(self.selected_subject, self.comet.eeg_info)
 
     def show_alignment(self):
         """
@@ -80,7 +80,7 @@ class CoregistrationWindow(QDialog):
         """
         if self.plotter is not None:
             self.clean_figure_layout()
-        self.plotter = self.coregistration_visualizer.show_coreg(self.selected_subject, self.comet_tbx.eeg_info).plotter
+        self.plotter = self.coregistration_visualizer.show_coreg(self.selected_subject, self.comet.eeg_info).plotter
         self.plotter.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.ui.Figure_Layout.addWidget(self.plotter)
         self.plotter.show()

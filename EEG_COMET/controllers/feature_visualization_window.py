@@ -15,7 +15,7 @@ class FeatureVisualizationWindow(QDialog):
     def __init__(self, context, parent=None, tbx=None):
         super().__init__(parent)
 
-        self.tbx = tbx
+        self.comet = tbx
         self.ui = self.load_ui(context)
 
         self.figure = Figure(tight_layout=True)
@@ -236,9 +236,9 @@ class FeatureVisualizationWindow(QDialog):
         xticklabels = [col.split('_')[-1] for col in filter_cols]
         ax.set_xticks(range(len(xticklabels)))
         ax.set_xticklabels(xticklabels)
-        ax.set_ylabel(self.tbx.feature_list_dictionary[feature], fontsize=fontsize)
+        ax.set_ylabel(self.comet.feature_list_dictionary[feature], fontsize=fontsize)
         ax.tick_params(axis='both', which='major', labelsize=labelsize)
-        self.ui.plot_label.setText(f"{self.tbx.feature_list_dictionary[feature]}")
+        self.ui.plot_label.setText(f"{self.comet.feature_list_dictionary[feature]}")
 
     def plot_violin(self, features_df, feature, fontsize, labelsize, colormap):
         """

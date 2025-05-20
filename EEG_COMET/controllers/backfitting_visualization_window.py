@@ -1,4 +1,3 @@
-import mne
 import os.path
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QFileDialog, QSizePolicy
@@ -225,20 +224,6 @@ class BackfittingVisualizationWindow(QDialog):
         ax.tick_params(axis='both', which='major', labelsize=labelsize)
         ax.set_xlim([time_min, time_max])
         ax.legend(handles=legend_elements, loc='upper right', fontsize=fontsize)
-
-        """
-        # Now, plot the topography for each averaged segment using MNE, directly on the same plot
-        for i, (times, avg_data, label) in enumerate(avg_eeg_data):
-            # Determine the center of the time window for placing the topography
-            mid_time = times[len(times) // 2]
-
-            # Create a small inset axis for the topography
-            inset_ax = ax.inset_axes(
-                [mid_time / (time_max - time_min), 0.8, 0.1, 0.1])  # Adjust inset position and size as needed
-
-            # Plot the topography for the segment
-            mne.viz.plot_topomap(avg_data, eeg_info, axes=inset_ax, show=False)
-        """
 
         # Render the plot on the canvas
         self.canvas.draw()

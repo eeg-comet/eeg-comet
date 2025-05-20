@@ -1,55 +1,78 @@
-from functions.gui_utils.config_io import load_config
-import warnings
-from comet import COMET
-import pickle
 import os
+import argparse
+from comet import COMET
 
 
 def main():
-	warnings.simplefilter("ignore")
-	# ==================================================================
-	# TODO#1 set config file path here
-	config_file = './default_config.ini'
-	# ==================================================================
-	config = load_config(config_file)
-	
-	study_name = config['base']['study_name']
-	input_folder = config['base']['input_folder']
-	channel_location_dir = config['base']['channel_location_dir']
-	output_folder = config['base']['output_folder']
+    parser = argparse.ArgumentParser(description='EEG-COMET Terminal Application')
+    parser.add_argument('--config', type=str, required=True, help='Path to the configuration file')
+    parser.add_argument('--study', type=str, help='Override study name in config')
+    parser.add_argument('--input', type=str, help='Override input folder in config')
+    parser.add_argument('--output', type=str, help='Override output folder in config')
 
-	# For config file double checking
-	print(study_name)
-	print(input_folder)
-	print(channel_location_dir)
-	print(output_folder)
+    # Analysis steps to run
+    parser.add_argument('--preprocess', action='store_true', help='Run preprocessing')
+    parser.add_argument('--cluster', action='store_true', help='Run microstate clustering')
+    parser.add_argument('--label', action='store_true', help='Run microstate labeling')
+    parser.add_argument('--backfit', action='store_true', help='Run microstate backfitting')
+    parser.add_argument('--features', action='store_true', help='Run feature extraction')
+    parser.add_argument('--source', action='store_true', help='Run source localization')
+    parser.add_argument('--correlation', action='store_true', help='Running identifying microstate sources')
+    parser.add_argument('--all', action='store_true', help='Run all analysis steps in sequence')
 
-	new_tbx = True
-	if new_tbx:
-		tbx = COMET(config)
-	else:
-		save_dir = os.path.join(output_folder, study_name)
-		tbx_path = os.path.join(save_dir, 'comet_tbx_object.pkl')
-		with open(tbx_path, 'rb') as input_tbx:
-			tbx = pickle.load(input_tbx)
+    args = parser.parse_args()
 
-	# ==================================================================
-	# # TODO#2 choose funtion for the toolbox (to run)
-	process = [
-		tbx.load_raw,
-		tbx.load_channel_location,
-		tbx.load_new_study,
-		tbx.do_clustering,
-		tbx.do_labeling,
-		# tbx.do_backfitting,
-		# tbx.extract_features_from_map,
-		# tbx.source_localize_microstates
-	]
-	# ==================================================================
+    # Check if config file exists
+    if not os.path.exists(args.config):
+        print(f"Error: Config file not found: {args.config}")
+        return
 
-	for i in process:
-		i()
+    print(f"Loading configuration from: {args.config}")
+
+    # Create COMET instance with the config file
+    comet = COMET(config_path=args.config,
+                  study_name=args.study,
+                  input_folder=args.input,
+                  output_folder=args.output)
+
+    # If no specific steps are selected but not --all, show help
+    if not any([args.preprocess, args.cluster, args.label, args.backfit,
+                args.features, args.source, args.correlation, args.all]):
+        parser.print_help()
+        print("\nNo analysis steps selected. Please specify steps to run or use --all.")
+        return
+
+    # Run selected analyses
+    if args.preprocess or args.all:
+        print("\n--- Running Preprocessing ---")
+        comet.run_preprocessing()
+
+    if args.cluster or args.all:
+        print("\n--- Running Microstate Clustering ---")
+        comet.run_clustering()
+
+    if args.label or args.all:
+        print("\n--- Running Microstate Labeling ---")
+        comet.run_microstate_labeling()
+
+    if args.backfit or args.all:
+        print("\n--- Running Microstate Backfitting ---")
+        comet.run_backfitting()
+
+    if args.features or args.all:
+        print("\n--- Running Feature Extraction ---")
+        comet.run_feature_extraction()
+
+    if args.source or args.all:
+        print("\n--- Running Source Localization ---")
+        comet.run_source_localization()
+
+    if args.correlation or args.all:
+        print("\n--- Running Identifying Microstate Sources ---")
+        comet.run_identifying_microstate_sources()
+
+    print("\nAll requested analyses completed.")
 
 
-if __name__ == '__main__':
-	main()
+if __name__ == "__main__":
+    main()

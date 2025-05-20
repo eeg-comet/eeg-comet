@@ -32,7 +32,8 @@ class MicrostateLabeler:
 
     def do_labeling(self):
         """Perform microstate labeling using a trained model."""
-        image_size = 448
+        # Match the size used during training
+        image_size = 256
         images = []
 
         for i in range(self.microstate_maps.shape[0]):
@@ -45,17 +46,33 @@ class MicrostateLabeler:
                 fig.savefig(buf, dpi=200, bbox_inches='tight')
                 buf.seek(0)
                 img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+            plt.close(fig)  # Close the figure to free memory
+
             image = cv2.imdecode(img_arr, 1)
             image = cv2.resize(image, (image_size, image_size))
-            image = np.expand_dims(image, axis=0)
+
+            # Convert BGR to RGB (OpenCV loads as BGR)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            # Convert from HWC to CHW format (from [H,W,C] to [C,H,W])
+            image = image.transpose(2, 0, 1)
+
+            # Apply normalization as in training
+            image = image / 255.0  # Scale to [0,1]
+            mean = np.array([0.485, 0.456, 0.406]).reshape(-1, 1, 1)
+            std = np.array([0.229, 0.224, 0.225]).reshape(-1, 1, 1)
+            image = (image - mean) / std
+
+            image = np.expand_dims(image, axis=0)  # Add batch dimension
             images.append(image)
+
         stacked_microstate_images = np.vstack(images)
 
         # Load ONNX model and do inference
         num_classes = self.microstate_maps.shape[0]
         dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
 
-        # Change model path to the ONNX model
+        # Update model path to match the exported ONNX model
         model_path = './models/model_v1.3.onnx'
 
         # Initialize ONNX Runtime session

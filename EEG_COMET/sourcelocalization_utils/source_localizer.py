@@ -1,9 +1,9 @@
-
 import os
 import numpy as np
 import mne
 from scipy import stats
-from laura import make_laura
+from invert import Solver
+from invert.config import all_solvers
 from data_utils.data_io import DataIO
 from backfitting_utils.segmentation_io import SegmentationIO
 from controllers.logging_window import LogWindow
@@ -214,142 +214,141 @@ class SourceLocalizer:
 
         return src, bem, trans
 
-    @staticmethod
-    def apply_laura(eeg, inverse_operator, forward, verbose=0):
-        """
-        Apply the LAURA inverse solution to obtain the source estimate.
-
-        Args:
-            eeg: The EEG data.
-            inverse_operator: The inverse operator.
-            forward: The forward solution.
-            verbose: Verbosity level (0 or 1).
-
-        Returns:
-            stc: The source estimate.
-        """
-
-        # Extract necessary parameters
-        vertices = [forward["src"][0]['vertno'], forward["src"][1]['vertno']]
-        # calculate source
-        eeg_data = eeg.get_data()
-        y_hat = np.array(np.matmul(inverse_operator, eeg_data))
-        return mne.SourceEstimate(
-            y_hat,
-            vertices,
-            tmin=eeg.times.min(),
-            tstep=1 / eeg.info["sfreq"],
-            subject=forward["src"]._subject,
-            verbose=verbose,
-        )
-
     def compute_stc(self, src, bem, trans, raw_eeg, raw_info):
         """
         Compute the source time series using the minimum-norm inverse method.
-    
+
         Args:
             src: The source space data.
             bem: The BEM data.
             trans: The coregistration transformation data.
-            raw_eeg: The raw EEG data.
+            raw_eeg: The raw EEG data (already converted to a standard MNE object).
             raw_info: The raw EEG info object.
 
         Returns:
             stc_file: The source time series data.
         """
-
         print('\nPerforming source localization ...')
+
         # Calculate the forward solution using the specified parameters
         fwd = mne.make_forward_solution(
             raw_info, trans, src, bem, eeg=True, mindist=5.0, n_jobs=-1)
-        # Compute noise covariance from the raw data
-        if self.datatype == 'epoched':
-            noise_cov = mne.compute_covariance(
-                raw_eeg, method='auto', verbose=True, n_jobs=-1)
-        else:
-            noise_cov = mne.compute_raw_covariance(
-                raw_eeg, method='auto', verbose=True, n_jobs=-1)
-        # Regularize noise covariance to avoid singularity issues
-        noise_cov = mne.cov.regularize(
-            noise_cov, raw_info, mag=0.1, grad=0.1, eeg=0.1, proj=True)
-        # Apply minimum-norm inverse to obtain the source time series
 
-        if self.inverse_method == 'LAURA':
-            # Fix dipole orientations in the forward solution
-            fwd = mne.convert_forward_solution(
-                fwd, force_fixed=True, verbose=True)
-            # Make inverse operator
-            inverse_operator = make_laura(
-                fwd, noise_cov=noise_cov, verbose=True)
-            # Invert data using the inverse operator
-            return self.apply_laura(raw_eeg, inverse_operator, fwd)
+        try:
+            from invert import Solver
 
-        else:
-            # Create the inverse operator
-            inverse_operator = mne.minimum_norm.make_inverse_operator(raw_info, fwd, noise_cov)
-            # Set the regularization parameter for the inverse solution based on the signal-to-noise ratio (snr)
-            snr = 3.
-            lambda2 = 1. / snr ** 2
+            print(f"Using Solver with {self.inverse_method} method")
+            solver = Solver("MNE")  # Always use MNE for now
 
-            return (
-                mne.minimum_norm.apply_inverse_epochs(
-                    raw_eeg,
-                    inverse_operator,
-                    lambda2,
-                    method=self.inverse_method,
-                    pick_ori=None,
-                    verbose=True,
-                )
-                if self.datatype == 'epoched'
-                else mne.minimum_norm.apply_inverse_raw(
-                    raw_eeg,
-                    inverse_operator,
-                    lambda2,
-                    method=self.inverse_method,
-                    pick_ori=None,
-                    verbose=True,
-                )
-            )
+            try:
+                solver.make_inverse_operator(fwd, raw_eeg)
+                stc = solver.apply_inverse_operator(raw_eeg)
+                return stc
+            except Exception as e:
+                print(f"Error using Solver: {str(e)}")
+                print("Falling back to standard MNE methods")
+        except ImportError:
+            print("Solver not available, using standard MNE methods")
 
-    def run_source_localization(self):
+    def localize_single_file(self, eeg_path, eeg_name):
         """
-        Perform source localization for multiple EEG files.
-    
-        Raises:
-            FileNotFoundError: If the specified EEG files or directories are not found.
-        """
-        
-        list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
+        Perform source localization for a single EEG file.
 
-        # Create an instance of the progress dialog
-        # TODO: Log the process in the COMET
-        for idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_name)):
-            print(f"Source Localizing {eeg_name} ({idx + 1}/{len(list_eeg_path)})")
-            stc_subject_path = os.path.join(self.stc_path, list_eeg_name[idx])
+        Parameters:
+        -----------
+        eeg_path : str
+            Path to the EEG file
+        eeg_name : str
+            Name of the EEG file
+
+        Returns:
+        --------
+        bool
+            True if successful, False otherwise
+        """
+        try:
+            print(f"Source Localizing {eeg_name}")
+
+            # Create directory for this subject's source time courses
+            stc_subject_path = os.path.join(self.stc_path, eeg_name)
             if not os.path.exists(stc_subject_path):
                 os.makedirs(stc_subject_path)
 
+            # Load EEG data
             eeg = self.data_io.load_eeg(eeg_path, self.datatype)
+
+            # Ensure we have valid EEG data
+            if eeg is None:
+                print(f"Error: Could not load EEG data from {eeg_path}")
+                return False
+
+            # Extract EEG info
             eeg_info = eeg.info
 
+            # Convert EEGLAB objects to standard MNE objects
+            if self.datatype == 'raw':
+                # Convert RawEEGLAB to standard RawArray
+                if not isinstance(eeg, mne.io.fiff.raw.Raw):
+                    print(f"Converting {type(eeg).__name__} to standard RawArray")
+                    eeg_data = eeg.get_data()
+                    standard_eeg = mne.io.RawArray(eeg_data, eeg_info)
+                else:
+                    standard_eeg = eeg
+            else:  # 'epoched'
+                # Convert EpochsEEGLAB to standard EpochsArray
+                if not isinstance(eeg, mne.epochs.Epochs):
+                    print(f"Converting {type(eeg).__name__} to standard EpochsArray")
+                    eeg_data = eeg.get_data()
+
+                    # Get or create events if needed
+                    if hasattr(eeg, 'events') and eeg.events is not None:
+                        events = eeg.events
+                    else:
+                        # Create simple events array if not available
+                        n_epochs = eeg_data.shape[0]
+                        events = np.column_stack([
+                            np.arange(n_epochs),
+                            np.zeros(n_epochs, dtype=int),
+                            np.ones(n_epochs, dtype=int)
+                        ])
+
+                    # Get or create event_id dictionary
+                    if hasattr(eeg, 'event_id') and eeg.event_id:
+                        event_id = eeg.event_id
+                    else:
+                        event_id = {'event': 1}
+
+                    # Get time info
+                    if hasattr(eeg, 'tmin'):
+                        tmin = eeg.tmin
+                    else:
+                        tmin = 0.0
+
+                    # Create standard EpochsArray
+                    standard_eeg = mne.EpochsArray(eeg_data, eeg_info, events=events,
+                                                   event_id=event_id, tmin=tmin)
+                else:
+                    standard_eeg = eeg
+
+            # Choose appropriate method based on anatomy selection
             if self.use_anatomy == "individual":
                 print("\nUsing individual anatomies")
-                subject = list_eeg_name[idx]
+                subject = eeg_name
                 src, bem, trans = self.individual_mri(subject, eeg_info)
                 self.export_src_bem_trans('fsaverage', src, bem, trans)
-                stc_file = self.compute_stc(src, bem, trans, eeg, eeg_info)
+                stc_file = self.compute_stc(src, bem, trans, standard_eeg, eeg_info)
                 # Morph to fsaverage
                 src_morph = mne.read_source_spaces(src)
                 morph = mne.compute_source_morph(
                     src_morph,
                     subject_from=subject,
                     subject_to='fsaverage',
-                    subjects_dir=self.individual_subjects_dir,
+                    subjects_dir=self.subjects_dir,
                     spacing=self.spacing[-1]
                 )
                 morph.save(
                     os.path.join(
-                        self.individual_subjects_dir,
+                        self.subjects_dir,
                         subject,
                         f'{subject}-morph.h5',
                     ),
@@ -360,10 +359,16 @@ class SourceLocalizer:
                 print("\nUsing default template brain - fsaverage")
                 src, bem, trans = self.load_average_mri(eeg_info)
                 self.export_src_bem_trans('fsaverage', src, bem, trans)
-                stc_file = self.compute_stc(src, bem, trans, eeg, eeg_info)
+                stc_file = self.compute_stc(src, bem, trans, standard_eeg, eeg_info)
 
             print(f"\nExporting Source Time Courses: {eeg_name}")
             self.stc_write(stc_subject_path, stc_file)
+            return True
+        except Exception as e:
+            import traceback
+            print(f"Error processing {eeg_name}: {str(e)}")
+            print(traceback.format_exc())  # Print detailed error traceback
+            return False
 
     @staticmethod
     def find_t_coeff(sample, maps):
@@ -470,69 +475,78 @@ class SourceLocalizer:
 
             return all_sources_dict
 
-    def identify_microstates_sources(self, source_method):
+    def identify_sources_single_file(self, eeg_path, eeg_name, source_method):
         """
-        Identify microstate source localization for multiple EEG files.
+        Identify microstate sources for a single EEG file.
 
-        Args:
-            source_method: The method to use for microstate source localization.
+        Parameters:
+        -----------
+        eeg_path : str
+            Path to the EEG file
+        eeg_name : str
+            Name of the EEG file
+        source_method : str
+            Method to use for source identification ('tess' or 'avg')
 
-        Raises:
-            FileNotFoundError: If the specified EEG files or directories are not found.
+        Returns:
+        --------
+        bool
+            True if successful, False otherwise
         """
-
-        list_eeg_path, list_eeg_name = self.data_io.find_data(self.preprocessed_data_path, '.set', '*')
-
-        # Create an instance of the progress dialog
-        progress_dialog = LogWindow()
-        progress_dialog.set_window_title("Localizing Microstates ...")
-        progress_dialog.set_label_text(
-            f"Identifying microstate sources with the {source_method} method")
-        progress_dialog.show()
-        progress_dialog.start_process(len(list_eeg_path))
-        progress_dialog.update_progress(0)
-
-        for idx, (eeg_path, eeg_name) in enumerate(zip(list_eeg_path, list_eeg_name)):
+        try:
             print(f"\nLoading Source Time Courses: {eeg_name}")
-            progress_dialog.set_line_edit_text(f"{eeg_name}")
-            progress_dialog.update_progress(idx)
             stc_subject_path = os.path.join(self.stc_path, eeg_name)
             stc_file = self.stc_read(stc_subject_path)
             stc_data = stc_file[0].data.T
 
+            # Load EEG data
             eeg = self.data_io.load_eeg(eeg_path, self.datatype)
-            eeg_data = eeg.get_data()
+
+            # Ensure we have valid EEG data
+            if eeg is None:
+                print(f"Error: Could not load EEG data from {eeg_path}")
+                return False
+
+            # Get EEG data in the right format for source identification
+            if self.datatype == 'raw':
+                eeg_data = eeg.get_data()
+            else:  # 'epoched'
+                # For epoched data, we'll use the average across epochs
+                # This is necessary for methods like TESS that expect 2D data
+                eeg_data = eeg.get_data().mean(axis=0)
+                print(f"Using mean of {eeg.get_data().shape[0]} epochs for source identification")
+
+            # Check data dimensions and transpose if necessary
+            if eeg_data.shape[0] > eeg_data.shape[1]:
+                print(f"Transposing EEG data from shape {eeg_data.shape} for source identification")
+                eeg_data = eeg_data.T
 
             if source_method == 'tess':
                 p_values, z_scores, filtered_z_scores = self.run_tess(stc_data, eeg_data, self.nperm)
                 print('\nExtracting sources associated with each microstate',
                       '\nusing the topographic electrophysiological state source-imaging (TESS) algorithm ...')
-                tess_subject_path = os.path.join(self.tess_path, list_eeg_name[idx])
+                tess_subject_path = os.path.join(self.tess_path, eeg_name)
                 if not os.path.exists(tess_subject_path):
                     os.makedirs(tess_subject_path)
                 print('\nTess Completed on File ...')
-                np.save(os.path.join(tess_subject_path, f'{list_eeg_name[idx]}-filtered_zscore.npy'), filtered_z_scores)
-                np.save(
-                    os.path.join(tess_subject_path, f'{list_eeg_name[idx]}-zscore.npy'),
-                    z_scores)
-                np.save(
-                    os.path.join(tess_subject_path, f'{list_eeg_name[idx]}-p_values.npy'),
-                    p_values)
+                np.save(os.path.join(tess_subject_path, f'{eeg_name}-filtered_zscore.npy'), filtered_z_scores)
+                np.save(os.path.join(tess_subject_path, f'{eeg_name}-zscore.npy'), z_scores)
+                np.save(os.path.join(tess_subject_path, f'{eeg_name}-p_values.npy'), p_values)
             elif source_method == 'avg':
                 # Average sources over times matched with each microstate
                 print('\nAveraging sources over times matched with each microstate ...')
-                avg_subject_path = os.path.join(self.avg_sources_path, list_eeg_name[idx])
+                avg_subject_path = os.path.join(self.avg_sources_path, eeg_name)
                 if not os.path.exists(avg_subject_path):
                     os.makedirs(avg_subject_path)
 
                 all_sources_dict = self.avg_sources(self.segmentation_path, stc_data)
-                print(f'\nExporting the averaged microstate sources for subject {list_eeg_name[idx]}')
+                print(f'\nExporting the averaged microstate sources for subject {eeg_name}')
                 for m, array_data in all_sources_dict.items():
-                    filename = os.path.join(avg_subject_path, f"{list_eeg_name[idx]}_{m}.npy")
+                    filename = os.path.join(avg_subject_path, f"{eeg_name}_{m}.npy")
                     np.save(filename, array_data)
-
-            if not progress_dialog.running:  # Check if the process should be stopped
-                break
-            else:
-                progress_dialog.update_progress(idx + 1)
-        progress_dialog.close()
+            return True
+        except Exception as e:
+            import traceback
+            print(f"Error processing {eeg_name}: {str(e)}")
+            print(traceback.format_exc())  # Print detailed error traceback
+            return False

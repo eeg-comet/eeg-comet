@@ -98,11 +98,11 @@ class COMET:
         # Initialize flags and data holders
         self.done_preprocessing = False
         self.done_clustering = False
-        self.done_labeling_microstates = False
+        self.done_microstate_labeling = False
         self.done_backfitting = False
         self.done_extracting_features = False
         self.done_source_localization = False
-        self.done_source_microstate_correlation = False
+        self.done_identifying_microstate_sources = False
         self.auto_save = auto_save
 
         @property
@@ -405,21 +405,21 @@ class COMET:
             state_flags = self.config["state_flags"]
             self.done_preprocessing = state_flags.getboolean("done_preprocessing", False)
             self.done_clustering = state_flags.getboolean("done_clustering", False)
-            self.done_labeling_microstates = state_flags.getboolean("done_labeling_microstates", False)
+            self.done_microstate_labeling = state_flags.getboolean("done_microstate_labeling", False)
             self.done_backfitting = state_flags.getboolean("done_backfitting", False)
             self.done_extracting_features = state_flags.getboolean("done_extracting_features", False)
             self.done_source_localization = state_flags.getboolean("done_source_localization", False)
-            self.done_source_microstate_correlation = state_flags.getboolean("done_source_microstate_correlation",
+            self.done_identifying_microstate_sources = state_flags.getboolean("done_identifying_microstate_sources",
                                                                              False)
         else:
             # Initialize state flags to False if the section doesn't exist
             self.done_preprocessing = False
             self.done_clustering = False
-            self.done_labeling_microstates = False
+            self.done_microstate_labeling = False
             self.done_backfitting = False
             self.done_extracting_features = False
             self.done_source_localization = False
-            self.done_source_microstate_correlation = False
+            self.done_identifying_microstate_sources = False
 
     def ensure_directory(self, path):
         """
@@ -721,7 +721,7 @@ class COMET:
                 f"Microstates Backfitted: {eeg_name}"
             )
 
-    def do_preprocessing(self):
+    def run_preprocessing(self):
         """
         Preprocess all EEG files in the input folder
         """
@@ -813,7 +813,7 @@ class COMET:
         if self.auto_save:
             self.save_config()
 
-    def do_clustering(self):
+    def run_clustering(self):
         """
         Perform clustering on preprocessed EEG data
         """
@@ -907,7 +907,7 @@ class COMET:
 
         # Reset best values
         self.best_residual, self.best_maps = None, None
-        self.best_gev, self.best_confidence = 0, 0
+        self.best_gev = 0
 
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.setup_progress_dialog(
@@ -921,7 +921,7 @@ class COMET:
             for init in tqdm(range(self.number_of_repeats), desc="Clustering"):
                 self.cluster_eeg_microstates(init)
 
-        if self.best_maps is not None:  # Check the internal variable directly
+        if self.best_maps is not None:
             self.best_gev = self.compute_gev_all_data()
             print(f'Global Explained Variance: {self.best_gev}')
 
@@ -941,7 +941,7 @@ class COMET:
             if self.auto_save:
                 self.save_config()
 
-    def do_labeling(self):
+    def run_microstate_labeling(self):
         """
         Label microstate maps
         """
@@ -956,12 +956,12 @@ class COMET:
         )
 
         # Perform labeling
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.setup_progress_dialog(
-                window_title="Labeling ...",
-                label_text="Labeling microstates ...",
-                max_value=1
-            )
+        # if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+        #     self.LogWindow.setup_progress_dialog(
+        #         window_title="Labeling ...",
+        #         label_text="Labeling microstates ...",
+        #         max_value=1
+        #     )
 
         print("Labeling microstates...")
         micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
@@ -976,7 +976,7 @@ class COMET:
         self.labels_overall_confidence = labels_overall_confidence
 
         # Set labeling flag
-        self.done_labeling_microstates = True
+        self.done_microstate_labeling = True
 
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.process_finished("✓ Microstates have been successfully labeled!")
@@ -987,7 +987,7 @@ class COMET:
         if self.auto_save:
             self.save_config()
 
-    def do_backfitting(self):
+    def run_backfitting(self):
         """
         Backfit microstate maps to all EEG files
         """
@@ -1121,7 +1121,7 @@ class COMET:
         if self.auto_save:
             self.save_config()
 
-    def extract_features(self):
+    def run_feature_extraction(self):
         """
         Extract features from segmentation data
         """
@@ -1356,7 +1356,49 @@ class COMET:
             import_format=self.export_format
         )
 
-    def source_localize_microstates(self):
+    def source_localize_file(self, eeg_path, eeg_name):
+        """
+        Process source localization for a single file (worker-friendly version).
+
+        Parameters:
+        -----------
+        eeg_path : str
+            Path to the EEG file
+        eeg_name : str
+            Name of the EEG file
+        """
+        success = self.comet_source_localizer.localize_single_file(eeg_path, eeg_name)
+
+        # Log the source localization progress
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            if success:
+                self.LogWindow.append_log(f"Source Localized: {eeg_name}")
+            else:
+                self.LogWindow.append_log(f"Error Source Localizing: {eeg_name}")
+
+    def source_identify_file(self, eeg_path, eeg_name):
+        """
+        Process microstate source identification for a single file (worker-friendly version).
+
+        Parameters:
+        -----------
+        eeg_path : str
+            Path to the EEG file
+        eeg_name : str
+            Name of the EEG file
+        """
+        success = self.comet_source_localizer.identify_sources_single_file(
+            eeg_path, eeg_name, self.source_localization_method
+        )
+
+        # Log the source identification progress
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            if success:
+                self.LogWindow.append_log(f"Microstate Sources Identified: {eeg_name}")
+            else:
+                self.LogWindow.append_log(f"Error Identifying Microstate Sources: {eeg_name}")
+
+    def run_source_localization(self):
         """
         Perform source localization for microstates
         """
@@ -1380,8 +1422,8 @@ class COMET:
 
         # Create directories for source localization results
         os.makedirs(self.localized_sources_path, exist_ok=True)
-        os.makedirs(self.tess_path, exist_ok=True)
-        os.makedirs(self.avg_sources_path, exist_ok=True)
+        stc_path = os.path.join(self.localized_sources_path, "stc")
+        os.makedirs(stc_path, exist_ok=True)
 
         # Initialize the source localizer
         self.comet_source_localizer = SourceLocalizer(
@@ -1398,18 +1440,55 @@ class COMET:
             nperm=self.nperm
         )
 
-        # Perform source localization
-        self.comet_source_localizer.run_source_localization()
+        # Make sure the stc_path is set correctly in the source localizer
+        self.comet_source_localizer.stc_path = stc_path
+
+        # Load EEG files to process
+        list_eeg_path, list_eeg_name = self.comet_data_io.find_data(
+            self.preprocessed_data_path, extension=self.extension, pattern='*'
+        )
+        self.zipped_eeg_files = list(zip(list_eeg_path, list_eeg_name))
+
+        # Log source localization settings
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Source Localization Settings:\n"
+                f"* Anatomy: {self.use_anatomy}\n"
+                f"* Inverse Method: {self.inverse_method}\n"
+                f"* Spacing: {self.spacing}", log_type='settings'
+            )
+
+        # Perform source localization on all files
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.setup_progress_dialog(
+                window_title="Source Localization ...",
+                label_text="Localizing sources ...",
+                tasks=self.zipped_eeg_files,
+                processing_func=self.source_localize_file
+            )
+        else:
+            print(f"Source Localization Settings:")
+            print(f"* Anatomy: {self.use_anatomy}")
+            print(f"* Inverse Method: {self.inverse_method}")
+            print(f"* Spacing: {self.spacing}")
+
+            print(f"Localizing sources for {len(self.zipped_eeg_files)} EEG files...")
+            for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Source Localization"):
+                self.source_localize_file(eeg_path, eeg_name)
 
         # Set source localization flag
         self.done_source_localization = True
-        print("✓ Source localization completed")
+
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.process_finished("✓ Source localization completed")
+        else:
+            print("✓ Source localization completed")
 
         # Save parameters
         if self.auto_save:
             self.save_config()
 
-    def source_microstate_correlation(self, method='tess'):
+    def run_identifying_microstate_sources(self, method='tess'):
         """
         Correlate sources and microstates
         """
@@ -1428,12 +1507,78 @@ class COMET:
             self.anatomy_subjects_dir = os.path.dirname(fs_dir)
             print(f"Using default anatomy directory: {self.anatomy_subjects_dir}")
 
-        # Identify microstates sources
-        self.comet_source_localizer.identify_microstates_sources(source_method=method)
+        # Set the source localization method
+        self.source_localization_method = method
+
+        # Make sure the necessary paths are set correctly in the source localizer
+        if not hasattr(self, 'comet_source_localizer') or self.comet_source_localizer is None:
+            # Initialize the source localizer if it doesn't exist
+            self.comet_source_localizer = SourceLocalizer(
+                subjects_dir=self.anatomy_subjects_dir,
+                localized_sources_path=self.localized_sources_path,
+                preprocessed_data_path=self.preprocessed_data_path,
+                segmentation_path=self.segmentation_path,
+                use_anatomy=self.use_anatomy,
+                extension=self.extension,
+                datatype=self.datatype,
+                spacing=self.spacing,
+                inverse_method=self.inverse_method,
+                microstate_maps=self.best_maps,
+                nperm=self.nperm
+            )
+
+        # Ensure directories are created and paths are set
+        if method == 'tess':
+            self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
+            os.makedirs(self.tess_path, exist_ok=True)
+            self.comet_source_localizer.tess_path = self.tess_path
+        elif method == 'avg':
+            self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
+            os.makedirs(self.avg_sources_path, exist_ok=True)
+            self.comet_source_localizer.avg_sources_path = self.avg_sources_path
+
+        # Make sure stc_path is set
+        stc_path = os.path.join(self.localized_sources_path, "stc")
+        self.comet_source_localizer.stc_path = stc_path
+
+        # Load EEG files to process
+        list_eeg_path, list_eeg_name = self.comet_data_io.find_data(
+            self.preprocessed_data_path, extension=self.extension, pattern='*'
+        )
+        self.zipped_eeg_files = list(zip(list_eeg_path, list_eeg_name))
+
+        # Log source identification settings
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(
+                f"Source-Microstate Correlation Settings:\n"
+                f"* Method: {method}\n"
+                f"* Number of permutations: {self.nperm}", log_type='settings'
+            )
+
+        # Perform source identification on all files
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.setup_progress_dialog(
+                window_title="Source Identification ...",
+                label_text=f"Identifying microstate sources using {method} method ...",
+                tasks=self.zipped_eeg_files,
+                processing_func=self.source_identify_file
+            )
+        else:
+            print(f"Source-Microstate Correlation Settings:")
+            print(f"* Method: {method}")
+            print(f"* Number of permutations: {self.nperm}")
+
+            print(f"Identifying microstate sources for {len(self.zipped_eeg_files)} EEG files...")
+            for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Source Identification"):
+                self.source_identify_file(eeg_path, eeg_name)
 
         # Set source-microstate correlation flag
-        self.done_source_microstate_correlation = True
-        print(f"✓ Source-microstate correlation completed using {method} method")
+        self.done_identifying_microstate_sources = True
+
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.process_finished(f"✓ Source-microstate correlation completed using {method} method")
+        else:
+            print(f"✓ Source-microstate correlation completed using {method} method")
 
         # Save parameters
         if self.auto_save:
@@ -1510,11 +1655,11 @@ class COMET:
         # Save the program state
         self.config["state_flags"]["done_preprocessing"] = str(self.done_preprocessing)
         self.config["state_flags"]["done_clustering"] = str(self.done_clustering)
-        self.config["state_flags"]["done_labeling_microstates"] = str(self.done_labeling_microstates)
+        self.config["state_flags"]["done_microstate_labeling"] = str(self.done_microstate_labeling)
         self.config["state_flags"]["done_backfitting"] = str(self.done_backfitting)
         self.config["state_flags"]["done_extracting_features"] = str(self.done_extracting_features)
         self.config["state_flags"]["done_source_localization"] = str(self.done_source_localization)
-        self.config["state_flags"]["done_source_microstate_correlation"] = str(self.done_source_microstate_correlation)
+        self.config["state_flags"]["done_identifying_microstate_sources"] = str(self.done_identifying_microstate_sources)
 
         # Ensure directory exists
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
