@@ -6,7 +6,7 @@ from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from gui_utils.set_widgets_status import set_widgets_status
-from clustering_utils.microstate_clusterer import MicrostateClusterer
+from clustering_utils.microstate_io import MicrostateIO
 from clustering_utils.microstate_visualizer import show_microstate
 
 
@@ -46,7 +46,8 @@ class MicrostateVisualizationWindow(QDialog):
         self.ui.settings_checkbox.stateChanged.connect(self.toggle_settings_widgets)
         self.ui.microstates_combobox.currentIndexChanged.connect(self.update_label_colors)
         for i, label_widget in enumerate(self.micro_label_widgets):
-            label_widget.textChanged.connect(lambda: self.update_all_label_texts())
+            # Note: sync_labels_with_widgets() is already called inside update_all_label_texts()
+            label_widget.textChanged.connect(self.update_all_label_texts)
         self.ui.num_contours_spinbox.valueChanged.connect(self.update_maps)
         self.ui.colormap_combobox.activated.connect(self.update_maps)
         self.ui.reverse_polarity_checkbox.clicked.connect(self.update_maps)
@@ -155,6 +156,9 @@ class MicrostateVisualizationWindow(QDialog):
         # Adjust layout to prevent overlapping text
         self.figure.tight_layout()
 
+        # Sync labels after plotting
+        self.sync_labels_with_widgets()
+
         # Draw the canvas after plotting
         self.canvas.draw()
 
@@ -169,6 +173,8 @@ class MicrostateVisualizationWindow(QDialog):
             ax_text = ax.texts[0]  # Assuming there's only one text object on each axis
             ax_text.set_text(label_text.upper())
 
+        # Keep labels synchronized with widget state
+        self.sync_labels_with_widgets()
         self.canvas.draw()
 
     def update_maps(self):
@@ -221,6 +227,7 @@ class MicrostateVisualizationWindow(QDialog):
             for i, label_widget in enumerate(self.micro_label_widgets):
                 label_widget.setText(self.comet.micro_labels[i])
                 label_widget.setDisabled(True)
+            self.sync_labels_with_widgets()  # Sync after setting widget texts
             self.reorder_microstates()
             if self.main_window:
                 self.main_window.mainwindow_controller()
@@ -238,7 +245,7 @@ class MicrostateVisualizationWindow(QDialog):
         # Update the order of maps
         sorted_maps = self.current_order_maps[sorted_indices]
 
-        # Clear existing axes (Note: Not necessary when using add_subplot)
+        # Clear existing axes
         for ax in self.figure.get_axes():
             ax.clear()
             ax.set_xticks([])
@@ -249,7 +256,8 @@ class MicrostateVisualizationWindow(QDialog):
         # Create subplots for each microstate
         self.axs = [self.figure.add_subplot(1, len(sorted_indices), idx + 1) for idx in range(len(sorted_indices))]
 
-        for i in sorted_indices:
+        # FIX: Use range(len(sorted_indices)) instead of sorted_indices
+        for i in range(len(sorted_indices)):
             # Plot the microstate with the corresponding label
             self.plot_microstates_with_labels(
                 sorted_maps[i], sorted_micro_labels[i].upper(), self.axs[i]
@@ -265,9 +273,9 @@ class MicrostateVisualizationWindow(QDialog):
         # Draw the canvas after plotting
         self.canvas.draw()
 
-        # Update the current order of labels and axs labels
-        self.current_order_labels = current_order_labels
-        self.current_order_axs_labels = current_order_axs_labels
+        # FIX: Update with the SORTED order, not the original order
+        self.current_order_labels = sorted_micro_labels
+        self.current_order_axs_labels = sorted_micro_labels  # Should match sorted labels
         self.current_order_maps = sorted_maps
 
     def reset_labeling(self):
@@ -287,6 +295,7 @@ class MicrostateVisualizationWindow(QDialog):
             ax.text(0.5, -0.2, "", transform=ax.transAxes, fontsize=16, ha='center',
                     va='center')  # Set axs labels to empty
 
+        self.sync_labels_with_widgets()  # Sync after clearing widget texts
         self.reorder_microstates()
         # Reset next steps processing flags to False
         processing_flags = [
@@ -296,17 +305,29 @@ class MicrostateVisualizationWindow(QDialog):
         self.main_window.reset_processing_flags(processing_flags)
         self.main_window.mainwindow_controller()
 
+    def sync_labels_with_widgets(self):
+        """Ensure current_order_labels stays in sync with widget state"""
+        self.current_order_labels = [label_widget.text() for label_widget in self.micro_label_widgets]
+
     def close_window(self):
         """Close the window"""
         # Check if all label widgets have values
         all_labels_filled = all(label_widget.text() for label_widget in self.micro_label_widgets)
         if all_labels_filled:
-            self.comet.micro_labels = [label_widget.text() for label_widget in self.micro_label_widgets]
-            self.comet.best_maps = self.current_order_maps
+            # Ensure labels are synchronized with current widget state
+            widget_labels = [label_widget.text() for label_widget in self.micro_label_widgets]
 
-            # Continue with the rest of the function as before
-            MicrostateClusterer(n_states=self.comet.number_of_maps).microstates2csv(
-                self.current_order_maps, self.comet.eeg_info, self.comet.microstate_maps_path, self.current_order_labels)
+            # Update the current order labels to match widget state
+            self.current_order_labels = widget_labels
+
+            # Save to comet object
+            self.comet.micro_labels = self.current_order_labels.copy()
+            self.comet.best_maps = self.current_order_maps.copy()
+
+            # Export with synchronized labels and maps
+            MicrostateIO().export_microstates(
+                self.current_order_maps, self.comet.eeg_info, self.comet.microstate_maps_path, self.current_order_labels
+            )
             self.comet.done_microstate_labeling = True
             # Update MainWindow's log if necessary
             self.main_window.mainwindow_controller()
