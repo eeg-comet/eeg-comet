@@ -493,7 +493,6 @@
       </property>
       <addaction name="font_arial"/>
       <addaction name="font_calibri"/>
-      <addaction name="font_garamond"/>
       <addaction name="font_times"/>
      </widget>
      <widget class="QMenu" name="menuTitle_Font_Size">

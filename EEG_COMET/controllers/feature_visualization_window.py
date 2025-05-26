@@ -69,7 +69,6 @@ class FeatureVisualizationWindow(QMainWindow):
         self.font_mapping = {
             'font_arial': 'Arial',
             'font_calibri': 'Calibri',
-            'font_garamond': 'Garamond',
             'font_times': 'Times New Roman'
         }
 
