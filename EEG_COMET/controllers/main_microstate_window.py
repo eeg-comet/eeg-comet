@@ -50,8 +50,7 @@ class MainMicrostateWindow(QMainWindow):
         """
         Open the GitHub issues page in the default web browser
         """
-        # webbrowser.open('https://github.com/eBrainLab/EEG-COMET/issues/new')
-        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/issues/new')
+        webbrowser.open('https://github.com/eBrainLab/EEG-COMET/issues/new')
 
     def update_toolbox(self):
         """
@@ -159,6 +158,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_rtf_checkbox,
             self.ui.step4_averaged_features_checkbox,
             self.ui.step4_sliding_features_checkbox,
+            self.ui.step5_use_fsaverage_radio,
+            self.ui.step5_use_individual_radio,
             self.ui.step5_use_tess_radio,
             self.ui.step5_use_avg_radio
         ]
@@ -183,6 +184,7 @@ class MainMicrostateWindow(QMainWindow):
             (self.ui.step4_visualizefeatures_button, self.visualize_microstate_features),
             (self.ui.step3_backfit_visualization_button, self.visualize_microstate_segmentation),
             (self.ui.step5_coreg_button, self.coregister),# TODO
+            (self.ui.step5_use_individual_radio, self.locate_individual_subjects_dir),
             (self.ui.step5_estimate_sources_button, self.source_localize_microstates),
             (self.ui.step5_compute_source_microstate_correlation_button, self.source_microstates_correlation),
             (self.ui.step5_visualize_sources_button, self.visualize_source_localized_microstates),
@@ -220,15 +222,15 @@ class MainMicrostateWindow(QMainWindow):
 
     def load_study_helper(self):
         # Get the folder containing preprocessed data
-        self.save_folder = QFileDialog.getExistingDirectory(
+        self.comet.save_dir = QFileDialog.getExistingDirectory(
             self, "Please choose the folder where the EEG-COMET study is located."
         )
         # Check if the eeg_comet_config.ini file exists
-        config_path = os.path.join(self.save_folder, 'eeg_comet_config.ini')
+        config_path = os.path.join(self.comet.save_dir, 'eeg_comet_config.ini')
         # Handle the case where loading the study fails
         if not os.path.exists(config_path):
             QMessageBox.information(self, "Load error",
-                                    "The selected folder does not contain a valid study!",
+                                    "The selected folder does not contain a valid config file!",
                                     QMessageBox.Ok)
             return False
         else:
@@ -457,11 +459,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_sliding_window_epoched_label_2,
             self.ui.step4_sliding_window_epoched_input_pre,
             self.ui.step4_sliding_window_epoched_input_post,
-            self.step4_word_size_label1,
-            self.step4_word_size_label2,
-            self.step4_word_size_label3,
-            self.step4_word_size_min_input,
-            self.step4_word_size_max_input,
             self.ui.step4_extractfeatures_button,
             self.ui.step4_outputformats_label,
             self.ui.step4_outputformats_combobox,
@@ -506,11 +503,11 @@ class MainMicrostateWindow(QMainWindow):
         ]
 
         microsynt_feature_extraction_widgets = [
-            self.step4_word_size_label1,
-            self.step4_word_size_label2,
-            self.step4_word_size_label3,
-            self.step4_word_size_min_input,
-            self.step4_word_size_max_input
+            self.ui.step4_word_size_label1,
+            self.ui.step4_word_size_label2,
+            self.ui.step4_word_size_label3,
+            self.ui.step4_word_size_min_input,
+            self.ui.step4_word_size_max_input
         ]
 
         source_localization_widgets = [
@@ -518,8 +515,12 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_line2,
             self.ui.step5_line3,
             self.ui.step5_line4,
-            self.ui.step5_stc_label,
-            self.ui.step5_anatomical_label,
+            self.ui.step5_stc_settings_label,
+            self.ui.step5_bem_method_label,
+            self.ui.step5_bem_mne_radio,
+            self.ui.step5_bem_openmeeg_radio,
+            self.ui.step5_anatomy_label,
+            self.ui.step5_subjects_dir_label,
             self.ui.step5_use_fsaverage_radio,
             self.ui.step5_use_individual_radio,
             self.ui.step5_inverse_method_label,
@@ -530,8 +531,13 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_estimate_sources_button,
         ]
 
+        source_indivisual_widgets = [
+            self.ui.step5_subjects_dir_lineedit
+        ]
+
         source_microstates_widgets = [
-            self.ui.step5_source_microstate_correlation_label,
+            self.ui.step5_source_microstate_settings_label,
+            self.ui.step5_source_microstate_method_label,
             self.ui.step5_use_tess_radio,
             self.ui.step5_use_avg_radio,
             self.ui.step5_compute_source_microstate_correlation_button,
@@ -733,21 +739,26 @@ class MainMicrostateWindow(QMainWindow):
                     self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
                     self.ui.step4_visualizefeatures_button.setDisabled(True)
 
-                if self.step5_use_individual_radio.isChecked():
+                if self.ui.step5_use_individual_radio.isChecked():
                     self.comet.use_anatomy = "individual"
-                else:
+                    set_widgets_status(source_indivisual_widgets, mode='enable')
+                else:  # self.ui.step5_use_fsaverage_radio.isChecked():
                     self.comet.use_anatomy = "fsaverage"
-                if not self.ui.step5_use_tess_radio.isChecked():
-                    set_widgets_status(tess_widgets, mode='disable')
-                else:
+                    set_widgets_status(source_indivisual_widgets, mode='disable')
+
+                if self.ui.step5_use_tess_radio.isChecked():
                     set_widgets_status(tess_widgets, mode='enable')
+                    self.comet.source_localization_method = 'tess'
+                else:  # self.ui.step5_use_avg_radio.isChecked()
+                    set_widgets_status(tess_widgets, mode='disable')
+                    self.comet.source_localization_method = 'avg'
 
                 if not self.comet.done_source_localization:
                     self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
-                    set_widgets_status((source_microstates_widgets + tess_widgets), mode='disable')
+                    set_widgets_status(source_microstates_widgets, mode='disable')
                 else:
                     self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
-                    set_widgets_status((source_microstates_widgets + tess_widgets), mode='enable')
+                    set_widgets_status(source_microstates_widgets, mode='enable')
 
                     if self.comet.done_identifying_microstate_sources:
                         self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet(
@@ -1007,7 +1018,6 @@ class MainMicrostateWindow(QMainWindow):
             else:
                 self.comet.word_size = 2
 
-
             # Define feature extraction modes
             self.comet.feature_mode = []
             if self.ui.step4_averaged_features_checkbox.isChecked():
@@ -1060,6 +1070,16 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.CoregistrationWindow = CoregistrationWindow(self.context, tbx=self.comet)
         self.ui.CoregistrationWindow.showMaximized()
 
+    def locate_individual_subjects_dir(self):
+        self.comet.individual_subjects_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Locate Folder with Individual Anatomical Reconstructions"
+        )
+        if self.comet.individual_subjects_dir:
+            self.ui.step5_subjects_dir_lineedit.setText(self.comet.individual_subjects_dir)
+        else:
+            self.ui.step5_use_fsaverage_radio.setChecked(True)
+
     def source_localize_microstates(self):
         """
         Perform source localization of data.
@@ -1084,16 +1104,12 @@ class MainMicrostateWindow(QMainWindow):
             self.reset_processing_flags(processing_flags)
             # Update the main window
             self.mainwindow_controller()
-            # Determine whether to use fsaverage or individual anatomy
-            if self.step5_use_fsaverage_radio.isChecked():
-                self.comet.use_anatomy = "fsaverage"
-            elif self.step5_use_individual_radio.isChecked():
-                self.comet.use_anatomy = "individual"
-                self.comet.individual_subjects_dir = QFileDialog.getExistingDirectory(
-                    self,
-                    "Locate Folder with Individual Anatomical Reconstructions"
-                )
+
             # Get the inverse method and spacing options
+            if self.ui.step5_bem_openmeeg_radio.isChecked():
+                self.comet.bem_solver = 'openmeeg'
+            else:  # self.ui.step5_bem_mne_radio.isChecked():
+                self.comet.bem_solver = 'mne'
             inverse_method = self.ui.step5_inverse_method_combobox.currentText()
             self.comet.inverse_method = inverse_method[inverse_method.find("(") + 1:inverse_method.find(")")]
             spacing = self.ui.step5_spacing_combobox.currentText()

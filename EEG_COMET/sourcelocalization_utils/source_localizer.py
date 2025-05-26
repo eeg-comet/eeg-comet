@@ -3,19 +3,18 @@ import numpy as np
 import mne
 from scipy import stats
 from invert import Solver
-from invert.config import all_solvers
 from data_utils.data_io import DataIO
 from backfitting_utils.segmentation_io import SegmentationIO
-from controllers.logging_window import LogWindow
+from sourcelocalization_utils.source_io import SourceIO
 
 
-# TODO: send log to COMET
 class SourceLocalizer:
     """
     SourceLocalizer class for performing source localization on EEG data.
     """
+
     def __init__(self, subjects_dir, localized_sources_path, preprocessed_data_path, segmentation_path,
-                 use_anatomy, extension, datatype, spacing, inverse_method, microstate_maps, nperm):
+                 use_anatomy, extension, datatype, bem_solver, inverse_method, spacing, microstate_maps, nperm):
         """
         Initialize the SourceLocalizer
         """
@@ -30,63 +29,35 @@ class SourceLocalizer:
         self.use_anatomy = use_anatomy
         self.extension = extension
         self.datatype = datatype
-        self.spacing = spacing
+        self.bem_solver = bem_solver
         self.inverse_method = inverse_method
+        self.spacing = spacing
         self.microstate_maps = microstate_maps
         self.tess_path = None
         self.avg_sources_path = None
         self.nperm = nperm
         self.data_io = DataIO()
+        self.source_io = SourceIO()  # Initialize SourceIO
 
     def stc_write(self, stc_data_subject_path, stc_file):
         """
-        Write source time series to disk.
-
-        Args:
-            stc_data_subject_path: The path to the directory where the source time series will be saved.
-            stc_file: The source time series data to be saved.
+        Write source time series to disk using SourceIO.
         """
-
-        if self.datatype == "epoched":
-            for idx, stc in enumerate(stc_file):
-                filename = f'stc_{idx}'
-                filepath = os.path.join(stc_data_subject_path, filename)
-                stc.save(filepath, ftype='h5', overwrite=True)
-        else:
-            filepath = os.path.join(stc_data_subject_path, "stc_file")
-            stc_file.save(filepath, ftype='h5', overwrite=True)
+        self.source_io.write_stc(stc_file, stc_data_subject_path, datatype=self.datatype)
 
     def stc_read(self, stc_data_subject_path):
         """
-        Read source time series from disk.
-
-        Args:
-            stc_data_subject_path: The path to the directory where the source time series is stored.
-
-        Returns:
-            stc_file: The loaded source time series data.
+        Read source time series from disk using SourceIO.
         """
-
-        stc_list, _ = self.data_io.find_data(stc_data_subject_path, '.h5', pattern='*')
-        return [mne.read_source_estimate(stc_path) for stc_path in stc_list]
+        return self.source_io.read_stc(stc_data_subject_path)
 
     def export_src_bem_trans(self, subject, src, bem, trans):
         """
-        Export source space, BEM, and coregistration transformations.
-
-        Args:
-            subject: The subject identifier.
-            src: The source space data.
-            bem: The BEM data.
-            trans: The coregistration transformation data.
+        Export source space, BEM, and coregistration transformations using SourceIO.
         """
-
-        mne.write_source_spaces(
-            os.path.join(self.subjects_dir, subject, f'{subject}-{self.spacing}-src.fif'), src, overwrite=True)
-        mne.write_bem_solution(
-            os.path.join(self.subjects_dir, subject, f'{subject}-bem.fif'), bem, overwrite=True)
-        mne.write_trans(
-            os.path.join(self.subjects_dir, subject, f'{subject}-trans.fif'), trans, overwrite=True)
+        self.source_io.export_src_bem_trans(
+            self.subjects_dir, subject, src, bem, trans, self.spacing
+        )
 
     def load_average_mri(self, eeg_info):
         """
@@ -130,7 +101,7 @@ class SourceLocalizer:
 
         # Specify the path to the BEM file
         bem_model = os.path.join(fs_dir, "bem", "fsaverage-5120-5120-5120-bem-sol.fif")
-        bem = mne.make_bem_solution(bem_model, solver='mne')
+        bem = mne.make_bem_solution(bem_model, solver=self.bem_solver)
 
         # Get MNI fiducials for the subject
         fiducials = mne.coreg.get_mni_fiducials(
@@ -206,11 +177,8 @@ class SourceLocalizer:
         bem_surfaces = mne.make_bem_model(
             subject=subject, subjects_dir=self.subjects_dir, ico=self.spacing[-1])
 
-        # bem_path = os.path.join(subjects_dir, subject, 'bem', f'{subject}-bem-sol.fif')
-        # mne.write_bem_surfaces(bem_path, bem_surfaces, overwrite=True)
-
         # Make BEM solution
-        bem = mne.make_bem_solution(bem_surfaces)
+        bem = mne.make_bem_solution(bem_surfaces, solver=self.bem_solver)
 
         return src, bem, trans
 
@@ -234,21 +202,15 @@ class SourceLocalizer:
         fwd = mne.make_forward_solution(
             raw_info, trans, src, bem, eeg=True, mindist=5.0, n_jobs=-1)
 
+        print(f"Using Solver with {self.inverse_method} method")
+        solver = Solver(self.inverse_method)
+
         try:
-            from invert import Solver
-
-            print(f"Using Solver with {self.inverse_method} method")
-            solver = Solver("MNE")  # Always use MNE for now
-
-            try:
-                solver.make_inverse_operator(fwd, raw_eeg)
-                stc = solver.apply_inverse_operator(raw_eeg)
-                return stc
-            except Exception as e:
-                print(f"Error using Solver: {str(e)}")
-                print("Falling back to standard MNE methods")
-        except ImportError:
-            print("Solver not available, using standard MNE methods")
+            solver.make_inverse_operator(fwd, raw_eeg)
+            stc = solver.apply_inverse_operator(raw_eeg)
+            return stc
+        except Exception as e:
+            print(f"Error using Solver: {str(e)}")
 
     def localize_single_file(self, eeg_path, eeg_name):
         """
@@ -439,41 +401,68 @@ class SourceLocalizer:
 
         return p_values, z_scores, filtered_z_scores
 
-    def avg_sources(self, labelled_data_path, stc_data):
+    # Enhanced methods for SourceLocalizer class in source_localizer.py
+    # Replace the avg_sources_single_file and identify_sources_single_file methods with these improved versions
+
+    def avg_sources_single_file(self, segmentation_file_path, stc_data):
         """
-        Averages the source data over times matched with each microstate segment.
+        Averages the source data over times matched with each microstate segment for a single file.
 
         Args:
-            labelled_data_path: The path to the directory where the labelled data is stored.
-            stc_data: The source time series data.
+            segmentation_file_path: The path to the specific segmentation file to process.
+            stc_data: The source time series data for this specific file.
 
         Returns:
-            all_sources_dict: A dictionary containing the averaged source data for each microstate.
+            sources_dict: A dictionary containing the averaged source data for each microstate for this file.
         """
-
         self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
         if not os.path.exists(self.avg_sources_path):
             os.makedirs(self.avg_sources_path)
 
-        list_segmented_data, _ = DataIO().find_data(labelled_data_path, '.csv', pattern='*')
-        all_sources_dict = {}
-        for segmented_path in list_segmented_data:
-            segment_data = SegmentationIO().load_segmentation(segmented_path, import_format='.csv')
-            for m in segment_data['segmentation'].unique():
-                sources_m_times = segment_data.index[segment_data['segmentation'] == m].tolist()
-                sources_m = stc_data[sources_m_times, :]
-                sources_m_mean = np.mean(sources_m, axis=0)
-                # Append the averaged source data to the dictionary with key as 'm'
-                if m in all_sources_dict:
-                    all_sources_dict[m].append(sources_m_mean)
+        sources_dict = {}
+
+        try:
+            # Load using SegmentationIO
+            segment_data = SegmentationIO().load_segmentation(segmentation_file_path, import_format='.csv')
+
+            if segment_data is None:
+                return sources_dict
+
+            # Process the array based on its dimensions
+            if segment_data.ndim == 2:
+                if segment_data.shape[0] == 1:
+                    segmentation_labels = segment_data[0]
                 else:
-                    all_sources_dict[m] = [sources_m_mean]
+                    segmentation_labels = segment_data.flatten()
+            else:
+                segmentation_labels = segment_data
 
-                # If you want to convert the lists to NumPy arrays for each 'm'
-            for m in all_sources_dict:
-                all_sources_dict[m] = np.vstack(all_sources_dict[m])
+            # Handle object arrays
+            if segmentation_labels.dtype == object:
+                try:
+                    segmentation_labels = segmentation_labels.astype(str)
+                except Exception:
+                    return sources_dict
 
-            return all_sources_dict
+            # Get unique labels
+            unique_labels = np.unique(segmentation_labels)
+
+            # Process each microstate
+            for m in unique_labels:
+                sources_m_times = np.where(segmentation_labels == m)[0]
+
+                # Check bounds and filter valid time indices
+                valid_times = [t for t in sources_m_times if 0 <= t < stc_data.shape[0]]
+
+                if valid_times:
+                    sources_m = stc_data[valid_times, :]
+                    sources_m_mean = np.mean(sources_m, axis=0)
+                    sources_dict[m] = sources_m_mean
+
+        except Exception:
+            pass
+
+        return sources_dict
 
     def identify_sources_single_file(self, eeg_path, eeg_name, source_method):
         """
@@ -494,59 +483,59 @@ class SourceLocalizer:
             True if successful, False otherwise
         """
         try:
-            print(f"\nLoading Source Time Courses: {eeg_name}")
             stc_subject_path = os.path.join(self.stc_path, eeg_name)
             stc_file = self.stc_read(stc_subject_path)
+
+            if not stc_file:
+                return False
+
             stc_data = stc_file[0].data.T
 
             # Load EEG data
             eeg = self.data_io.load_eeg(eeg_path, self.datatype)
 
-            # Ensure we have valid EEG data
             if eeg is None:
-                print(f"Error: Could not load EEG data from {eeg_path}")
                 return False
 
             # Get EEG data in the right format for source identification
             if self.datatype == 'raw':
                 eeg_data = eeg.get_data()
             else:  # 'epoched'
-                # For epoched data, we'll use the average across epochs
-                # This is necessary for methods like TESS that expect 2D data
                 eeg_data = eeg.get_data().mean(axis=0)
-                print(f"Using mean of {eeg.get_data().shape[0]} epochs for source identification")
 
             # Check data dimensions and transpose if necessary
             if eeg_data.shape[0] > eeg_data.shape[1]:
-                print(f"Transposing EEG data from shape {eeg_data.shape} for source identification")
                 eeg_data = eeg_data.T
 
             if source_method == 'tess':
                 p_values, z_scores, filtered_z_scores = self.run_tess(stc_data, eeg_data, self.nperm)
-                print('\nExtracting sources associated with each microstate',
-                      '\nusing the topographic electrophysiological state source-imaging (TESS) algorithm ...')
-                tess_subject_path = os.path.join(self.tess_path, eeg_name)
-                if not os.path.exists(tess_subject_path):
-                    os.makedirs(tess_subject_path)
-                print('\nTess Completed on File ...')
-                np.save(os.path.join(tess_subject_path, f'{eeg_name}-filtered_zscore.npy'), filtered_z_scores)
-                np.save(os.path.join(tess_subject_path, f'{eeg_name}-zscore.npy'), z_scores)
-                np.save(os.path.join(tess_subject_path, f'{eeg_name}-p_values.npy'), p_values)
-            elif source_method == 'avg':
-                # Average sources over times matched with each microstate
-                print('\nAveraging sources over times matched with each microstate ...')
-                avg_subject_path = os.path.join(self.avg_sources_path, eeg_name)
-                if not os.path.exists(avg_subject_path):
-                    os.makedirs(avg_subject_path)
 
-                all_sources_dict = self.avg_sources(self.segmentation_path, stc_data)
-                print(f'\nExporting the averaged microstate sources for subject {eeg_name}')
-                for m, array_data in all_sources_dict.items():
-                    filename = os.path.join(avg_subject_path, f"{eeg_name}_{m}.npy")
-                    np.save(filename, array_data)
+                # Save TESS results using SourceIO
+                self.source_io.save_tess_results(
+                    self.tess_path, eeg_name, z_scores, filtered_z_scores, p_values
+                )
+
+            elif source_method == 'avg':
+                # Find the corresponding segmentation file for this EEG file
+                segmentation_file_path = os.path.join(self.segmentation_path, f"{eeg_name}.csv")
+
+                # Check if the segmentation file exists
+                if not os.path.exists(segmentation_file_path):
+                    base_name = os.path.splitext(eeg_name)[0]
+                    segmentation_file_path = os.path.join(self.segmentation_path, f"{base_name}.csv")
+
+                    if not os.path.exists(segmentation_file_path):
+                        return False
+
+                # Process only this single file
+                sources_dict = self.avg_sources_single_file(segmentation_file_path, stc_data)
+
+                if sources_dict:
+                    # Save averaged sources using SourceIO
+                    self.source_io.save_averaged_sources(
+                        self.avg_sources_path, eeg_name, sources_dict
+                    )
+
             return True
-        except Exception as e:
-            import traceback
-            print(f"Error processing {eeg_name}: {str(e)}")
-            print(traceback.format_exc())  # Print detailed error traceback
+        except Exception:
             return False

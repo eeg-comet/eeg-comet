@@ -205,6 +205,7 @@ class COMET:
 
         # Set default source localization values
         config["source_config"]["use_anatomy"] = "fsaverage"
+        config["source_config"]["bem_solver"] = "mne"
         config["source_config"]["inverse_method"] = "dSPM"
         config["source_config"]["nperm"] = "2000"
         config["source_config"]["spacing"] = "ico3"
@@ -393,6 +394,7 @@ class COMET:
         # Source Localization Configs
         source_config = self.config["source_config"]
         self.use_anatomy = source_config.get("use_anatomy", "fsaverage")
+        self.bem_solver = source_config.get("bem_solver", "mne")
         self.inverse_method = source_config.get("inverse_method", "dSPM")
         self.nperm = source_config.getint("nperm", 2000)
         self.spacing = source_config.get("spacing", "ico3")
@@ -511,6 +513,7 @@ class COMET:
         self.list_eegs_path, self.list_eegs = self.comet_data_io.find_data(
             input_folder=self.preprocessed_data_path, extension=self.extension, pattern='*'
         )
+        self.load_maps()
 
     def load_maps(self):
         """
@@ -1434,8 +1437,9 @@ class COMET:
             use_anatomy=self.use_anatomy,
             extension=self.extension,
             datatype=self.datatype,
-            spacing=self.spacing,
+            bem_solver=self.bem_solver,
             inverse_method=self.inverse_method,
+            spacing=self.spacing,
             microstate_maps=self.best_maps,
             nperm=self.nperm
         )
@@ -1454,6 +1458,7 @@ class COMET:
             self.LogWindow.append_log(
                 f"Source Localization Settings:\n"
                 f"* Anatomy: {self.use_anatomy}\n"
+                f"* Boundary Element Method: {self.bem_solver}\n"
                 f"* Inverse Method: {self.inverse_method}\n"
                 f"* Spacing: {self.spacing}", log_type='settings'
             )
@@ -1469,6 +1474,7 @@ class COMET:
         else:
             print(f"Source Localization Settings:")
             print(f"* Anatomy: {self.use_anatomy}")
+            print(f"* Boundary Element Method: {self.bem_solver}")
             print(f"* Inverse Method: {self.inverse_method}")
             print(f"* Spacing: {self.spacing}")
 
@@ -1488,7 +1494,7 @@ class COMET:
         if self.auto_save:
             self.save_config()
 
-    def run_identifying_microstate_sources(self, method='tess'):
+    def run_identifying_microstate_sources(self):
         """
         Correlate sources and microstates
         """
@@ -1507,9 +1513,6 @@ class COMET:
             self.anatomy_subjects_dir = os.path.dirname(fs_dir)
             print(f"Using default anatomy directory: {self.anatomy_subjects_dir}")
 
-        # Set the source localization method
-        self.source_localization_method = method
-
         # Make sure the necessary paths are set correctly in the source localizer
         if not hasattr(self, 'comet_source_localizer') or self.comet_source_localizer is None:
             # Initialize the source localizer if it doesn't exist
@@ -1521,18 +1524,19 @@ class COMET:
                 use_anatomy=self.use_anatomy,
                 extension=self.extension,
                 datatype=self.datatype,
-                spacing=self.spacing,
+                bem_solver=self.bem_solver,
                 inverse_method=self.inverse_method,
+                spacing=self.spacing,
                 microstate_maps=self.best_maps,
                 nperm=self.nperm
             )
 
         # Ensure directories are created and paths are set
-        if method == 'tess':
+        if self.source_localization_method == 'tess':
             self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
             os.makedirs(self.tess_path, exist_ok=True)
             self.comet_source_localizer.tess_path = self.tess_path
-        elif method == 'avg':
+        elif self.source_localization_method == 'avg':
             self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
             os.makedirs(self.avg_sources_path, exist_ok=True)
             self.comet_source_localizer.avg_sources_path = self.avg_sources_path
@@ -1551,7 +1555,7 @@ class COMET:
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.append_log(
                 f"Source-Microstate Correlation Settings:\n"
-                f"* Method: {method}\n"
+                f"* Method: {self.source_localization_method}\n"
                 f"* Number of permutations: {self.nperm}", log_type='settings'
             )
 
@@ -1559,13 +1563,13 @@ class COMET:
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.setup_progress_dialog(
                 window_title="Source Identification ...",
-                label_text=f"Identifying microstate sources using {method} method ...",
+                label_text=f"Identifying microstate sources using {self.source_localization_method} method ...",
                 tasks=self.zipped_eeg_files,
                 processing_func=self.source_identify_file
             )
         else:
             print(f"Source-Microstate Correlation Settings:")
-            print(f"* Method: {method}")
+            print(f"* Method: {self.source_localization_method}")
             print(f"* Number of permutations: {self.nperm}")
 
             print(f"Identifying microstate sources for {len(self.zipped_eeg_files)} EEG files...")
@@ -1576,9 +1580,9 @@ class COMET:
         self.done_identifying_microstate_sources = True
 
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.process_finished(f"✓ Source-microstate correlation completed using {method} method")
+            self.LogWindow.process_finished(f"✓ Source-microstate correlation completed using {self.source_localization_method} method")
         else:
-            print(f"✓ Source-microstate correlation completed using {method} method")
+            print(f"✓ Source-microstate correlation completed using {self.source_localization_method} method")
 
         # Save parameters
         if self.auto_save:
@@ -1642,6 +1646,7 @@ class COMET:
         self.config["features_config"]["pre_window_size"] = str(self.pre_window_size)
         self.config["features_config"]["post_window_size"] = str(self.post_window_size)
 
+        self.config["source_config"]["bem_solver"] = self.bem_solver
         self.config["source_config"]["inverse_method"] = self.inverse_method
         self.config["source_config"]["nperm"] = str(self.nperm)
         self.config["source_config"]["spacing"] = self.spacing

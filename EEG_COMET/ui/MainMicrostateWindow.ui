@@ -242,7 +242,7 @@
          <enum>QTabWidget::North</enum>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>3</number>
         </property>
         <property name="iconSize">
          <size>
@@ -342,8 +342,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>941</width>
-               <height>837</height>
+               <width>953</width>
+               <height>629</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
@@ -1501,8 +1501,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>954</width>
-               <height>384</height>
+               <width>966</width>
+               <height>435</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_5">
@@ -1926,9 +1926,9 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-269</y>
-               <width>941</width>
-               <height>662</height>
+               <y>0</y>
+               <width>953</width>
+               <height>506</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_9">
@@ -2832,15 +2832,15 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>941</width>
-               <height>370</height>
+               <width>966</width>
+               <height>379</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
               <item row="0" column="0">
                <layout class="QGridLayout" name="source_GLayout">
-                <item row="2" column="0">
-                 <widget class="QLabel" name="step5_spacing_label">
+                <item row="3" column="0">
+                 <widget class="QLabel" name="step5_inverse_method_label">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2856,14 +2856,14 @@
                    </font>
                   </property>
                   <property name="text">
-                   <string>Sources/Hemisphere:</string>
+                   <string>Inverse Method: </string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                   </property>
                  </widget>
                 </item>
-                <item row="2" column="1">
+                <item row="4" column="1">
                  <widget class="QComboBox" name="step5_spacing_combobox">
                   <property name="enabled">
                    <bool>false</bool>
@@ -2896,8 +2896,8 @@
                   </item>
                  </widget>
                 </item>
-                <item row="1" column="0">
-                 <widget class="QLabel" name="step5_inverse_method_label">
+                <item row="4" column="0">
+                 <widget class="QLabel" name="step5_spacing_label">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2913,37 +2913,14 @@
                    </font>
                   </property>
                   <property name="text">
-                   <string>Inverse Method: </string>
+                   <string>Sources/Hemisphere:</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                   </property>
                  </widget>
                 </item>
-                <item row="3" column="0" rowspan="2">
-                 <widget class="QLabel" name="step5_anatomical_label_2">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Anatomy:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="4" column="1">
+                <item row="6" column="1">
                  <widget class="QRadioButton" name="step5_use_individual_radio">
                   <property name="enabled">
                    <bool>false</bool>
@@ -2967,8 +2944,31 @@
                   </attribute>
                  </widget>
                 </item>
+                <item row="5" column="0" rowspan="2">
+                 <widget class="QLabel" name="step5_anatomy_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Anatomy:</string>
+                  </property>
+                 </widget>
+                </item>
                 <item row="0" column="0" colspan="2">
-                 <widget class="QLabel" name="step5_stc_label">
+                 <widget class="QLabel" name="step5_stc_settings_label">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2990,7 +2990,7 @@
                   </property>
                  </widget>
                 </item>
-                <item row="1" column="1">
+                <item row="3" column="1">
                  <widget class="QComboBox" name="step5_inverse_method_combobox">
                   <property name="enabled">
                    <bool>false</bool>
@@ -3048,7 +3048,7 @@
                   </item>
                  </widget>
                 </item>
-                <item row="3" column="1">
+                <item row="5" column="1">
                  <widget class="QRadioButton" name="step5_use_fsaverage_radio">
                   <property name="enabled">
                    <bool>false</bool>
@@ -3075,8 +3075,8 @@
                   </attribute>
                  </widget>
                 </item>
-                <item row="5" column="0">
-                 <widget class="QLabel" name="step5_anatomical_label">
+                <item row="7" column="0">
+                 <widget class="QLabel" name="step5_subjects_dir_label">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3098,7 +3098,7 @@
                   </property>
                  </widget>
                 </item>
-                <item row="5" column="1">
+                <item row="7" column="1">
                  <widget class="QLineEdit" name="step5_subjects_dir_lineedit">
                   <property name="enabled">
                    <bool>false</bool>
@@ -3128,7 +3128,81 @@
                   </property>
                  </widget>
                 </item>
-                <item row="10" column="1">
+                <item row="13" column="1">
+                 <widget class="QRadioButton" name="step5_use_avg_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Calculate Average Source Times Across Microstate Segments</string>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_6</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item row="11" column="1">
+                 <widget class="QRadioButton" name="step5_use_tess_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Topographic Electrophysiological State Source-imaging (TESS)</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_6</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item row="9" column="0" colspan="2">
+                 <widget class="QLabel" name="step5_source_microstate_settings_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                    <weight>75</weight>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Microstate Source Localization Settings</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="12" column="1">
                  <layout class="QHBoxLayout" name="horizontalLayout_4">
                   <item>
                    <widget class="QLabel" name="step5_permutations_label">
@@ -3183,96 +3257,22 @@
                   </item>
                  </layout>
                 </item>
-                <item row="11" column="1">
-                 <widget class="QRadioButton" name="step5_use_avg_radio">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Average source time sources over microstate segments</string>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_6</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item row="6" column="0" colspan="2">
-                 <widget class="Line" name="step5_line2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item row="8" column="0" colspan="2">
+                <item row="10" column="0" colspan="2">
                  <widget class="Line" name="step5_line3">
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
                 </item>
-                <item row="9" column="1">
-                 <widget class="QRadioButton" name="step5_use_tess_radio">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Topographic Electrophysiological State Source-imaging (TESS)</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_6</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item row="7" column="0" colspan="2">
-                 <widget class="QLabel" name="step5_source_microstate_correlation_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                    <weight>75</weight>
-                    <bold>true</bold>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Microstate Source Localization Settings</string>
+                <item row="8" column="0" colspan="2">
+                 <widget class="Line" name="step5_line2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
                 </item>
-                <item row="9" column="0" rowspan="3">
-                 <widget class="QLabel" name="step5_inverse_method_label_2">
+                <item row="11" column="0" rowspan="3">
+                 <widget class="QLabel" name="step5_source_microstate_method_label">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3289,6 +3289,81 @@
                   </property>
                   <property name="text">
                    <string> Method: </string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QRadioButton" name="step5_bem_mne_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>MNE Solver</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_7</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QRadioButton" name="step5_bem_openmeeg_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>OpenMEEG Solver</string>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_7</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item row="1" column="0" rowspan="2">
+                 <widget class="QLabel" name="step5_bem_method_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Boundary Element Method:</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -3383,7 +3458,7 @@
      <x>0</x>
      <y>0</y>
      <width>1000</width>
-     <height>22</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -3524,10 +3599,11 @@
  <connections/>
  <buttongroups>
   <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_7"/>
  </buttongroups>
 </ui>
