@@ -80,8 +80,10 @@ class MainMicrostateWindow(QMainWindow):
         # )
         # Create and initialize OptimizerVisualizationWindow
         self.ui.OptimizerVisualizationWindow = OptimizerVisualizationWindow(
-            self.context
+            self.context,
+            self.comet
         )
+
         # Create and initialize BackfittingVisualizationWindow
         self.ui.BackfittingVisualizationWindow = BackfittingVisualizationWindow(
             self.context
@@ -771,48 +773,86 @@ class MainMicrostateWindow(QMainWindow):
 
     def visualize_elbow(self):
         """
-        Initiates the visualization of elbow plots for optimizing the number of clusters,
-        based on clustering results and user-specified parameters.
+        Initiates the visualization of optimization plots for determining the optimal number of clusters.
+        Works with the new ClustererOptimizer implementation.
         """
-        # Check if clustering is done and the number of maps is chosen automatically
-        if self.comet.done_clustering and self.comet.choose_number_of_maps == "auto":
-            # Set attributes in OptimizerVisualizationWindow to indicate optimization is done
-            setattr(self.OptimizerVisualizationWindow, f'optimizer_{self.comet.stopping_mode}_done', True)
-            # Initialize optimizer_results dictionary if not already done
-            self.OptimizerVisualizationWindow.optimizer_results = {}
-            # Store clustering results in optimizer_results dictionary
-            self.OptimizerVisualizationWindow.optimizer_results[self.comet.stopping_mode] = {
-                'optimal_k': self.comet.optimal_k,
-                'k_values': self.comet.k_values,
-                'target_values': self.comet.target_values
-            }
+        # Update COMET parameters based on current UI settings
+        self._update_comet_clustering_parameters()
+
+        # Check if we already have optimization results from previous automatic clustering
+        if (hasattr(self.comet, 'optimization_results') and
+                self.comet.optimization_results and
+                self.comet.choose_number_of_maps == "auto"):
+
+            # Pass the existing results to the visualization window
+            self.ui.OptimizerVisualizationWindow.results_cache = {}
+
+            # Convert COMET's optimization results to the format expected by the visualization window
+            for method_code, result in self.comet.optimization_results.items():
+                if method_code != 'majority_vote':  # Skip majority vote for individual visualizations
+                    cache_key = f"{method_code}_None"
+                    self.ui.OptimizerVisualizationWindow.results_cache[cache_key] = {
+                        'method': method_code,
+                        'result': result,
+                        'optimal_k': result.optimal_k,
+                        'k_values': result.k_values,
+                        'scores': result.scores
+                    }
         else:
-            # Initialize optimizer_results dictionary if clustering is not done
-            self.OptimizerVisualizationWindow.optimizer_results = {}
-        # Set attributes in OptimizerVisualizationWindow related to data and visualization
-        self.OptimizerVisualizationWindow.preprocessed_data_path = self.comet.preprocessed_data_path
-        self.OptimizerVisualizationWindow.extension = self.comet.extension
-        self.OptimizerVisualizationWindow.datatype = self.comet.datatype
-        # Check if using percentages and set the value accordingly
-        # if self.ui.step2_use_percent_radio.isChecked():
-        #     self.comet.use_percentages = self.ui.step2_percent_combobox.currentText()
-        # else:
-        #     self.comet.use_percentages = None
-        # Set attributes in OptimizerVisualizationWindow
-        self.OptimizerVisualizationWindow.use_percentages = self.comet.use_percentages
-        self.OptimizerVisualizationWindow.min_distance_size = int(int(self.ui.step2_kernel_size_input.text()) /
-                                                                  (1000/self.comet.sample_rate))
-        self.OptimizerVisualizationWindow.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-        self.OptimizerVisualizationWindow.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
-        self.comet.max_iterations = int(self.ui.step2_maxiter_input.text())
-        self.OptimizerVisualizationWindow.max_iterations = self.comet.max_iterations
+            # Clear any previous results
+            self.ui.OptimizerVisualizationWindow.results_cache = {}
+
+        # Update parameters in the visualization window
+        self.ui.OptimizerVisualizationWindow._load_comet_parameters()
+
+        # Update the min/max range spinboxes based on current COMET settings
+        if hasattr(self.comet, 'kmin'):
+            self.ui.OptimizerVisualizationWindow.ui.optimizer_min_input.setText(str(self.comet.kmin))
+        if hasattr(self.comet, 'kmax'):
+            self.ui.OptimizerVisualizationWindow.ui.optimizer_max_input.setText(str(self.comet.kmax))
+
+        # Reset the optimizer to ensure fresh computation if parameters changed
+        self.ui.OptimizerVisualizationWindow.optimizer = None
+
         # Set modality and show the OptimizerVisualizationWindow
-        self.OptimizerVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.OptimizerVisualizationWindow.showMaximized()
+        self.ui.OptimizerVisualizationWindow.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.ui.OptimizerVisualizationWindow.showMaximized()
+
+    def _update_comet_clustering_parameters(self):
+        """
+        Update COMET instance with current UI clustering parameters.
+        This ensures the optimizer uses the correct settings.
+        """
+        # Update smoothing parameters
+        if self.ui.step2_kernel_size_input.text():
+            self.comet.smoothing_gfp = True
+            self.comet.smoothing_distance = int(self.ui.step2_kernel_size_input.text())
+            self.comet.min_distance_size = int(self.comet.smoothing_distance / (1000 / self.comet.sample_rate))
+        else:
+            self.comet.smoothing_gfp = False
+            self.comet.smoothing_distance = 0
+            self.comet.min_distance_size = None
+
+        # Update use_percentages based on radio button selection
+        if self.ui.step2_use_percent_radio.isChecked():
+            self.comet.use_percentages = int(self.ui.step2_percent_slider.value())
+        else:
+            self.comet.use_percentages = None
+
+        # Update clustering parameters
+        self.comet.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
+        self.comet.max_iterations = int(self.ui.step2_maxiter_input.text())
+        self.comet.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+
+        # Update k range for auto mode
+        if self.ui.step2_auto_k_radio.isChecked():
+            self.comet.kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
+            self.comet.kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
 
     def do_clustering(self):
         """
         Initiates the clustering process based on user-specified parameters and performs clustering on EEG data.
+        Updated to work with the new ClustererOptimizer.
         """
         # Check if the analysis is already done.
         if self.comet.done_clustering:
@@ -829,39 +869,35 @@ class MainMicrostateWindow(QMainWindow):
                     'done_identifying_microstate_sources'
                 ]
                 self.reset_processing_flags(processing_flags)
+                # Clear previous optimization results
+                if hasattr(self.comet, 'optimization_results'):
+                    self.comet.optimization_results = None
         else:
             self.do_clustering_from_scratch = True
 
         if self.do_clustering_from_scratch:
+            # Update all clustering parameters from UI
+            self._update_comet_clustering_parameters()
+
             # Process user-specified clustering parameters
-            if self.ui.step2_kernel_size_input.text():
-                self.comet.smoothing_gfp = True
-                self.comet.smoothing_distance = int(self.ui.step2_kernel_size_input.text())
-            else:
-                self.comet.smoothing_gfp = False
-                self.comet.smoothing_distance = ''
-                # self.min_distance_size = []
             if self.ui.step2_auto_k_radio.isChecked():
                 self.comet.choose_number_of_maps = "auto"
-                self.comet.kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
-                self.comet.kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
-                auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
-                if auto_k_method == 'Gap Statistic':
-                    self.comet.stopping_mode = 'gs'
-                elif auto_k_method == 'Cross Validation':
-                    self.comet.stopping_mode = 'cv'
-                elif auto_k_method == 'Elbow - Global Explained Variance':
-                    self.comet.stopping_mode = 'gev'
-                elif auto_k_method == 'Elbow - Residual Variance':
-                    self.comet.stopping_mode = 'res'
-                elif auto_k_method == 'Silhouette Method':
-                    self.comet.stopping_mode = 'sil'
-                elif auto_k_method == 'Calinski-Harabasz Method':
-                    self.comet.stopping_mode = 'ch'
-                elif auto_k_method == 'Davies-Bouldin Method':
-                    self.comet.stopping_mode = 'db'
-                self.comet.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
                 self.comet.number_of_maps = 'auto'
+
+                # Get the optimization method settings
+                auto_k_method = self.ui.step2_auto_k_method_combobox.currentText()
+                method_map = {
+                    'Gap Statistic': 'gs',
+                    'Cross Validation': 'cv',
+                    'Elbow - Global Explained Variance': 'gev',
+                    'Elbow - Residual Variance': 'res',
+                    'Silhouette Method': 'sil',
+                    'Calinski-Harabasz Method': 'ch',
+                    'Davies-Bouldin Method': 'db'
+                }
+                self.comet.stopping_mode = method_map.get(auto_k_method, 'gev')
+                self.comet.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
+
             elif self.ui.step2_user_k_radio.isChecked():
                 self.comet.choose_number_of_maps = "user"
                 self.comet.stopping_mode = ''
@@ -869,19 +905,25 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet.kmin = ''
                 self.comet.kmax = ''
                 self.comet.number_of_maps = int(self.ui.step2_user_k_input.text())
+
+            # Set initializer
             if self.ui.step2_random_initializer_radio.isChecked():
                 self.comet.initializer = "Random"
             elif self.ui.step2_kmeans_initializer_radio.isChecked():
                 self.comet.initializer = "K-Means++"
+
+            # Set clustering method and similarity metric
             self.comet.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
-            # if self.ui.step2_use_percent_radio.isChecked():
-            #     self.comet.use_percentages = self.ui.step2_percent_combobox.currentText()
-            # else:
-            #     self.comet.use_percentages = None
-            self.comet.max_iterations = int(self.ui.step2_maxiter_input.text())
-            self.comet.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
             self.comet.similarity_metric = self.ui.step2_similarity_combobox.currentText()
-            self.comet.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+
+            # Set batch size if enabled
+            if self.ui.step2_batch_checkbox.isChecked():
+                self.comet.batch_size = int(
+                    self.ui.step2_batch_input.text()) if self.ui.step2_batch_input.text() else 1000
+            else:
+                self.comet.batch_size = None
+
+            # Set paths
             self.comet.microstate_maps_path = os.path.join(self.comet.save_dir, 'microstate_maps.csv')
 
             # Perform clustering

@@ -28,146 +28,6 @@
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="0" column="0">
     <layout class="QGridLayout" name="gridLayout">
-     <item row="4" column="0">
-      <widget class="QLabel" name="optimizer_min_label">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="font">
-        <font>
-         <pointsize>14</pointsize>
-        </font>
-       </property>
-       <property name="text">
-        <string>Minimum number of clusters: </string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0" colspan="2">
-      <widget class="QComboBox" name="optimizer_combobox">
-       <item>
-        <property name="text">
-         <string>Elbow - Global Explained Variance</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Elbow - Residual Variance</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Silhouette Method</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Calinski-Harabasz Method</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Davies-Bouldin Method</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Cross Validation</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Gap Statistic</string>
-        </property>
-       </item>
-      </widget>
-     </item>
-     <item row="6" column="0" colspan="2">
-      <widget class="QPushButton" name="optimizer_button">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="font">
-        <font>
-         <pointsize>14</pointsize>
-         <weight>75</weight>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="cursor">
-        <cursorShape>PointingHandCursor</cursorShape>
-       </property>
-       <property name="text">
-        <string>Compute/Plot</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0" colspan="2">
-      <widget class="QLabel" name="optimizer_top_label">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="text">
-        <string>Determining The Optimal Number Of Clusters</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="1">
-      <widget class="QLineEdit" name="optimizer_max_input">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="font">
-        <font>
-         <pointsize>14</pointsize>
-         <weight>50</weight>
-         <bold>false</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>10</string>
-       </property>
-       <property name="maxLength">
-        <number>2</number>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="optimizer_max_label">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="font">
-        <font>
-         <pointsize>14</pointsize>
-        </font>
-       </property>
-       <property name="text">
-        <string>Maximum number of clusters: </string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0" colspan="2">
-      <layout class="QVBoxLayout" name="Figure_Layout"/>
-     </item>
      <item row="4" column="1">
       <widget class="QLineEdit" name="optimizer_min_input">
        <property name="sizePolicy">
@@ -210,6 +70,152 @@
        </property>
       </widget>
      </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="optimizer_max_label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>14</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Maximum number of clusters: </string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0" colspan="2">
+      <layout class="QVBoxLayout" name="Figure_Layout"/>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="optimizer_min_label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>14</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Minimum number of clusters: </string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0" colspan="2">
+      <widget class="QPushButton" name="optimizer_button">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>14</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="text">
+        <string>Compute/Plot</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0" colspan="2">
+      <widget class="QLabel" name="optimizer_top_label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Determining The Optimal Number Of Clusters</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <widget class="QLineEdit" name="optimizer_max_input">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>14</pointsize>
+         <weight>50</weight>
+         <bold>false</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>10</string>
+       </property>
+       <property name="maxLength">
+        <number>2</number>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0" colspan="2">
+      <widget class="QComboBox" name="optimizer_combobox">
+       <item>
+        <property name="text">
+         <string>Elbow - Global Explained Variance</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Elbow - Residual Variance</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Silhouette Method</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Calinski-Harabasz Method</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Davies-Bouldin Method</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Cross Validation</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Gap Statistic</string>
+        </property>
+       </item>
+      </widget>
+     </item>
      <item row="2" column="1">
       <widget class="QLineEdit" name="optimizer_stopping_threshold_input">
        <property name="sizePolicy">
@@ -223,6 +229,13 @@
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="0" colspan="2">
+      <widget class="QProgressBar" name="optimizer_progressbar">
+       <property name="value">
+        <number>0</number>
        </property>
       </widget>
      </item>

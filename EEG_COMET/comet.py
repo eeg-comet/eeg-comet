@@ -818,7 +818,7 @@ class COMET:
 
     def run_clustering(self):
         """
-        Perform clustering on preprocessed EEG data
+        Perform clustering on preprocessed EEG data with automatic or manual k selection
         """
         print('\nClustering ...')
 
@@ -828,7 +828,7 @@ class COMET:
         if self.smoothing_gfp:
             self.min_distance_size = int(int(self.smoothing_distance) / (1000 / int(self.sample_rate)))
         else:
-            self.min_distance_size = []
+            self.min_distance_size = None
 
         # Check if clustering method is supported
         available_methods = [
@@ -843,6 +843,312 @@ class COMET:
                 self.LogWindow.append_log(error_msg)
             return
 
+        # Generate maps and peaks for clustering
+        self.maps2use, self.peaks2use = self.comet_data_initializer.generate_maps_and_peaks(
+            preprocessed_folder=self.preprocessed_data_path,
+            extension=self.extension,
+            datatype=self.datatype,
+            use_percentages=self.use_percentages,
+            min_dist=self.min_distance_size
+        )
+
+        # Handle automatic number of maps selection
+        if self.number_of_maps == 'auto':
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log("Determining optimal number of clusters...")
+
+                # Create wrapper task for worker thread
+                optimization_task = [('auto_optimization',)]
+
+                # Use setup_progress_dialog for worker thread
+                self.LogWindow.setup_progress_dialog(
+                    window_title="Finding Optimal Number of Clusters...",
+                    label_text="Running optimization methods...",
+                    tasks=optimization_task,
+                    processing_func=self._run_automatic_optimization_worker
+                )
+
+                # Wait for the worker to finish before continuing
+                if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
+                    self.LogWindow.worker_thread.wait()
+
+            else:
+                # Non-GUI mode - run directly
+                self._run_automatic_optimization_direct()
+
+        # After determining number_of_maps, perform actual clustering
+        if self.number_of_maps and self.number_of_maps != 'auto':
+            # Initialize microstate clusterer
+            self.comet_microstate_clusterer = MicrostateClusterer(
+                n_states=self.number_of_maps,
+                batch_size=self.batch_size,
+                n_inits=self.number_of_repeats,
+                max_iter=self.max_iterations,
+                tolerance=self.clustering_tolerance
+            )
+
+            # Log clustering settings
+            if self.choose_number_of_maps == "auto":
+                k_log = f'was automatically determined to be {self.number_of_maps}.'
+            else:
+                k_log = f'is user-predefined as {self.number_of_maps}.'
+
+            if self.use_percentages is not None:
+                cluster_data_log = f"{self.use_percentages}% randomly selected time-points of the data."
+            else:
+                cluster_data_log = 'the local peaks of the global field power.'
+
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"Clustering Settings:\n"
+                    f"* Clustering algorithm: {self.clustering_method}\n"
+                    f"* The number of maps to extract {k_log}\n"
+                    f"* Clustering will be performed on {cluster_data_log}\n"
+                    f"* Number of repetitions: {self.number_of_repeats}",
+                    log_type='settings'
+                )
+
+            # Reset best values
+            self.best_residual, self.best_maps = None, None
+            self.best_gev = 0
+
+            # Perform clustering iterations
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.setup_progress_dialog(
+                    window_title="Clustering ...",
+                    label_text="Clustering ...",
+                    tasks=list(range(self.number_of_repeats)),
+                    processing_func=self.cluster_eeg_microstates
+                )
+            else:
+                print(f"Running {self.number_of_repeats} clustering iterations...")
+                from tqdm import tqdm
+                for init in tqdm(range(self.number_of_repeats), desc="Clustering"):
+                    self.cluster_eeg_microstates(init)
+
+            # Compute final GEV and save results
+            if self.best_maps is not None:
+                self.best_gev = self.compute_gev_all_data()
+                print(f'Global Explained Variance: {self.best_gev}')
+
+                # Always set clustering flag to True if we have maps
+                self.done_clustering = True
+
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.process_finished(
+                        f"✓ The data has been successfully clustered into {self.number_of_maps} microstates."
+                        f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
+                    )
+                else:
+                    print(f"✓ The data has been successfully clustered into {self.number_of_maps} microstates.")
+                    print(f"Best Global Explained Variance Achieved: {100 * self.best_gev:.3f}%")
+
+                # Save updated configuration and parameters
+                if self.auto_save:
+                    self.save_config()
+
+    def _run_automatic_optimization_worker(self, task_name):
+        """
+        Run automatic optimization using majority vote in worker thread.
+        This method is designed to be called by the LogWindow's worker thread.
+        """
+
+        # Create optimizer with progress callback
+        def progress_callback(current, total, message):
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                # Emit progress signal from worker thread
+                if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
+                    self.LogWindow.worker_thread.progress_updated.emit(
+                        int((current / total) * 100),
+                        message
+                    )
+
+        # Initialize optimizer
+        self.comet_clusterer_optimizer = ClustererOptimizer(
+            maps2use=self.maps2use,
+            min_dist=self.min_distance_size,
+            n_inits=1,  # Single repeat per k as requested
+            kmin=self.kmin,
+            kmax=self.kmax,
+            preprocessed_data_path=self.preprocessed_data_path,
+            extension=self.extension,
+            datatype=self.datatype,
+            tolerance=self.clustering_tolerance,
+            max_iter=self.max_iterations,
+            progress_callback=progress_callback
+        )
+
+        # Run automatic optimization
+        self._run_automatic_optimization_core()
+
+    def _run_automatic_optimization_direct(self):
+        """
+        Run automatic optimization directly (non-GUI mode).
+        """
+        # Initialize optimizer without progress callback
+        self.comet_clusterer_optimizer = ClustererOptimizer(
+            maps2use=self.maps2use,
+            min_dist=self.min_distance_size,
+            n_inits=1,  # Single repeat per k as requested
+            kmin=self.kmin,
+            kmax=self.kmax,
+            preprocessed_data_path=self.preprocessed_data_path,
+            extension=self.extension,
+            datatype=self.datatype,
+            tolerance=self.clustering_tolerance,
+            max_iter=self.max_iterations
+        )
+
+        # Run automatic optimization
+        self._run_automatic_optimization_core()
+
+    def _run_automatic_optimization_core(self):
+        """
+        Core automatic optimization logic using majority vote.
+        """
+        # Define methods to use for majority vote
+        methods_to_use = ['gev', 'res', 'sil', 'ch', 'db']
+
+        # Conditionally include cross-validation if we have enough samples
+        if self.maps2use.shape[1] >= 50:  # Need enough samples for meaningful CV
+            methods_to_use.append('cv')
+
+        # Skip gap statistic by default as it's computationally expensive
+        # Can be enabled if needed
+        # methods_to_use.append('gs')
+
+        # Run majority vote optimization
+        optimal_k = self.comet_clusterer_optimizer.find_optimal_k_majority_vote(methods_to_use)
+
+        # Store results
+        self.number_of_maps = optimal_k
+        self.optimization_results = self.comet_clusterer_optimizer.get_all_results()
+
+        # Log results
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(f"\n✓ Optimal number of clusters determined: {optimal_k}")
+
+            # Log individual method results
+            self.LogWindow.append_log("\nIndividual optimization method results:")
+
+            method_names = {
+                'gev': 'Elbow - Global Explained Variance',
+                'res': 'Elbow - Residual Variance',
+                'sil': 'Silhouette Method',
+                'ch': 'Calinski-Harabasz Method',
+                'db': 'Davies-Bouldin Method',
+                'cv': 'Cross-Validation',
+                'gs': 'Gap Statistic'
+            }
+
+            for method in methods_to_use:
+                if method in self.optimization_results:
+                    k = self.optimization_results[method].optimal_k
+                    name = method_names.get(method, method.upper())
+                    self.LogWindow.append_log(f"  - {name}: k = {k}")
+
+            # Log majority vote summary
+            if 'majority_vote' in self.optimization_results:
+                votes = self.optimization_results['majority_vote'].scores
+                self.LogWindow.append_log(f"\nMajority vote: {votes}")
+
+        else:
+            print(f"\n✓ Optimal number of clusters determined: {optimal_k}")
+
+            # Print individual results
+            print("\nIndividual optimization method results:")
+            for method in methods_to_use:
+                if method in self.optimization_results:
+                    k = self.optimization_results[method].optimal_k
+                    print(f"  - {method.upper()}: k = {k}")
+        """
+        Perform clustering on preprocessed EEG data
+        """
+        print('\nClustering ...')
+
+        self.load_eeg_info()
+
+        # Calculate minimum distance size if smoothing GFP is enabled
+        if self.smoothing_gfp:
+            self.min_distance_size = int(int(self.smoothing_distance) / (1000 / int(self.sample_rate)))
+        else:
+            self.min_distance_size = None
+
+        # Check if clustering method is supported
+        available_methods = [
+            'Modified K-Means Clustering (Pascual-Marqui et al. 1995)',
+            'Modified K-Means Clustering with Spatial Similarity',
+            'Topographic Atomize and Agglomerate Hierarchical Clustering',
+        ]
+        if self.clustering_method not in available_methods:
+            error_msg = f"Clustering method '{self.clustering_method}' not supported. Available methods: {', '.join(available_methods)}"
+            print(error_msg)
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg)
+            return
+
+        # Generate maps and peaks for clustering
+        self.maps2use, self.peaks2use = self.comet_data_initializer.generate_maps_and_peaks(
+            preprocessed_folder=self.preprocessed_data_path,
+            extension=self.extension,
+            datatype=self.datatype,
+            use_percentages=self.use_percentages,
+            min_dist=self.min_distance_size
+        )
+
+        # Handle automatic number of maps selection
+        if self.number_of_maps == 'auto':
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log("Determining optimal number of clusters using majority vote...")
+
+                # Create optimizer with progress callback for GUI
+                def progress_callback(current, total, message):
+                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                        self.LogWindow.update_progress(
+                            value=int((current / total) * 100),
+                            text=message
+                        )
+
+                self.comet_clusterer_optimizer = ClustererOptimizer(
+                    maps2use=self.maps2use,
+                    min_dist=self.min_distance_size,
+                    n_inits=1,  # Single repeat per k
+                    kmin=self.kmin,
+                    kmax=self.kmax,
+                    preprocessed_data_path=self.preprocessed_data_path,
+                    extension=self.extension,
+                    datatype=self.datatype,
+                    tolerance=self.clustering_tolerance,
+                    max_iter=self.max_iterations,
+                    progress_callback=progress_callback if hasattr(self, 'LogWindow') else None
+                )
+
+                # Use setup_progress_dialog for worker thread
+                self.LogWindow.setup_progress_dialog(
+                    window_title="Finding Optimal Number of Clusters...",
+                    label_text="Running optimization methods...",
+                    tasks=[('auto_optimization',)],  # Single task
+                    processing_func=self._run_automatic_optimization
+                )
+            else:
+                # Non-GUI mode
+                self.comet_clusterer_optimizer = ClustererOptimizer(
+                    maps2use=self.maps2use,
+                    min_dist=self.min_distance_size,
+                    n_inits=1,
+                    kmin=self.kmin,
+                    kmax=self.kmax,
+                    preprocessed_data_path=self.preprocessed_data_path,
+                    extension=self.extension,
+                    datatype=self.datatype,
+                    tolerance=self.clustering_tolerance,
+                    max_iter=self.max_iterations
+                )
+                self._run_automatic_optimization('auto_optimization')
+
+        # After determining number_of_maps (either manually set or automatically determined)
+        # Perform actual clustering with determined k
+
         # Initialize microstate clusterer
         self.comet_microstate_clusterer = MicrostateClusterer(
             n_states=self.number_of_maps,
@@ -852,48 +1158,11 @@ class COMET:
             tolerance=self.clustering_tolerance
         )
 
-        # Generate maps and peaks automatically if number_of_maps is set to 'auto'
-        if self.number_of_maps == 'auto':
-            self.maps2use, self.peaks2use = self.comet_data_initializer.generate_maps_and_peaks(
-                preprocessed_folder=self.preprocessed_data_path,
-                extension=self.extension,
-                datatype=self.datatype,
-                use_percentages=self.use_percentages,
-                min_dist=self.min_distance_size
-            )
-            self.comet_clusterer_optimizer = ClustererOptimizer(
-                maps2use=self.maps2use,
-                min_dist=self.min_distance_size,
-                n_inits=self.number_of_repeats,
-                kmin=self.kmin,
-                kmax=self.kmax,
-                preprocessed_data_path=self.preprocessed_data_path,
-                extension=self.extension,
-                datatype=self.datatype,
-                tolerance=self.clustering_tolerance,
-                max_iter=self.max_iterations
-            )
-
-            # Find optimal number of maps
-            self.optimal_k, self.k_values, self.target_values = self.comet_clusterer_optimizer.find_optimal_k(
-                optimizer_mode=self.stopping_mode, parameter_value=self.stopping_parameter
-            )
-            self.number_of_maps = self.optimal_k
-            print(f'Result: n_states = {self.number_of_maps}')
-
-        # Perform clustering
-        self.maps2use, self.peaks2use = self.comet_data_initializer.generate_maps_and_peaks(
-            preprocessed_folder=self.preprocessed_data_path,
-            extension=self.extension,
-            datatype=self.datatype,
-            use_percentages=self.use_percentages,
-            min_dist=self.min_distance_size
-        )
-
+        # Log clustering settings
         if self.choose_number_of_maps == "auto":
-            k_log = 'will be automatically determined.'
+            k_log = f'was automatically determined to be {self.number_of_maps}.'
         else:
-            k_log = 'is user-predefined.'
+            k_log = f'is user-predefined as {self.number_of_maps}.'
 
         if self.use_percentages is not None:
             cluster_data_log = f"{self.use_percentages}% randomly selected time-points of the data."
@@ -912,6 +1181,7 @@ class COMET:
         self.best_residual, self.best_maps = None, None
         self.best_gev = 0
 
+        # Perform clustering iterations
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.setup_progress_dialog(
                 window_title="Clustering ...",
@@ -924,6 +1194,7 @@ class COMET:
             for init in tqdm(range(self.number_of_repeats), desc="Clustering"):
                 self.cluster_eeg_microstates(init)
 
+        # Compute final GEV and save results
         if self.best_maps is not None:
             self.best_gev = self.compute_gev_all_data()
             print(f'Global Explained Variance: {self.best_gev}')
@@ -943,6 +1214,52 @@ class COMET:
             # Save updated configuration and parameters
             if self.auto_save:
                 self.save_config()
+
+    def _run_automatic_optimization(self, task_name):
+        """
+        Run automatic optimization using majority vote.
+        This method is designed to be called by the worker thread.
+        """
+        # Define methods to use for majority vote
+        methods_to_use = ['gev', 'res', 'sil', 'ch', 'db']
+
+        # If cross-validation is feasible (not too many samples), include it
+        if self.maps2use.shape[1] > 50:  # Arbitrary threshold
+            methods_to_use.append('cv')
+
+        # Run majority vote optimization
+        optimal_k = self.comet_clusterer_optimizer.find_optimal_k_majority_vote(methods_to_use)
+
+        # Store results
+        self.number_of_maps = optimal_k
+        self.optimization_results = self.comet_clusterer_optimizer.get_all_results()
+
+        # Log results
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(f"Optimal number of clusters determined: {optimal_k}")
+
+            # Log individual method results
+            summary = self.optimization_results.get('majority_vote')
+            if summary:
+                method_names = ['GEV', 'Residual', 'Silhouette', 'Calinski-Harabasz', 'Davies-Bouldin']
+                if 'cv' in methods_to_use:
+                    method_names.append('Cross-Validation')
+
+                self.LogWindow.append_log("Individual method results:")
+                for method, name in zip(methods_to_use, method_names):
+                    if method in self.optimization_results:
+                        k = self.optimization_results[method].optimal_k
+                        self.LogWindow.append_log(f"  - {name}: k = {k}")
+        else:
+            print(f"Optimal number of clusters determined: {optimal_k}")
+
+            # Print individual results
+            if 'majority_vote' in self.optimization_results:
+                print("Individual method results:")
+                for method in methods_to_use:
+                    if method in self.optimization_results:
+                        k = self.optimization_results[method].optimal_k
+                        print(f"  - {method.upper()}: k = {k}")
 
     def run_microstate_labeling(self):
         """
