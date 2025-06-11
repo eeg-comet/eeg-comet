@@ -5,10 +5,7 @@ from mne import use_log_level, pick_types, pick_info
 from mne.io import RawArray
 from mne.epochs import EpochsArray
 from mne.time_frequency import psd_array_welch
-from mne.preprocessing import ICA
-from mne_icalabel import label_components
 from pyprep.find_noisy_channels import NoisyChannels
-from meegkit import dss
 
 
 class DataPreprocessor:
@@ -148,70 +145,4 @@ class DataPreprocessor:
             eeg = self.spatial_smooth_eeg(eeg=eeg, verbose=verbose)
         eeg.set_eeg_reference('average', projection=True, verbose=verbose)
         eeg.apply_proj(verbose=verbose)
-        return eeg
-
-    @staticmethod
-    def remove_line_noise(eeg, verbose):
-        """Remove electrical line noise from EEG data using DSS (Denoising Source Separation).
-
-        Automatically detects the peak frequency in the 45-65 Hz range (typically 50 or 60 Hz)
-        and applies iterative DSS to remove this noise without distorting the underlying signal.
-
-        Args:
-            eeg (Raw or Epochs): MNE Raw or Epochs object containing EEG data
-            verbose (str): Logging verbosity level ('ERROR', 'WARNING', 'INFO', etc.)
-
-        Returns:
-            Raw or Epochs: EEG data with line noise removed
-        """
-        data = eeg.get_data()
-        sfreq = eeg.info['sfreq']
-        psds, freqs = psd_array_welch(data, sfreq, fmin=45, fmax=65, verbose=verbose)
-        line_noise_frequency = freqs[np.argmax(psds.mean(axis=0))]
-        processed_data, _ = dss.dss_line_iter(data.T, line_noise_frequency, eeg.info['sfreq'], show=True)
-        eeg._data = processed_data.T
-        return eeg
-
-    def auto_clean_raw_eeg(self, eeg, verbose='ERROR'):
-        """Apply a complete automatic cleaning pipeline to raw EEG data.
-
-        Performs a comprehensive cleaning procedure with the following steps:
-        1. Downsampling to 1000 Hz for computational efficiency
-        2. Line noise removal using DSS
-        3. High-pass filtering at 1 Hz to remove slow drifts
-        4. Bad channel detection using NoisyChannels algorithm
-        5. Re-referencing to average reference
-        6. Artifact removal using ICA with automatic component classification via ICLabel
-        7. Interpolation of bad channels
-
-        Args:
-            eeg (Raw): MNE Raw object containing EEG data
-            verbose (str): Logging verbosity level ('ERROR', 'WARNING', 'INFO', etc.)
-
-        Returns:
-            Raw: Cleaned EEG data ready for analysis
-
-        Notes:
-            This method is designed for raw continuous data, not epoched data.
-            The method uses ICA and automatic component classification to remove
-            eye blink and muscle artifacts.
-        """
-
-        with use_log_level(verbose):
-            warnings.filterwarnings('ignore')
-            eeg = eeg.resample(1000, verbose=verbose)
-            eeg = self.remove_line_noise(eeg, verbose)
-            eeg.filter(l_freq=1, h_freq=None, method='fir', phase='zero')
-            eeg = self.identify_bad_channels(eeg)
-            eeg.pick_types(eeg=True, exclude='bads')
-            eeg.set_eeg_reference('average', projection=True)
-            eeg.apply_proj()
-            ica_eeg = ICA(n_components=None, random_state=97, method='fastica')
-            ica_eeg.fit(eeg)
-            ica_labels_eeg = label_components(eeg, ica_eeg, method='iclabel')
-            artifact_labels = {'eye blink', 'muscle artifact'}
-            artifact_indices_eeg = [i for i, label in enumerate(ica_labels_eeg['labels']) if label in artifact_labels]
-            ica_eeg.exclude = artifact_indices_eeg
-            eeg = ica_eeg.apply(eeg)
-            eeg.interpolate_bads(reset_bads=False, verbose=verbose)
         return eeg

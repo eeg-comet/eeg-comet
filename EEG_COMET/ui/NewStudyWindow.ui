@@ -585,7 +585,67 @@
         <string>Step 2. Preprocess Data</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="26" column="0" colspan="2">
+        <item row="0" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="20" column="0" colspan="2">
+         <widget class="QPushButton" name="step2_save_path_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Select Save Location</string>
+          </property>
+         </widget>
+        </item>
+        <item row="22" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine_5">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="19" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine_4">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="23" column="0" colspan="2">
          <widget class="QPushButton" name="step2_preprocess_data_button">
           <property name="enabled">
            <bool>false</bool>
@@ -608,8 +668,30 @@
           </property>
          </widget>
         </item>
-        <item row="25" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_6">
+        <item row="1" column="0" colspan="2">
+         <widget class="QLabel" name="step2_montage_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>EEG Montage</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine_2">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -621,8 +703,8 @@
           </property>
          </widget>
         </item>
-        <item row="13" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_4">
+        <item row="10" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine_3">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -634,34 +716,8 @@
           </property>
          </widget>
         </item>
-        <item row="22" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_5">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="23" column="0" colspan="2">
-         <widget class="QPushButton" name="step2_save_path_button">
+        <item row="21" column="0" colspan="2">
+         <widget class="QLineEdit" name="step2_save_path_lineedit">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -674,14 +730,18 @@
           <property name="font">
            <font>
             <pointsize>14</pointsize>
+            <italic>false</italic>
            </font>
           </property>
-          <property name="text">
-           <string>Select Save Location</string>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Directory where the output data will be saved&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
-        <item row="15" column="0" rowspan="7" colspan="2">
+        <item row="12" column="0" rowspan="7" colspan="2">
          <layout class="QGridLayout" name="Filter_GLayout">
           <item row="3" column="3">
            <widget class="QLabel" name="step2_filt_hz2">
@@ -1066,95 +1126,6 @@
           </item>
          </layout>
         </item>
-        <item row="5" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="10" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_3">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="24" column="0" colspan="2">
-         <widget class="QLineEdit" name="step2_save_path_lineedit">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-            <italic>false</italic>
-           </font>
-          </property>
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Directory where the output data will be saved&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0" colspan="2">
-         <widget class="QLabel" name="step2_montage_label">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>EEG Montage</string>
-          </property>
-         </widget>
-        </item>
-        <item row="12" column="0" colspan="2">
-         <widget class="QCheckBox" name="step2_auto_clean_option_checkbox">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Auto-Clean Resting-State EEG</string>
-          </property>
-         </widget>
-        </item>
         <item row="6" column="0" colspan="2">
          <widget class="QLabel" name="step2_ch2rm_label">
           <property name="enabled">
@@ -1275,6 +1246,28 @@
           </item>
          </layout>
         </item>
+        <item row="11" column="0" colspan="2">
+         <widget class="QLabel" name="step2_preprocess_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Preprocess Data</string>
+          </property>
+         </widget>
+        </item>
         <item row="8" column="0" rowspan="2" colspan="2">
          <layout class="QGridLayout" name="Channels_GLayout">
           <item row="1" column="0">
@@ -1328,50 +1321,6 @@
            </layout>
           </item>
          </layout>
-        </item>
-        <item row="11" column="0" colspan="2">
-         <widget class="QLabel" name="step2_auto_clean_label">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Remove Artifacts</string>
-          </property>
-         </widget>
-        </item>
-        <item row="14" column="0" colspan="2">
-         <widget class="QLabel" name="step2_preprocess_label">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Preprocess Data</string>
-          </property>
-         </widget>
         </item>
        </layout>
       </widget>
@@ -1833,11 +1782,11 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="FilterMethod_ButtonGroup"/>
-  <buttongroup name="FindData_ButtonGroup"/>
-  <buttongroup name="DataType_ButtonGroup"/>
-  <buttongroup name="Ch2Rm_ButtonGroup"/>
   <buttongroup name="Montage_ButtonGroup"/>
+  <buttongroup name="FindData_ButtonGroup"/>
+  <buttongroup name="Ch2Rm_ButtonGroup"/>
+  <buttongroup name="FilterMethod_ButtonGroup"/>
+  <buttongroup name="DataType_ButtonGroup"/>
   <buttongroup name="Plot_ButtonGroup"/>
  </buttongroups>
 </ui>

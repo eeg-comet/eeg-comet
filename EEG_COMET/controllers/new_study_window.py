@@ -74,8 +74,7 @@ class NewStudyWindow(QDialog):
                 self.ui.step2_temporal_filter_option_checkbox,
                 self.ui.step2_downsamp_option_checkbox,
                 self.ui.step2_spatial_filter_option_checkbox,
-                self.ui.step2_ch2rm_radio,
-                self.ui.step2_auto_clean_option_checkbox
+                self.ui.step2_ch2rm_radio
             ],
             # Text inputs (textChanged signal)
             'textChanged': [
@@ -190,8 +189,6 @@ class NewStudyWindow(QDialog):
             self.ui.step2_temporal_filter_option_checkbox,
             self.ui.step2_downsamp_option_checkbox,
             self.ui.step2_spatial_filter_option_checkbox,
-            self.ui.step2_auto_clean_label,
-            self.ui.step2_auto_clean_option_checkbox,
             self.ui.step2_preprocess_label,
             self.ui.step2_ch2rm_label,
             self.ui.step2_ch2rm_radio,
@@ -260,15 +257,10 @@ class NewStudyWindow(QDialog):
             widget_conditions = [
                 (self.ui.step2_template_montage_combobox, self.ui.step2_use_template_montage_radio.isChecked()),
                 (self.ui.step2_chanloc_path_lineedit, self.ui.step2_load_montage_radio.isChecked()),
-                (self.ui.step2_ch2rm_combobox, self.ui.step2_ch2rm_radio.isChecked()),
-                (self.ui.step2_auto_clean_option_checkbox, self.ui.step1_import_raw_radio.isChecked()),
+                (self.ui.step2_ch2rm_combobox, self.ui.step2_ch2rm_radio.isChecked())
             ]
             for widget, condition in widget_conditions:
                 set_widgets_status(widget, 'enable' if condition else 'disable')
-            self.auto_clean_data = self.ui.step2_auto_clean_option_checkbox.isChecked()
-            set_widgets_status(self.ui.step2_prep_option_checkbox, 'disable' if self.auto_clean_data else 'enable')
-            if self.auto_clean_data:
-                self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
             self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
             set_widgets_status(temporal_filter_sub_widgets, mode='enable' if self.temporal_filter_data else 'disable')
             if not self.temporal_filter_data:
@@ -453,7 +445,6 @@ class NewStudyWindow(QDialog):
         self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
         self.sample_rate = int(self.ui.step2_downsamp_freq_input.text()) if self.downsample_data else ''
         self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
-        self.auto_clean_data = self.ui.step2_auto_clean_option_checkbox.isChecked()
         self.chan2rm = (self.ui.step2_ch2rm_combobox.currentData() if self.ui.step2_ch2rm_radio.isChecked()
                         else 'missing')
         self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
@@ -464,8 +455,7 @@ class NewStudyWindow(QDialog):
         # Set all processing attributes in COMET
         attributes = [
             'temporal_filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
-            'downsample_data', 'sample_rate', 'spatial_filter_data', 'chan2rm', 'auto_clean_data',
-            'prep_data'
+            'downsample_data', 'sample_rate', 'spatial_filter_data', 'chan2rm', 'prep_data'
         ]
         for attr in attributes:
             setattr(self.comet, attr, getattr(self, attr))

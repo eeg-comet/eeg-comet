@@ -568,25 +568,6 @@ class COMET:
         """
         self.eeg_info = mne.io.read_info(self.eeg_info_path)
 
-    def autoclean_rseeg(self, eeg_path, eeg_name):
-        """
-        Auto-clean a raw EEG file and save the result
-        """
-        # Load the EEG
-        eeg = self.comet_data_io.load_eeg(
-            eeg_path=eeg_path,
-            datatype=self.datatype,
-            montage=self.montage,
-            chan2rm=self.chan2rm
-        )
-
-        # Clean Resting-State EEG data
-        eeg = self.comet_preprocessor.auto_clean_raw_eeg(eeg)
-
-        name = os.path.splitext(eeg_name)[0]
-        save_path = os.path.join(self.preprocessed_data_path, name)
-        self.comet_data_io.export_eegs(eeg=eeg, save_path=save_path, extension=self.extension, datatype=self.datatype)
-
     def preprocess_eeg(self, eeg_path, eeg_name):
         """
         Preprocess an EEG file and save the result
@@ -772,22 +753,6 @@ class COMET:
 
         # Check channel consistency
         self.check_chan2rm()
-
-        if self.auto_clean_data:
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(f"Auto-cleaning EEG data...")
-                self.LogWindow.setup_progress_dialog(
-                    window_title="Preprocessing ...",
-                    label_text="Cleaning file ...",
-                    tasks=self.zipped_eeg_files,
-                    processing_func=self.autoclean_rseeg
-                )
-            else:
-                print("Auto-cleaning EEG data...")
-                for eeg_path, eeg_name in self.zipped_eeg_files:
-                    self.autoclean_rseeg(eeg_path, eeg_name)
-
-            self.load_clean()
 
         # Start preprocessing
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
