@@ -546,7 +546,6 @@ class NewStudyWindow(QDialog):
         if self.ui.viz_plot_time_radio.isChecked():
             self.clean_figure_layout()
             fig = eeg.plot(verbose='ERROR')
-            fig.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
             self.ui.Figure_Layout.addWidget(fig)
 
         if self.ui.viz_plot_event_radio.isChecked():
