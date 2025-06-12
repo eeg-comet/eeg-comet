@@ -43,14 +43,14 @@ class MainMicrostateWindow(QMainWindow):
         """
         Open the GitHub page in the default web browser
         """
-        webbrowser.open('https://github.com/eBrainLab/EEG-COMET')
+        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction')
 
     @staticmethod
     def report_issues():
         """
         Open the GitHub issues page in the default web browser
         """
-        webbrowser.open('https://github.com/eBrainLab/EEG-COMET/issues/new')
+        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/issues/new')
 
     def update_toolbox(self):
         """
@@ -60,7 +60,7 @@ class MainMicrostateWindow(QMainWindow):
                                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Cancel)
         if ret == QMessageBox.Yes:
             webbrowser.open(
-                'https://github.com/eBrainLab/EEG-COMET/archive/refs/heads/main.zip')
+                'https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/archive/refs/heads/main.zip')
 
     def init_dialogs(self):
         # Create and initialize NewStudyWindow
