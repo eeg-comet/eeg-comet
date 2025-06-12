@@ -7,6 +7,7 @@ dependencies:
   - pip
   - pip:
     - mne==1.8.0
+    - eeglabio==0.1.0
     - opencv-python==4.11.0.86
     - onnxruntime==1.19.0
     - pyvista==0.45.2
