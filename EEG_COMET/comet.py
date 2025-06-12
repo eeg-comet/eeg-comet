@@ -558,7 +558,7 @@ class COMET:
 
         # Set montage
         montage = self.comet_data_io.load_montage(self.montage)
-        eeg_info.set_montage(montage)
+        eeg_info.set_montage(montage, match_case=False, on_missing='warn')
 
         mne.io.write_info(eeg_info_path, eeg_info)
 
