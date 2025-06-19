@@ -30,7 +30,7 @@ class MainMicrostateWindow(QMainWindow):
         # Load the UI from the .ui file
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
         self.ui.setWindowTitle("EEG-COMET")
-        self.ui.showMaximized()
+        # self.ui.showMaximized()
 
         # Initialize dialogs, flags, UI components, and connections
         self.init_dialogs()
@@ -121,12 +121,36 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.foldername_preprocessed_data = ""
 
     def init_ui_components(self):
+        from PyQt5.QtWidgets import QGraphicsDropShadowEffect
+        from PyQt5.QtGui import QPainter, QBrush, QPen, QColor
+        from PyQt5.QtCore import QPropertyAnimation, QEasingCurve
 
-        # Add EEG-COMET Logo
+        # Add EEG-COMET Logo with enhanced graphics
         icon_path = self.context.get_resource("eeg_comet_logo.png")
         self.pixmap = QPixmap(icon_path)
-        pixmap = self.pixmap.scaled(512, 512, Qt.KeepAspectRatio)
+
+        # Use high-quality scaling
+        pixmap = self.pixmap.scaled(256, 256, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        # Add drop shadow effect
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
+        shadow.setXOffset(5)
+        shadow.setYOffset(5)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        self.ui.comet_logo.setGraphicsEffect(shadow)
+
+        # Set the pixmap
         self.ui.comet_logo.setPixmap(pixmap)
+
+        # Add fade-in animation
+        self.ui.comet_logo.setWindowOpacity(0)
+        self.fade_animation = QPropertyAnimation(self.ui.comet_logo, b"windowOpacity")
+        self.fade_animation.setDuration(1500)
+        self.fade_animation.setStartValue(0)
+        self.fade_animation.setEndValue(1)
+        self.fade_animation.setEasingCurve(QEasingCurve.InOutQuad)
+        self.fade_animation.start()
 
         set_widgets_status(self.ui.main_tab, mode='hide')
 
