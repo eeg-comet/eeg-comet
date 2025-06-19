@@ -1,8 +1,9 @@
 import os.path
 import webbrowser
 from PyQt5 import uic, QtCore
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QComboBox, QSpinBox, QSlider, QMessageBox
-from PyQt5.QtGui import QPixmap, QFont
+from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QComboBox, QSpinBox, QSlider, QMessageBox,
+                             QGraphicsDropShadowEffect)
+from PyQt5.QtGui import QPixmap, QFont, QColor
 from PyQt5.QtCore import Qt
 
 from .new_study_window import NewStudyWindow
@@ -121,10 +122,6 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.foldername_preprocessed_data = ""
 
     def init_ui_components(self):
-        from PyQt5.QtWidgets import QGraphicsDropShadowEffect
-        from PyQt5.QtGui import QPainter, QBrush, QPen, QColor
-        from PyQt5.QtCore import QPropertyAnimation, QEasingCurve
-
         # Add EEG-COMET Logo with enhanced graphics
         icon_path = self.context.get_resource("eeg_comet_logo.png")
         self.pixmap = QPixmap(icon_path)
@@ -142,15 +139,6 @@ class MainMicrostateWindow(QMainWindow):
 
         # Set the pixmap
         self.ui.comet_logo.setPixmap(pixmap)
-
-        # Add fade-in animation
-        self.ui.comet_logo.setWindowOpacity(0)
-        self.fade_animation = QPropertyAnimation(self.ui.comet_logo, b"windowOpacity")
-        self.fade_animation.setDuration(1500)
-        self.fade_animation.setStartValue(0)
-        self.fade_animation.setEndValue(1)
-        self.fade_animation.setEasingCurve(QEasingCurve.InOutQuad)
-        self.fade_animation.start()
 
         set_widgets_status(self.ui.main_tab, mode='hide')
 
