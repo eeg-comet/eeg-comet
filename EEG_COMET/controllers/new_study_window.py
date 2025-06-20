@@ -4,7 +4,8 @@ import numpy as np
 from mne.channels import get_builtin_montages, read_custom_montage, make_standard_montage
 from mne.viz import plot_topomap
 from PyQt5 import uic
-from PyQt5.QtWidgets import QFileDialog, QDialog, QComboBox, QMessageBox, QSizePolicy
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox, QSizePolicy
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from gui_utils.CheckableComboBox import CheckableComboBox
@@ -18,6 +19,12 @@ class NewStudyWindow(QDialog):
         self.main_window = main_window
         self.comet = comet_tbx
         self.ui = uic.loadUi(context.get_resource("NewStudyWindow.ui"), self)
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.Window
+            | Qt.WindowMinimizeButtonHint
+            | Qt.WindowMaximizeButtonHint
+        )
         self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
         self.init_ui_components()
         self.setup_connections()
@@ -91,7 +98,6 @@ class NewStudyWindow(QDialog):
         montage_widgets = {
             'clicked': [
                 self.ui.vis_montage_button,
-                self.ui.vis_channel_names_checkbox
             ],
             'itemClicked': [
                 self.ui.loaded_selected_files_list
@@ -149,21 +155,13 @@ class NewStudyWindow(QDialog):
         elif self.ui.step1_load_pattern_radio.isChecked() and self.ui.step1_import_pattern_lineedit.text().strip():
             pattern = self.ui.step1_import_pattern_lineedit.text()
             self.ui.step1_import_log_lineedit.setText(f"{common_message} that contain '{pattern}' in their filenames.")
+
         plot_widgets = [
             self.ui.vis_plot_button,
-            self.ui.viz_plot_time_radio,
-            self.ui.viz_plot_event_radio,
             self.ui.vis_montage_button,
-            self.ui.vis_psd_button,
-            self.ui.vis_channel_names_checkbox,
-            self.ui.vis_range_psd_label,
-            self.ui.vis_range_psd_min_label,
-            self.ui.vis_range_psd_max_label,
-            self.ui.vis_range_psd_min,
-            self.ui.vis_range_psd_max,
-            self.ui.vis_range_hz1,
-            self.ui.vis_range_hz2
+            self.ui.vis_psd_button
         ]
+
         import_data_widgets = [
             self.ui.step1_input_path_label,
             self.ui.step1_study_name_label,
@@ -180,6 +178,7 @@ class NewStudyWindow(QDialog):
             self.ui.step1_load_pattern_radio,
             self.ui.step1_import_log_lineedit
         ]
+
         preprocessing_widgets = [
             self.ui.step2_montage_label,
             self.ui.step2_load_montage_radio,
@@ -198,6 +197,7 @@ class NewStudyWindow(QDialog):
             self.ui.step2_save_path_lineedit,
             self.ui.step2_preprocess_data_button
         ]
+
         temporal_filter_sub_widgets = [
             self.ui.step2_filter_method_label,
             self.ui.step2_fir_filtermethod_radio,
@@ -209,11 +209,13 @@ class NewStudyWindow(QDialog):
             self.ui.step2_highcut_freq_input,
             self.ui.step2_filt_hz2
         ]
+
         downsample_sub_widgets = [
             self.ui.step2_downsamp_freq_label,
             self.ui.step2_downsamp_freq_input,
             self.ui.step2_downsamp_hz
         ]
+
         if self.ui.new_study_tab_widget.currentIndex() == 0:
             widgets_to_rm = (
                     preprocessing_widgets +
@@ -238,17 +240,14 @@ class NewStudyWindow(QDialog):
                 widgets_to_disable = [self.ui.loaded_remove_file_button,
                                       self.ui.loaded_clear_files_button] + plot_widgets + preprocessing_widgets
                 set_widgets_status(widgets_to_disable, mode='disable')
+
         if self.ui.loaded_selected_files_list.count() != 0:
             self.ui.new_study_tab_widget.setTabEnabled(1, True)
             if self.ui.loaded_selected_files_list.currentItem():
                 set_widgets_status(plot_widgets, mode='enable')
-                set_widgets_status(
-                    self.ui.viz_plot_event_radio, 'enable' if
-                    self.ui.step1_import_epoched_radio.isChecked() else 'disable'
-                )
-
         else:
             self.ui.new_study_tab_widget.setTabEnabled(1, False)
+
         if self.ui.new_study_tab_widget.currentIndex() == 1:
             widgets_to_show = preprocessing_widgets + temporal_filter_sub_widgets + downsample_sub_widgets
             widgets_to_hide_or_disable = [self.ui.step1_import_raw_button] + import_data_widgets
@@ -505,13 +504,12 @@ class NewStudyWindow(QDialog):
                 return
 
             # Proceed with plotting if we have channel positions
-            show_names = self.ui.vis_channel_names_checkbox.isChecked()
             if self.ui.step2_ch2rm_combobox.currentData():
                 self.chan2rm = self.ui.step2_ch2rm_combobox.currentData()
                 eeg.info["bads"].extend(self.chan2rm)
 
             try:
-                fig, _ = eeg.plot_sensors(kind='select', show_names=show_names, show=False)
+                fig, _ = eeg.plot_sensors(kind='select', show_names=True, show=False)
                 self.ui.vis_figure_title_lineedit.setText("EEG Montage")
                 self.canvas.figure = fig
                 self.canvas.draw()
@@ -529,29 +527,18 @@ class NewStudyWindow(QDialog):
     def plot_eeg(self):
         """
         Plot the EEG data using the PyQt application canvas.
+        Automatically detects whether data is epoched (evoked) or raw.
         """
         filepath, filename = self.item_selected()
         eeg = DataIO().load_eeg(filepath, self.comet.datatype, self.comet.montage)
 
-        if self.ui.viz_plot_time_radio.isChecked():
-            self.clean_figure_layout()
-            fig = eeg.plot(
-                n_channels=min(15, len(eeg.ch_names)),
-                duration=5.0,
-                scalings="auto",
-                show=False,
-                block=False,
-                title=f"{filename}",
-                overview_mode="hidden",
-                verbose="ERROR"
-            )
-            self.ui.Figure_Layout.addWidget(fig)
-
-        if self.ui.viz_plot_event_radio.isChecked():
+        # Automatically determine plot type based on data type
+        if self.comet.datatype == "epoched":
+            # Plot evoked/epoched data with topomaps
             self.init_canvas()
             tmin = -0.2
             tmax = 0.4
-            time_points = [30, 45, 60, 100, 180, 280]
+            time_points = [50, 100, 150, 200, 250, 300, 350]
             time_points_sec = np.array(time_points) / 1000.0
             times = eeg.times
             tmin_idx = np.searchsorted(times, tmin)
@@ -567,20 +554,37 @@ class NewStudyWindow(QDialog):
                 ax_topo.set_title(f'{time_point * 1000:.0f} ms', fontsize=16)
             ax_main = fig.add_subplot(gs[1, :])
             for i, channel_data in enumerate(avg_data):
-                ax_main.plot(times[tmin_idx:tmax_idx] * 1000, channel_data[tmin_idx:tmax_idx] * 1e6)
+                ax_main.plot(times[tmin_idx:tmax_idx] * 1000,
+                             channel_data[tmin_idx:tmax_idx] * 1e6)
             ax_main.axvline(0, color='k', linestyle='--', label='Event Onset')
+            for tp in time_points:
+                ax_main.axvline(tp, color='r', linestyle='--', alpha=0.7)
+            ax_main.set_axisbelow(True)  # draw grid behind the lines
+            ax_main.grid(True, axis='y', which='major', linestyle='--', alpha=0.5)
             xticks = np.arange(int(tmin * 1000), int(tmax * 1000) + 1, 50)
             xticks = np.unique(np.concatenate((xticks, time_points)))
             ax_main.set_xticks(xticks)
             ax_main.set_xticklabels([f'{int(x)}' for x in xticks])
-            for time_point in time_points:
-                ax_main.axvline(time_point, color='r', linestyle='--', alpha=0.7)
             ax_main.set_xlabel('Time (ms)', fontsize=18)
             ax_main.set_ylabel('Amplitude (μV)', fontsize=18)
-            ax_main.set_title(f'{filename}', fontsize=20)
+            ax_main.set_title(f'{filename} - Evoked Response', fontsize=20)
             ax_main.tick_params(axis='both', which='major', labelsize=16)
             self.canvas.draw()
-            self.ui.vis_figure_title_lineedit.setText("Butterfly plot of TMS‐evoked potentials")
+        else:
+            # Plot raw continuous data
+            self.clean_figure_layout()
+            fig = eeg.plot(
+                n_channels=min(15, len(eeg.ch_names)),
+                duration=5.0,
+                scalings="auto",
+                show=False,
+                block=False,
+                title=f"{filename} - Raw EEG",
+                overview_mode="hidden",
+                verbose="ERROR"
+            )
+            self.ui.Figure_Layout.addWidget(fig)
+            self.ui.vis_figure_title_lineedit.setText("Raw EEG Time Series")
 
     def plot_psd(self):
         """
@@ -589,9 +593,7 @@ class NewStudyWindow(QDialog):
         self.init_canvas()
         filepath, filename = self.item_selected()
         eeg = DataIO().load_eeg(filepath, self.comet.datatype, self.comet.montage, preload=False)
-        fmin_plot = int(self.ui.vis_range_psd_min.text())
-        fmax_plot = int(self.ui.vis_range_psd_max.text())
-        fig = eeg.compute_psd(fmin=fmin_plot, fmax=fmax_plot, verbose='ERROR').plot(show=False)
+        fig = eeg.compute_psd(fmin=1, fmax=50, verbose='ERROR').plot(show=False)
         self.canvas.figure = fig
-        self.ui.vis_figure_title_lineedit.setText("Power Spectral Density (PSD) using Multitapers")
+        self.ui.vis_figure_title_lineedit.setText("Power Spectral Density (PSD)")
         self.canvas.draw()
