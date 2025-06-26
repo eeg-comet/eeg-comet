@@ -1,18 +1,23 @@
 import os.path
 from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog, QFileDialog, QSizePolicy
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QSizePolicy, QActionGroup, QInputDialog
 from PyQt5.QtCore import Qt
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 from matplotlib.patches import Patch
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from data_utils.data_io import DataIO
 from backfitting_utils.segmentation_io import SegmentationIO
 from gui_utils.set_widgets_status import set_widgets_status
+import logging
+
+# Suppress matplotlib font warnings
+logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
 
 
-class BackfittingVisualizationWindow(QDialog):
+class BackfittingVisualizationWindow(QMainWindow):
     def __init__(self, context, parent=None):
         """
         Initialize the BackfittingVisualizationWindow.
@@ -21,17 +26,23 @@ class BackfittingVisualizationWindow(QDialog):
 
         # Initialize variables
         self.datatype = ""
+        self.preprocessed_data_path = ""
+        self.segmentation_path = ""
+        self.extension = ""
+        self.export_format = ""
+        self.current_eeg_times = None
+        self.current_window_size = 10000  # Default window size in ms
+        self.context = context
 
         # Load UI and initialize UI components
-        self._load_ui(context)
+        self._load_ui()
         self._initialize_ui()
 
-    def _load_ui(self, context):
+    def _load_ui(self):
         """
         Load the UI layout from the specified .ui file.
         """
-        basepath = os.path.dirname(__file__)
-        self.ui = uic.loadUi(context.get_resource("BackfittingVisualizationWindow.ui"), self)
+        self.ui = uic.loadUi(self.context.get_resource("BackfittingVisualizationWindow.ui"), self)
 
     def _initialize_ui(self):
         """
@@ -49,12 +60,316 @@ class BackfittingVisualizationWindow(QDialog):
         self.ui.Figure_Layout.addWidget(self.canvas)
 
         # Connect UI signals to their respective slots
-        self.ui.show_backfitting_button.clicked.connect(self.show_backfitting)
-        self.ui.export_backfitting_image_button.clicked.connect(self.export_plot)
-        self.ui.figure_settings_checkbox.clicked.connect(self.backfitting_visualization_controller)
+        self.ui.eeg_filenames_combobox.currentTextChanged.connect(self.on_filename_changed)
+        self.ui.num_trials_spinbox.valueChanged.connect(self.show_backfitting)
+
+        # Connect time range inputs and slider
+        self.ui.xlim_min_input.textChanged.connect(self.on_xlim_min_input_changed)
+        self.ui.xlim_max_input.textChanged.connect(self.on_xlim_max_input_changed)
+        self.ui.xlim_slider.valueChanged.connect(self.on_xlim_slider_changed)
+
+        # Connect window size radio buttons
+        self.ui.win500_radio.toggled.connect(self.on_window_size_changed)
+        self.ui.win1000_radio.toggled.connect(self.on_window_size_changed)
+        self.ui.win5000_radio.toggled.connect(self.on_window_size_changed)
+        self.ui.win10000_radio.toggled.connect(self.on_window_size_changed)
+
+        # Connect menu actions
+        self.ui.export_backfitting_image_button.triggered.connect(self.export_plot)
+
+        # Setup color map action group
+        self.cmap_group = QActionGroup(self)
+        self.cmap_group.addAction(self.ui.cmap_tab10)
+        self.cmap_group.addAction(self.ui.cmap_set1)
+        self.cmap_group.addAction(self.ui.cmap_set2)
+        self.cmap_group.addAction(self.ui.cmap_dark2)
+        self.cmap_group.addAction(self.ui.cmap_accent)
+        self.cmap_group.triggered.connect(self.on_colormap_changed)
+
+        # Connect font size action
+        self.ui.actionFont_Size.triggered.connect(self.on_font_size_action)
+
+        # Initialize default values
+        self.current_colormap = 'tab10'
+        self.font_size = 16
+        self.label_size = 18
+
+        # Set up preferred font family
+        self.font_family = self._get_available_font()
+
+        # Set default window size based on UI (1000ms is checked by default)
+        self.current_window_size = self._get_window_size_from_radio()
 
         # Initialize UI state based on default settings
         self.backfitting_visualization_controller()
+
+    def _get_available_font(self):
+        """
+        Get the best available font family from the preferred list.
+        """
+        preferred_fonts = ['Helvetica', 'Arial', 'DejaVu Sans', 'Liberation Sans', 'sans-serif']
+        available_fonts = [f.name for f in fm.fontManager.ttflist]
+
+        for font in preferred_fonts:
+            if font in available_fonts or font == 'sans-serif':
+                return font
+
+        return 'sans-serif'  # Ultimate fallback
+
+    def _get_window_size_from_radio(self):
+        """
+        Get the current window size based on selected radio button.
+        """
+        if self.ui.win500_radio.isChecked():
+            return 500
+        elif self.ui.win1000_radio.isChecked():
+            return 1000
+        elif self.ui.win5000_radio.isChecked():
+            return 5000
+        elif self.ui.win10000_radio.isChecked():
+            return 10000
+        else:
+            return 1000  # Default fallback
+
+    def on_window_size_changed(self):
+        """
+        Handle window size radio button changes.
+        """
+        new_window_size = self._get_window_size_from_radio()
+        if new_window_size != self.current_window_size:
+            self.current_window_size = new_window_size
+
+            # Update slider range and current window position
+            if self.current_eeg_times is not None:
+                self._update_slider_range()
+
+                # Update the window end time display
+                current_start = self.ui.xlim_slider.value()
+                new_end = current_start + self.current_window_size
+
+                # Check if new window exceeds data bounds
+                time_max = int(self.current_eeg_times[-1])
+                if new_end > time_max:
+                    # Adjust start position to fit window within bounds
+                    new_start = max(self.ui.xlim_slider.minimum(), time_max - self.current_window_size)
+                    self.ui.xlim_slider.setValue(new_start)
+                    new_end = new_start + self.current_window_size
+
+                self.ui.xlim_min_input.setText(str(self.ui.xlim_slider.value()))
+                self.ui.xlim_max_input.setText(str(new_end))
+
+                # Update the plot
+                self.show_backfitting()
+
+    def set_data_paths(self, datatype, preprocessed_data_path, segmentation_path, extension, export_format):
+        """
+        Set the data paths and initialize the filename combobox.
+        """
+        self.datatype = datatype
+        self.preprocessed_data_path = preprocessed_data_path
+        self.segmentation_path = segmentation_path
+        self.extension = extension
+        self.export_format = export_format
+
+        # Populate the filename combobox and auto-select first item
+        self._populate_filename_combobox()
+
+        # If there are files, automatically select the first one
+        if self.ui.eeg_filenames_combobox.count() > 0:
+            self.ui.eeg_filenames_combobox.setCurrentIndex(0)
+            self.load_data_and_setup_ui()
+            self.show_backfitting()
+
+    def _populate_filename_combobox(self):
+        """
+        Populate the filename combobox with available EEG files.
+        """
+        try:
+            data_io = DataIO()
+            eeg_files, _ = data_io.find_data(
+                input_folder=self.preprocessed_data_path,
+                extension=self.extension,
+                pattern="*"
+            )
+
+            # Extract just the filenames without path and extension
+            filenames = []
+            for file_path in eeg_files:
+                filename = os.path.basename(file_path)
+                # Remove extension
+                if filename.endswith(self.extension):
+                    filename = filename[:-len(self.extension)]
+                filenames.append(filename)
+
+            # Clear and populate combobox
+            self.ui.eeg_filenames_combobox.clear()
+            self.ui.eeg_filenames_combobox.addItems(filenames)
+
+        except Exception as e:
+            print(f"Error populating filename combobox: {e}")
+
+    def on_filename_changed(self):
+        """
+        Handle changes to the selected filename.
+        """
+        # Only load data if paths are properly initialized
+        if self.ui.eeg_filenames_combobox.count() > 0 and self._are_paths_initialized():
+            self.load_data_and_setup_ui()
+            self.show_backfitting()
+
+    def _are_paths_initialized(self):
+        """
+        Check if all required data paths have been set.
+        """
+        return all([
+            self.datatype,
+            self.preprocessed_data_path,
+            self.segmentation_path,
+            self.extension,
+            self.export_format
+        ])
+
+    def load_data_and_setup_ui(self):
+        """
+        Load data for the selected file and set up UI ranges.
+        """
+        selected_file_name = self.ui.eeg_filenames_combobox.currentText()
+        if not selected_file_name:
+            return
+
+        # Check if required paths are set
+        if not all([self.datatype, self.preprocessed_data_path, self.segmentation_path,
+                    self.extension, self.export_format]):
+            print("Error: Data paths not properly initialized. Call set_data_paths() first.")
+            return
+
+        try:
+            _, _, _, eeg_times, segmentation_data = self._load_data_and_segmentation(selected_file_name)
+            self.current_eeg_times = eeg_times
+
+            # Set up time range for slider - slider controls the start position
+            time_min = int(eeg_times[0])
+            time_max = int(eeg_times[-1])
+
+            # For continuous/raw data, ensure no negative values
+            if self.datatype == 'raw':
+                slider_min = max(0, time_min)
+            else:
+                # For epoched data, allow negative values (pre-stimulus)
+                slider_min = time_min
+
+            # Slider max should account for window size so window doesn't exceed data bounds
+            slider_max = time_max - self.current_window_size
+            if slider_max < slider_min:
+                # If data is shorter than window size, use minimum possible window size
+                min_possible_window = min(500, time_max - slider_min)
+                if min_possible_window > 0:
+                    self.current_window_size = min_possible_window
+                    # Update the appropriate radio button
+                    if min_possible_window <= 500:
+                        self.ui.win500_radio.setChecked(True)
+                    else:
+                        self.ui.win1000_radio.setChecked(True)
+                slider_max = time_max - self.current_window_size
+
+            # Ensure we have a valid range
+            if slider_max < slider_min:
+                slider_max = slider_min
+
+            self.ui.xlim_slider.setRange(slider_min, slider_max)
+
+            # Set default start position
+            default_start = max(0, slider_min) if self.datatype == 'raw' else slider_min
+            default_end = default_start + self.current_window_size
+
+            self.ui.xlim_slider.setValue(default_start)
+            self.ui.xlim_min_input.setText(str(default_start))
+            self.ui.xlim_max_input.setText(str(default_end))
+
+            # Update trial spinbox for epoched data
+            if self.datatype == 'epoched':
+                num_trials = len(segmentation_data)
+                self.ui.num_trials_spinbox.setRange(1, num_trials)
+
+        except Exception as e:
+            print(f"Error loading data: {e}")
+
+    def on_xlim_min_input_changed(self, text):
+        """
+        Handle changes to the minimum time input.
+        Since inputs are now read-only, this mainly serves as a validator.
+        """
+        # Input fields are now read-only, so this is mainly for validation
+        # The actual window control is through radio buttons and slider
+        pass
+
+    def on_xlim_max_input_changed(self, text):
+        """
+        Handle changes to the maximum time input.
+        Since inputs are now read-only, this mainly serves as a validator.
+        """
+        # Input fields are now read-only, so this is mainly for validation
+        # The actual window control is through radio buttons and slider
+        pass
+
+    def on_xlim_slider_changed(self, value):
+        """
+        Handle changes to the slider position (window start).
+        """
+        if self.current_eeg_times is not None:
+            window_start = value
+            window_end = window_start + self.current_window_size
+
+            # Update input fields
+            self.ui.xlim_min_input.setText(str(window_start))
+            self.ui.xlim_max_input.setText(str(window_end))
+
+            # Update the plot
+            self.show_backfitting()
+
+    def _update_slider_range(self):
+        """
+        Update slider range based on current window size and data bounds.
+        """
+        if self.current_eeg_times is not None:
+            time_min = int(self.current_eeg_times[0])
+            time_max = int(self.current_eeg_times[-1])
+
+            if self.datatype == 'raw':
+                slider_min = max(0, time_min)
+            else:
+                slider_min = time_min
+
+            slider_max = time_max - self.current_window_size
+            if slider_max < slider_min:
+                slider_max = slider_min
+
+            self.ui.xlim_slider.setRange(slider_min, slider_max)
+
+    def on_colormap_changed(self, action):
+        """
+        Handle colormap selection changes.
+        """
+        colormap_map = {
+            self.ui.cmap_tab10: 'tab10',
+            self.ui.cmap_set1: 'Set1',
+            self.ui.cmap_set2: 'Set2',
+            self.ui.cmap_dark2: 'Dark2',
+            self.ui.cmap_accent: 'Accent'
+        }
+        self.current_colormap = colormap_map.get(action, 'tab10')
+        self.show_backfitting()
+
+    def on_font_size_action(self):
+        """
+        Handle font size change request.
+        """
+        font_size, ok = QInputDialog.getInt(self, "Font Size", "Enter font size:",
+                                            self.font_size, 8, 24, 1)
+        if ok:
+            self.font_size = font_size
+            self.label_size = max(8, font_size - 2)
+            self.show_backfitting()
 
     def backfitting_visualization_controller(self):
         """
@@ -67,33 +382,13 @@ class BackfittingVisualizationWindow(QDialog):
             self.ui.num_trials_spinbox
         ]
 
-        # Widgets related to figure settings
-        figure_settings_widgets = [
-            self.ui.font_size_label,
-            self.ui.font_size_input,
-            self.ui.label_size_label,
-            self.ui.label_size_input,
-            self.ui.colormap_label,
-            self.ui.colormap_combobox,
-        ]
-
         # Enable or disable epoched data widgets based on datatype
         if self.datatype == 'epoched':
             set_widgets_status(epoched_data_widgets, mode='enable')
             set_widgets_status(epoched_data_widgets, mode='show')
-            selected_file_name = self.ui.eeg_filenames_combobox.currentText()
-            segmentation_data = self._load_data_and_segmentation(selected_file_name)[4]
-            num_trials = len(segmentation_data)
-            self.ui.num_trials_spinbox.setRange(1, num_trials)
         else:
             set_widgets_status(epoched_data_widgets, mode='disable')
             set_widgets_status(epoched_data_widgets, mode='hide')
-
-        # Show or hide figure settings widgets based on checkbox state
-        if self.ui.figure_settings_checkbox.isChecked():
-            set_widgets_status(figure_settings_widgets, mode='show')
-        else:
-            set_widgets_status(figure_settings_widgets, mode='hide')
 
     def _load_data_and_segmentation(self, selected_file_name):
         """
@@ -118,6 +413,11 @@ class BackfittingVisualizationWindow(QDialog):
         segmentation_io = SegmentationIO()
         segmentation_filename = f"{selected_file_name}{self.export_format}"
         segmentation_path = os.path.join(self.segmentation_path, segmentation_filename)
+
+        # Validate export format before loading
+        if not self.export_format:
+            raise ValueError("Export format is not set. Please set export_format before loading data.")
+
         segmentation_data = segmentation_io.load_segmentation(segmentation_path, import_format=self.export_format)
 
         return eeg_data, eeg_info, gfp_data, eeg_times, segmentation_data
@@ -128,8 +428,12 @@ class BackfittingVisualizationWindow(QDialog):
         """
         if self.datatype == 'epoched':
             trial = self.ui.num_trials_spinbox.value()
-            return np.std(eeg_data[trial - 1, :, :], axis=0)
-        return np.std(eeg_data, axis=0)
+            gfp = np.std(eeg_data[trial - 1, :, :], axis=0)
+        else:
+            gfp = np.std(eeg_data, axis=0)
+
+        # Scale from V to μV (multiply by 1e6)
+        return gfp * 1e6
 
     def _get_time_range(self):
         """
@@ -143,10 +447,7 @@ class BackfittingVisualizationWindow(QDialog):
         """
         Retrieve plot customization parameters from the UI inputs.
         """
-        fontsize = int(self.ui.font_size_input.text())
-        labelsize = int(self.ui.label_size_input.text())
-        colormap = self.ui.colormap_combobox.currentText()
-        return fontsize, labelsize, colormap
+        return self.font_size, self.label_size, self.current_colormap
 
     def show_backfitting(self):
         """
@@ -154,26 +455,38 @@ class BackfittingVisualizationWindow(QDialog):
         retrieving plot parameters, and rendering the plot.
         """
         selected_file_name = self.ui.eeg_filenames_combobox.currentText()
+        if not selected_file_name:
+            return
 
-        # Load EEG and segmentation data
-        eeg_data, eeg_info, gfp_data, eeg_times, segmentation_data = self._load_data_and_segmentation(selected_file_name)
+        # Check if paths are initialized before proceeding
+        if not self._are_paths_initialized():
+            print("Warning: Data paths not properly initialized. Call set_data_paths() first.")
+            return
 
-        # Get plot parameters
-        time_min, time_max = self._get_time_range()
-        if self.datatype == 'epoched':
-            trial = self.ui.num_trials_spinbox.value()
-            eeg2plot = eeg_data[trial - 1, :, :]
-            segmentation2plot = segmentation_data[trial - 1, :]
-        else:
-            eeg2plot = eeg_data
-            segmentation2plot = segmentation_data[0]
-        fontsize, labelsize, colormap = self._get_plot_parameters()
+        try:
+            # Load EEG and segmentation data
+            eeg_data, eeg_info, gfp_data, eeg_times, segmentation_data = self._load_data_and_segmentation(
+                selected_file_name)
 
-        # Plot the data
-        self._plot_data(eeg2plot, eeg_info, eeg_times, gfp_data, segmentation2plot, time_min, time_max, fontsize, labelsize, colormap)
+            # Get plot parameters
+            time_min, time_max = self._get_time_range()
+            if self.datatype == 'epoched':
+                trial = self.ui.num_trials_spinbox.value()
+                eeg2plot = eeg_data[trial - 1, :, :]
+                segmentation2plot = segmentation_data[trial - 1, :]
+            else:
+                eeg2plot = eeg_data
+                segmentation2plot = segmentation_data[0]
+            fontsize, labelsize, colormap = self._get_plot_parameters()
 
-    def _plot_data(self, eeg_data, eeg_info, eeg_times, gfp_data, segmentation_data, time_min, time_max, fontsize, labelsize,
-                   colormap):
+            # Plot the data
+            self._plot_data(eeg2plot, eeg_info, eeg_times, gfp_data, segmentation2plot,
+                            time_min, time_max, fontsize, labelsize, colormap)
+        except Exception as e:
+            print(f"Error showing backfitting: {e}")
+
+    def _plot_data(self, eeg_data, eeg_info, eeg_times, gfp_data, segmentation_data,
+                   time_min, time_max, fontsize, labelsize, colormap):
         """
         Plot the EEG data along with segmentation overlays and averaged EEG data where segmentation remains the same.
         Also, plot topographies for each segment directly on the same figure.
@@ -189,8 +502,8 @@ class BackfittingVisualizationWindow(QDialog):
         segmentation_to_use = segmentation_data[xmin:xmax]
 
         # Clear the previous plot
-        ax = self.canvas.figure.gca()
-        ax.clear()
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
 
         # Add a dashed horizontal line at y=0 if self.datatype is 'epoched'
         if self.datatype == 'epoched':
@@ -218,12 +531,21 @@ class BackfittingVisualizationWindow(QDialog):
         segment_avg = np.mean(eeg_to_use[:, prev_index:], axis=1)
         avg_eeg_data.append((times_to_use[prev_index:], segment_avg, prev_label))
 
-        # Customize plot appearance
-        ax.set_xlabel('Time (ms)', fontsize=fontsize)
-        ax.set_ylabel('Potential (μV)', fontsize=fontsize)
+        # Customize plot appearance with available font
+        ax.set_xlabel('Time (ms)', fontsize=fontsize, fontfamily=self.font_family)
+        ax.set_ylabel('Global Field Power (μV)', fontsize=fontsize, fontfamily=self.font_family)
         ax.tick_params(axis='both', which='major', labelsize=labelsize)
         ax.set_xlim([time_min, time_max])
-        ax.legend(handles=legend_elements, loc='upper right', fontsize=fontsize)
+
+        # Set font for legend
+        legend = ax.legend(handles=legend_elements, loc='upper right', fontsize=fontsize)
+        legend.set_title(None)
+        for text in legend.get_texts():
+            text.set_fontfamily(self.font_family)
+
+        # Set font for tick labels
+        for label in ax.get_xticklabels() + ax.get_yticklabels():
+            label.set_fontfamily(self.font_family)
 
         # Render the plot on the canvas
         self.canvas.draw()
@@ -253,25 +575,29 @@ class BackfittingVisualizationWindow(QDialog):
             if label != segmentation[idx - 1]:
                 segment_color = color_map.get(segmentation[idx - 1], 'grey')
                 ax.plot(times[prev_index:idx], data[prev_index:idx], color='black')
-                ax.fill_between(times[prev_index:idx], data[prev_index:idx], color=segment_color)
+                ax.fill_between(times[prev_index:idx], data[prev_index:idx], color=segment_color, alpha=0.5)
                 prev_index = idx
 
         # Handle the last segment
         segment_color = color_map.get(segmentation[-1], 'grey')
         ax.plot(times[prev_index:], data[prev_index:], color='black')
-        ax.fill_between(times[prev_index:], data[prev_index:], color=segment_color)
+        ax.fill_between(times[prev_index:], data[prev_index:], color=segment_color, alpha=0.5)
 
     def export_plot(self):
         """
-        Open a file dialog to export the current plot as an image file (PNG, JPG, etc.).
+        Open a file dialog to export the current plot as a PDF vector format.
         """
+        # Get current filename for default save name
+        current_filename = self.ui.eeg_filenames_combobox.currentText()
+        default_name = f"{current_filename}_backfitting.pdf" if current_filename else "backfitting_plot.pdf"
+
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
         file_name, _ = QFileDialog.getSaveFileName(
             self,
-            "Export Plot",
-            "",
-            "PNG Files (*.png);;JPG Files (*.jpg);;All Files (*)",
+            "Export Plot as PDF",
+            default_name,
+            "PDF Files (*.pdf);;All Files (*)",
             options=options
         )
         if file_name:
@@ -279,9 +605,21 @@ class BackfittingVisualizationWindow(QDialog):
 
     def _save_plot(self, file_name):
         """
-        Save the current plot to the specified file.
+        Save the current plot to the specified file with title.
         """
-        extension = os.path.splitext(file_name)[-1].lower()
-        if not extension:
-            file_name += '.png'
-        self.canvas.figure.savefig(file_name)
+        # Ensure PDF extension
+        if not file_name.lower().endswith('.pdf'):
+            file_name += '.pdf'
+
+        # Add title to the figure
+        current_filename = self.ui.eeg_filenames_combobox.currentText()
+        if current_filename:
+            self.figure.suptitle(current_filename, fontsize=self.font_size + 2, fontweight='bold')
+
+        # Save as vector PDF format
+        self.canvas.figure.savefig(file_name, format='pdf', bbox_inches='tight')
+
+        # Remove title after saving to avoid cluttering the display
+        self.figure.suptitle('')
+        self.canvas.draw()
+        
