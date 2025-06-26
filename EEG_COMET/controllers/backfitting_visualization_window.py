@@ -585,7 +585,7 @@ class BackfittingVisualizationWindow(QMainWindow):
 
     def export_plot(self):
         """
-        Open a file dialog to export the current plot as a PDF vector format.
+        Open a file dialog to export the current plot in vector or raster format.
         """
         # Get current filename for default save name
         current_filename = self.ui.eeg_filenames_combobox.currentText()
@@ -595,9 +595,9 @@ class BackfittingVisualizationWindow(QMainWindow):
         options |= QFileDialog.DontUseNativeDialog
         file_name, _ = QFileDialog.getSaveFileName(
             self,
-            "Export Plot as PDF",
+            "Export Plot",
             default_name,
-            "PDF Files (*.pdf);;All Files (*)",
+            "PDF Files (*.pdf);;PNG Files (*.png);;JPG Files (*.jpg);;SVG Files (*.svg);;All Files (*)",
             options=options
         )
         if file_name:
@@ -605,19 +605,31 @@ class BackfittingVisualizationWindow(QMainWindow):
 
     def _save_plot(self, file_name):
         """
-        Save the current plot to the specified file with title.
+        Save the current plot to the specified file with title and format-appropriate settings.
         """
-        # Ensure PDF extension
-        if not file_name.lower().endswith('.pdf'):
+        # Get file extension
+        extension = os.path.splitext(file_name)[-1].lower()
+
+        # Ensure file has an extension, defaulting to PDF for vector format
+        if not extension:
             file_name += '.pdf'
+            extension = '.pdf'
 
         # Add title to the figure
         current_filename = self.ui.eeg_filenames_combobox.currentText()
         if current_filename:
-            self.figure.suptitle(current_filename, fontsize=self.font_size + 2, fontweight='bold')
+            self.figure.suptitle(current_filename, fontsize=self.font_size + 2,
+                                 fontweight='bold', fontfamily=self.font_family)
 
-        # Save as vector PDF format
-        self.canvas.figure.savefig(file_name, format='pdf', bbox_inches='tight')
+        # Save with format-appropriate settings
+        if extension in ['.pdf', '.svg']:
+            # Vector formats - high quality with clean settings
+            self.canvas.figure.savefig(file_name, format=extension[1:],
+                                       dpi=300, bbox_inches='tight',
+                                       facecolor='white', edgecolor='none')
+        else:
+            # Raster formats - high DPI for quality
+            self.canvas.figure.savefig(file_name, dpi=300, bbox_inches='tight')
 
         # Remove title after saving to avoid cluttering the display
         self.figure.suptitle('')
