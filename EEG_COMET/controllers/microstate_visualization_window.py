@@ -273,18 +273,29 @@ class MicrostateVisualizationWindow(QMainWindow):
         """Export microstate images to file"""
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getSaveFileName(self, "Choose a location and filename to save the image", "",
-                                                   "PNG Files (*.png);;JPG Files (*.jpg);;All Files (*)",
-                                                   options=options)
+        file_name, _ = QFileDialog.getSaveFileName(
+            self,
+            "Choose a location and filename to save the image",
+            "",
+            "PDF Files (*.pdf);;PNG Files (*.png);;JPG Files (*.jpg);;SVG Files (*.svg);;All Files (*)",
+            options=options
+        )
 
         if file_name:
             extension = os.path.splitext(file_name)[-1].lower()
 
             # Ensure that the file has an extension
             if not extension:
-                file_name += '.png'  # Default to PNG if no extension specified
+                file_name += '.pdf'  # Default to PDF for vector format
 
-            self.figure.savefig(file_name)
+            # Save with appropriate settings for vector formats
+            if extension in ['.pdf', '.svg']:
+                # Vector formats - save with high DPI and vector-friendly settings
+                self.figure.savefig(file_name, dpi=300, bbox_inches='tight',
+                                    facecolor='white', edgecolor='none')
+            else:
+                # Raster formats
+                self.figure.savefig(file_name, dpi=300, bbox_inches='tight')
 
     def auto_micro_label(self):
         """Automatically label microstates and update the visualization."""
