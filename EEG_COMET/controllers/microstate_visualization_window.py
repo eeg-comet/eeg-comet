@@ -69,6 +69,7 @@ class MicrostateVisualizationWindow(QMainWindow):
             # Note: sync_labels_with_widgets() is already called inside update_all_label_texts()
             label_widget.textChanged.connect(self.update_all_label_texts)
         self.ui.export_microstates_image_button.triggered.connect(self.export_microstates_image)
+        self.ui.export_microstates_image_button.setShortcut("Ctrl+S")
         self.ui.reorder_microstates_button.clicked.connect(self.reorder_microstates)
         self.ui.auto_labeling_button.clicked.connect(self.auto_micro_label)
         self.ui.reset_labels_button.clicked.connect(self.reset_labeling)
@@ -271,12 +272,25 @@ class MicrostateVisualizationWindow(QMainWindow):
 
     def export_microstates_image(self):
         """Export microstate images to file"""
+        # Get study name for default filename
+        study_name = getattr(self.comet, 'study_name', 'microstates')
+        default_filename = f"{study_name}_microstates.pdf"
+
+        # Get default directory from comet object
+        default_dir = getattr(self.comet, 'save_dir', '')
+
+        # Combine directory and filename for full default path
+        if default_dir:
+            default_path = os.path.join(default_dir, default_filename)
+        else:
+            default_path = default_filename
+
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
         file_name, _ = QFileDialog.getSaveFileName(
             self,
             "Choose a location and filename to save the image",
-            "",
+            default_path,  # Use the full default path (directory + filename)
             "PDF Files (*.pdf);;PNG Files (*.png);;JPG Files (*.jpg);;SVG Files (*.svg);;All Files (*)",
             options=options
         )
