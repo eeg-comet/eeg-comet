@@ -4,7 +4,8 @@ import pandas as pd
 import seaborn as sns
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow, QSizePolicy, QActionGroup
+from PyQt5.QtWidgets import QMainWindow, QSizePolicy, QActionGroup, QFileDialog
+from PyQt5.QtGui import QKeySequence
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from features_utils.feature_io import FeatureIO
@@ -25,7 +26,7 @@ class FeatureVisualizationWindow(QMainWindow):
         self.ui.Figure_Layout.addWidget(self.canvas)
 
         self.setup_window()
-        self.setup_style_actions()  # Add this line
+        self.setup_style_actions()
         self.bind_events()
         self.feature_visualization_controller()
 
@@ -291,6 +292,10 @@ class FeatureVisualizationWindow(QMainWindow):
         self.ui.remove_group_b_button.clicked.connect(self.move_file_from_b_to_all)
         self.ui.reset_groups_button.clicked.connect(self.reset_groups)
 
+        # Connect export feature image button and add keyboard shortcut
+        self.ui.export_feature_image_button.triggered.connect(self.export_feature_image)
+        self.ui.export_feature_image_button.setShortcut(QKeySequence("Ctrl+S"))
+
         self.ui.feature_combo.currentTextChanged.connect(self.feature_visualization_controller)
         self.ui.all_files_list.itemSelectionChanged.connect(self.feature_visualization_controller)
         buttons = [
@@ -303,6 +308,53 @@ class FeatureVisualizationWindow(QMainWindow):
         ]
         for button in buttons:
             button.clicked.connect(self.feature_visualization_controller)
+
+    def export_feature_image(self):
+        """Export feature visualization images to file"""
+        # Get study name for default filename
+        study_name = getattr(self.comet, 'study_name', 'features')
+
+        # Get current feature name for filename
+        current_feature = self.ui.feature_combo.currentText()
+        if current_feature:
+            default_filename = f"{study_name}_{current_feature}_visualization.pdf"
+        else:
+            default_filename = f"{study_name}_features.pdf"
+
+        # Get default directory from comet object
+        default_dir = getattr(self.comet, 'save_dir', '')
+
+        # Combine directory and filename for full default path
+        if default_dir:
+            default_path = os.path.join(default_dir, default_filename)
+        else:
+            default_path = default_filename
+
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_name, _ = QFileDialog.getSaveFileName(
+            self,
+            "Choose a location and filename to save the feature visualization",
+            default_path,  # Use the full default path (directory + filename)
+            "PDF Files (*.pdf);;PNG Files (*.png);;JPG Files (*.jpg);;SVG Files (*.svg);;All Files (*)",
+            options=options
+        )
+
+        if file_name:
+            extension = os.path.splitext(file_name)[-1].lower()
+
+            # Ensure that the file has an extension
+            if not extension:
+                file_name += '.pdf'  # Default to PDF for vector format
+
+            # Save with appropriate settings for vector formats
+            if extension in ['.pdf', '.svg']:
+                # Vector formats - save with high DPI and vector-friendly settings
+                self.figure.savefig(file_name, dpi=300, bbox_inches='tight',
+                                    facecolor='white', edgecolor='none')
+            else:
+                # Raster formats
+                self.figure.savefig(file_name, dpi=300, bbox_inches='tight')
 
     def feature_visualization_controller(self):
         """
@@ -516,7 +568,7 @@ class FeatureVisualizationWindow(QMainWindow):
 
         # Set figure title instead of plot_label
         self.figure.suptitle(f"{self.comet.feature_list_dictionary[feature]}",
-                           fontsize=font_sizes['title'], fontfamily=font_family)
+                             fontsize=font_sizes['title'], fontfamily=font_family)
 
     def plot_violin(self, features_df, feature, font_sizes, colormap, font_family, display_options):
         """
