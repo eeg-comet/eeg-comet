@@ -474,7 +474,7 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionExport_Figure"/>
+    <addaction name="export_feature_image_button"/>
    </widget>
    <widget class="QMenu" name="menuFigure">
     <property name="font">
@@ -689,7 +689,7 @@
     </font>
    </property>
   </action>
-  <action name="actionExport_Figure">
+  <action name="export_feature_image_button">
    <property name="text">
     <string>Export Figure</string>
    </property>
