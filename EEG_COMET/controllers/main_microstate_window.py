@@ -358,13 +358,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_percent_label,
             self.ui.step2_percent_input,
             self.ui.step2_percent_slider,
-            self.ui.step2_convergence_label,
-            self.ui.step2_maxiter_label,
-            self.ui.step2_maxiter_input,
-            self.ui.step2_stopcondition_label,
-            self.ui.step2_stopcondition_input,
-            self.ui.step2_numberofrepeats_label,
-            self.ui.step2_user_numberofrepeats_input,
             self.ui.step2_number_maps_label,
             self.ui.step2_clustermethod_combo_label,
             self.ui.step2_clustermethod_combobox,
@@ -409,6 +402,16 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_percent_label,
             self.ui.step2_percent_input,
             self.ui.step2_percent_slider,
+        ]
+
+        convergence_widgets = [
+            self.ui.step2_convergence_label,
+            self.ui.step2_maxiter_label,
+            self.ui.step2_maxiter_input,
+            self.ui.step2_stopcondition_label,
+            self.ui.step2_stopcondition_input,
+            self.ui.step2_numberofrepeats_label,
+            self.ui.step2_numberofrepeats_input
         ]
 
         after_clustering_widgets = [
@@ -562,7 +565,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_permutations_input,
         ]
 
-
         font_steps = QFont()
         font_steps.setPointSize(16)
 
@@ -586,8 +588,36 @@ class MainMicrostateWindow(QMainWindow):
 
             self.ui.step0_study_name_mainwin_lineedit.setText(self.comet.study_name)
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
-            self.comet.clustering_method = self.step2_clustermethod_combobox.currentText()
+            self.comet.clustering_method = self.ui.step2_clustermethod_combobox.currentText()
 
+            # Check if TAAHC is selected
+            is_taahc_selected = (self.comet.clustering_method ==
+                                 "Topographic Atomize and Agglomerate Hierarchical Clustering")
+
+            # Handle TAAHC-specific requirements
+            if is_taahc_selected:
+                # Force enable batch processing for TAAHC
+                self.ui.step2_batch_checkbox.setChecked(True)
+                self.ui.step2_batch_checkbox.setEnabled(False)  # Cannot be disabled
+
+                # Hide and disable convergence widgets for TAAHC
+                set_widgets_status(convergence_widgets, mode='disable')
+                set_widgets_status(convergence_widgets, mode='hide')
+
+                # Enable batch widgets since batch is forced on
+                set_widgets_status(batch_widgets, mode='enable')
+                if not self.ui.step2_batch_input.text():
+                    self.ui.step2_batch_input.setText("10000")  # Larger default for TAAHC
+                self.comet.batch_size = int(self.ui.step2_batch_input.text())
+            else:
+                # For non-TAAHC methods, allow normal batch checkbox behavior
+                self.ui.step2_batch_checkbox.setEnabled(True)
+
+                # Show and enable convergence widgets for non-TAAHC methods
+                set_widgets_status(convergence_widgets, mode='enable')
+                set_widgets_status(convergence_widgets, mode='show')
+
+            # Handle similarity metrics visibility
             if not self.comet.clustering_method == 'Modified K-Means Clustering (Pascual-Marqui et al. 1995)':
                 set_widgets_status(similarity_widgets, mode='enable')
                 set_widgets_status(similarity_widgets, mode='show')
@@ -621,14 +651,25 @@ class MainMicrostateWindow(QMainWindow):
                 set_widgets_status(auto_k_widgets, mode='disable')
                 set_widgets_status(auto_k_widgets, mode='hide')
 
-            if self.ui.step2_batch_checkbox.isChecked():
-                set_widgets_status(batch_widgets, mode='enable')
-                if not self.ui.step2_batch_input.text():
-                    self.ui.step2_batch_input.setText("1000")
+            # Handle batch processing (only if not TAAHC, since TAAHC forces it on)
+            if not is_taahc_selected:
+                if self.ui.step2_batch_checkbox.isChecked():
+                    set_widgets_status(batch_widgets, mode='enable')
+                    if not self.ui.step2_batch_input.text():
+                        self.ui.step2_batch_input.setText("1000")
+                    self.comet.batch_size = int(self.ui.step2_batch_input.text())
+                else:
+                    set_widgets_status(batch_widgets, mode='disable')
+                    self.comet.batch_size = None
+
+            # Additional check: Ensure batch input is never empty regardless of method
+            if not self.ui.step2_batch_input.text().strip():
+                if is_taahc_selected:
+                    self.ui.step2_batch_input.setText("10000")  # Larger default for TAAHC
+                else:
+                    self.ui.step2_batch_input.setText("1000")  # Standard default
+                # Update batch_size accordingly
                 self.comet.batch_size = int(self.ui.step2_batch_input.text())
-            else:
-                set_widgets_status(batch_widgets, mode='disable')
-                self.comet.batch_size = None
 
             if self.ui.step2_use_peaks_radio.isChecked():
                 set_widgets_status(peaks2use_widgets, mode='enable')
@@ -854,7 +895,7 @@ class MainMicrostateWindow(QMainWindow):
         # Update clustering parameters
         self.comet.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
         self.comet.max_iterations = int(self.ui.step2_maxiter_input.text())
-        self.comet.number_of_repeats = int(self.ui.step2_user_numberofrepeats_input.text())
+        self.comet.number_of_repeats = int(self.ui.step2_numberofrepeats_input.text())
 
         # Update k range for auto mode
         if self.ui.step2_auto_k_radio.isChecked():

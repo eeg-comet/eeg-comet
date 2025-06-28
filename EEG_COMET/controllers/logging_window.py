@@ -21,6 +21,8 @@ class Worker(QThread):
         self.tasks = tasks
         self.processing_func = processing_func
         self.stopped = False
+        self.total_tasks = len(tasks) if hasattr(tasks, '__len__') else 1
+        self.dynamic_total = None  # For dynamic task counts like TAAHC
 
     def run(self):
         total_tasks = len(self.tasks)
@@ -34,8 +36,15 @@ class Worker(QThread):
             else:
                 self.processing_func(task)
 
-            self.progress_updated.emit(idx, f"Completed task {idx} of {total_tasks}")
+            # For standard progress (non-TAAHC)
+            if self.dynamic_total is None:
+                self.progress_updated.emit(idx, f"Completed task {idx} of {total_tasks}")
+
         self.finished.emit("✓ All tasks have been successfully processed!")
+
+    def set_dynamic_total(self, total):
+        """Set dynamic total for methods like TAAHC that have variable progress steps"""
+        self.dynamic_total = total
 
     def stop(self):
         """Signal the thread to stop processing."""
@@ -70,7 +79,7 @@ class LogWindow(QWidget):
 
     def setup_progress_dialog(self, window_title, label_text, tasks, processing_func):
         """
-        Set up and start the processing thread.
+        Set up and start the processing thread with enhanced progress tracking.
 
         param tasks: For example: list of tuples [(eeg_path, eeg_name), ...]
         param processing_func: A callable that does the heavy processing for a single file.
@@ -87,6 +96,8 @@ class LogWindow(QWidget):
             total_tasks = len(tasks)
         else:
             total_tasks = 1
+
+        # Set initial range - this may be updated for TAAHC
         self.ui.progress_bar.setRange(0, total_tasks)
 
         self.worker_thread = Worker(tasks, processing_func)
@@ -95,8 +106,13 @@ class LogWindow(QWidget):
         self.worker_thread.start()
 
     def update_progress(self, value, text):
+        """Update the progress bar and label with dynamic range support."""
         self.ui.progress_stop_button.setEnabled(True)
-        """Update the progress bar and label."""
+
+        # Update progress bar maximum if needed (for TAAHC dynamic progress)
+        if value > self.ui.progress_bar.maximum():
+            self.ui.progress_bar.setMaximum(value * 2)  # Give some buffer
+
         self.ui.progress_bar.setValue(value)
         self.ui.progress_lineedit.setText(text)
         # Process pending events so the UI stays responsive.

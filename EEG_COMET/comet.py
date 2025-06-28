@@ -636,14 +636,20 @@ class COMET:
 
     def cluster_eeg_microstates(self, init):
         """
-        Perform modified K-means clustering iteration
+        Perform modified K-means clustering iteration with enhanced TAAHC progress tracking
         """
-        print(f"Running clustering iteration {init + 1}/{self.number_of_repeats}")
+        is_taahc = (self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering")
 
-        initial_maps = self.comet_data_initializer.initialize_cluster_centers(
-            maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
-        )
+        # Initialize cluster centers (not needed for TAAHC but kept for consistency)
+        if not is_taahc:
+            print(f"Running clustering iteration {init + 1}/{self.number_of_repeats}")
+            initial_maps = self.comet_data_initializer.initialize_cluster_centers(
+                maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
+            )
+        else:
+            self.number_of_repeats = 1
 
+        # Perform clustering based on selected method
         if self.clustering_method == "Modified K-Means Clustering (Pascual-Marqui et al. 1995)":
             maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
                 data=self.maps2use,
@@ -656,19 +662,52 @@ class COMET:
                 metric=self.similarity_metric
             )
         elif self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering":
+            # For TAAHC, create a comprehensive progress callback
+            def taahc_progress_callback(current_step, total_steps, message):
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
+                        # Calculate overall progress including the current clustering iteration
+                        overall_current = (init * total_steps) + current_step
+                        overall_total = self.number_of_repeats * total_steps
+
+                        # Create detailed progress message
+                        detailed_message = f"TAAHC Iteration {init + 1}/{self.number_of_repeats}: {message}"
+
+                        # Emit progress signal from worker thread
+                        self.LogWindow.worker_thread.progress_updated.emit(
+                            overall_current,
+                            detailed_message
+                        )
+
+            # Run TAAHC with progress tracking using the original function signature
             maps_init, residual_init = self.comet_microstate_clusterer.taahc(
                 data=self.maps2use,
-                metric=self.similarity_metric
+                metric=self.similarity_metric,
+                verbose=True,
+                progress_callback=taahc_progress_callback
             )
 
+        # Compute Global Explained Variance
         gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
+
         print(f'Found {self.number_of_maps} Microstate Maps')
-        print(f'GEV: {gev_init}')
+        print(f'GEV: {gev_init:.4f}')
+
+        # Log iteration results
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log(
-                f"Data Clustered [{init + 1}/{self.number_of_repeats}]\n"
-                f"✓ Global Explained Variance: {100 * gev_init}%"
-            )
+            if is_taahc:
+                log_message = (
+                    f"TAAHC Iteration [{init + 1}/{self.number_of_repeats}] Completed\n"
+                    f"✓ Hierarchical clustering processed {self.maps2use.shape[1]} timepoints\n"
+                    f"✓ Global Explained Variance: {100 * gev_init:.3f}%"
+                )
+            else:
+                log_message = (
+                    f"Data Clustered [{init + 1}/{self.number_of_repeats}]\n"
+                    f"✓ Global Explained Variance: {100 * gev_init:.3f}%"
+                )
+
+            self.LogWindow.append_log(log_message)
 
         # Update the best results if current gev is higher
         if self.best_maps is None or gev_init > self.best_gev:
@@ -678,6 +717,11 @@ class COMET:
 
             # Save the best maps immediately
             self.comet_microstate_io.export_microstates(self.best_maps, self.eeg_info, self.microstate_maps_path)
+
+            # Additional logging for best result updates
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"✓ New best result found in iteration {init + 1} - GEV: {100 * gev_init:.3f}%")
 
     def backfit_eeg(self, eeg_path, eeg_name):
         """
@@ -784,6 +828,7 @@ class COMET:
     def run_clustering(self):
         """
         Perform clustering on preprocessed EEG data with automatic or manual k selection
+        Enhanced with proper TAAHC progress tracking and batch processing support
         """
         print('\nClustering ...')
 
@@ -817,6 +862,28 @@ class COMET:
             min_dist=self.min_distance_size
         )
 
+        # Special handling for TAAHC method
+        is_taahc = (self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering")
+
+        if is_taahc:
+            # TAAHC requires special batch processing setup
+            if not hasattr(self, 'batch_size') or self.batch_size is None:
+                self.batch_size = 10000  # Default large batch for TAAHC
+                print(f"TAAHC: Setting default batch size to {self.batch_size}")
+
+            # TAAHC works better with larger datasets, so adjust use_percentages if too small
+            if self.use_percentages and self.use_percentages < 20:
+                print(f"TAAHC: Increasing data percentage from {self.use_percentages}% to 50% for better results")
+                self.use_percentages = 50
+                # Regenerate maps with higher percentage
+                self.maps2use, self.peaks2use = self.comet_data_initializer.generate_maps_and_peaks(
+                    preprocessed_folder=self.preprocessed_data_path,
+                    extension=self.extension,
+                    datatype=self.datatype,
+                    use_percentages=self.use_percentages,
+                    min_dist=self.min_distance_size
+                )
+
         # Handle automatic number of maps selection
         if self.number_of_maps == 'auto':
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
@@ -843,16 +910,25 @@ class COMET:
 
         # After determining number_of_maps, perform actual clustering
         if self.number_of_maps and self.number_of_maps != 'auto':
-            # Initialize microstate clusterer
+            # Initialize microstate clusterer with special settings for TAAHC
+            if is_taahc:
+                # TAAHC typically needs fewer repetitions since it's deterministic
+                clustering_repeats = min(self.number_of_repeats, 3)
+                if clustering_repeats != self.number_of_repeats:
+                    print(
+                        f"TAAHC: Reducing repetitions from {self.number_of_repeats} to {clustering_repeats} (TAAHC is more deterministic)")
+            else:
+                clustering_repeats = self.number_of_repeats
+
             self.comet_microstate_clusterer = MicrostateClusterer(
                 n_states=self.number_of_maps,
                 batch_size=self.batch_size,
-                n_inits=self.number_of_repeats,
+                n_inits=clustering_repeats,
                 max_iter=self.max_iterations,
                 tolerance=self.clustering_tolerance
             )
 
-            # Log clustering settings
+            # Log clustering settings with TAAHC-specific information
             if self.choose_number_of_maps == "auto":
                 k_log = f'was automatically determined to be {self.number_of_maps}.'
             else:
@@ -863,13 +939,19 @@ class COMET:
             else:
                 cluster_data_log = 'the local peaks of the global field power.'
 
+            # Add TAAHC-specific logging
+            additional_settings = ""
+            if is_taahc:
+                additional_settings = f"\n* TAAHC Batch Size: {self.batch_size}\n* TAAHC Repetitions: {clustering_repeats} (reduced for efficiency)"
+
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(
                     f"Clustering Settings:\n"
                     f"* Clustering algorithm: {self.clustering_method}\n"
                     f"* The number of maps to extract {k_log}\n"
                     f"* Clustering will be performed on {cluster_data_log}\n"
-                    f"* Number of repetitions: {self.number_of_repeats}",
+                    f"* Number of repetitions: {clustering_repeats}"
+                    f"{additional_settings}",
                     log_type='settings'
                 )
 
@@ -877,18 +959,43 @@ class COMET:
             self.best_residual, self.best_maps = None, None
             self.best_gev = 0
 
-            # Perform clustering iterations
+            # Perform clustering iterations with enhanced progress for TAAHC
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.setup_progress_dialog(
-                    window_title="Clustering ...",
-                    label_text="Clustering ...",
-                    tasks=list(range(self.number_of_repeats)),
-                    processing_func=self.cluster_eeg_microstates
-                )
+                if is_taahc:
+                    # Special progress setup for TAAHC
+                    window_title = "TAAHC Clustering ..."
+                    label_text = "Performing Topographic Atomize and Agglomerate Hierarchical Clustering ..."
+
+                    # Estimate total progress steps for TAAHC
+                    n_timepoints = self.maps2use.shape[1]
+                    estimated_peaks = min(n_timepoints // 10, 1000)
+                    iterations_needed = max(estimated_peaks - self.number_of_maps, 0)
+                    estimated_steps_per_iteration = 10 + iterations_needed * 5 + 20
+                    total_estimated_steps = clustering_repeats * estimated_steps_per_iteration
+
+                    # Set up progress dialog with dynamic range
+                    self.LogWindow.setup_progress_dialog(
+                        window_title=window_title,
+                        label_text=label_text,
+                        tasks=list(range(clustering_repeats)),
+                        processing_func=self.cluster_eeg_microstates
+                    )
+
+                    # Update progress bar range for TAAHC
+                    self.LogWindow.ui.progress_bar.setRange(0, total_estimated_steps)
+
+                else:
+                    # Standard clustering progress
+                    self.LogWindow.setup_progress_dialog(
+                        window_title="Clustering ...",
+                        label_text="Clustering ...",
+                        tasks=list(range(clustering_repeats)),
+                        processing_func=self.cluster_eeg_microstates
+                    )
             else:
-                print(f"Running {self.number_of_repeats} clustering iterations...")
+                print(f"Running {clustering_repeats} clustering iterations...")
                 from tqdm import tqdm
-                for init in tqdm(range(self.number_of_repeats), desc="Clustering"):
+                for init in tqdm(range(clustering_repeats), desc="Clustering"):
                     self.cluster_eeg_microstates(init)
 
             # Compute final GEV and save results
@@ -899,18 +1006,30 @@ class COMET:
                 # Always set clustering flag to True if we have maps
                 self.done_clustering = True
 
+                # Log completion with method-specific information
+                completion_message = (
+                    f"✓ The data has been successfully clustered into {self.number_of_maps} microstates using {self.clustering_method}."
+                    f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
+                )
+
+                if is_taahc:
+                    completion_message += f"\n✓ TAAHC processed {self.maps2use.shape[1]} timepoints with batch size {self.batch_size}"
+
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    self.LogWindow.process_finished(
-                        f"✓ The data has been successfully clustered into {self.number_of_maps} microstates."
-                        f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
-                    )
+                    self.LogWindow.process_finished(completion_message)
                 else:
-                    print(f"✓ The data has been successfully clustered into {self.number_of_maps} microstates.")
-                    print(f"Best Global Explained Variance Achieved: {100 * self.best_gev:.3f}%")
+                    print(completion_message)
 
                 # Save updated configuration and parameters
                 if self.auto_save:
                     self.save_config()
+
+            else:
+                error_msg = "Clustering failed - no microstate maps were generated"
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(error_msg)
+                else:
+                    print(error_msg)
 
     def _run_automatic_optimization_worker(self, task_name):
         """

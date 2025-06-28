@@ -283,7 +283,7 @@ class MicrostateClusterer:
 
         return maps, residual
 
-    def taahc(self, data, metric='Spatial Correlation', verbose=True):
+    def taahc(self, data, metric='Spatial Correlation', verbose=True, progress_callback=None):
         """Perform Topographic Atomize and Agglomerate Hierarchical Clustering (TAAHC) for EEG microstates.
 
         This memory-optimized implementation of the TAAHC algorithm clusters EEG data
@@ -294,6 +294,8 @@ class MicrostateClusterer:
             metric (str, optional): Similarity metric to use ('Cosine Similarity' or
                 'Spatial Correlation'). Default is 'Spatial Correlation'.
             verbose (bool, optional): Whether to print progress information. Default is True.
+            progress_callback (callable, optional): Callback function for progress updates.
+                Should accept (current, total, message). Added for GUI integration.
 
         Returns:
             tuple:
@@ -324,12 +326,47 @@ class MicrostateClusterer:
 
         n_channels, n_samples = data.shape
 
-        # Calculate GFP (Global Field Power)
+        # Set default batch size if None
+        if self.batch_size is None or self.batch_size <= 0:
+            # Use a reasonable default batch size based on data size
+            # For large datasets, use smaller batches to manage memory
+            if n_samples > 100000:
+                batch_size = 10000
+            elif n_samples > 50000:
+                batch_size = 5000
+            else:
+                batch_size = min(1000, n_samples)
+        else:
+            batch_size = self.batch_size
+
+        if verbose:
+            print(f"Using batch size: {batch_size}")
+
+        # Initialize progress tracking
+        def update_progress(message, step_increment=1):
+            nonlocal current_step
+            current_step += step_increment
+            if progress_callback:
+                progress_callback(current_step, total_estimated_steps, message)
+
+        # Estimate total steps for progress tracking
+        estimated_peaks = min(n_samples // 10, 1000)  # Rough estimate of peaks
+        iterations_needed = max(estimated_peaks - self.n_states, 0)
+        total_estimated_steps = (
+                10 +  # Initial setup steps
+                iterations_needed * 5 +  # Each iteration has ~5 major steps
+                20  # Final processing steps
+        )
+        current_step = 0
+
+        # Step 1: Calculate GFP (Global Field Power)
+        update_progress("Calculating GFP curve...")
         if verbose:
             print("Calculating GFP curve...")
         gfp_curve = np.std(data, axis=0)
 
-        # Find GFP peaks (local maxima)
+        # Step 2: Find GFP peaks (local maxima)
+        update_progress("Detecting GFP peaks...")
         if verbose:
             print("Detecting GFP peaks...")
         peaks = np.where((gfp_curve[:-2] < gfp_curve[1:-1]) &
@@ -339,6 +376,7 @@ class MicrostateClusterer:
             print(f"Found {len(peaks)} GFP peaks")
 
         if len(peaks) < self.n_states:
+            update_progress(f"Adding random samples (found only {len(peaks)} peaks)...")
             if verbose:
                 print(f"Warning: Only {len(peaks)} GFP peaks found, less than requested {self.n_states} states")
                 print("Adding random samples to reach required number of initial states")
@@ -350,7 +388,8 @@ class MicrostateClusterer:
             if verbose:
                 print(f"Added {len(additional)} random samples as initial states")
 
-        # Initialize with peak maps
+        # Step 3: Initialize with peak maps
+        update_progress("Initializing with peak maps...")
         if verbose:
             print("Initializing with peak maps...")
         peak_data = data[:, peaks]
@@ -372,9 +411,17 @@ class MicrostateClusterer:
             print(f"Reducing to {self.n_states} states")
             print("=====================================================")
 
+        update_progress(f"Starting hierarchical clustering: {n_maps} → {self.n_states} maps...")
+
         iteration = 0
         while n_maps > self.n_states:
             iteration += 1
+
+            # Update progress with current iteration info
+            remaining_iterations = n_maps - self.n_states
+            progress_msg = f"TAAHC Iteration {iteration}: {n_maps} maps remaining ({remaining_iterations} more to go)"
+            update_progress(progress_msg)
+
             if verbose:
                 if n_maps % 10 == 0 or n_maps <= self.n_states + 5 or iteration == 1:
                     elapsed = time.time() - start_time
@@ -394,11 +441,11 @@ class MicrostateClusterer:
 
             # Process data in batches
             if verbose and n_maps <= self.n_states + 10:
-                print(f"  Processing {n_samples} samples in batches of {self.batch_size}...")
-                batch_count = int(np.ceil(n_samples / self.batch_size))
+                print(f"  Processing {n_samples} samples in batches of {batch_size}...")
+                batch_count = int(np.ceil(n_samples / batch_size))
 
-            for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
-                batch_end = min(batch_start + self.batch_size, n_samples)
+            for b, batch_start in enumerate(range(0, n_samples, batch_size)):
+                batch_end = min(batch_start + batch_size, n_samples)
 
                 if verbose and n_maps <= self.n_states + 10 and (b % 20 == 0 or b == batch_count - 1):
                     print(f"  Batch {b + 1}/{batch_count}: samples {batch_start}-{batch_end}")
@@ -448,6 +495,9 @@ class MicrostateClusterer:
                 print(f"  Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}")
                 print(f"  Cluster size: {cluster_sizes[worst_idx]} samples")
 
+            # Update progress for map removal
+            update_progress(f"Removing weakest map (#{worst_idx}), reassigning {cluster_sizes[worst_idx]} points...")
+
             # Remove the worst map
             maps = np.delete(maps, worst_idx, axis=0)
 
@@ -486,6 +536,9 @@ class MicrostateClusterer:
             if verbose and n_maps <= self.n_states + 5:
                 print(f"  Recalculating {len(updated_clusters)} cluster centers")
 
+            # Update progress for cluster center recalculation
+            update_progress(f"Recalculating {len(updated_clusters)} cluster centers...")
+
             # Recalculate centers for updated clusters
             for idx in updated_clusters:
                 cluster_data = peak_data[:, cluster_indices[idx]].T
@@ -513,6 +566,8 @@ class MicrostateClusterer:
                 print("=====================================================")
                 print(f"Reached target of {self.n_states} states after {iteration} iterations")
 
+        # Final processing
+        update_progress("Calculating final assignments and residual...")
         if verbose:
             print("Calculating final assignments and residual...")
 
@@ -525,12 +580,17 @@ class MicrostateClusterer:
         else:  # Cosine Similarity
             maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
 
-        batch_count = int(np.ceil(n_samples / self.batch_size))
-        for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
+        batch_count = int(np.ceil(n_samples / batch_size))
+        for b, batch_start in enumerate(range(0, n_samples, batch_size)):
             if verbose and (b % 20 == 0 or b == batch_count - 1):
                 print(f"Final batch {b + 1}/{batch_count}")
 
-            batch_end = min(batch_start + self.batch_size, n_samples)
+            # Update progress for final batches
+            if b % max(1, batch_count // 10) == 0:  # Update every 10%
+                progress_pct = int((b / batch_count) * 100)
+                update_progress(f"Final processing... {progress_pct}% complete")
+
+            batch_end = min(batch_start + batch_size, n_samples)
             batch_data = data[:, batch_start:batch_end]
 
             # Normalize based on the chosen metric
@@ -546,9 +606,11 @@ class MicrostateClusterer:
 
         # Final statistics for each cluster
         if verbose:
+            update_progress("Computing final cluster statistics...")
+
             final_assignments = np.zeros(n_samples, dtype=int)
-            for batch_start in range(0, n_samples, self.batch_size):
-                batch_end = min(batch_start + self.batch_size, n_samples)
+            for batch_start in range(0, n_samples, batch_size):
+                batch_end = min(batch_start + batch_size, n_samples)
                 batch_data = data[:, batch_start:batch_end]
 
                 # Final batch normalization for assignments
@@ -569,6 +631,9 @@ class MicrostateClusterer:
                 pct = 100 * count / n_samples
                 print(f"  Map #{i}: {count} samples ({pct:.1f}%)")
             print(f"Residual: {residual:.6f}")
+
+        # Final progress update
+        update_progress("TAAHC clustering completed successfully!")
 
         return maps, residual
 
