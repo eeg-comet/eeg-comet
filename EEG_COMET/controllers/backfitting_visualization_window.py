@@ -34,6 +34,10 @@ class BackfittingVisualizationWindow(QMainWindow):
         self.current_window_size = 10000  # Default window size in ms
         self.context = context
 
+        # NEW: Add variables for global color mapping
+        self.global_color_map = None
+        self.all_microstate_labels = None
+
         # Load UI and initialize UI components
         self._load_ui()
         self._initialize_ui()
@@ -76,6 +80,7 @@ class BackfittingVisualizationWindow(QMainWindow):
 
         # Connect menu actions
         self.ui.export_backfitting_image_button.triggered.connect(self.export_plot)
+        self.ui.export_backfitting_image_button.setShortcut("Ctrl+S")
 
         # Setup color map action group
         self.cmap_group = QActionGroup(self)
@@ -247,6 +252,9 @@ class BackfittingVisualizationWindow(QMainWindow):
             _, _, _, eeg_times, segmentation_data = self._load_data_and_segmentation(selected_file_name)
             self.current_eeg_times = eeg_times
 
+            # NEW: Establish global color mapping based on all microstates in the dataset
+            self._establish_global_color_mapping(segmentation_data)
+
             # Set up time range for slider - slider controls the start position
             time_min = int(eeg_times[0])
             time_max = int(eeg_times[-1])
@@ -293,6 +301,28 @@ class BackfittingVisualizationWindow(QMainWindow):
 
         except Exception as e:
             print(f"Error loading data: {e}")
+
+    def _establish_global_color_mapping(self, segmentation_data):
+        """
+        Establish a global color mapping based on all microstates in the entire dataset.
+        """
+        # Get all unique microstate labels from the entire dataset
+        if self.datatype == 'epoched':
+            # For epoched data, segmentation_data is 2D (trials x timepoints)
+            all_labels = set()
+            for trial in segmentation_data:
+                all_labels.update(trial)
+        else:
+            # For continuous data, segmentation_data is 1D wrapped in a list
+            all_labels = set(segmentation_data[0])
+
+        # Store sorted labels for consistent ordering
+        self.all_microstate_labels = sorted(all_labels)
+
+        # Create global color mapping
+        cm = plt.get_cmap(self.current_colormap)
+        colors = [cm(1.0 * i / len(self.all_microstate_labels)) for i in range(len(self.all_microstate_labels))]
+        self.global_color_map = dict(zip(self.all_microstate_labels, colors))
 
     def on_xlim_min_input_changed(self, text):
         """
@@ -358,6 +388,13 @@ class BackfittingVisualizationWindow(QMainWindow):
             self.ui.cmap_accent: 'Accent'
         }
         self.current_colormap = colormap_map.get(action, 'tab10')
+
+        # NEW: Update global color mapping with new colormap
+        if self.all_microstate_labels is not None:
+            cm = plt.get_cmap(self.current_colormap)
+            colors = [cm(1.0 * i / len(self.all_microstate_labels)) for i in range(len(self.all_microstate_labels))]
+            self.global_color_map = dict(zip(self.all_microstate_labels, colors))
+
         self.show_backfitting()
 
     def on_font_size_action(self):
@@ -550,19 +587,27 @@ class BackfittingVisualizationWindow(QMainWindow):
         # Render the plot on the canvas
         self.canvas.draw()
 
-    @staticmethod
-    def _prepare_legend_and_colors(segmentation_data, colormap):
+    def _prepare_legend_and_colors(self, segmentation_data, colormap):
         """
-        Prepare legend elements and a color map based on segmentation labels.
+        Prepare legend elements and use the global color map.
         """
-        unique_labels = sorted(set(segmentation_data))
-        cm = plt.get_cmap(colormap)
-        unique_colors = [cm(1.0 * i / len(unique_labels)) for i in range(len(unique_labels))]
-        color_map = dict(zip(unique_labels, unique_colors))
+        # NEW: Use global color mapping instead of window-specific mapping
+        if self.global_color_map is None:
+            # Fallback to old behavior if global mapping not established
+            unique_labels = sorted(set(segmentation_data))
+            cm = plt.get_cmap(colormap)
+            unique_colors = [cm(1.0 * i / len(unique_labels)) for i in range(len(unique_labels))]
+            color_map = dict(zip(unique_labels, unique_colors))
+        else:
+            color_map = self.global_color_map
+            unique_labels = self.all_microstate_labels
+
+        # Create legend elements for all microstates (not just those in current window)
         legend_elements = [
-            Patch(facecolor=color, edgecolor='none', label=f"Microstate {label}")
-            for label, color in zip(unique_labels, unique_colors)
+            Patch(facecolor=color_map[label], edgecolor='none', label=f"Microstate {label}")
+            for label in unique_labels
         ]
+
         return legend_elements, color_map
 
     @staticmethod
@@ -634,4 +679,3 @@ class BackfittingVisualizationWindow(QMainWindow):
         # Remove title after saving to avoid cluttering the display
         self.figure.suptitle('')
         self.canvas.draw()
-        
