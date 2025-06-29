@@ -389,7 +389,7 @@ background-color: rgb(0, 0, 0);</string>
            </font>
           </property>
           <property name="text">
-           <string>Resting-State EEG (Raw Data)</string>
+           <string>Continuous EEG (Channels × Time) - e.g., Resting-State</string>
           </property>
           <property name="checked">
            <bool>true</bool>
@@ -416,7 +416,7 @@ background-color: rgb(0, 0, 0);</string>
            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Currently, only preprocessed (artifact-rejected) epoched TMS-EEG data is supported. Please ensure that your data has undergone the standard cleaning pipelines before proceeding.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
-           <string>TMS-EEG (Epoched Data)</string>
+           <string>Epoched EEG (Epochs × Channels × Time) - e.g., TMS-EEG</string>
           </property>
           <attribute name="buttonGroup">
            <string notr="true">DataType_ButtonGroup</string>
@@ -1652,10 +1652,9 @@ background-color: rgb(0, 0, 0);</string>
  <connections/>
  <buttongroups>
   <buttongroup name="Montage_ButtonGroup"/>
-  <buttongroup name="Plot_ButtonGroup"/>
+  <buttongroup name="DataType_ButtonGroup"/>
+  <buttongroup name="FindData_ButtonGroup"/>
   <buttongroup name="FilterMethod_ButtonGroup"/>
   <buttongroup name="Ch2Rm_ButtonGroup"/>
-  <buttongroup name="FindData_ButtonGroup"/>
-  <buttongroup name="DataType_ButtonGroup"/>
  </buttongroups>
 </ui>
