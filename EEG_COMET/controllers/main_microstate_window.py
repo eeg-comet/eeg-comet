@@ -329,6 +329,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.main_tab.setStyleSheet("QTabBar::tab:selected { font-weight: bold; }")
 
         hide_after_loading_widgets = [
+            self.ui.comet_label,
             self.ui.comet_logo,
             self.ui.step0_new_study_button,
             self.ui.step0_load_study_button,
@@ -580,7 +581,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: none")
         else:
             # done_preprocessing
-            self.ui.comet_label.setText("EEG-COMET")
             set_widgets_status(hide_after_loading_widgets, mode='hide')
             set_widgets_status(self.ui.main_tab, mode='show')
             self.ui.main_tab.setTabEnabled(0, True)  # Clustering tab
