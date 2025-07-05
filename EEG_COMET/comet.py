@@ -617,7 +617,8 @@ class COMET:
 
         # Apply montage if specified
         if hasattr(self, 'montage') and self.montage:
-            eeg.set_montage(self.montage)
+            montage_obj = self.comet_data_io.load_montage(self.montage)
+            eeg.set_montage(montage_obj, match_case=False, on_missing='warn')
 
         # Remove channels if specified
         if hasattr(self, 'chan2rm') and self.chan2rm:

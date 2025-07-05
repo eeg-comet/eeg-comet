@@ -76,6 +76,7 @@ class NewStudyWindow(QDialog):
                 self.ui.step1_import_raw_radio,
                 self.ui.step1_load_all_radio,
                 self.ui.step1_load_pattern_radio,
+                self.ui.step2_default_montage_radio,
                 self.ui.step2_load_montage_radio,
                 self.ui.step2_use_template_montage_radio,
                 self.ui.step2_temporal_filter_option_checkbox,
@@ -98,6 +99,9 @@ class NewStudyWindow(QDialog):
         montage_widgets = {
             'clicked': [
                 self.ui.vis_montage_button,
+                self.ui.step2_default_montage_radio,
+                self.ui.step2_load_montage_radio,
+                self.ui.step2_use_template_montage_radio,
             ],
             'itemClicked': [
                 self.ui.loaded_selected_files_list
@@ -181,6 +185,7 @@ class NewStudyWindow(QDialog):
 
         preprocessing_widgets = [
             self.ui.step2_montage_label,
+            self.ui.step2_default_montage_radio,
             self.ui.step2_load_montage_radio,
             self.ui.step2_chanloc_path_lineedit,
             self.ui.step2_use_template_montage_radio,
@@ -336,20 +341,43 @@ class NewStudyWindow(QDialog):
         Update the channel names based on the selected EEG file.
         """
         filename = self.ui.loaded_selected_files_list.currentItem().text()
-        eeg = DataIO().load_eeg(filename, self.comet.datatype, self.comet.montage)
+        eeg = DataIO().load_eeg(filename, self.comet.datatype, montage=None)  # Don't force montage
         data_channel_names = eeg.info['ch_names']
         self.ui.step2_ch2rm_combobox.addItems(data_channel_names)
-        montage = None
-        if not np.isnan(eeg.info['chs'][0]['loc'][0]):
-            montage = eeg.get_montage()
-        elif self.ui.step2_load_montage_radio.isChecked() and os.path.isfile(
-                self.ui.step2_chanloc_path_lineedit.text()):
-            montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
-        elif self.ui.step2_use_template_montage_radio.isChecked():
-            if not self.comet.montage:
-                self.comet.montage = "standard_1020"
-            montage = make_standard_montage(self.comet.montage)
-        eeg.set_montage(montage, match_case=False, on_missing='warn')
+        
+        # Check user's montage choice
+        user_wants_default = self.ui.step2_default_montage_radio.isChecked()
+        user_wants_custom_montage = (self.ui.step2_load_montage_radio.isChecked() and 
+                                    os.path.isfile(self.ui.step2_chanloc_path_lineedit.text()))
+        user_wants_template_montage = self.ui.step2_use_template_montage_radio.isChecked()
+        
+        # Check if data has existing channel locations
+        data_has_montage = (eeg.info['chs'] and not np.isnan(eeg.info['chs'][0]['loc'][0]))
+        
+        if user_wants_default:
+            # Default option: use data's existing montage if available
+            if data_has_montage:
+                # Use existing montage from data
+                self.comet.montage = None  # Indicate we're using data's existing montage
+            else:
+                # Data doesn't have montage - this will be handled in plotting methods
+                self.comet.montage = None
+        elif user_wants_custom_montage or user_wants_template_montage:
+            # User explicitly selected a montage option
+            montage = None
+            if user_wants_custom_montage:
+                montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
+                self.comet.montage = self.ui.step2_chanloc_path_lineedit.text()
+            elif user_wants_template_montage:
+                # Always get the template name from the combobox for template montage
+                template_name = self.ui.step2_template_montage_combobox.currentText()
+                if not template_name:
+                    template_name = "standard_1020"
+                self.comet.montage = template_name
+                montage = make_standard_montage(template_name)
+            
+            if montage:
+                eeg.set_montage(montage, match_case=False, on_missing='warn')
 
     def load_raw(self):
         """
@@ -499,10 +527,45 @@ class NewStudyWindow(QDialog):
         filepath, filename = self.item_selected()
 
         try:
-            eeg = DataIO().load_eeg(filepath, self.comet.datatype, self.comet.montage,
-                                    preload=False)
+            # Load EEG without forcing montage to preserve existing channel locations
+            eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+            
+            # Check user's montage choice
+            user_wants_default = self.ui.step2_default_montage_radio.isChecked()
+            user_wants_custom_montage = (self.ui.step2_load_montage_radio.isChecked() and 
+                                        os.path.isfile(self.ui.step2_chanloc_path_lineedit.text()))
+            user_wants_template_montage = self.ui.step2_use_template_montage_radio.isChecked()
+            
+            # Check if data has existing channel locations
+            data_has_montage = (eeg.info['chs'] and not np.isnan(eeg.info['chs'][0]['loc'][0]))
+            
+            if user_wants_default:
+                # Default option: use data's existing montage if available
+                if not data_has_montage:
+                    # Data doesn't have channel locations - inform user
+                    QMessageBox.information(self, "No Channel Locations",
+                                            "The selected EEG data does not contain channel location information.\n"
+                                            "Please select 'Load montage from file' or 'Use template montage' "
+                                            "to specify channel locations for plotting.",
+                                            QMessageBox.Ok)
+                    return
+                # If data has montage, it will be used automatically (no set_montage needed)
+            elif user_wants_custom_montage or user_wants_template_montage:
+                # User explicitly selected a montage option
+                montage = None
+                if user_wants_custom_montage:
+                    montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
+                elif user_wants_template_montage:
+                    # Always get the template name from the combobox for template montage
+                    template_name = self.ui.step2_template_montage_combobox.currentText()
+                    if not template_name:
+                        template_name = "standard_1020"
+                    montage = make_standard_montage(template_name)
+                
+                if montage:
+                    eeg.set_montage(montage, match_case=False, on_missing='warn')
 
-            # Check if digital points exist
+            # Check if digital points exist after applying montage
             if eeg.info['dig'] is None:
                 QMessageBox.information(self, "Load error",
                                         "Unable to retrieve channel locations. "
@@ -545,7 +608,37 @@ class NewStudyWindow(QDialog):
         Automatically detects whether data is epoched (evoked) or raw.
         """
         filepath, filename = self.item_selected()
-        eeg = DataIO().load_eeg(filepath, self.comet.datatype, self.comet.montage)
+        
+        # Load EEG without forcing montage to preserve existing channel locations
+        eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+        
+        # Check user's montage choice
+        user_wants_default = self.ui.step2_default_montage_radio.isChecked()
+        user_wants_custom_montage = (self.ui.step2_load_montage_radio.isChecked() and 
+                                    os.path.isfile(self.ui.step2_chanloc_path_lineedit.text()))
+        user_wants_template_montage = self.ui.step2_use_template_montage_radio.isChecked()
+        
+        # Check if data has existing channel locations
+        data_has_montage = (eeg.info['chs'] and not np.isnan(eeg.info['chs'][0]['loc'][0]))
+        
+        if user_wants_default:
+            # Default option: use data's existing montage if available
+            # For EEG plotting, we can proceed even without channel locations
+            pass  # Use data as-is
+        elif user_wants_custom_montage or user_wants_template_montage:
+            # User explicitly selected a montage option
+            montage = None
+            if user_wants_custom_montage:
+                montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
+            elif user_wants_template_montage:
+                # Always get the template name from the combobox for template montage
+                template_name = self.ui.step2_template_montage_combobox.currentText()
+                if not template_name:
+                    template_name = "standard_1020"
+                montage = make_standard_montage(template_name)
+            
+            if montage:
+                eeg.set_montage(montage, match_case=False, on_missing='warn')
 
         # Automatically determine plot type based on data type
         if self.comet.datatype == "epoched":
@@ -607,8 +700,39 @@ class NewStudyWindow(QDialog):
         """
         self.init_canvas()
         filepath, filename = self.item_selected()
-        eeg = DataIO().load_eeg(filepath, self.comet.datatype, self.comet.montage, preload=False)
+        
+        # Load EEG without forcing montage to preserve existing channel locations
+        eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None, preload=False)
+        
+        # Check user's montage choice
+        user_wants_default = self.ui.step2_default_montage_radio.isChecked()
+        user_wants_custom_montage = (self.ui.step2_load_montage_radio.isChecked() and 
+                                    os.path.isfile(self.ui.step2_chanloc_path_lineedit.text()))
+        user_wants_template_montage = self.ui.step2_use_template_montage_radio.isChecked()
+        
+        # Check if data has existing channel locations
+        data_has_montage = (eeg.info['chs'] and not np.isnan(eeg.info['chs'][0]['loc'][0]))
+        
+        if user_wants_default:
+            # Default option: use data's existing montage if available
+            # For PSD plotting, we can proceed even without channel locations
+            pass  # Use data as-is
+        elif user_wants_custom_montage or user_wants_template_montage:
+            # User explicitly selected a montage option
+            montage = None
+            if user_wants_custom_montage:
+                montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
+            elif user_wants_template_montage:
+                # Always get the template name from the combobox for template montage
+                template_name = self.ui.step2_template_montage_combobox.currentText()
+                if not template_name:
+                    template_name = "standard_1020"
+                montage = make_standard_montage(template_name)
+            
+            if montage:
+                eeg.set_montage(montage, match_case=False, on_missing='warn')
+        
         fig = eeg.compute_psd(fmin=1, fmax=50, verbose='ERROR').plot(show=False)
         self.canvas.figure = fig
-        self.ui.vis_figure_title_lineedit.setText("Power Spectral Density (PSD)")
         self.canvas.draw()
+        self.ui.vis_figure_title_lineedit.setText("Power Spectral Density (PSD)")
