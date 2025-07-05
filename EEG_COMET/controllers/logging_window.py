@@ -1,8 +1,7 @@
-
 import os.path
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget, QApplication
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMetaObject, Q_ARG, QCoreApplication
 from datetime import datetime
 
 
@@ -40,7 +39,7 @@ class Worker(QThread):
             if self.dynamic_total is None:
                 self.progress_updated.emit(idx, f"Completed task {idx} of {total_tasks}")
 
-        self.finished.emit("✓ All tasks have been successfully processed!")
+        self.finished.emit("✅ All tasks have been successfully processed!")
 
     def set_dynamic_total(self, total):
         """Set dynamic total for methods like TAAHC that have variable progress steps"""
@@ -52,7 +51,7 @@ class Worker(QThread):
 
 
 class LogWindow(QWidget):
-    def __init__(self):
+    def __init__(self, comet_instance=None):
         super().__init__()
         script_path = os.path.abspath(__file__)
         ui_path = os.path.join(os.path.dirname(script_path), "..", "ui", "LogWindow.ui")
@@ -62,20 +61,86 @@ class LogWindow(QWidget):
         self.worker_thread = None
         # Initially, there is no process running so disable the stop button.
         self.ui.progress_stop_button.setEnabled(False)
+        
+        # Store reference to COMET instance for log persistence
+        self.comet_instance = comet_instance
+
+    def _is_main_thread(self):
+        """Check if we're currently in the main thread."""
+        return QCoreApplication.instance().thread() == QThread.currentThread()
 
     def append_log(self, log, log_type='info'):
         """Append a log entry with date and time."""
-        current_date = datetime.now().strftime("%d/%m/%y")
-        current_time = datetime.now().strftime("%I:%M %p")
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_time = datetime.now().strftime("%H:%M:%S")
+        
         if log_type == 'settings':
-            separator = "*" * 50
-            current_log_text = f"\n{separator}\n{log}\n{separator}\n"
+            separator = "=" * 60
+            current_log_text = f"\n{separator}\n📋 CONFIGURATION SETTINGS\n{separator}\n{log}\n{separator}\n"
+        elif log_type == 'success':
+            current_log_text = f"[{current_date} {current_time}] ✅ SUCCESS: {log}\n"
+        elif log_type == 'error':
+            current_log_text = f"[{current_date} {current_time}] ❌ ERROR: {log}\n"
+        elif log_type == 'warning':
+            current_log_text = f"[{current_date} {current_time}] ⚠️ WARNING: {log}\n"
+        elif log_type == 'info':
+            current_log_text = f"[{current_date} {current_time}] ℹ️ INFO: {log}\n"
+        elif log_type == 'process':
+            current_log_text = f"[{current_date} {current_time}] 🔄 PROCESSING: {log}\n"
+        elif log_type == 'file':
+            current_log_text = f"[{current_date} {current_time}] 📁 FILE: {log}\n"
+        elif log_type == 'section':
+            separator = "-" * 50
+            current_log_text = f"\n{separator}\n🔧 {log.upper()}\n{separator}\n"
         else:
-            current_log_text = f"[{current_date} {current_time}]: {log}\n"
-        self.ui.log_text_area.append(current_log_text)
+            current_log_text = f"[{current_date} {current_time}] {log}\n"
+        
+        # Use thread-safe update only if we're not in the main thread
+        if self._is_main_thread():
+            self.ui.log_text_area.append(current_log_text)
+        else:
+            QMetaObject.invokeMethod(self.ui.log_text_area, "append", 
+                                    Qt.QueuedConnection, Q_ARG(str, current_log_text))
+        
+        # Save log to COMET instance if available
+        self._save_log_to_comet()
 
     def replace_log(self, log_text):
+        """Replace the entire log content."""
+        # Always use direct method for replace_log as it's typically called from main thread
         self.ui.log_text_area.setText(log_text)
+        
+        # Save log to COMET instance if available
+        self._save_log_to_comet()
+
+    def get_log_content(self):
+        """Get the current log content as a string."""
+        return self.ui.log_text_area.toPlainText()
+
+    def set_log_content(self, log_content):
+        """Set the log content from a string."""
+        if log_content:
+            # Ensure proper encoding handling for Unicode characters
+            if isinstance(log_content, str):
+                try:
+                    # Handle potential encoding issues and ensure proper Unicode display
+                    clean_content = log_content.encode('utf-8', errors='replace').decode('utf-8')
+                    # Always use direct method for set_log_content as it's typically called from main thread
+                    self.ui.log_text_area.setText(clean_content)
+                except Exception:
+                    # Fallback to original content
+                    self.ui.log_text_area.setText(log_content)
+            else:
+                self.ui.log_text_area.setText(str(log_content))
+                
+            # Save log to COMET instance if available
+            self._save_log_to_comet()
+
+    def _save_log_to_comet(self):
+        """Save the current log content to the COMET instance."""
+        if self.comet_instance is not None:
+            log_content = self.get_log_content()
+            self.comet_instance.log_text = log_content
 
     def setup_progress_dialog(self, window_title, label_text, tasks, processing_func):
         """
@@ -144,3 +209,19 @@ class LogWindow(QWidget):
     def show_hide_log_window(self):
         """Toggle the visibility of the log window."""
         self.setVisible(not self.isVisible())
+
+    def clear_logs(self):
+        """Clear all log content."""
+        self.ui.log_text_area.clear()
+        self._save_log_to_comet()
+
+    def export_logs(self, file_path):
+        """Export logs to a file."""
+        log_content = self.get_log_content()
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(log_content)
+            return True
+        except Exception as e:
+            print(f"Error exporting logs: {e}")
+            return False

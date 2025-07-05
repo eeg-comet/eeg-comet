@@ -459,6 +459,21 @@ class NewStudyWindow(QDialog):
         for attr in attributes:
             setattr(self.comet, attr, getattr(self, attr))
 
+        # Initialize log window and log study creation
+        if not hasattr(self.comet, 'LogWindow') or self.comet.LogWindow is None:
+            self.comet.initialize_log_window()
+        
+        self.comet.LogWindow.append_log("Study Creation", log_type='section')
+        study_creation_info = (
+            f"Study Name: {self.study_name}\n"
+            f"Input Directory: {self.comet.input_folder}\n"
+            f"Output Directory: {self.save_dir}\n"
+            f"Data Type: {self.comet.datatype}\n"
+            f"File Extension: {self.comet.extension}"
+        )
+        self.comet.LogWindow.append_log(study_creation_info, log_type='info')
+        self.comet.LogWindow.append_log(f"New study '{self.study_name}' has been created successfully", log_type='success')
+
         # Now let COMET handle directory creation and processing
         self.comet.run_preprocessing()
 

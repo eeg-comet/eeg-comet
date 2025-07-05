@@ -943,7 +943,10 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.initialize_log_window()
 
         self.comet.LogWindow.show()
-        self.comet.LogWindow.append_log(f"Study Created - ✓ Study Name: {self.comet.study_name}")
+        
+        # Save the configuration to persist the initial log
+        if self.comet.auto_save:
+            self.comet.save_config()
 
     def _handle_existing_study_load(self):
         """Handle loading existing study"""
@@ -960,22 +963,21 @@ class MainMicrostateWindow(QMainWindow):
             self._load_study_from_folder()
 
     def _load_study_from_folder(self):
-        """Load study from selected folder"""
+        """Load study configuration from selected folder"""
         folder = QFileDialog.getExistingDirectory(
-            self,
-            "Please choose the folder where the EEG-COMET study is located."
+            self, "Select Study Folder", 
+            self.comet.output_folder if hasattr(self.comet, 'output_folder') else ""
         )
-
+        
         if not folder:
             return
-
-        self.comet.save_dir = folder
-        config_path = os.path.join(folder, 'eeg_comet_config.ini')
-
+            
+        # Look for config file
+        config_path = os.path.join(folder, "eeg_comet_config.ini")
         if not os.path.exists(config_path):
             QMessageBox.warning(
-                self, "Load Error",
-                "The selected folder does not contain a valid config file!",
+                self, "Config Not Found",
+                f"No configuration file found in:\n{folder}",
                 QMessageBox.Ok
             )
             return
@@ -984,22 +986,23 @@ class MainMicrostateWindow(QMainWindow):
             # Load configuration
             self.comet.config = self.comet.load_config(config_path)
             self.comet.load_config_values()
+            
+            # Restore logs immediately after loading config values
+            if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow:
+                restored = self.comet.restore_logs_if_available()
+            else:
+                self.comet.initialize_log_window()
+            
             self.comet.reset_directories()
             self.comet.load_eeg_info()
             self.comet.load_maps()
             self.comet.load_clean()
 
-            # Initialize log window
-            if not hasattr(self.comet, 'LogWindow') or self.comet.LogWindow is None:
-                self.comet.initialize_log_window()
-
             self.comet.LogWindow.show()
 
-            # Update log
-            if hasattr(self.comet, 'log_text') and self.comet.log_text:
-                self.comet.LogWindow.replace_log(self.comet.log_text)
-
-            self.comet.LogWindow.append_log(f"Study Loaded - ✓ Study Name: {self.comet.study_name}")
+            # Add study loading messages
+            self.comet.LogWindow.append_log("Study Loading", log_type='section')
+            self.comet.LogWindow.append_log(f"Study '{self.comet.study_name}' loaded successfully from: {folder}", log_type='success')
 
         except Exception as e:
             QMessageBox.critical(
