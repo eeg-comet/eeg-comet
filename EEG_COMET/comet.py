@@ -16,7 +16,7 @@ from clustering_utils.microstate_io import MicrostateIO
 from backfitting_utils.microstate_backfitter import MicrostateBackfitter
 from backfitting_utils.segmentation_io import SegmentationIO
 from features_utils.feature_helper import FeatureHelper
-from features_utils.feature_extractor import FeatureExtractor
+from features_utils.feature_extractor import FeatureExtractor, FeatureExtractionCoordinator
 from features_utils.feature_io import FeatureIO
 from sourcelocalization_utils.source_localizer import SourceLocalizer
 
@@ -41,26 +41,22 @@ class COMET:
     def __init__(self, config=None, config_path=None, study_name=None, input_folder=None, output_folder=None,
                  auto_save=True):
         """
-        Initialize COMET with flexible configuration options.
-
-        Parameters:
-        -----------
-        config : dict or ConfigParser, optional
-            Direct configuration object
-        config_path : str, optional
-            Path to a configuration file
-        study_name : str, optional
-            Name of the study (overrides config value)
-        input_folder : str, optional
-            Path to input data (overrides config value)
-        output_folder : str, optional
-            Path to output folder (overrides config value)
-        auto_save : bool, default=True
-            Whether to automatically save after processing steps
+        Initialize COMET instance with optimized memory management.
         """
+        # Initialize callback for clustering completion
+        self.clustering_completed_callback = None
+        
+        # Initialize basic attributes
+        self.auto_save = auto_save
+        self.config = None
+        self.config_path = config_path
+        self.log_text = ""  # Initialize as string instead of list
+
         # Define all instance variables
         self.LogWindow = None
-        self.log_text = ""
+        self.study_name = study_name
+        self.input_folder = input_folder
+        self.output_folder = output_folder
 
         # Initialize utility objects
         self.comet_data_io = DataIO()
@@ -69,6 +65,8 @@ class COMET:
         self.comet_microstate_io = MicrostateIO()
         self.comet_segmentation_io = SegmentationIO()
         self.comet_feature_io = FeatureIO()
+        self.comet_feature_helper = FeatureHelper()
+        self.comet_feature_extractor = FeatureExtractionCoordinator()
 
         # Load or create configuration
         if config is not None:
@@ -103,16 +101,6 @@ class COMET:
         self.done_extracting_features = False
         self.done_source_localization = False
         self.done_identifying_microstate_sources = False
-        self.auto_save = auto_save
-
-        @property
-        def study_name(self):
-            return self._study_name
-
-        @study_name.setter
-        def study_name(self, value):
-            self._study_name = value
-            self.reset_directories()
 
         @property
         def output_folder(self):
@@ -427,13 +415,8 @@ class COMET:
         if "metadata" in self.config:
             metadata = self.config["metadata"]
             self.config_last_saved = metadata.get("last_saved", "Unknown")
-            self.config_version = metadata.get("config_version", "1.0")
-
-            if self.config_version != "1.0":
-                print(f"Loaded configuration version {self.config_version} (last saved: {self.config_last_saved})")
         else:
             self.config_last_saved = "Unknown"
-            self.config_version = "1.0"
 
         # Load logs if available
         if "logs" in self.config:
@@ -1042,6 +1025,9 @@ class COMET:
                         tasks=list(range(clustering_repeats)),
                         processing_func=self.cluster_eeg_microstates
                     )
+
+                # NEW LINE: Ensure we finalize clustering once the worker is done
+                self.LogWindow.process_finished_callback = self._on_clustering_iterations_finished
             else:
                 print(f"Running {clustering_repeats} clustering iterations...")
                 from tqdm import tqdm
@@ -1076,6 +1062,10 @@ class COMET:
                     
                 # Ensure logs are saved
                 self._save_logs()
+                
+                # Call clustering completion callback if set
+                if self.clustering_completed_callback is not None:
+                    self.clustering_completed_callback()
 
             else:
                 error_msg = "Clustering failed - no microstate maps were generated"
@@ -1385,6 +1375,9 @@ class COMET:
         """
         print('\nExtracting features ...')
 
+        # Create features output directory
+        os.makedirs(self.extracted_features_path, exist_ok=True)
+
         # Check if segmentation files exist
         self.segmentation_list_path, self.segmentation_list = self.comet_data_io.find_data(
             input_folder=self.segmentation_path, extension=self.export_format, pattern='*'
@@ -1426,20 +1419,25 @@ class COMET:
 
         # Start feature extraction
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log(f"Starting feature extraction from {len(tasks)} segmentation files...", log_type='process')
+            # Use the logging window with a progress dialog
+            self.LogWindow.append_log(
+                f"Starting feature extraction from {len(tasks)} segmentation files...", log_type='process'
+            )
             self.LogWindow.setup_progress_dialog(
                 window_title="Extracting Features ...",
                 label_text="Extracting features ...",
                 tasks=tasks,
                 processing_func=self.extract_features_for_file_threadsafe
             )
+            # Defer result collection until the worker thread finishes
+            self.LogWindow.process_finished_callback = self.collect_feature_extraction_results
         else:
+            # Fallback: run sequentially in the main thread
             print(f"Extracting features from {len(tasks)} segmentation files...")
             for task in tqdm(tasks, desc="Feature Extraction"):
                 self.extract_features_for_file_threadsafe(*task)
-
-        # Collect and finalize results
-        self.collect_feature_extraction_results()
+            # Collect results immediately when done
+            self.collect_feature_extraction_results()
 
     def extract_features_for_file_threadsafe(self, segmentation_idx, segmentation_path, segmentation_name):
         """
@@ -1456,10 +1454,40 @@ class COMET:
         """
         try:
             # Load segmentation
-            segmentation = self.comet_segmentation_io.load_segmentation(
+            segmentation_array = self.comet_segmentation_io.load_segmentation(
                 segmentation_path=segmentation_path,
                 import_format=self.export_format
             )
+
+            # Convert to expected format for feature extraction
+            if segmentation_array is not None:
+                # If it's a 2D array (multiple trials), flatten to use first trial
+                if len(segmentation_array.shape) == 2:
+                    labels = segmentation_array[0, :].tolist()  # Use first trial
+                else:
+                    labels = segmentation_array.tolist()
+                
+                # Create time array (assuming consistent sampling)
+                num_samples = len(labels)
+                if hasattr(self, 'sample_rate') and self.sample_rate:
+                    time_step = 1000 / self.sample_rate  # Convert to ms
+                    time = [i * time_step for i in range(num_samples)]
+                else:
+                    time = list(range(num_samples))  # Default time points
+                
+                # Create segmentation dictionary in expected format
+                segmentation = {
+                    'labels': labels,
+                    'time': time,
+                    'filename': segmentation_name
+                }
+            else:
+                # Create empty segmentation if loading failed
+                segmentation = {
+                    'labels': [],
+                    'time': [],
+                    'filename': segmentation_name
+                }
 
             # Log file processing start
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
@@ -1479,6 +1507,8 @@ class COMET:
                 post_window_size=self.post_window_size
             )
 
+
+
             # Store in shared storage with thread-safe access
             COMET._shared_feature_results[segmentation_idx] = {
                 'segmentation_name': segmentation_name,
@@ -1487,8 +1517,8 @@ class COMET:
 
             # Log successful feature extraction
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                feature_count = len(extracted_features) if extracted_features else 0
-                self.LogWindow.append_log(f"Successfully extracted {feature_count} features from {segmentation_name}", log_type='success')
+                feature_count = sum(len(mode_data) for mode_data in extracted_features.values()) if extracted_features else 0
+                self.LogWindow.append_log(f"Successfully extracted features from {segmentation_name} (modes: {feature_count})", log_type='success')
 
         except Exception as e:
             error_msg = f"Error extracting features from {segmentation_name}: {str(e)}"
@@ -1501,36 +1531,66 @@ class COMET:
         Collect feature extraction results from shared storage and export them
         This is called when the worker thread finishes
         """
-        # Transfer results from shared storage to instance variables
-        self.averaged_features_dfs = COMET._shared_feature_results.get('averaged', {})
-        self.sliding_features_dfs = COMET._shared_feature_results.get('sliding', {})
-
-        # Export extracted features
-        for feature_type in self.feature_types:
-            if 'averaged' in self.feature_mode and self.averaged_features_dfs.get(feature_type) is not None:
-                self.comet_feature_io.export_features(
-                    features_df=self.averaged_features_dfs[feature_type],
-                    feature_type=feature_type,
-                    feature_mode='averaged',
-                    output_folder=self.extracted_features_path,
-                    export_format=self.export_format
-                )
-                print(f"Exported averaged features for feature type: {feature_type}")
-
-            if 'sliding' in self.feature_mode and self.sliding_features_dfs.get(feature_type) is not None:
-                self.comet_feature_io.export_features(
-                    features_df=self.sliding_features_dfs[feature_type],
-                    feature_type=feature_type,
-                    feature_mode='sliding',
-                    output_folder=self.extracted_features_path,
-                    export_format=self.export_format
-                )
-                print(f"Exported sliding features for feature type: {feature_type}")
+        # Organize results by mode and type
+        organized_results = {}
+        
+        # Initialize the structure for each mode and type
+        for mode in self.feature_mode:
+            organized_results[mode] = {}
+            for feature_type in self.feature_types:
+                organized_results[mode][feature_type] = []
+        
+        # Collect results from each file
+        for file_idx, file_data in COMET._shared_feature_results.items():
+            if isinstance(file_data, dict) and 'extracted_features' in file_data:
+                extracted_features = file_data['extracted_features']
+                
+                # Organize by mode and type
+                for mode in self.feature_mode:
+                    if mode in extracted_features:
+                        for feature_type in self.feature_types:
+                            if feature_type in extracted_features[mode]:
+                                organized_results[mode][feature_type].extend(
+                                    extracted_features[mode][feature_type]
+                                )
+        
+        # Combine DataFrames for each mode and type
+        for mode in self.feature_mode:
+            for feature_type in self.feature_types:
+                if organized_results[mode][feature_type]:
+                    # Combine all DataFrames for this mode and type
+                    combined_df = pd.concat(organized_results[mode][feature_type], ignore_index=True)
+                    
+                    # Create output directory if it doesn't exist
+                    os.makedirs(self.extracted_features_path, exist_ok=True)
+                    
+                    # Export the combined features
+                    try:
+                        self.comet_feature_io.export_features(
+                            features_df=combined_df,
+                            feature_type=feature_type,
+                            feature_mode=mode,
+                            output_folder=self.extracted_features_path,
+                            export_format=self.export_format
+                        )
+                        print(f"Exported {mode} features for feature type: {feature_type}")
+                        
+                        # Log successful export
+                        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                            self.LogWindow.append_log(f"Exported {mode} features for {feature_type} ({len(combined_df)} records)", log_type='success')
+                            
+                    except Exception as export_error:
+                        error_msg = f"Error exporting {mode} features for {feature_type}: {export_error}"
+                        print(error_msg)
+                        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                            self.LogWindow.append_log(error_msg, log_type='error')
 
         # Set feature extraction flag
         self.done_extracting_features = True
 
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            # Clear the callback to prevent infinite recursion
+            self.LogWindow.process_finished_callback = None
             self.LogWindow.process_finished("✓ All features have been successfully extracted!")
         else:
             print("✓ All features have been successfully extracted!")
@@ -1876,7 +1936,6 @@ class COMET:
 
         import time
         self.config["metadata"]["last_saved"] = time.strftime('%Y-%m-%d %H:%M:%S')
-        self.config["metadata"]["config_version"] = "2.0"  # Updated version to indicate optimization support
 
         # Save log content
         if "logs" not in self.config:
@@ -1888,7 +1947,10 @@ class COMET:
         else:
             current_log_content = self.log_text
             
-        self.config["logs"]["log_content"] = current_log_content
+        # Escape percent signs to prevent ConfigParser interpolation errors
+        safe_log_content = current_log_content.replace('%', '%%')
+            
+        self.config["logs"]["log_content"] = safe_log_content
 
         # Ensure directory exists
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
@@ -1897,7 +1959,6 @@ class COMET:
             # Write config to file in save_dir
             with open(self.config_path, 'w+', encoding='utf-8') as configfile:
                 self.config.write(configfile)
-            print(f"Configuration saved successfully to: {self.config_path}")
         except Exception as e:
             print(f"Error saving configuration: {e}")
             print("Check directory permissions.")
@@ -1916,3 +1977,47 @@ class COMET:
     def save_optimization_results(self, results):
         """Save optimization results to configuration"""
         self.optimization_results = results
+
+    def _on_clustering_iterations_finished(self, *args, **kwargs):
+        """Finalize clustering once the worker thread has completed all iterations."""
+        # Verify that clustering produced maps
+        if self.best_maps is None:
+            error_msg = "Clustering failed - no microstate maps were generated"
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+            else:
+                print(error_msg)
+            return
+
+        # Compute final GEV across all data
+        self.best_gev = self.compute_gev_all_data()
+        print(f'Global Explained Variance: {self.best_gev}')
+
+        # Mark clustering as completed
+        self.done_clustering = True
+
+        # Compose completion message
+        completion_message = (
+            f"✓ The data has been successfully clustered into {self.number_of_maps} microstates using {self.clustering_method}."
+            f"\nBest Global Explained Variance Achieved: {100 * self.best_gev:.3f}%"
+        )
+
+        # Additional details for TAAHC
+        if self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering":
+            completion_message += (
+                f"\n✓ TAAHC processed {self.maps2use.shape[1]} timepoints with batch size {self.batch_size}")
+
+        # Log or print completion
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(completion_message, log_type='success')
+        else:
+            print(completion_message)
+
+        # Persist configuration and logs
+        if self.auto_save:
+            self.save_config()
+        self._save_logs()
+
+        # Notify any registered callbacks (e.g., GUI updates)
+        if self.clustering_completed_callback is not None:
+            self.clustering_completed_callback()
