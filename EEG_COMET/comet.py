@@ -497,7 +497,8 @@ class COMET:
         
         # Add default session messages (will be replaced if logs are restored)
         self.LogWindow.append_log("EEG-COMET Session Started", log_type='section')
-        self.LogWindow.append_log("Welcome to EEG-COMET! Ready to process EEG microstate data.", log_type='info')
+        self.LogWindow.append_log("Welcome to EEG-COMET (EEG Comprehensive Microstate Extraction Toolbox)", log_type='info')
+        self.LogWindow.append_log("Ready to process EEG microstate data.", log_type='info')
 
     def restore_logs_if_available(self):
         """

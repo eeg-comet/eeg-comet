@@ -4,6 +4,14 @@ import cv2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
+import warnings
+
+# Silence TensorFlow warnings before importing ONNX Runtime
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Hide INFO and WARNING messages
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom operations
+warnings.filterwarnings('ignore', category=UserWarning, module='.*tensorflow.*')
+
 import onnxruntime as ort
 
 

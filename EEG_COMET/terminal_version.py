@@ -1,9 +1,30 @@
 import os
 import argparse
+import warnings
 from comet import COMET
+
+# Silence TensorFlow warnings before any imports that might use it
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Hide INFO and WARNING messages
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom operations
+warnings.filterwarnings('ignore', category=UserWarning, module='.*tensorflow.*')
+
+
+def display_welcome_message():
+    """Display the welcome message for EEG-COMET terminal version"""
+    print("=" * 80)
+    print("🧠 Welcome to EEG-COMET (EEG Comprehensive Microstate Extraction Toolbox)")
+    print("=" * 80)
+    print("Authors: Amin Kabir, Raaj Chatterjee, Faranak Farzan")
+    print("Organization: SFU eBrain Lab (www.ebrainlab.ca)")
+    print("=" * 80)
+    print("Terminal Version - Ready for batch processing!")
+    print("=" * 80)
 
 
 def main():
+    # Display welcome message
+    display_welcome_message()
+    
     parser = argparse.ArgumentParser(description='EEG-COMET Terminal Application')
     parser.add_argument('--config', type=str, required=True, help='Path to the configuration file')
     parser.add_argument('--study', type=str, help='Override study name in config')
@@ -72,6 +93,9 @@ def main():
         comet.run_identifying_microstate_sources()
 
     print("\nAll requested analyses completed.")
+    print("=" * 80)
+    print("🎉 Thank you for using EEG-COMET!")
+    print("=" * 80)
 
 
 if __name__ == "__main__":
