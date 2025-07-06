@@ -19,6 +19,9 @@ class FeatureVisualizationWindow(QMainWindow):
         self.comet = tbx
         self.ui = self.load_ui(context)
 
+        # Initialize feature_mode with a default value (will be set from main window)
+        self.feature_mode = ['averaged']  # Default fallback
+
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
@@ -278,10 +281,10 @@ class FeatureVisualizationWindow(QMainWindow):
         self.setWindowTitle("Visualization of the extracted features")
         # Add maximize button to the window
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
-        self.resize(1000, 800)
 
     def bind_events(self):
-        self.ui.plot_all_static_button.clicked.connect(self.show_static_violin_all)
+        self.ui.plot_static_violin_plot_button.clicked.connect(self.show_static_violin_all)
+        self.ui.plot_static_box_plot_button.clicked.connect(self.show_static_box_plot)
         self.ui.plot_all_dynamic_button.clicked.connect(self.show_dynamic_line_all)
 
         self.ui.plot_heatmap_button.clicked.connect(self.show_tp_heatmap)
@@ -299,7 +302,6 @@ class FeatureVisualizationWindow(QMainWindow):
         self.ui.feature_combo.currentTextChanged.connect(self.feature_visualization_controller)
         self.ui.all_files_list.itemSelectionChanged.connect(self.feature_visualization_controller)
         buttons = [
-            self.ui.compare_groups_checkbox,
             self.ui.add_group_a_button,
             self.ui.add_group_b_button,
             self.ui.remove_group_a_button,
@@ -361,43 +363,27 @@ class FeatureVisualizationWindow(QMainWindow):
         Control the behavior of the Feature Visualization window based on user selections.
         """
 
-        self.ui.plot_all_static_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
+        self.ui.plot_static_violin_plot_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
+        self.ui.plot_static_box_plot_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
         self.ui.plot_all_dynamic_button.setEnabled(
             len(self.ui.all_files_list.selectedItems()) == 1 and "sliding" in self.feature_mode)
 
-        if self.feature_combo.currentText() == 'TP':
+        if self.ui.feature_combo.currentText() == 'TP':
             set_widgets_status(self.ui.plot_heatmap_button, mode='enable')
             set_widgets_status(self.ui.plot_heatmap_button, mode='show')
         else:
             set_widgets_status(self.ui.plot_heatmap_button, mode='disable')
             set_widgets_status(self.ui.plot_heatmap_button, mode='hide')
 
-        compare_groups_widgets = [
-            self.ui.add_group_a_button,
-            self.ui.group_a_lineedit,
-            self.ui.remove_group_a_button,
-            self.ui.group_a_files_list,
-            self.ui.add_group_b_button,
-            self.ui.group_b_lineedit,
-            self.ui.remove_group_b_button,
-            self.ui.group_b_files_list,
-            self.ui.reset_groups_button,
-            self.ui.plot_groups_button
-        ]
-        if self.ui.compare_groups_checkbox.isChecked():
-            set_widgets_status(compare_groups_widgets, mode='enable')
-            set_widgets_status(compare_groups_widgets, mode='show')
-            count_group_a = self.ui.group_a_files_list.count()
-            count_group_b = self.ui.group_b_files_list.count()
-            self.ui.add_group_a_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
-            self.ui.add_group_b_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
-            self.ui.remove_group_a_button.setEnabled(not count_group_a == 0)
-            self.ui.remove_group_b_button.setEnabled(not count_group_b == 0)
-            self.ui.reset_groups_button.setEnabled(count_group_a > 0 or count_group_b > 0)
-            self.ui.plot_groups_button.setEnabled(count_group_a > 0 and count_group_b > 0)
-        else:
-            set_widgets_status(compare_groups_widgets, mode='disable')
-            set_widgets_status(compare_groups_widgets, mode='hide')
+        # Update comparison widgets status based on list contents
+        count_group_a = self.ui.group_a_files_list.count()
+        count_group_b = self.ui.group_b_files_list.count()
+        self.ui.add_group_a_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
+        self.ui.add_group_b_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
+        self.ui.remove_group_a_button.setEnabled(not count_group_a == 0)
+        self.ui.remove_group_b_button.setEnabled(not count_group_b == 0)
+        self.ui.reset_groups_button.setEnabled(count_group_a > 0 or count_group_b > 0)
+        self.ui.plot_groups_button.setEnabled(count_group_a > 0 and count_group_b > 0)
 
     @staticmethod
     def move_file_between_lists(source_list, target_list):
@@ -482,6 +468,20 @@ class FeatureVisualizationWindow(QMainWindow):
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
         self.plot_violin(features_df, selected_feature, font_sizes, colormap, font_family, display_options)
+
+    def show_static_box_plot(self):
+        """
+        Displays box plots of all static features.
+        """
+        selected_feature = self.ui.feature_combo.currentText()
+        # Get the selected files from the all_files_list
+        selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
+        # Load all features
+        all_features_df = self.load_features("averaged")
+        # Filter features_df based on selected files
+        features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
+        font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
+        self.plot_box(features_df, selected_feature, font_sizes, colormap, font_family, display_options)
 
     def show_dynamic_line_all(self):
         """
@@ -739,12 +739,47 @@ class FeatureVisualizationWindow(QMainWindow):
 
         self.clear_and_set_fonts(ax, font_family, font_sizes)
         color_palette = sns.color_palette(colormap, 2)
-        sns.violinplot(x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax, palette=color_palette)
+        sns.boxplot(x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax, palette=color_palette)
         sns.swarmplot(
             x='Feature', y=selected_feature, hue='Group', data=comparison_data, ax=ax,
-            color="white", size=10, marker='o', dodge=True, legend=False
+            color="black", size=10, marker='o', dodge=True, legend=False
         )
         self.set_labels_ticks(filter_cols, selected_feature, ax, font_sizes, font_family, display_options)
+
+        # Handle legend display
+        legend = ax.get_legend()
+        if legend:
+            if display_options.get('show_legend', True):
+                legend.set_visible(True)
+                # Update legend font
+                for text in legend.get_texts():
+                    text.set_fontsize(font_sizes['legend'])
+                    text.set_fontfamily(font_family)
+            else:
+                legend.remove()
+
+        self.canvas.draw()
+
+    def plot_box(self, features_df, feature, font_sizes, colormap, font_family, display_options):
+        """
+        Plots a box plot for the selected static feature.
+        """
+        ax = self.canvas.figure.gca()
+        filter_cols = [col for col in features_df if col.startswith(feature)]
+        filter_cols.sort()
+
+        plot_data = pd.melt(features_df.reset_index(), id_vars=['Filename'], value_vars=filter_cols)
+        plot_data.columns = ['Filename', 'Feature', feature]
+
+        self.clear_and_set_fonts(ax, font_family, font_sizes)
+
+        # Use a color palette for the box plots based on the number of features
+        num_features = len(filter_cols)
+        color_palette = sns.color_palette(colormap, num_features)
+
+        sns.boxplot(x='Feature', y=feature, data=plot_data, ax=ax, palette=color_palette)
+        sns.swarmplot(x='Feature', y=feature, data=plot_data, ax=ax, color="black", size=10, marker='o')
+        self.set_labels_ticks(filter_cols, feature, ax, font_sizes, font_family, display_options)
 
         # Handle legend display
         legend = ax.get_legend()
