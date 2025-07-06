@@ -92,6 +92,9 @@ class COMET:
 
         # Set up directories
         self.setup_directories()
+        
+        # Load logs from separate file after directories are set up
+        self.log_text = self.load_logs_from_file()
 
         # Initialize flags and data holders
         self.done_preprocessing = False
@@ -211,16 +214,17 @@ class COMET:
         if self.output_folder and self.study_name:
             self.save_dir = os.path.join(self.output_folder, self.study_name)
 
-            # Update all paths relative to save_dir
-            self.config_path = os.path.join(self.save_dir, "eeg_comet_config.ini")
-            self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
-            self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.fif")
-            self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
-            self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
-            self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
-            self.localized_sources_path = os.path.join(self.save_dir, f"{self.study_name}_localized_sources")
-            self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
-            self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
+                    # Update all paths relative to save_dir
+        self.config_path = os.path.join(self.save_dir, "eeg_comet_config.ini")
+        self.log_file_path = os.path.join(self.save_dir, "eeg_comet_log.txt")
+        self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
+        self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.fif")
+        self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
+        self.extracted_features_path = os.path.join(self.save_dir, f"{self.study_name}_extracted_features")
+        self.segmentation_path = os.path.join(self.save_dir, f"{self.study_name}_segmentation")
+        self.localized_sources_path = os.path.join(self.save_dir, f"{self.study_name}_localized_sources")
+        self.tess_path = os.path.join(self.localized_sources_path, "tess_sources")
+        self.avg_sources_path = os.path.join(self.localized_sources_path, "avg_sources")
 
     def load_config(self, config_path):
         """
@@ -418,16 +422,8 @@ class COMET:
         else:
             self.config_last_saved = "Unknown"
 
-        # Load logs if available
-        if "logs" in self.config:
-            logs_config = self.config["logs"]
-            self.log_text = logs_config.get("log_content", "")
-            
-            # If LogWindow exists, restore logs immediately
-            if hasattr(self, 'LogWindow') and self.LogWindow and self.log_text:
-                self.LogWindow.set_log_content(self.log_text)
-        else:
-            self.log_text = ""
+        # Initialize log_text - will be loaded after directories are set up
+        self.log_text = ""
 
     def ensure_directory(self, path):
         """
@@ -483,6 +479,7 @@ class COMET:
 
         # Define all paths relative to save_dir
         self.config_path = os.path.join(self.save_dir, "eeg_comet_config.ini")
+        self.log_file_path = os.path.join(self.save_dir, "eeg_comet_log.txt")
         self.preprocessed_data_path = os.path.join(self.save_dir, f"{self.study_name}_preprocessed_data")
         self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.fif")
         self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
@@ -506,6 +503,10 @@ class COMET:
         """
         Restore saved logs if available, called after config is loaded
         """
+        # Load logs from file if not already loaded
+        if not hasattr(self, 'log_text') or not self.log_text:
+            self.log_text = self.load_logs_from_file()
+        
         if hasattr(self, 'log_text') and self.log_text and hasattr(self, 'LogWindow') and self.LogWindow:
             self.LogWindow.set_log_content(self.log_text)
             return True
@@ -1937,21 +1938,6 @@ class COMET:
         import time
         self.config["metadata"]["last_saved"] = time.strftime('%Y-%m-%d %H:%M:%S')
 
-        # Save log content
-        if "logs" not in self.config:
-            self.config.add_section("logs")
-        
-        # Get current log content from LogWindow if available, otherwise use stored log_text
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            current_log_content = self.LogWindow.get_log_content()
-        else:
-            current_log_content = self.log_text
-            
-        # Escape percent signs to prevent ConfigParser interpolation errors
-        safe_log_content = current_log_content.replace('%', '%%')
-            
-        self.config["logs"]["log_content"] = safe_log_content
-
         # Ensure directory exists
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
 
@@ -1964,9 +1950,32 @@ class COMET:
             print("Check directory permissions.")
 
     def _save_logs(self):
-        """Save current log content to the log_text attribute."""
+        """Save current log content to the log_text attribute and to the log file."""
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.log_text = self.LogWindow.get_log_content()
+        
+        # Save logs to the separate log file
+        self.save_logs_to_file()
+
+    def save_logs_to_file(self):
+        """Save current log content to the separate log file."""
+        if hasattr(self, 'log_file_path') and self.log_text:
+            try:
+                with open(self.log_file_path, 'w', encoding='utf-8') as f:
+                    f.write(self.log_text)
+            except Exception as e:
+                print(f"Error saving logs to file: {e}")
+
+    def load_logs_from_file(self):
+        """Load log content from the separate log file."""
+        if hasattr(self, 'log_file_path') and os.path.exists(self.log_file_path):
+            try:
+                with open(self.log_file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except Exception as e:
+                print(f"Error loading logs from file: {e}")
+                return ""
+        return ""
 
     def load_optimization_results(self):
         """Load optimization results from configuration if available"""

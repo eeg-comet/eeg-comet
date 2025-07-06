@@ -981,13 +981,16 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.config = self.comet.load_config(config_path)
             self.comet.load_config_values()
             
-            # Restore logs immediately after loading config values
+            # Reset directories first to ensure log_file_path points to correct location
+            self.comet.reset_directories()
+            
+            # Now restore logs from the correct location
             if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow:
                 restored = self.comet.restore_logs_if_available()
             else:
                 self.comet.initialize_log_window()
+                self.comet.restore_logs_if_available()
             
-            self.comet.reset_directories()
             self.comet.load_eeg_info()
             self.comet.load_maps()
             self.comet.load_clean()

@@ -144,6 +144,8 @@ class LogWindow(QWidget):
         if self.comet_instance is not None:
             log_content = self.get_log_content()
             self.comet_instance.log_text = log_content
+            # Also save to the separate log file
+            self.comet_instance.save_logs_to_file()
 
     def setup_progress_dialog(self, window_title, label_text, tasks, processing_func):
         """
