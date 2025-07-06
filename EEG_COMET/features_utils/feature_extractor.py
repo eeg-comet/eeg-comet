@@ -1,8 +1,8 @@
-
 import pandas as pd
 from collections import Counter, defaultdict
 from clustering_utils.microstate_clusterer import MicrostateClusterer
 from features_utils.feature_helper import FeatureHelper
+import numpy as np
 
 
 class FeatureExtractor:
@@ -504,3 +504,106 @@ class MicroSynt:
                 distributions[new_key].append(value)
 
         return distributions
+
+
+class FeatureExtractionCoordinator:
+    """
+    Coordinator class for feature extraction that organizes results by mode and type
+    """
+    
+    def __init__(self):
+        pass
+    
+    def extract_features(self, segmentation, feature_list, feature_mode, feature_types, 
+                        sliding_window_size=1, pre_window_size=1, post_window_size=1):
+        """
+        Extract features from segmentation data and organize by mode and type
+        
+        Parameters:
+        -----------
+        segmentation : dict
+            Segmentation data containing 'labels', 'time', etc.
+        feature_list : list
+            List of features to extract
+        feature_mode : list
+            List of feature modes ('averaged', 'sliding')
+        feature_types : list
+            List of feature types ('real', 'surrogate', 'random')
+        sliding_window_size : int
+            Window size for sliding window analysis
+        pre_window_size : int
+            Pre-window size for epoched data
+        post_window_size : int
+            Post-window size for epoched data
+        
+        Returns:
+        --------
+        dict
+            Dictionary organized by feature_mode and feature_type
+        """
+        results = {}
+        
+        # Get basic info from segmentation
+        labels = segmentation.get('labels', [])
+        time = segmentation.get('time', [])
+        
+        if not labels:
+            return results
+        
+        # Calculate sampling rate
+        if len(time) > 1:
+            sampling_rate = 1000 / (time[1] - time[0])  # Convert from ms to Hz
+        else:
+            sampling_rate = 250  # Default fallback
+        
+        # Process each feature mode
+        for mode in feature_mode:
+            if mode not in results:
+                results[mode] = {}
+            
+            # Process each feature type
+            for feature_type in feature_types:
+                if feature_type not in results[mode]:
+                    results[mode][feature_type] = []
+                
+                # Get the input sequence based on feature type
+                if feature_type == 'real':
+                    input_sequence = labels
+                elif feature_type == 'surrogate':
+                    # Create surrogate data by shuffling
+                    input_sequence = labels.copy()
+                    np.random.shuffle(input_sequence)
+                elif feature_type == 'random':
+                    # Create random data with same length and unique values
+                    unique_labels = list(set(labels))
+                    input_sequence = np.random.choice(unique_labels, size=len(labels))
+                else:
+                    input_sequence = labels
+                
+                # Create feature extractor for this combination
+                feature_extractor = FeatureExtractor(
+                    input_sequence=input_sequence,
+                    sampling_rate=sampling_rate,
+                    sliding_window_size=sliding_window_size,
+                    feature_mode=mode
+                )
+                
+                # Extract features for this file
+                filename = segmentation.get('filename', 'unknown')
+                
+                # Get additional data if needed
+                eeg_data = segmentation.get('eeg_data', None)
+                microstate_maps = segmentation.get('microstate_maps', None)
+                microstate_labels = segmentation.get('microstate_labels', None)
+                
+                extracted_df = feature_extractor.extract_microstate_features(
+                    filename=filename,
+                    feature_list=feature_list,
+                    eeg_data=eeg_data,
+                    microstate_maps=microstate_maps,
+                    microstate_labels=microstate_labels
+                )
+                
+                results[mode][feature_type].append(extracted_df)
+        
+        return results
