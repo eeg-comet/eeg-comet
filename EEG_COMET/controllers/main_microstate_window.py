@@ -643,24 +643,21 @@ class MainMicrostateWindow(QMainWindow):
         """Handle UI state after clustering is done"""
         self.widget_groups.set_group_status('after_clustering', WidgetMode.ENABLE)
 
+        # Enable microstate visualization action immediately after clustering
+        self.ui.view_microstates_action.setEnabled(True)
+
         if self.comet.done_microstate_labeling:
             self._handle_post_labeling_state()
         else:
-            self.ui.view_microstates_action.setEnabled(False)
             self._reset_post_labeling_features()
-
-    def _disable_post_clustering_features(self):
-        """Disable features that require clustering to be done"""
-        for i in range(1, 4):  # Disable backfitting, feature, and source tabs
-            self.ui.main_tab.setTabEnabled(i, False)
-
-        self.processing_flags.reset_from('done_microstate_labeling')
-        self._sync_flags_to_comet()
-
-        self.ui.step2_clustering_button.setStyleSheet("background-color: none")
-        self.comet.best_maps, self.comet.micro_labels = None, []
-
-        self.widget_groups.set_group_status('after_clustering', WidgetMode.DISABLE)
+        
+        # Automatically open microstate visualization window ONLY after clustering just finished
+        # (not when loading a study that already has clustered data)
+        if (hasattr(self.comet, 'best_maps') and self.comet.best_maps is not None and
+            getattr(self, '_clustering_just_finished', False)):
+            QtCore.QTimer.singleShot(100, self.visualize_microstates)
+            # Reset the flag so it doesn't auto-open again
+            self._clustering_just_finished = False
 
     def _handle_post_labeling_state(self):
         """Handle UI state after microstate labeling"""
@@ -731,9 +728,6 @@ class MainMicrostateWindow(QMainWindow):
         """Disable features that require backfitting to be done"""
         self.ui.main_tab.setTabEnabled(2, False)  # Disable feature tab
         self.ui.main_tab.setTabEnabled(3, False)  # Disable source tab
-
-        self.widget_groups.set_group_status('feature_extraction', WidgetMode.DISABLE)
-        self.widget_groups.set_group_status('source_localization', WidgetMode.DISABLE)
 
         self.processing_flags.done_extracting_features = False
         self._sync_flags_to_comet()
@@ -1109,9 +1103,19 @@ class MainMicrostateWindow(QMainWindow):
         # Set other parameters
         self._set_clustering_parameters()
 
+        # Set up callback to update UI when clustering finishes
+        self.comet.clustering_completed_callback = self._on_clustering_finished
+
         # Perform clustering
         self.comet.run_clustering()
-        self.comet.done_clustering = True
+        self._update_ui_state()
+
+    def _on_clustering_finished(self):
+        """Called when clustering is finished to update UI state"""
+        # Set flag to indicate clustering just completed (for auto-opening visualization)
+        self._clustering_just_finished = True
+        
+        # Update the UI state now that clustering is complete
         self._update_ui_state()
 
     def _set_auto_k_parameters(self):
@@ -1165,6 +1169,27 @@ class MainMicrostateWindow(QMainWindow):
 
     def visualize_microstates(self):
         """Visualize microstate maps for labeling"""
+        # Check if microstate maps are available
+        if not hasattr(self.comet, 'best_maps') or self.comet.best_maps is None:
+            QMessageBox.warning(
+                self,
+                "No Microstate Maps Available",
+                "No microstate maps have been generated yet. Please complete the clustering process first."
+            )
+            return
+
+        # ---------------------------------------------
+        # Re-use an existing visualization window if it
+        # is already open instead of opening duplicates
+        # ---------------------------------------------
+        if hasattr(self, "_microstate_window") and self._microstate_window is not None:
+            if self._microstate_window.isVisible():
+                # Refresh maps/labels inside the existing window
+                self._microstate_window.plot_maps()
+                self._microstate_window.raise_()
+                self._microstate_window.activateWindow()
+                return  # Skip creating a new window
+
         # Create new instance to ensure fresh state
         microstate_window = MicrostateVisualizationWindow(
             self.context,
@@ -1174,6 +1199,11 @@ class MainMicrostateWindow(QMainWindow):
         microstate_window.plot_maps()
         microstate_window.setWindowModality(QtCore.Qt.ApplicationModal)
         microstate_window.showMaximized()
+
+        # Cache reference so we can reuse/refresh it later
+        self._microstate_window = microstate_window
+        # Ensure cache is cleared when window is closed
+        microstate_window.destroyed.connect(lambda: setattr(self, "_microstate_window", None))
 
     def do_backfitting(self):
         """Perform microstate backfitting"""
@@ -1190,6 +1220,9 @@ class MainMicrostateWindow(QMainWindow):
         # Reset flags
         self.processing_flags.reset_from('done_extracting_features')
         self._sync_flags_to_comet()
+
+        # Clear any previous callbacks
+        self.comet.clustering_completed_callback = None
 
         # Set backfitting parameters
         self._set_backfitting_parameters()
@@ -1275,6 +1308,9 @@ class MainMicrostateWindow(QMainWindow):
         # Reset flag and update UI
         self.comet.done_extracting_features = False
         self._update_ui_state()
+
+        # Clear any previous callbacks
+        self.comet.clustering_completed_callback = None
 
         # Set feature parameters
         self._set_feature_extraction_parameters()
@@ -1459,7 +1495,9 @@ class MainMicrostateWindow(QMainWindow):
     # Override close event for cleanup
     def closeEvent(self, event):
         """Handle window close event"""
-        if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow:
+        # Clear any callbacks
+        self.comet.clustering_completed_callback = None
+        if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow is not None:
             self.comet.LogWindow.close()
 
         # Close all dialogs
@@ -1473,3 +1511,16 @@ class MainMicrostateWindow(QMainWindow):
     def mainwindow_controller(self):
         """Legacy method for backward compatibility"""
         self._update_ui_state()
+
+    def _disable_post_clustering_features(self):
+        """Disable features that require clustering to be done"""
+        for i in range(1, 4):  # Disable backfitting, feature, and source tabs
+            self.ui.main_tab.setTabEnabled(i, False)
+
+        self.processing_flags.reset_from('done_microstate_labeling')
+        self._sync_flags_to_comet()
+
+        self.ui.step2_clustering_button.setStyleSheet("background-color: none")
+        self.comet.best_maps, self.comet.micro_labels = None, []
+
+        self.widget_groups.set_group_status('after_clustering', WidgetMode.DISABLE)
