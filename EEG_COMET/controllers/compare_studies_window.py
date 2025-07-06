@@ -1,5 +1,4 @@
 import os.path
-import pickle
 import pandas as pd
 import seaborn as sns
 from scipy.stats import pearsonr, ttest_ind, ttest_rel
@@ -12,6 +11,7 @@ from matplotlib.figure import Figure
 from gui_utils.set_widgets_status import set_widgets_status
 from clustering_utils.microstate_visualizer import show_microstate
 from features_utils.feature_io import FeatureIO
+from comet import COMET
 
 
 class CompareStudiesWindow(QDialog):
@@ -123,14 +123,20 @@ class CompareStudiesWindow(QDialog):
                 if self.study1_loaded and self.study2_loaded:
                     # Enable plot features button if both studies are loaded
                     set_widgets_status(self.ui.plot_features_button, mode='enable')
-                    # Populate common features
-                    common_features = [
-                        feat for feat in self.comet_tbx_study1.feature_list
-                        if feat in self.comet_tbx_study2.feature_list
-                    ]
-                    self.ui.feature_combo.clear()
-                    self.ui.feature_combo.addItems(list(common_features))
-                    self.update_corr_stats()
+                    # Populate common features using robust discovery
+                    feature_type, feature_mode = self.get_compatible_features()
+                    if feature_type and feature_mode:
+                        common_features = [
+                            feat for feat in self.comet_tbx_study1.feature_list
+                            if feat in self.comet_tbx_study2.feature_list
+                        ]
+                        self.ui.feature_combo.clear()
+                        self.ui.feature_combo.addItems(list(common_features))
+                        self.update_corr_stats()
+                    else:
+                        self.ui.feature_combo.clear()
+                        self.ui.feature_combo.addItem("No compatible features found")
+                        set_widgets_status(self.ui.plot_features_button, mode='disable')
                 else:
                     set_widgets_status(self.ui.plot_features_button, mode='disable')
 
@@ -138,12 +144,6 @@ class CompareStudiesWindow(QDialog):
                 # Disable and hide Study 2 widgets
                 set_widgets_status(study2_widgets, mode='disable')
                 set_widgets_status(study2_widgets, mode='hide')
-
-                # Enable plot features button and populate all features from Study 1
-                set_widgets_status(self.ui.plot_features_button, mode='enable')
-                features = self.comet_tbx_study1.feature_list
-                self.ui.feature_combo.clear()
-                self.ui.feature_combo.addItems([i for i in features])
 
                 # Set Study 2 name based on selected comparison type
                 if self.ui.compare_surrogate_radio.isChecked():
@@ -154,74 +154,141 @@ class CompareStudiesWindow(QDialog):
                     self.synthetic_type = 'random'
                 self.study2_name = self.synthetic_type
 
+                # Check if synthetic features are available
+                feature_type, feature_mode = self.get_compatible_features()
+                if feature_type and feature_mode:
+                    # Enable plot features button and populate all features from Study 1
+                    set_widgets_status(self.ui.plot_features_button, mode='enable')
+                    features = self.comet_tbx_study1.feature_list
+                    self.ui.feature_combo.clear()
+                    self.ui.feature_combo.addItems([i for i in features])
+                else:
+                    # Disable if no compatible synthetic features
+                    self.ui.feature_combo.clear()
+                    self.ui.feature_combo.addItem("No synthetic features available")
+                    set_widgets_status(self.ui.plot_features_button, mode='disable')
+
     def update_plot_label(self):
         """
         Updates the plot label based on the selected feature.
         """
-        if selected_feature := self.ui.feature_combo.currentText():
+        selected_feature = self.ui.feature_combo.currentText()
+        
+        # Check if this is a placeholder/error message rather than an actual feature
+        if not selected_feature or selected_feature in [
+            "No compatible features found", 
+            "No synthetic features available"
+        ]:
+            self.ui.plot_label.clear()
+            return
+        
+        # Check if the feature exists in the dictionary
+        if hasattr(self, 'feature_list_dictionary') and selected_feature in self.feature_list_dictionary:
             self.ui.plot_label.setText(f"{self.feature_list_dictionary[selected_feature]}")
+        else:
+            self.ui.plot_label.setText(selected_feature)  # Fallback to feature name itself
 
     def load_study1(self):
         """
-        Loads the first EEG-COMET study.
+        Loads the first EEG-COMET study using the new configuration-based approach.
         """
         self.study1_path = QFileDialog.getExistingDirectory(
             self, "Select the folder containing an EEG-COMET study.")
-        # Path to the study parameters file
-        study1_comet_path = os.path.join(self.study1_path, 'eeg_comet_parameters.pkl')
+        
+        if not self.study1_path:
+            return
 
-        if not os.path.exists(study1_comet_path):
+        # Check for the new configuration file
+        config_path = os.path.join(self.study1_path, 'eeg_comet_config.ini')
+        if not os.path.exists(config_path):
             QMessageBox.information(
                 self, "Load error",
-                "The selected folder does not contain a valid study!",
+                "The selected folder does not contain a valid EEG-COMET study!\n"
+                "Please select a folder containing 'eeg_comet_config.ini' file.",
                 QMessageBox.Ok
             )
             return
 
-        # Load the COMET object from the pickle file
-        with open(study1_comet_path, 'rb') as input_tbx:
-            self.comet_tbx_study1 = pickle.load(input_tbx)
-        self.study1_loaded = True
+        try:
+            # Create a new COMET object and load the study
+            self.comet_tbx_study1 = COMET(auto_save=False)
+            self.comet_tbx_study1.config = self.comet_tbx_study1.load_config(config_path)
+            self.comet_tbx_study1.load_config_values()
+            self.comet_tbx_study1.reset_directories()
+            
+            # Load study data
+            self.comet_tbx_study1.load_eeg_info()
+            self.comet_tbx_study1.load_maps()
+            self.comet_tbx_study1.load_clean()
+            
+            self.study1_loaded = True
 
-        # Update UI with loaded study information
-        self.update_study_info(self.comet_tbx_study1, self.ui.study1_file_list)
-        self.plot_maps(
-            self.comet_tbx_study1,
-            self.figure_microstates_study1,
-            self.canvas_microstates_study1
-        )
-        self.update_ui()
+            # Update UI with loaded study information
+            self.update_study_info(self.comet_tbx_study1, self.ui.study1_file_list)
+            self.plot_maps(
+                self.comet_tbx_study1,
+                self.figure_microstates_study1,
+                self.canvas_microstates_study1
+            )
+            self.update_ui()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Load Error",
+                f"Failed to load study: {str(e)}",
+                QMessageBox.Ok
+            )
 
     def load_study2(self):
         """
-        Loads the second EEG-COMET study.
+        Loads the second EEG-COMET study using the new configuration-based approach.
         """
         self.study2_path = QFileDialog.getExistingDirectory(
             self, "Select the folder containing an EEG-COMET study.")
-        # Path to the study parameters file
-        study2_comet_path = os.path.join(self.study2_path, 'eeg_comet_parameters.pkl')
+        
+        if not self.study2_path:
+            return
 
-        if not os.path.exists(study2_comet_path):
+        # Check for the new configuration file
+        config_path = os.path.join(self.study2_path, 'eeg_comet_config.ini')
+        if not os.path.exists(config_path):
             QMessageBox.information(
                 self, "Load error",
-                "The selected folder does not contain a valid study!",
+                "The selected folder does not contain a valid EEG-COMET study!\n"
+                "Please select a folder containing 'eeg_comet_config.ini' file.",
                 QMessageBox.Ok
             )
             return
 
-        # Load the COMET object from the pickle file
-        with open(study2_comet_path, 'rb') as input_tbx:
-            self.comet_tbx_study2 = pickle.load(input_tbx)
-        self.study2_loaded = True
+        try:
+            # Create a new COMET object and load the study
+            self.comet_tbx_study2 = COMET(auto_save=False)
+            self.comet_tbx_study2.config = self.comet_tbx_study2.load_config(config_path)
+            self.comet_tbx_study2.load_config_values()
+            self.comet_tbx_study2.reset_directories()
+            
+            # Load study data
+            self.comet_tbx_study2.load_eeg_info()
+            self.comet_tbx_study2.load_maps()
+            self.comet_tbx_study2.load_clean()
+            
+            self.study2_loaded = True
 
-        # Update UI with loaded study information
-        self.update_study_info(self.comet_tbx_study2, self.ui.study2_file_list)
-        self.plot_maps(
-            self.comet_tbx_study2,
-            self.figure_microstates_study2,
-            self.canvas_microstates_study2
-        )
-        self.update_ui()
+            # Update UI with loaded study information
+            self.update_study_info(self.comet_tbx_study2, self.ui.study2_file_list)
+            self.plot_maps(
+                self.comet_tbx_study2,
+                self.figure_microstates_study2,
+                self.canvas_microstates_study2
+            )
+            self.update_ui()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Load Error",
+                f"Failed to load study: {str(e)}",
+                QMessageBox.Ok
+            )
 
     @staticmethod
     def update_study_info(tbx, listwidget):
@@ -321,9 +388,142 @@ class CompareStudiesWindow(QDialog):
         ax.set_ylabel(self.feature_list_dictionary[feature])
         self.ui.plot_label.setText(f"{self.feature_list_dictionary[feature]}")
 
+    def discover_available_features(self, tbx):
+        """
+        Discover what feature files are actually available in a study.
+        
+        Args:
+            tbx: The COMET toolbox object for the study
+            
+        Returns:
+            dict: Dictionary with feature types as keys and lists of available modes as values
+        """
+        available_features = {}
+        
+        if not hasattr(tbx, 'extracted_features_path') or not os.path.exists(tbx.extracted_features_path):
+            return available_features
+        
+        # Check for all possible feature files
+        feature_types = ['real', 'surrogate', 'random']
+        feature_modes = ['static', 'dynamic', 'averaged', 'sliding']
+        export_formats = ['.csv', '.pkl', '.hdf', '.json']
+        
+        for feature_type in feature_types:
+            available_modes = []
+            for feature_mode in feature_modes:
+                for export_format in export_formats:
+                    feature_filename = f"{feature_type}_{feature_mode}_features{export_format}"
+                    feature_path = os.path.join(tbx.extracted_features_path, feature_filename)
+                    
+                    if os.path.exists(feature_path):
+                        if feature_mode not in available_modes:
+                            available_modes.append(feature_mode)
+            
+            if available_modes:
+                available_features[feature_type] = available_modes
+        
+        return available_features
+
+    def get_compatible_features(self):
+        """
+        Get features that are compatible between studies.
+        
+        Returns:
+            tuple: (feature_type, feature_mode) that can be used for comparison
+        """
+        if not self.study1_loaded:
+            return None, None
+        
+        # Discover available features in both studies
+        study1_features = self.discover_available_features(self.comet_tbx_study1)
+        
+        if self.ui.compare_study2_radio.isChecked():
+            if not self.study2_loaded:
+                return None, None
+            study2_features = self.discover_available_features(self.comet_tbx_study2)
+            
+            # Find common feature types and modes
+            common_types = set(study1_features.keys()) & set(study2_features.keys())
+            if not common_types:
+                return None, None
+            
+            # Prefer 'real' features if available
+            if 'real' in common_types:
+                feature_type = 'real'
+            else:
+                feature_type = list(common_types)[0]
+            
+            # Find common modes for the selected type
+            common_modes = set(study1_features[feature_type]) & set(study2_features[feature_type])
+            if not common_modes:
+                return None, None
+            
+            # Prefer 'static' mode if available, otherwise use first available
+            if 'static' in common_modes:
+                feature_mode = 'static'
+            else:
+                feature_mode = list(common_modes)[0]
+                
+        else:
+            # Comparing with synthetic data from study 1
+            if 'real' not in study1_features:
+                return None, None
+            
+            feature_type = 'real'
+            synthetic_type = self.synthetic_type  # 'surrogate' or 'random'
+            
+            # Check if synthetic features exist
+            if synthetic_type not in study1_features:
+                return None, None
+            
+            # Find common modes between real and synthetic
+            common_modes = set(study1_features['real']) & set(study1_features[synthetic_type])
+            if not common_modes:
+                return None, None
+            
+            # Prefer 'static' mode if available
+            if 'static' in common_modes:
+                feature_mode = 'static'
+            else:
+                feature_mode = list(common_modes)[0]
+        
+        return feature_type, feature_mode
+
+    def load_features_safely(self, tbx, feature_type, feature_mode):
+        """
+        Safely load features with proper error handling.
+        
+        Args:
+            tbx: The COMET toolbox object
+            feature_type: Type of features to load ('real', 'surrogate', 'random')
+            feature_mode: Mode of features to load ('static', 'dynamic', etc.)
+            
+        Returns:
+            pandas.DataFrame or None: The loaded features or None if loading fails
+        """
+        if not hasattr(tbx, 'extracted_features_path') or not os.path.exists(tbx.extracted_features_path):
+            return None
+        
+        # Try different export formats
+        export_formats = ['.csv', '.pkl', '.hdf', '.json']
+        
+        for export_format in export_formats:
+            feature_filename = f"{feature_type}_{feature_mode}_features{export_format}"
+            feature_path = os.path.join(tbx.extracted_features_path, feature_filename)
+            
+            if os.path.exists(feature_path):
+                try:
+                    return FeatureIO().import_features(feature_path, export_format)
+                except Exception as e:
+                    print(f"Error loading {feature_path}: {e}")
+                    continue
+        
+        return None
+
     @staticmethod
     def load_features(tbx, feature_type):
         """
+        Legacy method for backward compatibility.
         Loads features from a file and returns them as a DataFrame.
         """
         feature_path = os.path.join(
@@ -334,20 +534,72 @@ class CompareStudiesWindow(QDialog):
 
     def get_common_features(self):
         """
-        Retrieves common features between the two loaded studies.
+        Retrieves common features between the two loaded studies using robust discovery.
         """
-        features_df_study1 = self.load_features(self.comet_tbx_study1, 'real')
-
+        # Get compatible feature type and mode
+        feature_type, feature_mode = self.get_compatible_features()
+        
+        if feature_type is None or feature_mode is None:
+            # Show helpful error message
+            study1_features = self.discover_available_features(self.comet_tbx_study1)
+            error_msg = "No compatible features found between studies.\n\n"
+            error_msg += f"Study 1 available features: {study1_features}\n"
+            
+            if self.ui.compare_study2_radio.isChecked() and self.study2_loaded:
+                study2_features = self.discover_available_features(self.comet_tbx_study2)
+                error_msg += f"Study 2 available features: {study2_features}\n"
+            
+            QMessageBox.warning(
+                self, "Feature Loading Error",
+                error_msg + "\nPlease ensure both studies have completed feature extraction.",
+                QMessageBox.Ok
+            )
+            return None, None
+        
+        # Load features using the robust method
+        features_df_study1 = self.load_features_safely(self.comet_tbx_study1, feature_type, feature_mode)
+        
+        if features_df_study1 is None:
+            QMessageBox.warning(
+                self, "Feature Loading Error",
+                f"Could not load {feature_type} {feature_mode} features from Study 1.",
+                QMessageBox.Ok
+            )
+            return None, None
+        
         if self.ui.compare_study2_radio.isChecked():
-            features_df_study2 = self.load_features(self.comet_tbx_study2, 'real')
+            features_df_study2 = self.load_features_safely(self.comet_tbx_study2, feature_type, feature_mode)
+            if features_df_study2 is None:
+                QMessageBox.warning(
+                    self, "Feature Loading Error",
+                    f"Could not load {feature_type} {feature_mode} features from Study 2.",
+                    QMessageBox.Ok
+                )
+                return None, None
         else:
-            features_df_study2 = self.load_features(self.comet_tbx_study1, self.synthetic_type)
+            # Load synthetic features from study 1
+            features_df_study2 = self.load_features_safely(self.comet_tbx_study1, self.synthetic_type, feature_mode)
+            if features_df_study2 is None:
+                QMessageBox.warning(
+                    self, "Feature Loading Error",
+                    f"Could not load {self.synthetic_type} {feature_mode} features from Study 1.",
+                    QMessageBox.Ok
+                )
+                return None, None
 
         # Identify common columns
         common_columns = sorted([
             col for col in features_df_study1.columns
             if col in features_df_study2.columns
         ])
+        
+        if not common_columns:
+            QMessageBox.warning(
+                self, "Feature Comparison Error",
+                "No common feature columns found between the datasets.",
+                QMessageBox.Ok
+            )
+            return None, None
 
         # Prepare DataFrames with Study information
         study1_df = features_df_study1[common_columns].copy()
@@ -366,45 +618,71 @@ class CompareStudiesWindow(QDialog):
         Plots a violin plot for the selected static feature.
         """
         selected_feature = self.ui.feature_combo.currentText()
-        common_features_df, common_columns = self.get_common_features()
-        plot_data, feature_list = self.organize_data2plot(common_features_df, selected_feature)
+        
+        try:
+            result = self.get_common_features()
+            if result is None or result[0] is None:
+                return
+            
+            common_features_df, common_columns = result
+            plot_data, feature_list = self.organize_data2plot(common_features_df, selected_feature)
 
-        ax = self.canvas_features.figure.gca()
-        self.clear_and_set_fonts(ax)
+            ax = self.canvas_features.figure.gca()
+            self.clear_and_set_fonts(ax)
 
-        # Create violin plot
-        sns.violinplot(
-            x='Feature',
-            y=selected_feature,
-            hue='Study',
-            data=plot_data,
-            ax=ax,
-            hue_order=[self.comet_tbx_study1.study_name, self.study2_name]
-        )
+            # Create violin plot
+            sns.violinplot(
+                x='Feature',
+                y=selected_feature,
+                hue='Study',
+                data=plot_data,
+                ax=ax,
+                hue_order=[self.comet_tbx_study1.study_name, self.study2_name]
+            )
 
-        # Overlay swarm plot for individual data points
-        sns.swarmplot(
-            x='Feature',
-            y=selected_feature,
-            hue='Study',
-            data=plot_data,
-            ax=ax,
-            color="white",
-            size=10,
-            marker='o',
-            dodge=True,
-            legend=False
-        )
+            # Overlay swarm plot for individual data points
+            sns.swarmplot(
+                x='Feature',
+                y=selected_feature,
+                hue='Study',
+                data=plot_data,
+                ax=ax,
+                color="white",
+                size=10,
+                marker='o',
+                dodge=True,
+                legend=False
+            )
 
-        # Set labels and ticks
-        self.set_labels_ticks(ax, feature_list, selected_feature)
-        self.canvas_features.draw()
+            # Set labels and ticks
+            self.set_labels_ticks(ax, feature_list, selected_feature)
+            self.canvas_features.draw()
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Plotting Error",
+                f"Failed to plot features: {str(e)}",
+                QMessageBox.Ok
+            )
 
     def update_corr_stats(self):
         """Updates the correlation statistics in the UI based on microstate analysis."""
         self.ui.correlations_textedit.clear()
         # Perform spatial correlation analysis
         microlabels, correlation_coefficients, p_values, adjusted_p_values = self.spatial_correlation_analysis()
+
+        # Check if we have valid results
+        if not microlabels or not correlation_coefficients:
+            if self.ui.compare_study2_radio.isChecked():
+                self.ui.correlations_textedit.appendPlainText(
+                    "No microstate maps available for spatial correlation analysis.\n"
+                    "Please ensure both studies have completed microstate clustering."
+                )
+            else:
+                self.ui.correlations_textedit.appendPlainText(
+                    "Spatial correlation analysis is not available for synthetic data comparisons."
+                )
+            return
 
         # Prepare correlation text
         correlations_text = "Correlation of Microstates Between Studies:\n"
@@ -428,6 +706,11 @@ class CompareStudiesWindow(QDialog):
         # Perform feature comparison analysis
         feature_list, t_test_results, p_values, adjusted_p_values = self.feature_comparison_analysis()
 
+        # Check if we have valid results
+        if not feature_list:
+            self.ui.stats_textedit.appendPlainText("No features available for statistical comparison.")
+            return
+
         # Display t-test results
         for i, feat in enumerate(feature_list):
             t_statistic = t_test_results[feat]
@@ -444,17 +727,31 @@ class CompareStudiesWindow(QDialog):
         """
         Performs spatial correlation analysis between microstates of two studies.
         """
-        # Extract microstates
-        microstates_study1 = self.comet_tbx_study1.best_maps
-        microstates_study2 = self.comet_tbx_study2.best_maps
-
-        # Get common microstate labels
-        microlabels_study1 = self.comet_tbx_study1.micro_labels
-        microlabels_study2 = self.comet_tbx_study2.micro_labels
-        microlabels = [label for label in microlabels_study1 if label in microlabels_study2]
+        # Check if both studies have microstate maps
+        if not hasattr(self.comet_tbx_study1, 'best_maps') or self.comet_tbx_study1.best_maps is None:
+            return [], [], [], []
+        
+        if self.ui.compare_study2_radio.isChecked():
+            if not hasattr(self.comet_tbx_study2, 'best_maps') or self.comet_tbx_study2.best_maps is None:
+                return [], [], [], []
+            
+            # Extract microstates from both studies
+            microstates_study1 = self.comet_tbx_study1.best_maps
+            microstates_study2 = self.comet_tbx_study2.best_maps
+            
+            # Get common microstate labels
+            microlabels_study1 = self.comet_tbx_study1.micro_labels
+            microlabels_study2 = self.comet_tbx_study2.micro_labels
+            microlabels = [label for label in microlabels_study1 if label in microlabels_study2]
+        else:
+            # For synthetic comparisons, we can't do spatial correlation
+            return [], [], [], []
 
         # Determine the number of microstates to compare
         min_states = min(microstates_study1.shape[0], microstates_study2.shape[0])
+        
+        if min_states == 0:
+            return [], [], [], []
 
         correlation_coefficients, p_values = [], []
 
@@ -470,13 +767,17 @@ class CompareStudiesWindow(QDialog):
             method=self.ui.multiple_test_method_combo.currentText().lower()
         )[1]
 
-        return microlabels, correlation_coefficients, p_values, adjusted_p_values
+        return microlabels[:min_states], correlation_coefficients, p_values, adjusted_p_values
 
     def feature_comparison_analysis(self):
         """
         Performs feature comparison analysis between two studies using t-tests.
         """
-        common_features_df, common_columns = self.get_common_features()
+        result = self.get_common_features()
+        if result is None or result[0] is None:
+            return [], {}, [], []
+        
+        common_features_df, common_columns = result
         selected_feature = self.ui.feature_combo.currentText()
 
         # Organize data for the selected feature
@@ -521,64 +822,3 @@ class CompareStudiesWindow(QDialog):
         )[1]
 
         return feature_list, t_test_results, p_values, adjusted_p_values
-
-    @staticmethod
-    def organize_data2plot(common_features_df, selected_feature):
-        """
-        Organizes data for plotting based on the selected feature.
-        """
-        columns_to_keep = ['Filename', 'Study'] + [
-            col for col in common_features_df.columns if col.startswith(selected_feature)
-        ]
-        common_features_df = common_features_df[columns_to_keep]
-        feature_list = [
-            col for col in common_features_df.columns
-            if col not in ['Study', 'Filename']
-        ]
-
-        plot_data = pd.melt(
-            common_features_df.reset_index(),
-            id_vars=['Filename', 'Study'],
-            value_vars=feature_list
-        )
-        plot_data.columns = ['Filename', 'Study', 'Feature', selected_feature]
-        return plot_data, feature_list
-
-    @staticmethod
-    def plot_microstates_with_labels(microstate, micro_label, eeg_info, ax):
-        """
-        Plots microstates with corresponding labels on a given axis.
-        """
-        show_microstate(microstate, eeg_info, ax)
-        ax.axis('off')
-        ax.text(
-            0.5, -0.2, micro_label.upper(),
-            transform=ax.transAxes,
-            fontsize=16,
-            ha='center',
-            va='center'
-        )
-        ax.text(0, 0, '', transform=ax.transAxes)  # Placeholder or additional text
-
-    @staticmethod
-    def clear_and_set_fonts(ax):
-        """
-        Clears the plot and sets the font sizes.
-        """
-        ax.clear()
-        for item in (
-            [ax.title, ax.xaxis.label, ax.yaxis.label] +
-            ax.get_xticklabels() + ax.get_yticklabels()
-        ):
-            item.set_fontsize(18)
-
-    @staticmethod
-    def load_features(tbx, feature_type):
-        """
-        Loads features from a file and returns them as a DataFrame.
-        """
-        feature_path = os.path.join(
-            tbx.extracted_features_path,
-            f"{feature_type}_static_features{tbx.export_format}"
-        )
-        return FeatureIO().import_features(feature_path, tbx.export_format)
