@@ -64,6 +64,9 @@ class LogWindow(QWidget):
         
         # Store reference to COMET instance for log persistence
         self.comet_instance = comet_instance
+        
+        # Callback function to be called when processing is finished
+        self.process_finished_callback = None
 
     def _is_main_thread(self):
         """Check if we're currently in the main thread."""
@@ -78,22 +81,22 @@ class LogWindow(QWidget):
             separator = "=" * 60
             current_log_text = f"\n{separator}\n📋 CONFIGURATION SETTINGS\n{separator}\n{log}\n{separator}\n"
         elif log_type == 'success':
-            current_log_text = f"[{current_date} {current_time}] ✅ SUCCESS: {log}\n"
+            current_log_text = f"[{current_date} {current_time}]\n✅ SUCCESS: {log}\n"
         elif log_type == 'error':
-            current_log_text = f"[{current_date} {current_time}] ❌ ERROR: {log}\n"
+            current_log_text = f"[{current_date} {current_time}]\n❌ ERROR: {log}\n"
         elif log_type == 'warning':
-            current_log_text = f"[{current_date} {current_time}] ⚠️ WARNING: {log}\n"
+            current_log_text = f"[{current_date} {current_time}]\n⚠️ WARNING: {log}\n"
         elif log_type == 'info':
-            current_log_text = f"[{current_date} {current_time}] ℹ️ INFO: {log}\n"
+            current_log_text = f"[{current_date} {current_time}]\nℹ️ INFO: {log}\n"
         elif log_type == 'process':
-            current_log_text = f"[{current_date} {current_time}] 🔄 PROCESSING: {log}\n"
+            current_log_text = f"[{current_date} {current_time}]\n🔄 PROCESSING: {log}\n"
         elif log_type == 'file':
-            current_log_text = f"[{current_date} {current_time}] 📁 FILE: {log}\n"
+            current_log_text = f"[{current_date} {current_time}]\n📁 FILE: {log}\n"
         elif log_type == 'section':
             separator = "-" * 50
             current_log_text = f"\n{separator}\n🔧 {log.upper()}\n{separator}\n"
         else:
-            current_log_text = f"[{current_date} {current_time}] {log}\n"
+            current_log_text = f"[{current_date} {current_time}]\n{log}\n"
         
         # Use thread-safe update only if we're not in the main thread
         if self._is_main_thread():
@@ -191,6 +194,10 @@ class LogWindow(QWidget):
             self.ui.progress_lineedit.setText(text)
         # Disable the stop button when processing is done.
         self.ui.progress_stop_button.setEnabled(False)
+        
+        # Call the callback function if it's set
+        if self.process_finished_callback is not None:
+            self.process_finished_callback()
 
     def set_window_title(self, title):
         self.setWindowTitle(title)
