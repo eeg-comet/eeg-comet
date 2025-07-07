@@ -1675,7 +1675,7 @@ class COMET:
                 print("Error: individual_subjects_dir not set for individual anatomy")
                 return
         else:  # use_anatomy == "fsaverage"
-            fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
+            fs_dir = mne.datasets.fetch_fsaverage(verbose=False)
             self.anatomy_subjects_dir = os.path.dirname(fs_dir)
 
         # Create directories for source localization results
@@ -1764,7 +1764,7 @@ class COMET:
         try:
             print(f"Using anatomy directory: {self.anatomy_subjects_dir}")
         except AttributeError:
-            fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
+            fs_dir = mne.datasets.fetch_fsaverage(verbose=False)
             self.anatomy_subjects_dir = os.path.dirname(fs_dir)
             print(f"Using default anatomy directory: {self.anatomy_subjects_dir}")
 

@@ -25,7 +25,7 @@ class SourceVisualizationWindow(QDialog):
         if self.comet.use_anatomy != "fsaverage":
             self.subjects_dir = self.comet.individual_subjects_dir
         else:
-            fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
+            fs_dir = mne.datasets.fetch_fsaverage(verbose=False)
             self.subjects_dir = os.path.dirname(fs_dir)
 
         # Initialize SourceVisualizer and SourceIO

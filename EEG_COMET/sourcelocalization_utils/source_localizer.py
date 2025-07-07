@@ -77,7 +77,7 @@ class SourceLocalizer:
         print('\nWarning, patient-specific MRI is more accurate!')
 
         # Download fsaverage files if they don't exist
-        fs_dir = mne.datasets.fetch_fsaverage(verbose=True)
+        fs_dir = mne.datasets.fetch_fsaverage(verbose=False)
         subjects_dir = os.path.dirname(fs_dir)
         print(f"fsaverage subjects_dir path: {subjects_dir}")
 
