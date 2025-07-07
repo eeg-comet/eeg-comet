@@ -77,7 +77,13 @@ class MicrostateLabeler:
         stacked_microstate_images = np.vstack(images)
 
         # Load ONNX model and do inference
-        num_classes = self.microstate_maps.shape[0]
+        # The exported classifier has 7 output neurons (letters A–G).
+        num_classes = 7  # fixed – do not change
+        assert self.n_states <= num_classes, (
+            f"The labeling model can assign at most {num_classes} unique labels, "
+            f"but {self.n_states} microstate maps were provided.")
+
+        # Dictionary that maps class index → character label (0→'A', 1→'B', …, 6→'G')
         dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
 
         # Update model path to match the exported ONNX model
@@ -97,16 +103,19 @@ class MicrostateLabeler:
         assigned_labels, probabilities = self.get_labels(predictions, softmax_predictions, dictionary2use)
         overall_confidence = sum(probabilities.values()) / len(probabilities)
 
+        # Build the final ordered list of labels, guaranteeing uniqueness.
         micro_labels = []
-        additional_label = chr(ord('A') + 7)
-        assert self.n_states < 27, 'Cannot label more than 27 microstates: not enough letters'
+        available_chars = [chr(ord('A') + i) for i in range(num_classes)]
 
         for i in range(self.n_states):
             if i in assigned_labels:
                 micro_labels.append(assigned_labels[i])
             else:
-                micro_labels.append(additional_label)
-                additional_label = chr(ord(additional_label) + 1)
+                # Fallback – pick the first unused character from A–G
+                for ch in available_chars:
+                    if ch not in micro_labels:
+                        micro_labels.append(ch)
+                        break
 
         self.micro_labels = micro_labels
 
@@ -117,29 +126,31 @@ class MicrostateLabeler:
 
     @staticmethod
     def get_labels(confidences, softmax_predictions, dictionary2use):
-        """Get microstate labels based on confidence scores."""
+        """Assign a unique label from A–G to each microstate.
+
+        A greedy approach is used:
+        For each microstate (row) we take its class probabilities, select the
+        highest-scoring label that has not yet been assigned to any other
+        microstate, and record the associated confidence.
+        This works because the number of microstates (rows) is guaranteed to
+        be ≤ 7 – the total number of available labels.
+        """
+
         assigned_labels = {}
         probabilities = {}
+        used_chars = set()
 
-        num_classes = len(dictionary2use)
-        label_indices = list(range(num_classes))
-        label_characters = [dictionary2use[i] if i < num_classes else chr(ord('H') + i - num_classes) for i in
-                            label_indices]
+        for image_index in range(confidences.shape[0]):
+            # Sort class scores for this map in descending order
+            sorted_label_indices = np.argsort(confidences[image_index])[::-1]
 
-        for label_index, label_char in zip(label_indices, label_characters):
-            max_confidence = -np.inf
-            max_image_index = -1
+            for lbl_idx in sorted_label_indices:
+                label_char = dictionary2use.get(lbl_idx, chr(ord('A') + lbl_idx))
 
-            for image_index in range(confidences.shape[0]):
-                if image_index not in assigned_labels:
-                    if label_index < confidences.shape[1]:  # Ensure label index is within bounds
-                        confidence = confidences[image_index, label_index]
-                        if confidence > max_confidence:
-                            max_confidence = confidence
-                            max_image_index = image_index
-
-            if max_image_index != -1:
-                assigned_labels[max_image_index] = label_char
-                probabilities[max_image_index] = softmax_predictions[max_image_index, label_index]
+                if label_char not in used_chars:
+                    assigned_labels[image_index] = label_char
+                    probabilities[image_index] = softmax_predictions[image_index, lbl_idx]
+                    used_chars.add(label_char)
+                    break  # Move to next microstate once a unique label is assigned
 
         return assigned_labels, probabilities

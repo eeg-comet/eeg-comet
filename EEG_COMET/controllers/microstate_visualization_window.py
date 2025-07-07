@@ -214,14 +214,17 @@ class MicrostateVisualizationWindow(QMainWindow):
         """Plot microstate maps on canvas"""
         micro_labels_texts = [getattr(self, f"micro_label_{i}").text() for i in range(self.comet.number_of_maps)]
 
-        # Check if any labels are filled
-        if any(micro_labels_texts):
-            # Sort the microstate labels and indices
-            sorted_indices = sorted(range(len(micro_labels_texts)), key=lambda k: micro_labels_texts[k])
-            sorted_labels = [micro_labels_texts[i].upper() for i in sorted_indices]
-        else:
-            # If no labels provided, assign default labels "M1", "M2", ...
-            sorted_labels = [f"M{i + 1}" for i in range(len(micro_labels_texts))]
+        # If no labels are provided yet, fall back to generic placeholders (M1, M2, …)
+        if not any(micro_labels_texts):
+            micro_labels_texts = [f"M{i + 1}" for i in range(len(micro_labels_texts))]
+
+        # ------------------------------------------------------------------
+        #  KEEP ORDER CONSISTENT
+        # ------------------------------------------------------------------
+        # Do *not* reorder anything here; the widgets, the internal map order
+        # (self.current_order_maps) and the polarity list must remain in the
+        # exact same index order so that figures and labels stay aligned. Any
+        # deliberate re-ordering is handled exclusively by `reorder_microstates`.
 
         # Clear existing axes
         for ax in self.figure.get_axes():
@@ -231,17 +234,17 @@ class MicrostateVisualizationWindow(QMainWindow):
             ax.set_xlabel('')
             ax.set_ylabel('')
 
-        # Create subplots for each microstate
-        self.axs = [self.figure.add_subplot(1, len(micro_labels_texts), idx + 1) for idx in
-                    range(len(micro_labels_texts))]
+        # Create subplots – one per microstate
+        self.axs = [self.figure.add_subplot(1, len(micro_labels_texts), idx + 1)
+                    for idx in range(len(micro_labels_texts))]
 
-        for idx, ax_idx in enumerate(range(len(micro_labels_texts))):
-            # Plot the microstate with the corresponding label and individual polarity
+        for idx in range(len(micro_labels_texts)):
+            # Plot the microstate with its corresponding label and polarity
             self.plot_microstates_with_labels(
-                self.current_order_maps[ax_idx, :],
-                sorted_labels[idx],
+                self.current_order_maps[idx, :],
+                micro_labels_texts[idx].upper(),
                 self.axs[idx],
-                polarity=self.microstate_polarities[ax_idx]
+                polarity=self.microstate_polarities[idx]
             )
 
         # Adjust layout to prevent overlapping text
