@@ -344,6 +344,11 @@ class MainMicrostateWindow(QMainWindow):
         # Logo setup with shadow effect
         self._setup_logo()
 
+        # Ensure tabs use available space and have consistent sizing
+        # This helps long labels (e.g., "Clustering") fit even when they turn bold
+        if hasattr(self.ui, 'main_tab') and self.ui.main_tab is not None:
+            self.ui.main_tab.tabBar().setExpanding(True)
+
         # Initial visibility
         set_widgets_status([
             self.ui.main_tab,
@@ -488,8 +493,18 @@ class MainMicrostateWindow(QMainWindow):
         # Store current focus to restore later
         current_focus = self.focusWidget()
 
-        # Update tab styling
-        self.ui.main_tab.setStyleSheet("QTabBar::tab:selected { font-weight: bold; }")
+        # Update tab styling with enough padding / width so text fits even when bold
+        self.ui.main_tab.setStyleSheet(
+            """
+            QTabBar::tab {
+                min-width: 120px;        /* ensure room for bold text */
+                padding: 6px 12px;       /* vertical, horizontal */
+            }
+            QTabBar::tab:selected {
+                font-weight: bold;       /* keep highlighting */
+            }
+            """
+        )
 
         # Sync flags with COMET
         self._sync_processing_flags()
