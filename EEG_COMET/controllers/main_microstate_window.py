@@ -6,11 +6,11 @@ from enum import Enum
 
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import (
-    QMainWindow, QFileDialog, QComboBox, QSpinBox, QSlider,
+    QApplication, QMainWindow, QFileDialog, QComboBox, QSpinBox, QSlider,
     QMessageBox, QGraphicsDropShadowEffect, QWidget,
     QVBoxLayout, QGridLayout
 )
-from PyQt5.QtGui import QPixmap, QColor, QKeySequence
+from PyQt5.QtGui import QPixmap, QColor, QKeySequence, QFont
 from PyQt5.QtCore import Qt, pyqtSignal
 
 from .new_study_window import NewStudyWindow
@@ -306,6 +306,27 @@ class MainMicrostateWindow(QMainWindow):
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
         self.ui.setWindowTitle("EEG-COMET")
 
+        # Theme stylesheets
+        # Dark theme relies on application font (set globally), avoid hard-coding size
+        self.dark_style = (
+            "QWidget {"
+            " background-color: #2b2b2b;"
+            " color: #f0f0f0;"
+            " }"
+            " QPushButton { background-color: #3498db; color: #ffffff; border-radius: 6px; padding: 6px 12px; }"
+            " QPushButton:hover { background-color: #2980b9; }"
+            " QPushButton:disabled { background-color: #95a5a6; color: #ecf0f1; }"
+            " QLineEdit, QComboBox { background-color: #ecf0f1; color: #2c3e50; border: 1px solid #7f8c8d; border-radius: 4px; padding: 4px; }"
+            " QLineEdit:read-only { background-color: #bdc3c7; }"
+            " QCheckBox, QRadioButton { color: #f0f0f0; }"
+            " QTabWidget::pane { border: 1px solid #34495e; }"
+            " QTabBar::tab { background: #34495e; color: #ecf0f1; padding: 6px 10px; }"
+            " QTabBar::tab:selected { background: #2c3e50; font-weight: bold; }"
+            " QListWidget { background-color: #1e272e; color: #ecf0f1; border: 1px solid #7f8c8d; border-radius: 4px; }"
+            " QSplitter::handle { background: #34495e; }"
+        )
+        self.light_style = ""  # default Qt style
+
         # Initialize components
         self._init_processing_flags()
         self._init_dialogs()
@@ -315,6 +336,41 @@ class MainMicrostateWindow(QMainWindow):
 
         # Initialize UI state
         self._update_ui_state()
+
+        # Base font parameters for scaling
+        self._base_font_pt = 14
+        self._base_width = 1200  # reference width
+
+        # Set default application font
+        QApplication.instance().setFont(QFont("Calibri", self._base_font_pt))
+
+        # Apply initial theme (light)
+        QApplication.instance().setStyleSheet(self.light_style)
+
+        # Initial font scaling
+        self._update_font_sizes()
+
+    def toggle_theme(self, checked: bool):
+        """Toggle application-wide theme."""
+        if checked:
+            QApplication.instance().setStyleSheet(self.dark_style)
+        else:
+            QApplication.instance().setStyleSheet(self.light_style)
+
+        # Re-apply current font after stylesheet change
+        self._update_font_sizes()
+
+    # ---------------- Font Scaling ----------------
+    def _update_font_sizes(self):
+        """Scale global application font based on window width."""
+        scale = max(0.8, min(2.0, self.width() / self._base_width))  # cap scaling
+        new_size = int(self._base_font_pt * scale)
+        QApplication.instance().setFont(QFont("Calibri", new_size))
+
+    def resizeEvent(self, event):
+        """Override resizeEvent to adjust fonts dynamically."""
+        super().resizeEvent(event)
+        self._update_font_sizes()
 
     def _init_processing_flags(self):
         """Initialize processing flags"""
@@ -404,6 +460,10 @@ class MainMicrostateWindow(QMainWindow):
         for action, (handler, shortcut) in menu_mappings.items():
             action.triggered.connect(handler)
             action.setShortcut(shortcut)
+
+        # Dark mode checkbox connection
+        if hasattr(self.ui, 'dark_mode_checkbox'):
+            self.ui.dark_mode_checkbox.toggled.connect(self.toggle_theme)
 
     def _get_control_mappings(self) -> Dict[QWidget, callable]:
         """Get control widget to handler mappings"""
