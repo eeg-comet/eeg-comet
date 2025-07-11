@@ -105,6 +105,9 @@ class BackfittingVisualizationWindow(QMainWindow):
         # Set default window size based on UI (1000ms is checked by default)
         self.current_window_size = self._get_window_size_from_radio()
 
+        # Show initial instruction message
+        self._show_initial_message()
+
         # Initialize UI state based on default settings
         self.backfitting_visualization_controller()
 
@@ -135,6 +138,28 @@ class BackfittingVisualizationWindow(QMainWindow):
             return 10000
         else:
             return 1000  # Default fallback
+
+    def _show_initial_message(self):
+        """
+        Display an initial message instructing the user to select a file.
+        """
+        # Clear any existing plots
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        ax.text(
+            0.5,
+            0.5,
+            "No EEG file selected.\n"
+            "Please choose a file from the dropdown menu above to visualize the backfitted microstate maps over time.",
+            ha="center",
+            va="center",
+            fontsize=self.font_size + 2,
+            fontfamily=self.font_family,
+            fontweight="bold",
+            wrap=True,
+        )
+        ax.axis("off")
+        self.canvas.draw()
 
     def on_window_size_changed(self):
         """
@@ -493,10 +518,12 @@ class BackfittingVisualizationWindow(QMainWindow):
         """
         selected_file_name = self.ui.eeg_filenames_combobox.currentText()
         if not selected_file_name:
+            self._show_initial_message()
             return
 
         # Check if paths are initialized before proceeding
         if not self._are_paths_initialized():
+            self._show_initial_message()
             print("Warning: Data paths not properly initialized. Call set_data_paths() first.")
             return
 
@@ -521,6 +548,7 @@ class BackfittingVisualizationWindow(QMainWindow):
                             time_min, time_max, fontsize, labelsize, colormap)
         except Exception as e:
             print(f"Error showing backfitting: {e}")
+            self._show_initial_message()
 
     def _plot_data(self, eeg_data, eeg_info, eeg_times, gfp_data, segmentation_data,
                    time_min, time_max, fontsize, labelsize, colormap):
