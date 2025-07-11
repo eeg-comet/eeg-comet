@@ -201,6 +201,9 @@ class BackfittingVisualizationWindow(QMainWindow):
         self.extension = extension
         self.export_format = export_format
 
+        # Refresh UI visibility based on datatype
+        self.backfitting_visualization_controller()
+
         # Populate the filename combobox and auto-select first item
         self._populate_filename_combobox()
 
