@@ -1857,7 +1857,7 @@ class COMET:
         # Update the config dictionary with current attributes
         self.config["io_config"]["study_name"] = self.study_name
         self.config["io_config"]["input_folder"] = self.input_folder
-        self.config["io_config"]["montage"] = self.montage
+        self.config["io_config"]["montage"] = str(self.montage) if self.montage is not None else ""
         self.config["io_config"]["extension"] = self.extension
         self.config["io_config"]["pattern_content"] = self.pattern_content
         self.config["io_config"]["datatype"] = self.datatype
