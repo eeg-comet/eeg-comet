@@ -18,6 +18,9 @@ class MicrostateVisualizationWindow(QMainWindow):
         self.current_order_labels = self.comet.micro_labels
         self.current_order_axs_labels = self.comet.micro_labels
 
+        # Enable maximize button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+
         # Fix: Check if best_maps exists before copying
         if self.comet.best_maps is not None:
             self.current_order_maps = self.comet.best_maps.copy()
@@ -45,7 +48,7 @@ class MicrostateVisualizationWindow(QMainWindow):
 
     def setup_menu_actions(self):
         """Setup menu actions and action groups"""
-        # Create action group for colormap actions (mutually exclusive)
+        # Colormap actions are mutually exclusive
         self.colormap_action_group = QActionGroup(self)
         self.colormap_action_group.addAction(self.ui.cmap_rdbur)
         self.colormap_action_group.addAction(self.ui.cmap_coolwarm)
@@ -55,9 +58,13 @@ class MicrostateVisualizationWindow(QMainWindow):
         # Set the default colormap (RdBu_r) as checked
         self.ui.cmap_rdbur.setChecked(True)
 
-        # Make show_sensors and show_contours checkable
+        # Add colour-bar visibility toggle
         self.ui.show_sensors.setCheckable(True)
         self.ui.show_contours.setCheckable(True)
+
+        if hasattr(self.ui, "show_colorbar"):
+            self.ui.show_colorbar.setCheckable(True)
+            self.ui.show_colorbar.setChecked(True)
 
         # Set default states
         self.ui.show_sensors.setChecked(False)
@@ -90,29 +97,9 @@ class MicrostateVisualizationWindow(QMainWindow):
         self.ui.show_sensors.triggered.connect(self.on_show_sensors_action_triggered)
         self.ui.show_contours.triggered.connect(self.on_show_contours_action_triggered)
 
-    def get_current_settings(self):
-        """Get current visualization settings from QActions"""
-        # Get colormap from checked action
-        if self.ui.cmap_rdbur.isChecked():
-            cmap = 'RdBu_r'
-        elif self.ui.cmap_coolwarm.isChecked():
-            cmap = 'coolwarm'
-        elif self.ui.cmap_bwr.isChecked():
-            cmap = 'bwr'
-        elif self.ui.cmap_seismic.isChecked():
-            cmap = 'seismic'
-        else:
-            cmap = 'RdBu_r'  # default
-
-        # Get other settings from actions
-        sensors = self.ui.show_sensors.isChecked()
-        contours = 6 if self.ui.show_contours.isChecked() else 0
-
-        return {
-            'cmap': cmap,
-            'sensors': sensors,
-            'contours': contours
-        }
+        # Connect colour-bar visibility action
+        if hasattr(self.ui, "show_colorbar"):
+            self.ui.show_colorbar.triggered.connect(self.on_show_colorbar_action_triggered)
 
     def on_colormap_action_triggered(self, colormap_name):
         """Handle colormap action selection"""
@@ -126,9 +113,42 @@ class MicrostateVisualizationWindow(QMainWindow):
         """Handle show contours action"""
         self.plot_maps()
 
+    def on_show_colorbar_action_triggered(self):
+        """Handle show color-bar toggle action"""
+        # Re-plot to update colour-bar visibility
+        self.plot_maps()
+
+    # Settings helper
+    def get_current_settings(self):
+        """Collect current visualization settings selected in the UI."""
+
+        # Choose current colormap
+        if self.ui.cmap_rdbur.isChecked():
+            cmap = 'RdBu_r'
+        elif self.ui.cmap_coolwarm.isChecked():
+            cmap = 'coolwarm'
+        elif self.ui.cmap_bwr.isChecked():
+            cmap = 'bwr'
+        elif self.ui.cmap_seismic.isChecked():
+            cmap = 'seismic'
+        else:
+            cmap = 'RdBu_r'
+
+        sensors = self.ui.show_sensors.isChecked()
+        contours = 6 if self.ui.show_contours.isChecked() else 0
+        colorbar = self.ui.show_colorbar.isChecked() if hasattr(self.ui, 'show_colorbar') else True
+
+        return {
+            'cmap': cmap,
+            'sensors': sensors,
+            'contours': contours,
+            'colorbar': colorbar,
+        }
+
     def create_figure_and_canvas(self):
         """Create matplotlib figure and canvas"""
-        self.figure = Figure(tight_layout=True)
+        # Use constrained_layout for automatic centring
+        self.figure = Figure(constrained_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.canvas.setMinimumHeight(100)
@@ -136,8 +156,8 @@ class MicrostateVisualizationWindow(QMainWindow):
 
     def create_label_widgets(self, micro_labels):
         """Create QLineEdit widgets for microstate labels with polarity radio buttons"""
-        self.micro_label_widgets = []  # Store QLineEdit widgets as an attribute
-        self.polarity_radio_buttons = []  # Store radio buttons for polarity
+        self.micro_label_widgets = []  # Editable label widgets
+        self.polarity_radio_buttons = []
 
         for i in range(self.comet.number_of_maps):
             # Create a container widget for each label and its radio button
@@ -154,7 +174,7 @@ class MicrostateVisualizationWindow(QMainWindow):
             polarity_radio = QRadioButton("Reverse Polarity", container_widget)
             polarity_radio.setFont(QtGui.QFont("Calibri", 14))
             polarity_radio.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-            polarity_radio.setChecked(False)  # Default to normal polarity
+            polarity_radio.setChecked(False)
             polarity_radio.toggled.connect(lambda checked, idx=i: self.on_polarity_radio_toggled(idx, checked))
 
             # Add widgets to container
@@ -162,8 +182,8 @@ class MicrostateVisualizationWindow(QMainWindow):
             container_layout.addWidget(polarity_radio)
 
             # Store references
-            setattr(self, f"micro_label_{i}", label_widget)  # Set attribute with unique name
-            self.micro_label_widgets.append(label_widget)  # Append to the list
+            setattr(self, f"micro_label_{i}", label_widget)
+            self.micro_label_widgets.append(label_widget)
             self.polarity_radio_buttons.append(polarity_radio)
 
             # Add container to layout
@@ -171,7 +191,7 @@ class MicrostateVisualizationWindow(QMainWindow):
 
     def on_polarity_radio_toggled(self, microstate_idx, checked):
         """Handle polarity radio button toggle"""
-        # Update polarity: checked = reversed (-1), unchecked = normal (1)
+        # Update polarity list
         self.microstate_polarities[microstate_idx] = -1 if checked else 1
 
         # Update the visualization
@@ -192,39 +212,39 @@ class MicrostateVisualizationWindow(QMainWindow):
             widget.setDisabled(True)
 
     def plot_microstates_with_labels(self, microstate, micro_label, ax, polarity=1):
-        """
-        Plot the microstate with the corresponding label on a given axis.
+        """Plot a microstate topomap and its label on the provided axis and return
+        the image handle so a shared color-bar can be created later.
         """
         settings = self.get_current_settings()
 
-        # Use the provided polarity (individual per microstate) instead of global setting
-        # Plot the microstate
-        show_microstate(microstate, self.comet.eeg_info, ax,
-                        polarity=polarity,
-                        sensors=settings['sensors'],
-                        contours=settings['contours'],
-                        cmap=settings['cmap'])
-        # Axis settings
+        # Plot and get image handle for colour-bar
+        im = show_microstate(
+            microstate,
+            self.comet.eeg_info,
+            ax,
+            polarity=polarity,
+            sensors=settings['sensors'],
+            contours=settings['contours'],
+            cmap=settings['cmap'],
+        )
+
+        # Label placement
         ax.axis('off')
         ax.text(0.5, -0.2, micro_label.upper(), transform=ax.transAxes,
-                fontsize=16, ha='center', va='center')
+                fontsize=20, ha='center', va='center')
         ax.text(0, 0, '', transform=ax.transAxes)
+
+        return im
 
     def plot_maps(self):
         """Plot microstate maps on canvas"""
         micro_labels_texts = [getattr(self, f"micro_label_{i}").text() for i in range(self.comet.number_of_maps)]
 
-        # If no labels are provided yet, fall back to generic placeholders (M1, M2, …)
+        # Fallback placeholders if labels missing
         if not any(micro_labels_texts):
             micro_labels_texts = [f"M{i + 1}" for i in range(len(micro_labels_texts))]
 
-        # ------------------------------------------------------------------
-        #  KEEP ORDER CONSISTENT
-        # ------------------------------------------------------------------
-        # Do *not* reorder anything here; the widgets, the internal map order
-        # (self.current_order_maps) and the polarity list must remain in the
-        # exact same index order so that figures and labels stay aligned. Any
-        # deliberate re-ordering is handled exclusively by `reorder_microstates`.
+        # Keep widget and map ordering consistent; reordering handled elsewhere
 
         # Clear existing axes
         for ax in self.figure.get_axes():
@@ -238,17 +258,51 @@ class MicrostateVisualizationWindow(QMainWindow):
         self.axs = [self.figure.add_subplot(1, len(micro_labels_texts), idx + 1)
                     for idx in range(len(micro_labels_texts))]
 
+        im = None  # Image handle for colour-bar
         for idx in range(len(micro_labels_texts)):
-            # Plot the microstate with its corresponding label and polarity
-            self.plot_microstates_with_labels(
+            # Plot each microstate
+            im = self.plot_microstates_with_labels(
                 self.current_order_maps[idx, :],
                 micro_labels_texts[idx].upper(),
                 self.axs[idx],
-                polarity=self.microstate_polarities[idx]
+                polarity=self.microstate_polarities[idx],
             )
 
-        # Adjust layout to prevent overlapping text
-        self.figure.tight_layout()
+        # With constrained_layout, no manual layout adjustment needed
+
+        # Colour-bar visibility
+        if self.ui.show_colorbar.isChecked() and im is not None:
+            # Remove previous colour-bar
+            if hasattr(self, "cbar") and self.cbar:
+                try:
+                    self.cbar.remove()
+                except Exception:
+                    pass
+
+            # Create colour-bar at top
+            self.cbar = self.figure.colorbar(
+                im,
+                ax=self.axs,
+                orientation="horizontal",
+                location="top",
+                pad=0.04,
+                fraction=0.05,
+            )
+
+            # Add title/label and increase font sizes
+            self.cbar.set_label("Amplitude (µV)", fontsize=20, labelpad=6)
+
+            # Enlarge tick font size
+            self.cbar.ax.tick_params(labelsize=18)
+
+        else:
+            # Remove colour-bar if toggled off
+            if hasattr(self, "cbar") and self.cbar:
+                try:
+                    self.cbar.remove()
+                except Exception:
+                    pass
+                self.cbar = None
 
         # Sync labels after plotting
         self.sync_labels_with_widgets()
@@ -266,16 +320,16 @@ class MicrostateVisualizationWindow(QMainWindow):
 
                 # Update the text on the corresponding axis
                 if ax.texts:  # Check if there are text objects
-                    ax_text = ax.texts[0]  # Assuming there's only one text object on each axis
+                    ax_text = ax.texts[0]
                     ax_text.set_text(label_text.upper())
 
-            # Keep labels synchronized with widget state
+            # Sync labels
             self.sync_labels_with_widgets()
             self.canvas.draw()
 
     def export_microstates_image(self):
         """Export microstate images to file"""
-        # Get study name for default filename
+        # Default filename
         study_name = getattr(self.comet, 'study_name', 'microstates')
         default_filename = f"{study_name}_microstates.pdf"
 
@@ -303,11 +357,11 @@ class MicrostateVisualizationWindow(QMainWindow):
 
             # Ensure that the file has an extension
             if not extension:
-                file_name += '.pdf'  # Default to PDF for vector format
+                file_name += '.pdf'
 
             # Save with appropriate settings for vector formats
             if extension in ['.pdf', '.svg']:
-                # Vector formats - save with high DPI and vector-friendly settings
+                # Vector formats
                 self.figure.savefig(file_name, dpi=300, bbox_inches='tight',
                                     facecolor='white', edgecolor='none')
             else:
@@ -318,6 +372,13 @@ class MicrostateVisualizationWindow(QMainWindow):
         """Automatically label microstates and update the visualization."""
         self.comet.run_microstate_labeling()
         if self.comet.done_microstate_labeling:
+            # Restore maps to default order so labels align correctly
+            if self.comet.best_maps is not None:
+                self.current_order_maps = self.comet.best_maps.copy()
+
+            # Reset polarities when auto-labeling
+            self.microstate_polarities = [1] * self.comet.number_of_maps
+
             for i, label_widget in enumerate(self.micro_label_widgets):
                 label_widget.setText(self.comet.micro_labels[i])
                 label_widget.setDisabled(True)
@@ -328,7 +389,7 @@ class MicrostateVisualizationWindow(QMainWindow):
 
     def reorder_microstates(self):
         """Update the window to reflect changes"""
-        # Store the current order of micro_label_widgets texts and axs current image labels
+        # Store current ordering
         current_order_labels = [label_widget.text() for label_widget in self.micro_label_widgets]
 
         if hasattr(self, 'axs'):
@@ -355,14 +416,14 @@ class MicrostateVisualizationWindow(QMainWindow):
         # Create subplots for each microstate
         self.axs = [self.figure.add_subplot(1, len(sorted_indices), idx + 1) for idx in range(len(sorted_indices))]
 
-        # FIX: Use range(len(sorted_indices)) instead of sorted_indices
+        im = None
         for i in range(len(sorted_indices)):
-            # Plot the microstate with the corresponding label and polarity
-            self.plot_microstates_with_labels(
+            # Plot each microstate
+            im = self.plot_microstates_with_labels(
                 sorted_maps[i],
                 sorted_micro_labels[i].upper(),
                 self.axs[i],
-                polarity=sorted_polarities[i]
+                polarity=sorted_polarities[i],
             )
 
         # Update label widget text and radio button states
@@ -371,50 +432,85 @@ class MicrostateVisualizationWindow(QMainWindow):
             # Update radio button state based on sorted polarity
             self.polarity_radio_buttons[i].setChecked(sorted_polarities[i] == -1)
 
-        # Adjust layout to prevent overlapping text
-        self.figure.tight_layout()
+        # No manual layout with constrained_layout
+
+        # Colour-bar visibility
+        if self.ui.show_colorbar.isChecked() and im is not None:
+            if hasattr(self, "cbar") and self.cbar:
+                try:
+                    self.cbar.remove()
+                except Exception:
+                    pass
+
+            self.cbar = self.figure.colorbar(
+                im,
+                ax=self.axs,
+                orientation="horizontal",
+                location="top",
+                pad=0.04,
+                fraction=0.05,
+            )
+
+            try:
+                self.cbar.set_label("µV", fontsize=18, labelpad=6)
+            except Exception:
+                self.cbar.ax.set_title("µV", fontsize=14, pad=6)
+
+            self.cbar.ax.tick_params(labelsize=16)
+        else:
+            if hasattr(self, "cbar") and self.cbar:
+                try:
+                    self.cbar.remove()
+                except Exception:
+                    pass
+                self.cbar = None
 
         # Draw the canvas after plotting
         self.canvas.draw()
 
-        # FIX: Update with the SORTED order, not the original order
+        # Update UI widgets with sorted labels
         self.current_order_labels = sorted_micro_labels
-        self.current_order_axs_labels = sorted_micro_labels  # Should match sorted labels
+        self.current_order_axs_labels = sorted_micro_labels
         self.current_order_maps = sorted_maps
-        self.microstate_polarities = sorted_polarities  # Update polarities order
+        self.microstate_polarities = sorted_polarities
 
     def reset_labeling(self):
         """Store the default order of labels, axs labels, and maps"""
-        self.current_order_labels.clear()  # Clear previous default order
-        self.current_order_axs_labels.clear()  # Clear previous default order
+        self.current_order_labels.clear()
+        self.current_order_axs_labels.clear()
 
         # Fix: Check if best_maps exists before copying
         if self.comet.best_maps is not None:
-            self.current_order_maps = self.comet.best_maps.copy()  # Store default order of maps
+            self.current_order_maps = self.comet.best_maps.copy()
 
         # Reset all polarities to normal (1)
         self.microstate_polarities = [1] * self.comet.number_of_maps
 
         # Reflect the empty default order in the Qt window
         for i, label_widget in enumerate(self.micro_label_widgets):
-            label_widget.setText("")  # Set labels to empty
-            label_widget.setEnabled(True)  # Enable editing
-            # Reset radio button to unchecked (normal polarity)
-            self.polarity_radio_buttons[i].setChecked(False)
+            label_widget.setText("")
+            label_widget.setEnabled(True)
 
         if hasattr(self, 'axs'):
             for ax in self.axs:
-                ax.text(0.5, -0.2, "", transform=ax.transAxes, fontsize=16, ha='center',
-                        va='center')  # Set axs labels to empty
+                ax.text(0.5, -0.2, "", transform=ax.transAxes, fontsize=20, ha='center',
+                        va='center')
 
-        self.sync_labels_with_widgets()  # Sync after clearing widget texts
+        self.sync_labels_with_widgets()
         self.reorder_microstates()
-        # Reset next steps processing flags to False
+        # Reset processing flags
         processing_flags = [
             'done_microstate_labeling', 'done_backfitting', 'done_extracting_features',
             'done_source_localization', 'done_identifying_microstate_sources'
         ]
-        self.main_window.reset_processing_flags(processing_flags)
+        # Reset relevant processing flags on the main window
+        if hasattr(self.main_window, "processing_flags"):
+            for flag in processing_flags:
+                setattr(self.main_window.processing_flags, flag, False)
+
+            # Sync flags to COMET so the rest of the app reflects the change
+            if hasattr(self.main_window, "_sync_flags_to_comet"):
+                self.main_window._sync_flags_to_comet()
         self.main_window.mainwindow_controller()
 
     def sync_labels_with_widgets(self):

@@ -282,6 +282,7 @@ background-color: rgb(0, 0, 0);</string>
      </property>
      <addaction name="show_sensors"/>
      <addaction name="show_contours"/>
+     <addaction name="show_colorbar"/>
     </widget>
     <addaction name="menuColor_Map_2"/>
     <addaction name="menuView"/>
@@ -392,7 +393,7 @@ background-color: rgb(0, 0, 0);</string>
     <bool>true</bool>
    </property>
    <property name="checked">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="text">
     <string>Show Sensors</string>
@@ -413,6 +414,29 @@ background-color: rgb(0, 0, 0);</string>
    </property>
    <property name="text">
     <string>Show Contours</string>
+   </property>
+   <property name="font">
+    <font>
+     <family>Calibri</family>
+     <pointsize>12</pointsize>
+    </font>
+   </property>
+  </action>
+  <action name="show_colorbar">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Colorbar</string>
+   </property>
+   <property name="font">
+    <font>
+     <family>Calibri</family>
+     <pointsize>12</pointsize>
+    </font>
    </property>
   </action>
  </widget>
