@@ -307,7 +307,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.setWindowTitle("EEG-COMET")
 
         # Theme stylesheets
-        # Dark theme relies on application font (set globally), avoid hard-coding size
+        # Dark theme stylesheet
         self.dark_style = (
             "QWidget {"
             " background-color: #2b2b2b;"
@@ -324,8 +324,14 @@ class MainMicrostateWindow(QMainWindow):
             " QTabBar::tab:selected { background: #2c3e50; font-weight: bold; }"
             " QListWidget { background-color: #1e272e; color: #ecf0f1; border: 1px solid #7f8c8d; border-radius: 4px; }"
             " QSplitter::handle { background: #34495e; }"
+            " QMenuBar, QMenu { font-family: 'Calibri'; font-size: 12pt; background-color: #2b2b2b; color: #f0f0f1; }"
+            " QMenuBar::item:selected, QMenu::item:selected { background-color: #2980b9; }"
         )
-        self.light_style = ""  # default Qt style
+
+        # Light theme stylesheet (only enforce menu fonts; otherwise default Qt look)
+        self.light_style = (
+            "QMenuBar, QMenu { font-family: 'Calibri'; font-size: 12pt; }"
+        )
 
         # Initialize components
         self._init_processing_flags()
