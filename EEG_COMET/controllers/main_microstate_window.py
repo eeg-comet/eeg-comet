@@ -1373,6 +1373,10 @@ class MainMicrostateWindow(QMainWindow):
         viz_window.segmentation_path = self.comet.segmentation_path
         viz_window.export_format = self.comet.export_format
 
+        # Ensure UI reflects current data type (show trial controls for epoched data)
+        if hasattr(viz_window, 'backfitting_visualization_controller'):
+            viz_window.backfitting_visualization_controller()
+
         # Show window
         viz_window.setWindowModality(QtCore.Qt.ApplicationModal)
         viz_window.showMaximized()
