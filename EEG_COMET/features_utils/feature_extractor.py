@@ -317,7 +317,7 @@ class FeatureExtractor:
                            If feature_mode is 'sliding', returns a list of Shannon entropies for each window.
         """
 
-        window_entropies, window_size_samples = FeatureHelper().initialize_sliding_windows(
+        window_entropies, window_size_samples = FeatureHelper().initialize_dynamic_windows(
             self.input_sequence, self.sampling_rate, self.sliding_window_size
         )
 
@@ -360,7 +360,7 @@ class FeatureExtractor:
         """
         # TODO: not completed
         # word_size = 5
-        window_entropy_representations, window_size_samples = FeatureHelper().initialize_sliding_windows(
+        window_entropy_representations, window_size_samples = FeatureHelper().initialize_dynamic_windows(
             self.input_sequence, self.sampling_rate, self.sliding_window_size
         )
         for window_index in range(len(window_entropy_representations)):
