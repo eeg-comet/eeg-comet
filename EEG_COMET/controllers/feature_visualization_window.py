@@ -547,8 +547,38 @@ class FeatureVisualizationWindow(QMainWindow):
             self.ui.all_files_list.addItem(str(eeg_file))
 
     def set_labels_ticks(self, filter_cols, feature, ax, font_sizes, font_family, display_options):
-        ax.set_xlabel("Microstate", fontsize=font_sizes['label'], fontfamily=font_family)
-        xticklabels = [col.split('_')[-1] for col in filter_cols]
+        """Set x/y labels, tick labels and apply display options"""
+
+        # Helper to convert numerical state indices to letters (1->A, 2->B, ...)
+        def _state_to_letter(state_str: str) -> str:
+            try:
+                state_idx = int(state_str)
+                # Ensure 1-based mapping; fall back gracefully
+                letter_idx = max(state_idx - 1, 0)
+                return chr(ord('A') + letter_idx)
+            except (ValueError, TypeError):
+                # If conversion fails, just return the original string
+                return state_str
+
+        # Determine appropriate x-tick labels
+        if feature == 'TP':
+            # Expect column names like "TP_1_2" → "A-B"
+            xticklabels = []
+            for col in filter_cols:
+                parts = col.split('_')
+                if len(parts) >= 3:
+                    from_letter = _state_to_letter(parts[1])
+                    to_letter = _state_to_letter(parts[2])
+                    xticklabels.append(f"{from_letter}-{to_letter}")
+                else:
+                    # Fallback to original logic if format unexpected
+                    xticklabels.append(parts[-1])
+            ax.set_xlabel("Transition", fontsize=font_sizes['label'], fontfamily=font_family)
+        else:
+            # Default behaviour for other features
+            xticklabels = [col.split('_')[-1] for col in filter_cols]
+            ax.set_xlabel("Microstate", fontsize=font_sizes['label'], fontfamily=font_family)
+
         ax.set_xticks(range(len(xticklabels)))
         ax.set_xticklabels(xticklabels)
         ax.set_ylabel(self.comet.feature_list_dictionary[feature], fontsize=font_sizes['label'], fontfamily=font_family)
@@ -574,6 +604,8 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Plots a violin plot for the selected static feature.
         """
+        # Reset figure to avoid residual artifacts from previous plots (e.g., colorbars)
+        self.figure.clear()
         ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(feature)]
         filter_cols.sort()
@@ -609,6 +641,8 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Plots a line plot for the selected dynamic feature.
         """
+        # Reset figure to avoid residual artifacts from previous plots (e.g., colorbars)
+        self.figure.clear()
         ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(feature)]
         filter_cols.sort()
@@ -638,6 +672,8 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Plots a heatmap for the transition probabilities.
         """
+        # Reset figure to avoid residual artifacts from previous plots (e.g., colorbars)
+        self.figure.clear()
         ax = self.canvas.figure.gca()
         self.clear_and_set_fonts(ax, font_family, font_sizes)
 
@@ -653,8 +689,15 @@ class FeatureVisualizationWindow(QMainWindow):
                 if f'TP_{from_state}_{to_state}' in features_df.columns:
                     transition_matrix[i, j] = features_df[f'TP_{from_state}_{to_state}'].mean()
 
-        # Plot heatmap colormap
-        ax.matshow(transition_matrix, cmap="YlGnBu")
+        # Plot heatmap and capture the image object for the colorbar
+        im = ax.matshow(transition_matrix, cmap="YlGnBu")
+
+        # Add a colorbar to illustrate the colormap scale
+        cbar = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.ax.tick_params(labelsize=font_sizes['tick'])
+        for label in cbar.ax.get_yticklabels():
+            label.set_fontfamily(font_family)
+            label.set_fontsize(font_sizes['tick'])
 
         # Annotate values with percentage
         for i in range(len(states)):
@@ -717,6 +760,8 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Plots a comparison of features between two groups.
         """
+        # Reset figure to avoid residual artifacts from previous plots (e.g., colorbars)
+        self.figure.clear()
         ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(selected_feature)]
         filter_cols.sort()
@@ -764,6 +809,8 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Plots a box plot for the selected static feature.
         """
+        # Reset figure to avoid residual artifacts from previous plots (e.g., colorbars)
+        self.figure.clear()
         ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(feature)]
         filter_cols.sort()
