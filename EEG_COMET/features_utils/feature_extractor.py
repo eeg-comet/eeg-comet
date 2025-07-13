@@ -308,15 +308,31 @@ class FeatureExtractor:
             total_transitions += 1
         return {pair: count / total_transitions for pair, count in transitions.items()}
 
-    def shannon_entropy(self):
+    def entropy_rate(self, min_samples=None, kmax=6):
         """
-        Calculate Shannon entropy.
+        Calculate entropy rate using k-history method.
+        For sliding windows, calculates entropy rate for each window.
+        For averaged mode, calculates entropy rate for the entire sequence.
+
+        Args:
+            min_samples (int, optional): Minimum number of samples to use for consistent comparison.
+                                       If None, uses the full sequence length.
+            kmax (int, optional): Maximum history length to consider. Defaults to 6.
 
         Returns:
-            float or list: If feature_mode is 'averaged', returns the Shannon entropy of the entire input_sequence.
-                           If feature_mode is 'sliding', returns a list of Shannon entropies for each window.
+            float or list: If feature_mode is 'averaged', returns the entropy rate of the entire input_sequence.
+                          If feature_mode is 'sliding', returns a list of entropy rates for each window.
         """
+        # Get number of unique symbols
+        ns = len(set(self.input_sequence))
 
+        # Ensure consistent sample size for averaged mode
+        if self.feature_mode == 'averaged':
+            consistent_sequence = FeatureHelper().ensure_consistent_samples(self.input_sequence, min_samples)
+            h_rate, _ = FeatureHelper().compute_entropy_rate(consistent_sequence, ns, kmax)
+            return h_rate
+
+        # For sliding mode, ensure each window has consistent samples
         window_entropies, window_size_samples = FeatureHelper().initialize_dynamic_windows(
             self.input_sequence, self.sampling_rate, self.sliding_window_size
         )
@@ -325,23 +341,32 @@ class FeatureExtractor:
             window_start = window_index * window_size_samples
             window_end = window_start + window_size_samples
             window_input_sequence = self.input_sequence[window_start:window_end]
-            window_entropies[window_index] = FeatureHelper().calculate_entropy(window_input_sequence)
+            # Ensure consistent samples for each window
+            window_input_sequence = FeatureHelper().ensure_consistent_samples(window_input_sequence, min_samples)
+            # Calculate entropy rate for this window
+            h_rate, _ = FeatureHelper().compute_entropy_rate(window_input_sequence, ns, kmax)
+            window_entropies[window_index] = h_rate
 
-        if self.feature_mode == 'averaged':
-            return FeatureHelper().calculate_entropy(self.input_sequence)
-        elif self.feature_mode == 'sliding':
+        if self.feature_mode == 'sliding':
             return window_entropies
         else:
             raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
-    def lempel_ziv_complexity(self):
+    def lempel_ziv_complexity(self, min_samples=None):
         """
-        Calculate Lempel-Ziv complexity using the LZ76 algorithm and a sliding window implementation.
-        """
+        Calculate Lempel-Ziv complexity using the LZ76 algorithm.
 
-        return FeatureHelper().compute_lempel_ziv_complexity(
-            FeatureHelper().remove_repetition_sequence(self.input_sequence)
-        )
+        Args:
+            min_samples (int, optional): Minimum number of samples to use for consistent comparison.
+                                       If None, uses the full sequence length.
+
+        Returns:
+            float: The Lempel-Ziv complexity of the input sequence.
+        """
+        # First remove repetitions, then ensure consistent sample size
+        sequence_without_repeats = FeatureHelper().remove_repetition_sequence(self.input_sequence)
+        consistent_sequence = FeatureHelper().ensure_consistent_samples(sequence_without_repeats, min_samples)
+        return FeatureHelper().compute_lempel_ziv_complexity(consistent_sequence)
 
     def entropy_representation(self, word_size):
         """
@@ -390,8 +415,61 @@ class FeatureExtractor:
         """
         return FeatureHelper().compute_relative_transition_frequency(self.input_sequence)
 
+    def hurst_exponent(self, min_samples=50, max_samples=2500, num_scales=50):
+        """
+        Calculate Hurst exponent using Detrended Fluctuation Analysis (DFA).
+        For sliding windows, calculates Hurst exponent for each window.
+        For averaged mode, calculates Hurst exponent for the entire sequence.
+
+        The calculation follows Van de Ville et al. (2010) and von Wegner et al. (2016):
+        - Uses 50 logarithmically spaced time scales over 50-2500 samples
+        - Creates random walks by partitioning states into two subsets with ±1 values
+        - Averages Hurst exponents across all possible partitions
+        - For 4 states: uses (2,2) partitions
+        - For 5 states: uses (2,3) partitions
+
+        Args:
+            min_samples (int): Minimum window size (default: 50 samples = 200ms at 250Hz)
+            max_samples (int): Maximum window size (default: 2500 samples = 10s at 250Hz)
+            num_scales (int): Number of logarithmically spaced scales (default: 50)
+
+        Returns:
+            float or list: If feature_mode is 'averaged', returns the Hurst exponent of the entire input_sequence.
+                          If feature_mode is 'sliding', returns a list of Hurst exponents for each window.
+        """
+        if self.feature_mode == 'averaged':
+            return FeatureHelper().calculate_hurst_exponent(
+                self.input_sequence,
+                min_samples=min_samples,
+                max_samples=max_samples,
+                num_scales=num_scales
+            )
+
+        # For sliding mode
+        window_hurst_exponents, window_size_samples = FeatureHelper().initialize_dynamic_windows(
+            self.input_sequence, self.sampling_rate, self.sliding_window_size
+        )
+
+        for window_index in range(len(window_hurst_exponents)):
+            window_start = window_index * window_size_samples
+            window_end = window_start + window_size_samples
+            window_input_sequence = self.input_sequence[window_start:window_end]
+            
+            # Calculate Hurst exponent for this window
+            window_hurst_exponents[window_index] = FeatureHelper().calculate_hurst_exponent(
+                window_input_sequence,
+                min_samples=min_samples,
+                max_samples=max_samples,
+                num_scales=num_scales
+            )
+
+        if self.feature_mode == 'sliding':
+            return window_hurst_exponents
+        else:
+            raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
+
     def extract_microstate_features(
-            self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None, word_size=2):
+            self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None, word_size=2, min_samples=None):
         """
         Extracts a set of microstate features from EEG data input_sequences, given a list of feature identifiers.
         The function operates in two modes: 'averaged' and 'sliding'.
@@ -406,6 +484,8 @@ class FeatureExtractor:
             microstate_maps (array-like, optional): The microstate maps. Defaults to None.
             microstate_labels (list, optional): The labels for the microstate maps. Defaults to None.
             word_size (int, optional): The size of the word for entropy calculation. Defaults to 2.
+            min_samples (int, optional): Minimum number of samples to use for consistent comparison in SE and LZC.
+                                       If None, uses the full sequence length.
 
         Returns:
             pandas.DataFrame: A DataFrame containing the extracted microstate features.
@@ -425,16 +505,22 @@ class FeatureExtractor:
         if 'GEV' in feature_list:
             extracted_explained_variance = self.global_explained_variance(eeg_data, microstate_maps, microstate_labels)
             features_dict.append(('GEV', extracted_explained_variance))
-        if 'SE' in feature_list:
-            extracted_entropy = self.shannon_entropy()
-            features_dict.append(('SE', extracted_entropy))
         if 'ER' in feature_list:
+            extracted_entropy = self.entropy_rate(min_samples=min_samples)
+            features_dict.append(('ER', extracted_entropy))
+        if 'ERR' in feature_list:
             extracted_entropy_representation = self.entropy_representation(word_size)
-            features_dict.append(('ER', extracted_entropy_representation))
+            features_dict.append(('ERR', extracted_entropy_representation))
+        if 'HE' in feature_list:
+            extracted_hurst = self.hurst_exponent()
+            # Replace None with NaN for consistency
+            if extracted_hurst is None:
+                extracted_hurst = np.nan
+            features_dict.append(('HE', extracted_hurst))
 
         # Only add TP and LZC if the mode is not sliding
         if 'LZC' in feature_list and self.feature_mode != 'sliding':
-            extracted_microstate_complexity = self.lempel_ziv_complexity()
+            extracted_microstate_complexity = self.lempel_ziv_complexity(min_samples=min_samples)
             features_dict.append(('LZC', extracted_microstate_complexity))
         if 'TP' in feature_list and self.feature_mode != 'sliding':
             extracted_microstate_transition_probability = self.compute_transition_probabilities()
@@ -444,7 +530,6 @@ class FeatureExtractor:
         output_features_data = []
 
         for feature, feature_data in features_dict:
-
             if self.feature_mode == 'sliding':
                 if not isinstance(feature_data, (list, tuple)):
                     feature_data = [feature_data]
@@ -594,7 +679,7 @@ class FeatureExtractionCoordinator:
         pass
     
     def extract_features(self, segmentation, feature_list, feature_mode, feature_types, 
-                        sliding_window_size=1, pre_window_size=1, post_window_size=1):
+                        sliding_window_size=1, pre_window_size=1, post_window_size=1, min_samples=None):
         """
         Extract features from segmentation data and organize by mode and type
         
@@ -614,6 +699,9 @@ class FeatureExtractionCoordinator:
             Pre-window size for epoched data
         post_window_size : int
             Post-window size for epoched data
+        min_samples : int, optional
+            Minimum number of samples to use for consistent comparison in SE and LZC.
+            If None, uses the full sequence length.
         
         Returns:
         --------
@@ -680,7 +768,8 @@ class FeatureExtractionCoordinator:
                     feature_list=feature_list,
                     eeg_data=eeg_data,
                     microstate_maps=microstate_maps,
-                    microstate_labels=microstate_labels
+                    microstate_labels=microstate_labels,
+                    min_samples=min_samples
                 )
                 
                 results[mode][feature_type].append(extracted_df)

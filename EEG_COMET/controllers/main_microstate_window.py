@@ -258,9 +258,10 @@ class WidgetGroups:
         return [
             self.ui.step4_feature_occ_checkbox, self.ui.step4_feature_dur_checkbox,
             self.ui.step4_feature_cov_checkbox, self.ui.step4_feature_gev_checkbox,
-            self.ui.step4_feature_tp_checkbox, self.ui.step4_feature_se_checkbox,
-            self.ui.step4_feature_lzc_checkbox, self.ui.step4_feature_er_checkbox,
-            self.ui.step4_feature_rof_checkbox, self.ui.step4_feature_rtf_checkbox
+            self.ui.step4_feature_tp_checkbox, self.ui.step4_feature_er_checkbox,
+            self.ui.step4_feature_lzc_checkbox, self.ui.step4_feature_he_checkbox,
+            self.ui.step4_feature_err_checkbox, self.ui.step4_feature_rof_checkbox,
+            self.ui.step4_feature_rtf_checkbox
         ]
 
     def _get_source_localization_widgets(self):
@@ -494,9 +495,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_cov_checkbox: self._update_ui_state,
             self.ui.step4_feature_gev_checkbox: self._update_ui_state,
             self.ui.step4_feature_tp_checkbox: self._update_ui_state,
-            self.ui.step4_feature_se_checkbox: self._update_ui_state,
-            self.ui.step4_feature_lzc_checkbox: self._update_ui_state,
             self.ui.step4_feature_er_checkbox: self._update_ui_state,
+            self.ui.step4_feature_lzc_checkbox: self._update_ui_state,
+            self.ui.step4_feature_he_checkbox: self._update_ui_state,
+            self.ui.step4_feature_err_checkbox: self._update_ui_state,
             self.ui.step4_feature_rof_checkbox: self._update_ui_state,
             self.ui.step4_feature_rtf_checkbox: self._update_ui_state,
             self.ui.step4_averaged_features_checkbox: self._update_ui_state,
@@ -884,7 +886,7 @@ class MainMicrostateWindow(QMainWindow):
     def _handle_feature_extraction_settings(self):
         """Handle feature extraction UI settings"""
         # Handle ER feature word size settings
-        if self.ui.step4_feature_er_checkbox.isChecked():
+        if self.ui.step4_feature_err_checkbox.isChecked():
             er_widgets = [
                 self.ui.step4_word_size_label1,
                 self.ui.step4_word_size_label2,
@@ -1417,9 +1419,10 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_cov_checkbox: "COV",
             self.ui.step4_feature_gev_checkbox: "GEV",
             self.ui.step4_feature_tp_checkbox: "TP",
-            self.ui.step4_feature_se_checkbox: "SE",
+            self.ui.step4_feature_er_checkbox: "ER",
             self.ui.step4_feature_lzc_checkbox: "LZC",
-            self.ui.step4_feature_er_checkbox: "ER"
+            self.ui.step4_feature_he_checkbox: "HE",
+            self.ui.step4_feature_err_checkbox: "ER"
         }
 
         self.comet.feature_list = [
@@ -1441,7 +1444,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.feature_types = ['real']
 
         # Word size for ER
-        if self.ui.step4_feature_er_checkbox.isChecked():
+        if self.ui.step4_feature_err_checkbox.isChecked():
             self.comet.word_size = int(self.ui.step4_word_size_min_input.text())
         else:
             self.comet.word_size = 2

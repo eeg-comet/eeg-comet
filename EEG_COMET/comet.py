@@ -378,9 +378,9 @@ class COMET:
         self.feature_list_dictionary = {
             "OCC": "Frequency of Occurrence (Hz)", "DUR": "Mean Microstate Duration (ms)",
             "COV": "Microstate Coverage (%)", "GEV": "Microstate Global Explained Variance (%)",
-            "TP": "Transition Probability", "SE": "Sequence Entropy", "LZC": "Sequence Lempel-Ziv Complexity",
-            "ER": "Sequence Entropy Representation", "ROF": "Relative Occurrence Frequency",
-            "RTF": "Relative Transition Frequency"
+            "TP": "Transition Probability", "ER": "Entropy Rate", "LZC": "Sequence Lempel-Ziv Complexity",
+            "HE": "Hurst Exponent", "ERR": "Sequence Entropy Representation",
+            "ROF": "Relative Occurrence Frequency", "RTF": "Relative Transition Frequency"
         }
 
         # Source Localization Configs

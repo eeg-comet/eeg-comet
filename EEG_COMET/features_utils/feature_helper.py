@@ -11,6 +11,81 @@ class FeatureHelper:
     """
     The FeatureHelper class provides utility methods for microstate feature extraction.
     """
+    def ensure_consistent_samples(self, input_sequence, min_samples=None):
+        """
+        Ensure consistent number of samples for entropy and complexity calculations.
+        If min_samples is provided, uses that as the target length, otherwise uses the input length.
+        Truncates longer sequences to match the shortest sequence length.
+
+        Args:
+            input_sequence (list or str): The input sequence of elements.
+            min_samples (int, optional): Minimum number of samples to use. If None, uses full sequence.
+
+        Returns:
+            list or str: The input sequence truncated to the consistent length.
+        """
+        if min_samples is not None and min_samples > 0:
+            # Truncate to specified minimum samples
+            if len(input_sequence) > min_samples:
+                return input_sequence[:min_samples]
+            elif len(input_sequence) < min_samples:
+                raise ValueError(f"Input sequence length {len(input_sequence)} is less than required minimum {min_samples}")
+            return input_sequence
+        return input_sequence
+
+    def H_k(self, x, ns, k):
+        """
+        Shannon's joint entropy from x[n+p:n-m]
+        
+        Args:
+            x: symbolic time series
+            ns: number of symbols
+            k: length of k-history
+            
+        Returns:
+            hk: joint entropy for k-history
+        """
+        N = len(x)
+        f = np.zeros(tuple(k*[ns]))  # k-dimensional array for k-history frequencies
+        
+        # Convert sequence to integers if they're not already
+        x_int = np.zeros(len(x), dtype=int)
+        unique_symbols = list(set(x))
+        symbol_to_int = {symbol: i for i, symbol in enumerate(unique_symbols)}
+        for i, symbol in enumerate(x):
+            x_int[i] = symbol_to_int[symbol]
+            
+        for t in range(N-k):
+            # Get k consecutive symbols and convert to tuple of indices
+            idx = tuple(x_int[t:t+k])
+            f[idx] += 1.0
+            
+        f /= (N-k)  # normalize distribution
+        hk = -np.sum(f[f>0]*np.log(f[f>0]))
+        return hk
+
+    def compute_entropy_rate(self, x, ns, kmax=6):
+        """
+        Calculate entropy rate using k-history method.
+        Fits a line to joint entropy values for different k, slope = entropy rate.
+        
+        Args:
+            x: symbolic time series
+            ns: number of symbols
+            kmax: maximum history length to consider
+            
+        Returns:
+            h_rate: entropy rate (slope of H_k vs k)
+            b: excess entropy (y-intercept)
+        """
+        h_ = np.zeros(kmax)
+        for k in range(kmax):
+            h_[k] = self.H_k(x, ns, k+1)
+        ks = np.arange(1, kmax+1)
+        # Fit line to get entropy rate (slope)
+        a, b = np.polyfit(ks, h_, 1)
+        return a, b
+
     @staticmethod
     def initialize_empty_window_data(input_sequence):
         """
@@ -339,3 +414,115 @@ class FeatureHelper:
                 representation_ratios[ratio_key] = entropy_value / second_entropy_value
 
         return dict(sorted(representation_ratios.items(), key=lambda item: item[0]))
+
+    def generate_partitions(self, num_states):
+        """
+        Generate all possible (2,n-2) partitions for n states.
+        For 4 states: generates (2,2) partitions
+        For 5 states: generates (2,3) partitions
+
+        Args:
+            num_states (int): Total number of states
+
+        Returns:
+            list: List of tuples, each containing two lists representing the partition
+        """
+        from itertools import combinations
+        states = list(range(num_states))
+        partitions = []
+        
+        # Generate all possible combinations of size 2
+        for subset1 in combinations(states, 2):
+            subset2 = [x for x in states if x not in subset1]
+            partitions.append((list(subset1), subset2))
+            
+        return partitions
+
+    def create_random_walk(self, sequence, partition):
+        """
+        Convert categorical sequence into random walk using ±1 based on partition.
+
+        Args:
+            sequence (list): Original sequence of states
+            partition (tuple): Tuple of (subset1, subset2) defining the partition
+
+        Returns:
+            numpy.ndarray: Random walk sequence of ±1
+        """
+        subset1, _ = partition
+        walk = np.array([1 if state in subset1 else -1 for state in sequence])
+        return walk
+
+    def dfa(self, sequence, scales):
+        """
+        Perform Detrended Fluctuation Analysis.
+
+        Args:
+            sequence (numpy.ndarray): Input sequence (random walk)
+            scales (numpy.ndarray): Array of window sizes to use
+
+        Returns:
+            numpy.ndarray: Fluctuation function F(s) for each scale
+        """
+        # Cumulative sum/random walk
+        walk = np.cumsum(sequence - np.mean(sequence))
+        fluctuations = np.zeros(len(scales))
+        
+        for i, scale in enumerate(scales):
+            # Number of windows
+            n_windows = int(len(walk) // scale)
+            if n_windows < 2:
+                fluctuations[i] = np.nan
+                continue
+            
+            # Reshape data into windows
+            windows = walk[:n_windows * scale].reshape((n_windows, scale))
+            x = np.arange(scale)
+            
+            # Calculate local trends for each window separately and compute variance
+            var = 0.0
+            for window in windows:
+                coef = np.polyfit(x, window, 1)
+                trend = np.polyval(coef, x)
+                var += np.mean((window - trend) ** 2)
+            var /= n_windows
+            fluctuations[i] = np.sqrt(var)
+        
+        return fluctuations  # Can contain NaNs for invalid scales
+
+    def calculate_hurst_exponent(self, sequence, min_samples=50, max_samples=2500, num_scales=50):
+        """
+        Calculate Hurst exponent using DFA for a given sequence.
+        """
+        if len(sequence) < min_samples * 2:
+            return None
+        
+        # Map unique symbols to integer indices
+        unique_symbols = list(set(sequence))
+        symbol_to_idx = {s: i for i, s in enumerate(unique_symbols)}
+        seq_int = np.array([symbol_to_idx[s] for s in sequence])
+        num_states = len(unique_symbols)
+        
+        # Generate partitions
+        partitions = self.generate_partitions(num_states)
+        if not partitions:
+            return None
+        
+        # Generate logarithmically spaced scales
+        max_samples = min(max_samples, len(seq_int) // 2)
+        scales = np.logspace(np.log10(min_samples), np.log10(max_samples), num_scales, dtype=int)
+        scales = np.unique(scales)
+        
+        hurst_vals = []
+        for partition in partitions:
+            subset1, _ = partition
+            walk = np.where(np.isin(seq_int, subset1), 1, -1)
+            fluctuations = self.dfa(walk, scales)
+            valid_mask = ~np.isnan(fluctuations) & (fluctuations > 0)
+            if np.sum(valid_mask) > 1:
+                log_s = np.log10(scales[valid_mask])
+                log_f = np.log10(fluctuations[valid_mask])
+                slope, _ = np.polyfit(log_s, log_f, 1)
+                hurst_vals.append(slope)
+        
+        return float(np.mean(hurst_vals)) if hurst_vals else None
