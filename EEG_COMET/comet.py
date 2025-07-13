@@ -1477,18 +1477,41 @@ class COMET:
                 else:
                     time = list(range(num_samples))  # Default time points
                 
+                # Load corresponding EEG data
+                eeg_name = os.path.splitext(segmentation_name)[0]
+                # Find the actual EEG file with the correct extension
+                eeg_file = None
+                preprocessed_files = os.listdir(self.preprocessed_data_path)
+                for file in preprocessed_files:
+                    if file.startswith(eeg_name + '.') or file == eeg_name:
+                        eeg_file = os.path.join(self.preprocessed_data_path, file)
+                        break
+                
+                if eeg_file is None:
+                    raise FileNotFoundError(f"Could not find EEG file for {eeg_name} in {self.preprocessed_data_path}")
+                
+                # Load the EEG data
+                eeg = self.comet_data_io.load_eeg(eeg_file, self.datatype)
+                eeg_data = self.comet_data_io.get_eeg_data(eeg, self.datatype)
+                
                 # Create segmentation dictionary in expected format
                 segmentation = {
                     'labels': labels,
                     'time': time,
-                    'filename': segmentation_name
+                    'filename': segmentation_name,
+                    'eeg_data': eeg_data,
+                    'microstate_maps': self.best_maps,
+                    'microstate_labels': self.micro_labels
                 }
             else:
                 # Create empty segmentation if loading failed
                 segmentation = {
                     'labels': [],
                     'time': [],
-                    'filename': segmentation_name
+                    'filename': segmentation_name,
+                    'eeg_data': None,
+                    'microstate_maps': None,
+                    'microstate_labels': None
                 }
 
             # Log file processing start
@@ -1508,8 +1531,6 @@ class COMET:
                 pre_window_size=self.pre_window_size,
                 post_window_size=self.post_window_size
             )
-
-
 
             # Store in shared storage with thread-safe access
             COMET._shared_feature_results[segmentation_idx] = {

@@ -29,6 +29,8 @@ class FeatureExtractor:
     def global_explained_variance(self, eeg_data, microstate_maps, microstate_labels=None):
         """
         Compute Global Explained Variance (GEV) for a given EEG data and microstate maps.
+        GEV measures how much of the total variance in the EEG data is explained by each microstate.
+        The sum of GEV across all microstates should equal 100%.
 
         Args:
             eeg_data (array-like): The EEG data.
@@ -36,33 +38,110 @@ class FeatureExtractor:
             microstate_labels (list, optional): The labels for the microstate maps. Defaults to None.
 
         Returns:
-            list: The GEV values for each window and microstate label.
+            list or dict: The GEV values for each window and microstate label.
+                         For 'sliding' mode: list of dicts with GEV per window
+                         For 'averaged' mode: dict with overall GEV per microstate
         """
+        # Check if required data is available
+        if eeg_data is None or microstate_maps is None:
+            if self.feature_mode == 'sliding':
+                return [FeatureHelper().initialize_empty_window_data(self.input_sequence)
+                       for _ in range(self.num_windows)]
+            else:
+                return {}
 
-        if microstate_labels and len(microstate_labels) != microstate_maps.shape[0]:
+        # Ensure microstate_labels are available
+        if microstate_labels is None:
+            microstate_labels = [f'MS{i+1}' for i in range(microstate_maps.shape[0])]
+
+        if len(microstate_labels) != microstate_maps.shape[0]:
             raise ValueError("Length of microstate_labels must match the number of microstate maps.")
-        window_element_gev = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
-                              for _ in range(self.num_windows)]
+
+        # Create MicrostateClusterer instance with number of states from maps
+        clusterer = MicrostateClusterer(n_states=microstate_maps.shape[0])
+
+        # Initialize GEV storage based on mode
         if self.feature_mode == 'sliding':
-            gevs = {}
+            window_element_gev = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
+                                for _ in range(self.num_windows)]
             window_size_samples = self.sliding_window_size * self.sampling_rate
-            for i, label in enumerate(microstate_labels):
-                gevs[label] = []
-                for window_index in range(self.num_windows):
-                    window_start = window_index * window_size_samples
-                    window_end = (window_index + 1) * window_size_samples
-                    window_eeg_data = eeg_data[:, window_start:window_end]
-                    if window_eeg_data.size == 0:
-                        gevs[label].append(0)
-                        continue
-                    gev = MicrostateClusterer().compute_gev(window_eeg_data, microstate_maps[i, :])
-                    window_element_gev[window_index][label] = gev * 100
+            
+            # Compute GEV for each window
+            for window_index in range(self.num_windows):
+                window_start = window_index * window_size_samples
+                window_end = (window_index + 1) * window_size_samples
+                window_eeg_data = eeg_data[:, window_start:window_end]
+                window_labels = self.input_sequence[window_start:window_end]
+                
+                if window_eeg_data.size == 0:
+                    continue
+
+                # Calculate GFP for the window
+                gfp = np.std(window_eeg_data, axis=0)
+                gfp_squared_sum = np.sum(gfp ** 2)
+                
+                # Initialize GEV for each microstate in this window
+                window_gevs = {label: 0.0 for label in microstate_labels}
+                
+                # Group time points by microstate label
+                unique_labels = np.unique(window_labels)
+                for label in unique_labels:
+                    if label in microstate_labels:  # Only process valid labels
+                        # Get time points for this microstate
+                        label_mask = np.array(window_labels) == label
+                        if not np.any(label_mask):
+                            continue
+                            
+                        # Get data and GFP for these time points
+                        label_data = window_eeg_data[:, label_mask]
+                        label_gfp = gfp[label_mask]
+                        
+                        # Get corresponding map
+                        map_idx = microstate_labels.index(label)
+                        current_map = microstate_maps[map_idx:map_idx+1, :]
+                        
+                        # Calculate correlation at each time point
+                        map_corr = clusterer.corr_vectors(label_data, current_map.T)
+                        
+                        # Calculate GEV for this microstate
+                        window_gevs[label] = np.sum((label_gfp * map_corr) ** 2) / gfp_squared_sum * 100
+                
+                # Store computed GEVs
+                window_element_gev[window_index] = window_gevs
+                    
             return window_element_gev
+            
         elif self.feature_mode == 'averaged':
-            gevs = {}
-            for i, label in enumerate(microstate_labels):
-                gev = MicrostateClusterer().compute_gev(eeg_data, microstate_maps[i, :])
-                gevs[label] = gev * 100
+            # Calculate overall GFP
+            gfp = np.std(eeg_data, axis=0)
+            gfp_squared_sum = np.sum(gfp ** 2)
+            
+            # Initialize GEV for each microstate
+            gevs = {label: 0.0 for label in microstate_labels}
+            
+            # Group time points by microstate label
+            unique_labels = np.unique(self.input_sequence)
+            for label in unique_labels:
+                if label in microstate_labels:  # Only process valid labels
+                    # Get time points for this microstate
+                    label_mask = np.array(self.input_sequence) == label
+                    if not np.any(label_mask):
+                        continue
+                        
+                    # Get data and GFP for these time points
+                    label_data = eeg_data[:, label_mask]
+                    label_gfp = gfp[label_mask]
+                    
+                    # Get corresponding map
+                    map_idx = microstate_labels.index(label)
+                    current_map = microstate_maps[map_idx:map_idx+1, :]
+                    
+                    # Calculate correlation at each time point
+                    map_corr = clusterer.corr_vectors(label_data, current_map.T)
+                    
+                    # Calculate GEV for this microstate
+                    gevs[label] = np.sum((label_gfp * map_corr) ** 2) / gfp_squared_sum * 100
+            
             return gevs
         else:
             raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
