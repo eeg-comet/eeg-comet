@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>800</height>
+    <height>806</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -58,7 +58,7 @@
 background-color: rgb(0, 0, 0);</string>
       </property>
       <property name="text">
-       <string>Feature Visualization</string>
+       <string>     Feature Visualization Window</string>
       </property>
      </widget>
     </item>
@@ -83,8 +83,8 @@ background-color: rgb(0, 0, 0);</string>
            </property>
            <property name="minimumSize">
             <size>
-             <width>300</width>
-             <height>150</height>
+             <width>200</width>
+             <height>100</height>
             </size>
            </property>
            <property name="font">
@@ -116,8 +116,8 @@ background-color: rgb(0, 0, 0);</string>
            </property>
            <property name="minimumSize">
             <size>
-             <width>0</width>
-             <height>40</height>
+             <width>200</width>
+             <height>30</height>
             </size>
            </property>
            <property name="maximumSize">
@@ -143,7 +143,7 @@ background-color: rgb(0, 0, 0);</string>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>40</width>
+             <width>20</width>
              <height>20</height>
             </size>
            </property>
@@ -159,7 +159,7 @@ background-color: rgb(0, 0, 0);</string>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>40</width>
+             <width>20</width>
              <height>20</height>
             </size>
            </property>
@@ -176,7 +176,7 @@ background-color: rgb(0, 0, 0);</string>
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>40</height>
+             <height>30</height>
             </size>
            </property>
            <property name="maximumSize">
@@ -217,7 +217,7 @@ background-color: rgb(0, 0, 0);</string>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>40</width>
+             <width>20</width>
              <height>20</height>
             </size>
            </property>
@@ -233,7 +233,7 @@ background-color: rgb(0, 0, 0);</string>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>40</width>
+             <width>20</width>
              <height>20</height>
             </size>
            </property>
@@ -250,7 +250,7 @@ background-color: rgb(0, 0, 0);</string>
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>40</height>
+             <height>30</height>
             </size>
            </property>
            <property name="maximumSize">
@@ -317,8 +317,8 @@ background-color: rgb(0, 0, 0);</string>
                </property>
                <property name="minimumSize">
                 <size>
-                 <width>0</width>
-                 <height>40</height>
+                 <width>200</width>
+                 <height>30</height>
                 </size>
                </property>
                <property name="maximumSize">
@@ -348,8 +348,8 @@ background-color: rgb(0, 0, 0);</string>
                </property>
                <property name="minimumSize">
                 <size>
-                 <width>0</width>
-                 <height>40</height>
+                 <width>200</width>
+                 <height>30</height>
                 </size>
                </property>
                <property name="maximumSize">
@@ -371,11 +371,40 @@ background-color: rgb(0, 0, 0);</string>
                </property>
               </widget>
              </item>
-             <item row="6" column="1">
-              <widget class="QPushButton" name="plot_heatmap_button">
-               <property name="enabled">
-                <bool>false</bool>
+             <item row="4" column="2">
+              <spacer name="HSpacer_11">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
                </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Maximum</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item row="1" column="0" rowspan="2">
+              <spacer name="HSpacer_5">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Maximum</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item row="5" column="0" colspan="3">
+              <widget class="QLabel" name="plot_others_label">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -385,70 +414,7 @@ background-color: rgb(0, 0, 0);</string>
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
-                </size>
-               </property>
-               <property name="maximumSize">
-                <size>
-                 <width>16777215</width>
-                 <height>60</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>Transition Probability - Heatmap</string>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="0">
-              <spacer name="HSpacer_7">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Maximum</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item row="6" column="0">
-              <spacer name="HSpacer_8">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Maximum</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item row="1" column="1">
-              <widget class="QPushButton" name="plot_static_box_plot_button">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>40</height>
+                 <height>30</height>
                 </size>
                </property>
                <property name="maximumSize">
@@ -460,18 +426,20 @@ background-color: rgb(0, 0, 0);</string>
                <property name="font">
                 <font>
                  <pointsize>14</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
                 </font>
                </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
                <property name="text">
-                <string>Box Plot</string>
+                <string>Other Figures</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
                </property>
               </widget>
              </item>
-             <item row="4" column="2">
-              <spacer name="HSpacer_11">
+             <item row="1" column="2" rowspan="2">
+              <spacer name="HSpacer_9">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -480,23 +448,7 @@ background-color: rgb(0, 0, 0);</string>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item row="6" column="2">
-              <spacer name="HSpacer_12">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Maximum</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
+                 <width>20</width>
                  <height>20</height>
                 </size>
                </property>
@@ -513,7 +465,7 @@ background-color: rgb(0, 0, 0);</string>
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>30</height>
                 </size>
                </property>
                <property name="maximumSize">
@@ -548,7 +500,7 @@ background-color: rgb(0, 0, 0);</string>
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>30</height>
                 </size>
                </property>
                <property name="maximumSize">
@@ -572,8 +524,11 @@ background-color: rgb(0, 0, 0);</string>
                </property>
               </widget>
              </item>
-             <item row="5" column="0" colspan="3">
-              <widget class="QLabel" name="plot_others_label">
+             <item row="6" column="1">
+              <widget class="QPushButton" name="plot_heatmap_button">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -582,8 +537,55 @@ background-color: rgb(0, 0, 0);</string>
                </property>
                <property name="minimumSize">
                 <size>
-                 <width>0</width>
-                 <height>40</height>
+                 <width>200</width>
+                 <height>30</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>60</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="text">
+                <string>Transition Probability - Heatmap</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <spacer name="HSpacer_7">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Maximum</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="plot_static_box_plot_button">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>200</width>
+                 <height>30</height>
                 </size>
                </property>
                <property name="maximumSize">
@@ -595,20 +597,49 @@ background-color: rgb(0, 0, 0);</string>
                <property name="font">
                 <font>
                  <pointsize>14</pointsize>
-                 <weight>75</weight>
-                 <bold>true</bold>
                 </font>
                </property>
-               <property name="text">
-                <string>Other Figures</string>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
                </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
+               <property name="text">
+                <string>Box Plot</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="0" rowspan="2">
-              <spacer name="HSpacer_5">
+             <item row="7" column="1">
+              <widget class="QPushButton" name="plot_rof_button">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>200</width>
+                 <height>30</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>60</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="text">
+                <string>Relative Occurrence Frequency</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="2">
+              <spacer name="HSpacer_12">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -617,14 +648,14 @@ background-color: rgb(0, 0, 0);</string>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>40</width>
+                 <width>20</width>
                  <height>20</height>
                 </size>
                </property>
               </spacer>
              </item>
-             <item row="1" column="2" rowspan="2">
-              <spacer name="HSpacer_9">
+             <item row="6" column="0">
+              <spacer name="HSpacer_8">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -633,7 +664,7 @@ background-color: rgb(0, 0, 0);</string>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>40</width>
+                 <width>20</width>
                  <height>20</height>
                 </size>
                </property>
