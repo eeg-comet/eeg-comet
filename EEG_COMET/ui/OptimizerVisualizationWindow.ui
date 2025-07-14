@@ -7,8 +7,14 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>500</height>
+    <height>800</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>800</width>
+    <height>800</height>
+   </size>
   </property>
   <property name="font">
    <font>
@@ -32,7 +38,7 @@
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -63,7 +69,7 @@
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -94,7 +100,7 @@
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -125,7 +131,7 @@
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -164,7 +170,7 @@
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -225,7 +231,7 @@
 background-color: rgb(0, 0, 0);</string>
       </property>
       <property name="text">
-       <string>Determining The Optimal Number Of Clusters</string>
+       <string>     Determining The Optimal Number Of Clusters</string>
       </property>
      </widget>
     </item>
@@ -240,7 +246,7 @@ background-color: rgb(0, 0, 0);</string>
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -282,7 +288,7 @@ background-color: rgb(0, 0, 0);</string>
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -319,7 +325,7 @@ background-color: rgb(0, 0, 0);</string>
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -356,7 +362,7 @@ background-color: rgb(0, 0, 0);</string>
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -393,7 +399,7 @@ background-color: rgb(0, 0, 0);</string>
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
@@ -459,7 +465,7 @@ background-color: rgb(0, 0, 0);</string>
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>40</height>
+        <height>30</height>
        </size>
       </property>
       <property name="maximumSize">
