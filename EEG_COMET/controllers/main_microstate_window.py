@@ -87,19 +87,31 @@ class WidgetGroups:
                 self.ui.step2_similarity_combobox
             ],
             'batch': [
-                self.ui.step2_batch_label,
                 self.ui.step2_batch_input
             ],
             'peaks_use': [
-                self.ui.step2_kernel_size_label,
                 self.ui.step2_kernel_size_input
             ],
             'rand_use': [
-                self.ui.step2_percent_label,
                 self.ui.step2_percent_input,
                 self.ui.step2_percent_slider
             ],
             'convergence': self._get_convergence_widgets(),
+            # Widgets that are only shown when the user opts to display advanced
+            # clustering options via the "Show Advanced Options" checkbox
+            'advanced_options': [
+                self.ui.step2_similarity_label,
+                self.ui.step2_similarity_combobox,
+                self.ui.step2_initializer_label,
+                self.ui.step2_random_initializer_radio,
+                self.ui.step2_kmeans_initializer_radio,
+                self.ui.step2_numberofrepeats_label,
+                self.ui.step2_numberofrepeats_input,
+                self.ui.step2_maxiter_label,
+                self.ui.step2_maxiter_input,
+                self.ui.step2_stopcondition_label,
+                self.ui.step2_stopcondition_input
+            ],
             'after_clustering': self._get_clustering_widgets(),
             'filter_segments': [
                 self.ui.step3_filter_segments_method_label,
@@ -162,17 +174,17 @@ class WidgetGroups:
         """Get preprocessing-related widgets"""
         return [
             self.ui.step2_line1, self.ui.step2_line2, self.ui.step2_line3,
-            self.ui.step2_line4, self.ui.step2_line5, self.ui.step2_line6,
-            self.ui.step2_line7, self.ui.step2_similarity_label,
+            self.ui.step2_line4, self.ui.step2_similarity_label,
             self.ui.step2_similarity_combobox, self.ui.step2_initializer_label,
-            self.ui.step2_initialization_method_label, self.ui.step2_random_initializer_radio,
+            self.ui.step2_random_initializer_radio,
             self.ui.step2_kmeans_initializer_radio, self.ui.step2_select_times_label,
-            self.ui.step2_use_peaks_radio, self.ui.step2_kernel_size_label,
+            self.ui.step2_use_peaks_radio,
             self.ui.step2_kernel_size_input, self.ui.step2_use_percent_radio,
-            self.ui.step2_percent_label, self.ui.step2_percent_input,
+            self.ui.step2_percent_input,
             self.ui.step2_percent_slider, self.ui.step2_number_maps_label,
             self.ui.step2_clustermethod_combo_label, self.ui.step2_clustermethod_combobox,
             self.ui.step2_auto_k_radio, self.ui.step2_user_k_radio,
+            self.ui.step2_show_advanced_checkbox,
             self.ui.step2_batch_checkbox, self.ui.step2_numberofmaps_elbow_button,
             self.ui.step2_clustering_button
         ]
@@ -189,7 +201,7 @@ class WidgetGroups:
     def _get_convergence_widgets(self):
         """Get convergence-related widgets"""
         return [
-            self.ui.step2_convergence_label, self.ui.step2_maxiter_label,
+            self.ui.step2_maxiter_label,
             self.ui.step2_maxiter_input, self.ui.step2_stopcondition_label,
             self.ui.step2_stopcondition_input, self.ui.step2_numberofrepeats_label,
             self.ui.step2_numberofrepeats_input
@@ -198,7 +210,7 @@ class WidgetGroups:
     def _get_clustering_widgets(self):
         """Get clustering-related widgets"""
         return [
-            self.ui.step3_line1, self.ui.step3_line2, self.ui.step3_line3,
+            self.ui.step3_line1, self.ui.step3_line2,
             self.ui.step3_line4, self.ui.step3_backfit_label,
             self.ui.step3_backfit_all_radio, self.ui.step3_backfit_peaks_radio,
             self.ui.step3_filter_segments_checkbox, self.ui.step3_identify_short_checkbox,
@@ -236,19 +248,7 @@ class WidgetGroups:
             self.ui.step4_averaged_features_checkbox,
             self.ui.step4_sliding_features_checkbox,
             self.ui.step4_synthetic_checkbox,
-            self.ui.step4_sliding_window_raw_label_0,
-            self.ui.step4_sliding_window_raw_input,
-            self.ui.step4_sliding_window_epoched_label_0,
-            self.ui.step4_sliding_window_epoched_label_1,
-            self.ui.step4_sliding_window_epoched_label_2,
-            self.ui.step4_sliding_window_epoched_input_pre,
-            self.ui.step4_sliding_window_epoched_input_post,
-            self.ui.step4_features_epoched_label,
-            self.ui.step4_word_size_label1,
-            self.ui.step4_word_size_label2,
-            self.ui.step4_word_size_label3,
-            self.ui.step4_word_size_min_input,
-            self.ui.step4_word_size_max_input
+            self.ui.step4_features_epoched_label
         ]
 
         return base_widgets + feature_widgets
@@ -450,6 +450,9 @@ class MainMicrostateWindow(QMainWindow):
         """Initialize widget groups manager"""
         self.widget_groups = WidgetGroups(self.ui)
 
+        # Hide advanced clustering widgets by default
+        self.widget_groups.set_group_status('advanced_options', WidgetMode.HIDE)
+
     def _setup_connections(self):
         """Setup all signal-slot connections"""
         # Control widgets
@@ -506,7 +509,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step5_use_fsaverage_radio: self._update_ui_state,
             self.ui.step5_use_individual_radio: self._update_ui_state,
             self.ui.step5_use_tess_radio: self._update_ui_state,
-            self.ui.step5_use_avg_radio: self._update_ui_state
+            self.ui.step5_use_avg_radio: self._update_ui_state,
+            self.ui.step2_show_advanced_checkbox: self._update_ui_state
         }
 
     def _connect_control_widget(self, widget: QWidget, handler: callable):
@@ -633,6 +637,9 @@ class MainMicrostateWindow(QMainWindow):
         # Handle data selection settings
         self._handle_data_selection_settings()
 
+        # Handle visibility of advanced clustering options
+        self._handle_advanced_options()
+
         # Handle post-clustering state
         if self.comet.done_clustering:
             self._handle_post_clustering_state()
@@ -648,20 +655,19 @@ class MainMicrostateWindow(QMainWindow):
             # Force batch processing for TAAHC
             self.ui.step2_batch_checkbox.setChecked(True)
             self.ui.step2_batch_checkbox.setEnabled(False)
-            self.widget_groups.set_group_status('convergence', WidgetMode.HIDE)
+            self.widget_groups.set_group_status('convergence', WidgetMode.DISABLE)
             self.widget_groups.set_group_status('batch', WidgetMode.ENABLE)
             if not self.ui.step2_batch_input.text():
                 self.ui.step2_batch_input.setText("10000")
         else:
             self.ui.step2_batch_checkbox.setEnabled(True)
-            self.widget_groups.set_group_status('convergence', WidgetMode.SHOW)
             self.widget_groups.set_group_status('convergence', WidgetMode.ENABLE)
 
             # Handle similarity metrics
             if self.comet.clustering_method != 'Modified K-Means Clustering (Pascual-Marqui et al. 1995)':
-                self.widget_groups.set_group_status('similarity', WidgetMode.SHOW)
+                self.widget_groups.set_group_status('similarity', WidgetMode.ENABLE)
             else:
-                self.widget_groups.set_group_status('similarity', WidgetMode.HIDE)
+                self.widget_groups.set_group_status('similarity', WidgetMode.DISABLE)
 
     def _handle_number_of_maps_settings(self):
         """Handle number of maps UI settings"""
@@ -721,6 +727,13 @@ class MainMicrostateWindow(QMainWindow):
             self.widget_groups.set_group_status('rand_use', WidgetMode.ENABLE)
             self.widget_groups.set_group_status('peaks_use', WidgetMode.DISABLE)
             self.ui.step2_percent_input.setText(str(self.ui.step2_percent_slider.value()))
+
+    def _handle_advanced_options(self):
+        """Show or hide advanced clustering options based on checkbox state"""
+        if self.ui.step2_show_advanced_checkbox.isChecked():
+            self.widget_groups.set_group_status('advanced_options', WidgetMode.SHOW)
+        else:
+            self.widget_groups.set_group_status('advanced_options', WidgetMode.HIDE)
 
     def _handle_post_clustering_state(self):
         """Handle UI state after clustering is done"""
@@ -833,28 +846,6 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_rof_checkbox.setChecked(True)
             self.ui.step4_feature_rtf_checkbox.setChecked(True)
 
-            # Handle sliding window settings
-            raw_widgets = [self.ui.step4_sliding_window_raw_label_0, self.ui.step4_sliding_window_raw_input]
-            set_widgets_status(raw_widgets, mode='disable')
-
-            if self.ui.step4_sliding_features_checkbox.isChecked():
-                epoched_sliding = [
-                    self.ui.step4_sliding_window_epoched_label_0,
-                    self.ui.step4_sliding_window_epoched_label_1,
-                    self.ui.step4_sliding_window_epoched_label_2,
-                    self.ui.step4_sliding_window_epoched_input_pre,
-                    self.ui.step4_sliding_window_epoched_input_post
-                ]
-                set_widgets_status(epoched_sliding, mode='enable')
-            else:
-                epoched_sliding = [
-                    self.ui.step4_sliding_window_epoched_label_0,
-                    self.ui.step4_sliding_window_epoched_label_1,
-                    self.ui.step4_sliding_window_epoched_label_2,
-                    self.ui.step4_sliding_window_epoched_input_pre,
-                    self.ui.step4_sliding_window_epoched_input_post
-                ]
-                set_widgets_status(epoched_sliding, mode='disable')
         else:
             # Disable epoched-specific features
             epoched_widgets = [
@@ -866,45 +857,8 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_rof_checkbox.setChecked(False)
             self.ui.step4_feature_rtf_checkbox.setChecked(False)
 
-            # Handle sliding window settings
-            epoched_sliding = [
-                self.ui.step4_sliding_window_epoched_label_0,
-                self.ui.step4_sliding_window_epoched_label_1,
-                self.ui.step4_sliding_window_epoched_label_2,
-                self.ui.step4_sliding_window_epoched_input_pre,
-                self.ui.step4_sliding_window_epoched_input_post
-            ]
-            set_widgets_status(epoched_sliding, mode='disable')
-
-            if self.ui.step4_sliding_features_checkbox.isChecked():
-                raw_widgets = [self.ui.step4_sliding_window_raw_label_0, self.ui.step4_sliding_window_raw_input]
-                set_widgets_status(raw_widgets, mode='enable')
-            else:
-                raw_widgets = [self.ui.step4_sliding_window_raw_label_0, self.ui.step4_sliding_window_raw_input]
-                set_widgets_status(raw_widgets, mode='disable')
-
     def _handle_feature_extraction_settings(self):
         """Handle feature extraction UI settings"""
-        # Handle ER feature word size settings
-        if self.ui.step4_feature_err_checkbox.isChecked():
-            er_widgets = [
-                self.ui.step4_word_size_label1,
-                self.ui.step4_word_size_label2,
-                self.ui.step4_word_size_label3,
-                self.ui.step4_word_size_min_input,
-                self.ui.step4_word_size_max_input
-            ]
-            set_widgets_status(er_widgets, mode='enable')
-        else:
-            er_widgets = [
-                self.ui.step4_word_size_label1,
-                self.ui.step4_word_size_label2,
-                self.ui.step4_word_size_label3,
-                self.ui.step4_word_size_min_input,
-                self.ui.step4_word_size_max_input
-            ]
-            set_widgets_status(er_widgets, mode='disable')
-
         # Check if extract button should be enabled
         feature_checks = any(cb.isChecked() for cb in self.widget_groups.groups['feature_checkboxes'])
         mode_checks = any(cb.isChecked() for cb in self.widget_groups.groups['feature_modes'])
@@ -1422,7 +1376,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_er_checkbox: "ER",
             self.ui.step4_feature_lzc_checkbox: "LZC",
             self.ui.step4_feature_he_checkbox: "HE",
-            self.ui.step4_feature_err_checkbox: "ER"
+            self.ui.step4_feature_err_checkbox: "ERR"
         }
 
         self.comet.feature_list = [
@@ -1444,22 +1398,14 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.feature_types = ['real']
 
         # Word size for ER
-        if self.ui.step4_feature_err_checkbox.isChecked():
-            self.comet.word_size = int(self.ui.step4_word_size_min_input.text())
-        else:
-            self.comet.word_size = 2
+        self.comet.word_size = 2
 
         # Data type specific parameters
         if self.comet.datatype == 'epoched':
-            self.comet.pre_window_size = int(self.ui.step4_sliding_window_epoched_input_pre.text())
-            self.comet.post_window_size = int(self.ui.step4_sliding_window_epoched_input_post.text())
-
             if self.ui.step4_feature_rof_checkbox.isChecked():
                 self.comet.feature_list.append("ROF")
             if self.ui.step4_feature_rtf_checkbox.isChecked():
                 self.comet.feature_list.append("RTF")
-        else:
-            self.comet.sliding_window_size = int(self.ui.step4_sliding_window_raw_input.text())
 
     def visualize_microstate_features(self):
         """Open feature visualization window"""
