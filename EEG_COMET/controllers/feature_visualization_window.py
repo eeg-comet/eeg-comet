@@ -33,6 +33,22 @@ class FeatureVisualizationWindow(QMainWindow):
         self.bind_events()
         self.feature_visualization_controller()
 
+    def get_selected_feature_code(self):
+        """
+        Get the feature short code corresponding to the selected full name in the combo box.
+        
+        Returns:
+            str: Feature short code (e.g., 'COV', 'OCC') or the full name if not found
+        """
+        selected_full_name = self.ui.feature_combo.currentText()
+        
+        # Create reverse mapping from full names to short codes using comet's dictionary
+        if hasattr(self.comet, 'feature_list_dictionary') and self.comet.feature_list_dictionary:
+            reverse_dict = {v: k for k, v in self.comet.feature_list_dictionary.items()}
+            return reverse_dict.get(selected_full_name, selected_full_name)
+        
+        return selected_full_name
+
     def setup_style_actions(self):
         """
         Setup font size and display actions for different text elements
@@ -368,7 +384,7 @@ class FeatureVisualizationWindow(QMainWindow):
         self.ui.plot_all_dynamic_button.setEnabled(
             len(self.ui.all_files_list.selectedItems()) == 1 and "sliding" in self.feature_mode)
 
-        if self.ui.feature_combo.currentText() == 'TP':
+        if self.get_selected_feature_code() == 'TP':
             set_widgets_status(self.ui.plot_heatmap_button, mode='enable')
             set_widgets_status(self.ui.plot_heatmap_button, mode='show')
         else:
@@ -459,7 +475,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Displays violin plots of all static features.
         """
-        selected_feature = self.ui.feature_combo.currentText()
+        selected_feature = self.get_selected_feature_code()
         # Get the selected files from the all_files_list
         selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
         # Load all features
@@ -473,7 +489,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Displays box plots of all static features.
         """
-        selected_feature = self.ui.feature_combo.currentText()
+        selected_feature = self.get_selected_feature_code()
         # Get the selected files from the all_files_list
         selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
         # Load all features
@@ -487,7 +503,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Displays line plots of all dynamic features.
         """
-        selected_feature = self.ui.feature_combo.currentText()
+        selected_feature = self.get_selected_feature_code()
         selected_file = self.ui.all_files_list.currentItem().text()
         features_df = self.load_features("sliding").query(f'Filename == "{selected_file}"')
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
@@ -514,7 +530,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         Compares selected features between two groups.
         """
-        selected_feature = self.ui.feature_combo.currentText()
+        selected_feature = self.get_selected_feature_code()
         group_a_name, group_b_name = self.get_group_names()
         features_df = self.load_features("averaged")
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()

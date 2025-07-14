@@ -723,12 +723,23 @@ class FeatureExtractionCoordinator:
         else:
             sampling_rate = 250  # Default fallback
         
+        # Check if this is epoched data with original 2D structure
+        eeg_data = segmentation.get('eeg_data', None)
+        is_epoched_data = (eeg_data is not None and len(eeg_data.shape) == 3)  # (trials, channels, timepoints)
+        
         # Process each feature mode
         for mode in feature_mode:
             if mode not in results:
                 results[mode] = {}
             
-            # Process each feature type
+            # Special handling for epoched data with sliding mode - extract TMS pre/post features
+            if is_epoched_data and mode == 'sliding':
+                results[mode] = self._extract_epoched_sliding_features(
+                    segmentation, feature_list, feature_types, sampling_rate, min_samples
+                )
+                continue
+            
+            # Process each feature type (standard processing for non-epoched or averaged mode)
             for feature_type in feature_types:
                 if feature_type not in results[mode]:
                     results[mode][feature_type] = []
@@ -759,7 +770,6 @@ class FeatureExtractionCoordinator:
                 filename = segmentation.get('filename', 'unknown')
                 
                 # Get additional data if needed
-                eeg_data = segmentation.get('eeg_data', None)
                 microstate_maps = segmentation.get('microstate_maps', None)
                 microstate_labels = segmentation.get('microstate_labels', None)
                 
@@ -775,3 +785,230 @@ class FeatureExtractionCoordinator:
                 results[mode][feature_type].append(extracted_df)
         
         return results
+
+    def _extract_epoched_sliding_features(self, segmentation, feature_list, feature_types, sampling_rate, min_samples):
+        """
+        Extract features for epoched TMS data with sliding windows.
+        
+        This method implements specialized feature extraction for TMS-EEG epoched data when 
+        the sliding features checkbox is enabled. Instead of standard sliding windows, it 
+        extracts features from specific time periods around the TMS pulse:
+        
+        - Pre-TMS: -1000ms to -10ms (avoiding TMS artifact period)
+        - Post-TMS: +20ms to +1000ms (avoiding immediate TMS artifact)
+        
+        Features are extracted separately for each trial, allowing analysis of:
+        - Coverage percentage of microstate A 1 second before TMS to -10ms before TMS
+        - Post-TMS coverage from 20ms to 1 second after TMS
+        - All other selected microstate features for both periods
+        
+        The output includes real_sliding_features with trial-by-trial pre/post TMS data.
+        
+        Parameters:
+        -----------
+        segmentation : dict
+            Segmentation data containing labels, time, EEG data, etc.
+        feature_list : list
+            List of features to extract (COV, OCC, DUR, GEV, etc.)
+        feature_types : list
+            List of feature types ('real', 'surrogate', 'random')
+        sampling_rate : float
+            Sampling rate in Hz
+        min_samples : int, optional
+            Minimum number of samples for consistent comparison
+            
+        Returns:
+        --------
+        dict
+            Results organized by feature_type with pre/post TMS features
+            Each result includes Window_Type, Trial, Time_Start_ms, Time_End_ms columns
+        """
+        results = {}
+        
+        # Get data
+        eeg_data = segmentation.get('eeg_data', None)  # Shape: (trials, channels, timepoints)
+        time_array = np.array(segmentation.get('time', []))
+        filename = segmentation.get('filename', 'unknown')
+        microstate_maps = segmentation.get('microstate_maps', None)
+        microstate_labels = segmentation.get('microstate_labels', None)
+        
+        if eeg_data is None or len(time_array) == 0:
+            return {feature_type: [] for feature_type in feature_types}
+        
+        # Load original segmentation data from file to get trial structure
+        segmentation_data = self._load_original_segmentation_data(segmentation)
+        
+        if segmentation_data is None:
+            return {feature_type: [] for feature_type in feature_types}
+        
+        n_trials = segmentation_data.shape[0]
+        
+        # Define TMS windows in milliseconds
+        pre_tms_start = -1000  # -1000ms
+        pre_tms_end = -10      # -10ms  
+        post_tms_start = 20    # +20ms
+        post_tms_end = 1000    # +1000ms
+        
+        # Find time indices for windows
+        pre_start_idx = np.searchsorted(time_array, pre_tms_start)
+        pre_end_idx = np.searchsorted(time_array, pre_tms_end)
+        post_start_idx = np.searchsorted(time_array, post_tms_start)
+        post_end_idx = np.searchsorted(time_array, post_tms_end)
+        
+        # Ensure valid indices
+        pre_start_idx = max(0, pre_start_idx)
+        pre_end_idx = min(len(time_array), pre_end_idx)
+        post_start_idx = max(0, post_start_idx)
+        post_end_idx = min(len(time_array), post_end_idx)
+        
+        # Process each feature type
+        for feature_type in feature_types:
+            results[feature_type] = []
+            
+            # Extract features for each trial
+            for trial_idx in range(n_trials):
+                # Get trial segmentation labels
+                trial_labels = segmentation_data[trial_idx, :].tolist()
+                trial_eeg = eeg_data[trial_idx, :, :] if eeg_data.shape[0] > trial_idx else None
+                
+                # Process pre-TMS window
+                if pre_end_idx > pre_start_idx:
+                    pre_labels = trial_labels[pre_start_idx:pre_end_idx]
+                    pre_eeg = trial_eeg[:, pre_start_idx:pre_end_idx] if trial_eeg is not None else None
+                    
+                    # Apply feature type transformation
+                    if feature_type == 'real':
+                        pre_input_sequence = pre_labels
+                    elif feature_type == 'surrogate':
+                        pre_input_sequence = pre_labels.copy()
+                        np.random.shuffle(pre_input_sequence)
+                    elif feature_type == 'random':
+                        unique_labels = list(set(trial_labels))
+                        pre_input_sequence = np.random.choice(unique_labels, size=len(pre_labels))
+                    else:
+                        pre_input_sequence = pre_labels
+                    
+                    # Extract features for pre-TMS window
+                    if len(pre_input_sequence) > 0:
+                        pre_extractor = FeatureExtractor(
+                            input_sequence=pre_input_sequence,
+                            sampling_rate=sampling_rate,
+                            sliding_window_size=1,  # Use 1 second window
+                            feature_mode='averaged'  # Use averaged mode for each window
+                        )
+                        
+                        pre_df = pre_extractor.extract_microstate_features(
+                            filename=f"{filename}_trial{trial_idx+1}_preTMS",
+                            feature_list=feature_list,
+                            eeg_data=pre_eeg,
+                            microstate_maps=microstate_maps,
+                            microstate_labels=microstate_labels,
+                            min_samples=min_samples
+                        )
+                        
+                        # Add window type and trial info
+                        pre_df['Window_Type'] = 'PreTMS'
+                        pre_df['Trial'] = trial_idx + 1
+                        pre_df['Time_Start_ms'] = pre_tms_start
+                        pre_df['Time_End_ms'] = pre_tms_end
+                        
+                        results[feature_type].append(pre_df)
+                
+                # Process post-TMS window
+                if post_end_idx > post_start_idx:
+                    post_labels = trial_labels[post_start_idx:post_end_idx]
+                    post_eeg = trial_eeg[:, post_start_idx:post_end_idx] if trial_eeg is not None else None
+                    
+                    # Apply feature type transformation
+                    if feature_type == 'real':
+                        post_input_sequence = post_labels
+                    elif feature_type == 'surrogate':
+                        post_input_sequence = post_labels.copy()
+                        np.random.shuffle(post_input_sequence)
+                    elif feature_type == 'random':
+                        unique_labels = list(set(trial_labels))
+                        post_input_sequence = np.random.choice(unique_labels, size=len(post_labels))
+                    else:
+                        post_input_sequence = post_labels
+                    
+                    # Extract features for post-TMS window
+                    if len(post_input_sequence) > 0:
+                        post_extractor = FeatureExtractor(
+                            input_sequence=post_input_sequence,
+                            sampling_rate=sampling_rate,
+                            sliding_window_size=1,  # Use 1 second window
+                            feature_mode='averaged'  # Use averaged mode for each window
+                        )
+                        
+                        post_df = post_extractor.extract_microstate_features(
+                            filename=f"{filename}_trial{trial_idx+1}_postTMS",
+                            feature_list=feature_list,
+                            eeg_data=post_eeg,
+                            microstate_maps=microstate_maps,
+                            microstate_labels=microstate_labels,
+                            min_samples=min_samples
+                        )
+                        
+                        # Add window type and trial info
+                        post_df['Window_Type'] = 'PostTMS'
+                        post_df['Trial'] = trial_idx + 1
+                        post_df['Time_Start_ms'] = post_tms_start
+                        post_df['Time_End_ms'] = post_tms_end
+                        
+                        results[feature_type].append(post_df)
+        
+        return results
+
+    def _load_original_segmentation_data(self, segmentation):
+        """
+        Load the original segmentation data to get trial structure.
+        
+        Parameters:
+        -----------
+        segmentation : dict
+            Segmentation data containing filename
+            
+        Returns:
+        --------
+        numpy.ndarray or None
+            Original segmentation array with shape (trials, timepoints)
+        """
+        try:
+            # Check if original segmentation array is already provided
+            if 'original_segmentation_array' in segmentation:
+                return segmentation['original_segmentation_array']
+            
+            # Import here to avoid circular imports
+            import os
+            from backfitting_utils.segmentation_io import SegmentationIO
+            
+            filename = segmentation.get('filename', '')
+            if not filename:
+                return None
+            
+            # Try to find and load the original segmentation file
+            # This is a simplified approach - you may need to adjust paths
+            segmentation_io = SegmentationIO()
+            
+            # Try different possible paths/formats
+            possible_extensions = ['.csv', '.pkl', '.hdf', '.json']
+            
+            for ext in possible_extensions:
+                try:
+                    # Try loading with different extensions
+                    seg_path = filename.replace(os.path.splitext(filename)[1], ext)
+                    if os.path.exists(seg_path):
+                        return segmentation_io.load_segmentation(seg_path, import_format=ext)
+                except:
+                    continue
+            
+            # If file loading fails, try to reconstruct from available data
+            # This is a fallback - assumes single trial flattened into labels
+            labels = segmentation.get('labels', [])
+            if labels:
+                return np.array([labels])  # Single trial
+                
+        except Exception as e:
+            print(f"Warning: Could not load original segmentation data: {e}")
+            
+        return None

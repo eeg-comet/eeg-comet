@@ -142,7 +142,9 @@ class WidgetGroups:
                 if widget:
                     self.original_properties[widget] = {
                         'minimumHeight': widget.minimumHeight() if hasattr(widget, 'minimumHeight') else None,
-                        'maximumHeight': widget.maximumHeight() if hasattr(widget, 'maximumHeight') else None
+                        'maximumHeight': widget.maximumHeight() if hasattr(widget, 'maximumHeight') else None,
+                        'font': widget.font() if hasattr(widget, 'font') else None,
+                        'styleSheet': widget.styleSheet() if hasattr(widget, 'styleSheet') else None
                     }
 
     def restore_properties(self, widgets: List[QWidget]):
@@ -154,6 +156,10 @@ class WidgetGroups:
                     widget.setMinimumHeight(props['minimumHeight'])
                 if props['maximumHeight'] is not None:
                     widget.setMaximumHeight(props['maximumHeight'])
+                # Restore font properties to maintain consistency
+                if props['font'] is not None and hasattr(widget, 'setFont'):
+                    widget.setFont(props['font'])
+                # Don't restore stylesheet as it might conflict with theme changes
 
     def set_group_status(self, group_name: str, mode: WidgetMode):
         """Set status for a widget group"""
@@ -163,6 +169,20 @@ class WidgetGroups:
             # Restore properties after status change
             if mode in [WidgetMode.ENABLE, WidgetMode.SHOW]:
                 self.restore_properties(widgets)
+                # Ensure consistent fonts are applied after showing/enabling
+                self._apply_current_font_to_widgets(widgets)
+
+    def _apply_current_font_to_widgets(self, widgets: List[QWidget]):
+        """Apply current application font to specific widgets"""
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            current_font = cast(QApplication, app_instance).font()
+            for widget in widgets:
+                if widget and hasattr(widget, 'setFont'):
+                    widget.setFont(current_font)
+                    # Update cached font property if it exists
+                    if widget in self.original_properties:
+                        self.original_properties[widget]['font'] = current_font
 
     # Widget group initialization methods
     def _get_preprocessing_widgets(self):
@@ -375,9 +395,26 @@ class MainMicrostateWindow(QMainWindow):
         """Scale global application font based on window width."""
         scale = max(0.8, min(2.0, self.width() / self._base_width))  # cap scaling
         new_size = int(self._base_font_pt * scale)
+        new_font = QFont("Calibri", new_size)
+        
         app_instance = QApplication.instance()
         if app_instance is not None:
-            cast(QApplication, app_instance).setFont(QFont("Calibri", new_size))
+            cast(QApplication, app_instance).setFont(new_font)
+        
+        # Apply consistent font to all widgets and update cached properties
+        self._apply_consistent_fonts(new_font)
+
+    def _apply_consistent_fonts(self, font: QFont):
+        """Apply consistent font to all widgets and update cached properties"""
+        if not hasattr(self, 'widget_groups') or not hasattr(self.widget_groups, 'original_properties'):
+            return
+            
+        # Apply font to all cached widgets and update their cached font properties
+        for widget, props in self.widget_groups.original_properties.items():
+            if widget and hasattr(widget, 'setFont'):
+                widget.setFont(font)
+                # Update cached font property
+                props['font'] = font
 
     def resizeEvent(self, event):
         """Override resizeEvent to adjust fonts dynamically."""
@@ -435,6 +472,9 @@ class MainMicrostateWindow(QMainWindow):
         self._logo_pixmap_light = base_pixmap
         self._logo_pixmap_dark = self._generate_dark_logo(base_pixmap)
 
+        # Create small logo variants for the study name layouts
+        self._setup_small_logos(base_pixmap)
+
         # Shadow effect
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(20)
@@ -446,6 +486,45 @@ class MainMicrostateWindow(QMainWindow):
 
         # Set initial logo according to current theme
         self._update_logo()
+
+    def _setup_small_logos(self, base_pixmap: QPixmap):
+        """Setup small logos for study name layouts"""
+        # Create small logo pixmaps (60x60 to match the study name input height)
+        small_size = 60
+        self._small_logo_pixmap_light = base_pixmap.scaled(
+            small_size, small_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
+        self._small_logo_pixmap_dark = self._generate_dark_logo(self._small_logo_pixmap_light)
+
+        # Create small logo labels
+        self.small_logo1 = QLabel()
+        self.small_logo2 = QLabel()
+        
+        # Configure small logo labels
+        for logo_label in [self.small_logo1, self.small_logo2]:
+            logo_label.setAlignment(Qt.AlignCenter)
+            logo_label.setFixedSize(small_size, small_size)
+            logo_label.setScaledContents(True)
+
+        # Add to layouts
+        self.ui.Small_Logo_Layout1.addWidget(self.small_logo1)
+        self.ui.Small_Logo_Layout2.addWidget(self.small_logo2)
+
+        # Initially hide the small logos
+        self.small_logo1.hide()
+        self.small_logo2.hide()
+
+    def _show_small_logos(self):
+        """Show small logos when study is loaded"""
+        if hasattr(self, 'small_logo1') and hasattr(self, 'small_logo2'):
+            self.small_logo1.show()
+            self.small_logo2.show()
+
+    def _hide_small_logos(self):
+        """Hide small logos when no study is loaded"""
+        if hasattr(self, 'small_logo1') and hasattr(self, 'small_logo2'):
+            self.small_logo1.hide()
+            self.small_logo2.hide()
 
     def _setup_layout_properties(self):
         """Setup fixed layout properties to prevent resizing"""
@@ -733,7 +812,19 @@ class MainMicrostateWindow(QMainWindow):
 
         # Force layout update
         self.centralWidget().updateGeometry()
+        
+        # Ensure consistent font sizes after UI state changes
+        self._ensure_consistent_fonts()
+        
         QtCore.QCoreApplication.processEvents()
+
+    def _ensure_consistent_fonts(self):
+        """Ensure all widgets have consistent fonts after UI state changes"""
+        if hasattr(self, 'widget_groups') and hasattr(self.widget_groups, 'original_properties'):
+            app_instance = QApplication.instance()
+            if app_instance is not None:
+                current_font = cast(QApplication, app_instance).font()
+                self._apply_consistent_fonts(current_font)
 
     def _sync_processing_flags(self):
         """Sync processing flags between UI and COMET"""
@@ -746,9 +837,10 @@ class MainMicrostateWindow(QMainWindow):
         for i in range(self.ui.main_tab.count()):
             self.ui.main_tab.setTabEnabled(i, False)
 
-        # Show initial widgets
+        # Show initial widgets and hide small logos
         self.widget_groups.set_group_status('hide_after_loading', WidgetMode.SHOW)
         set_widgets_status([self.ui.main_tab, self.ui.step0_study_name_mainwin_lineedit], mode='hide')
+        self._hide_small_logos()
         self.widget_groups.set_group_status('after_preprocessing', WidgetMode.DISABLE)
 
     def _handle_post_preprocessing_state(self):
@@ -756,6 +848,9 @@ class MainMicrostateWindow(QMainWindow):
         # Hide initial widgets
         self.widget_groups.set_group_status('hide_after_loading', WidgetMode.HIDE)
         set_widgets_status([self.ui.main_tab, self.ui.step0_study_name_mainwin_lineedit], mode='show')
+
+        # Show small logos when study is loaded
+        self._show_small_logos()
 
         # Update study name display
         self.ui.step0_study_name_mainwin_lineedit.setText(self.comet.study_name)
@@ -1086,6 +1181,9 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.step0_study_name_mainwin_lineedit.clear()
         self.processing_flags.reset_all()
         self._sync_flags_to_comet()
+
+        # Hide small logos when starting a new study
+        self._hide_small_logos()
 
         self.dialogs['new_study'].setWindowModality(QtCore.Qt.ApplicationModal)
         self.dialogs['new_study'].showMaximized()
@@ -1559,7 +1657,11 @@ class MainMicrostateWindow(QMainWindow):
         viz_window.feature_mode = self.comet.feature_mode
         if hasattr(viz_window, "feature_combo"):
             viz_window.feature_combo.clear()  # type: ignore[attr-defined]
-            viz_window.feature_combo.addItems(self.comet.feature_list)  # type: ignore[attr-defined]
+            # Use full feature names from dictionary instead of short codes
+            full_feature_names = [
+                self.comet.feature_list_dictionary.get(feat, feat) for feat in self.comet.feature_list
+            ]
+            viz_window.feature_combo.addItems(full_feature_names)  # type: ignore[attr-defined]
         viz_window.list_eegs = self.comet.list_eegs
         viz_window.reset_groups()
 
@@ -1726,4 +1828,12 @@ class MainMicrostateWindow(QMainWindow):
         """Update the displayed logo depending on dark-mode state."""
         dark_mode = getattr(self.ui, 'dark_mode_checkbox', None)
         use_dark = bool(dark_mode and dark_mode.isChecked())
+        
+        # Update main logo
         self.ui.comet_logo.setPixmap(self._logo_pixmap_dark if use_dark else self._logo_pixmap_light)
+        
+        # Update small logos if they exist
+        if hasattr(self, 'small_logo1') and hasattr(self, 'small_logo2'):
+            small_pixmap = self._small_logo_pixmap_dark if use_dark else self._small_logo_pixmap_light
+            self.small_logo1.setPixmap(small_pixmap)
+            self.small_logo2.setPixmap(small_pixmap)

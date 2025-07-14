@@ -131,7 +131,11 @@ class CompareStudiesWindow(QDialog):
                             if feat in self.comet_tbx_study2.feature_list
                         ]
                         self.ui.feature_combo.clear()
-                        self.ui.feature_combo.addItems(list(common_features))
+                        # Use full feature names from dictionary instead of short codes
+                        full_feature_names = [
+                            self.feature_list_dictionary.get(feat, feat) for feat in common_features
+                        ]
+                        self.ui.feature_combo.addItems(full_feature_names)
                         self.update_corr_stats()
                     else:
                         self.ui.feature_combo.clear()
@@ -161,7 +165,11 @@ class CompareStudiesWindow(QDialog):
                     set_widgets_status(self.ui.plot_features_button, mode='enable')
                     features = self.comet_tbx_study1.feature_list
                     self.ui.feature_combo.clear()
-                    self.ui.feature_combo.addItems([i for i in features])
+                    # Use full feature names from dictionary instead of short codes
+                    full_feature_names = [
+                        self.feature_list_dictionary.get(feat, feat) for feat in features
+                    ]
+                    self.ui.feature_combo.addItems(full_feature_names)
                 else:
                     # Disable if no compatible synthetic features
                     self.ui.feature_combo.clear()
@@ -172,21 +180,34 @@ class CompareStudiesWindow(QDialog):
         """
         Updates the plot label based on the selected feature.
         """
-        selected_feature = self.ui.feature_combo.currentText()
+        selected_feature_full_name = self.ui.feature_combo.currentText()
         
         # Check if this is a placeholder/error message rather than an actual feature
-        if not selected_feature or selected_feature in [
+        if not selected_feature_full_name or selected_feature_full_name in [
             "No compatible features found", 
             "No synthetic features available"
         ]:
             self.ui.plot_label.clear()
             return
         
-        # Check if the feature exists in the dictionary
-        if hasattr(self, 'feature_list_dictionary') and selected_feature in self.feature_list_dictionary:
-            self.ui.plot_label.setText(f"{self.feature_list_dictionary[selected_feature]}")
-        else:
-            self.ui.plot_label.setText(selected_feature)  # Fallback to feature name itself
+        # Since combo box now contains full names, just display the selected full name
+        self.ui.plot_label.setText(selected_feature_full_name)
+
+    def get_selected_feature_code(self):
+        """
+        Get the feature short code corresponding to the selected full name in the combo box.
+        
+        Returns:
+            str: Feature short code (e.g., 'COV', 'OCC') or the full name if not found
+        """
+        selected_full_name = self.ui.feature_combo.currentText()
+        
+        # Create reverse mapping from full names to short codes
+        if hasattr(self, 'feature_list_dictionary'):
+            reverse_dict = {v: k for k, v in self.feature_list_dictionary.items()}
+            return reverse_dict.get(selected_full_name, selected_full_name)
+        
+        return selected_full_name
 
     def load_study1(self):
         """
@@ -617,7 +638,7 @@ class CompareStudiesWindow(QDialog):
         """
         Plots a violin plot for the selected static feature.
         """
-        selected_feature = self.ui.feature_combo.currentText()
+        selected_feature = self.get_selected_feature_code()
         
         try:
             result = self.get_common_features()
@@ -778,7 +799,7 @@ class CompareStudiesWindow(QDialog):
             return [], {}, [], []
         
         common_features_df, common_columns = result
-        selected_feature = self.ui.feature_combo.currentText()
+        selected_feature = self.get_selected_feature_code()
 
         # Organize data for the selected feature
         columns_to_keep = ['Filename', 'Study'] + [
