@@ -1,17 +1,19 @@
 import os.path
 import webbrowser
-from typing import List, Dict, Any, Tuple
-from dataclasses import dataclass
+from typing import List, Dict, Any, Tuple, cast
+from dataclasses import dataclass, fields
 from enum import Enum
 
 from PyQt5 import uic, QtCore
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QComboBox, QSpinBox, QSlider,
     QMessageBox, QGraphicsDropShadowEffect, QWidget,
-    QVBoxLayout, QGridLayout
+    QVBoxLayout, QGridLayout, QRadioButton, QCheckBox, QPushButton, QLineEdit,
+    QLabel, QToolTip, QToolButton
 )
-from PyQt5.QtGui import QPixmap, QColor, QKeySequence, QFont
+from PyQt5.QtGui import QPixmap, QColor, QKeySequence, QFont, QImage
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import QObject, QEvent
 
 from .new_study_window import NewStudyWindow
 from .compare_studies_window import CompareStudiesWindow
@@ -46,12 +48,12 @@ class ProcessingFlags:
 
     def reset_all(self):
         """Reset all flags to False"""
-        for field in self.__dataclass_fields__:
-            setattr(self, field, False)
+        for f in fields(self):
+            setattr(self, f.name, False)
 
     def reset_from(self, flag_name: str):
         """Reset flags from a specific step onwards"""
-        flag_order = list(self.__dataclass_fields__.keys())
+        flag_order = [f.name for f in fields(self)]
         if flag_name in flag_order:
             start_index = flag_order.index(flag_name)
             for flag in flag_order[start_index:]:
@@ -130,10 +132,6 @@ class WidgetGroups:
             'source_localization': self._get_source_localization_widgets(),
             'source_individual': [self.ui.step5_subjects_dir_lineedit],
             'source_microstates': self._get_source_microstate_widgets(),
-            'tess': [
-                self.ui.step5_permutations_label,
-                self.ui.step5_permutations_input
-            ]
         }
 
     def _cache_original_properties(self):
@@ -141,9 +139,8 @@ class WidgetGroups:
         self.original_properties = {}
         for group_widgets in self.groups.values():
             for widget in group_widgets:
-                if widget and hasattr(widget, 'font'):
+                if widget:
                     self.original_properties[widget] = {
-                        'font': widget.font(),
                         'minimumHeight': widget.minimumHeight() if hasattr(widget, 'minimumHeight') else None,
                         'maximumHeight': widget.maximumHeight() if hasattr(widget, 'maximumHeight') else None
                     }
@@ -153,8 +150,6 @@ class WidgetGroups:
         for widget in widgets:
             if widget in self.original_properties:
                 props = self.original_properties[widget]
-                if props['font']:
-                    widget.setFont(props['font'])
                 if props['minimumHeight'] is not None:
                     widget.setMinimumHeight(props['minimumHeight'])
                 if props['maximumHeight'] is not None:
@@ -267,7 +262,7 @@ class WidgetGroups:
     def _get_source_localization_widgets(self):
         """Get source localization widgets"""
         return [
-            self.ui.step5_line1, self.ui.step5_line2, self.ui.step5_line3,
+            self.ui.step5_line1, self.ui.step5_line2,
             self.ui.step5_line4, self.ui.step5_stc_settings_label,
             self.ui.step5_bem_method_label, self.ui.step5_bem_mne_radio,
             self.ui.step5_bem_openmeeg_radio, self.ui.step5_anatomy_label,
@@ -319,6 +314,8 @@ class MainMicrostateWindow(QMainWindow):
             " QPushButton:disabled { background-color: #95a5a6; color: #ecf0f1; }"
             " QLineEdit, QComboBox { background-color: #ecf0f1; color: #2c3e50; border: 1px solid #7f8c8d; border-radius: 4px; padding: 4px; }"
             " QLineEdit:read-only { background-color: #bdc3c7; }"
+            " QLineEdit:disabled, QComboBox:disabled { background-color: #4c4c4c; color: #9ca3af; border: 1px solid #555555; }"
+            " QCheckBox:disabled, QRadioButton:disabled { color: #7f8c8d; }"
             " QCheckBox, QRadioButton { color: #f0f0f0; }"
             " QTabWidget::pane { border: 1px solid #34495e; }"
             " QTabBar::tab { background: #34495e; color: #ecf0f1; padding: 6px 10px; }"
@@ -338,6 +335,7 @@ class MainMicrostateWindow(QMainWindow):
         self._init_processing_flags()
         self._init_dialogs()
         self._init_ui_components()
+        self._init_tooltips()
         self._init_widget_groups()
         self._setup_connections()
 
@@ -348,31 +346,38 @@ class MainMicrostateWindow(QMainWindow):
         self._base_font_pt = 14
         self._base_width = 1200  # reference width
 
-        # Set default application font
-        QApplication.instance().setFont(QFont("Calibri", self._base_font_pt))
-
-        # Apply initial theme (light)
-        QApplication.instance().setStyleSheet(self.light_style)
+        # Set default application font / stylesheet safely (instance may be None)
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            cast(QApplication, app_instance).setFont(QFont("Calibri", self._base_font_pt))
+            cast(QApplication, app_instance).setStyleSheet(self.light_style)
 
         # Initial font scaling
         self._update_font_sizes()
 
     def toggle_theme(self, checked: bool):
         """Toggle application-wide theme."""
-        if checked:
-            QApplication.instance().setStyleSheet(self.dark_style)
-        else:
-            QApplication.instance().setStyleSheet(self.light_style)
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            if checked:
+                cast(QApplication, app_instance).setStyleSheet(self.dark_style)
+            else:
+                cast(QApplication, app_instance).setStyleSheet(self.light_style)
 
         # Re-apply current font after stylesheet change
         self._update_font_sizes()
 
-    # ---------------- Font Scaling ----------------
+        # Update logo to suit current theme
+        self._update_logo()
+
+    # Font Scaling Helpers
     def _update_font_sizes(self):
         """Scale global application font based on window width."""
         scale = max(0.8, min(2.0, self.width() / self._base_width))  # cap scaling
         new_size = int(self._base_font_pt * scale)
-        QApplication.instance().setFont(QFont("Calibri", new_size))
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            cast(QApplication, app_instance).setFont(QFont("Calibri", new_size))
 
     def resizeEvent(self, event):
         """Override resizeEvent to adjust fonts dynamically."""
@@ -384,8 +389,8 @@ class MainMicrostateWindow(QMainWindow):
         self.processing_flags = ProcessingFlags()
 
         # Sync with COMET instance
-        for flag in self.processing_flags.__dataclass_fields__:
-            setattr(self.comet, flag, False)
+        for f in fields(self.processing_flags):
+            setattr(self.comet, f.name, False)
 
     def _init_dialogs(self):
         """Initialize all dialog windows"""
@@ -424,7 +429,11 @@ class MainMicrostateWindow(QMainWindow):
     def _setup_logo(self):
         """Setup logo with effects"""
         icon_path = self.context.get_resource("eeg_comet_logo.png")
-        pixmap = QPixmap(icon_path).scaled(256, 256, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        base_pixmap = QPixmap(icon_path).scaled(256, 256, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        # Create dark-mode variant once and cache
+        self._logo_pixmap_light = base_pixmap
+        self._logo_pixmap_dark = self._generate_dark_logo(base_pixmap)
 
         # Shadow effect
         shadow = QGraphicsDropShadowEffect()
@@ -434,7 +443,9 @@ class MainMicrostateWindow(QMainWindow):
         shadow.setColor(QColor(0, 0, 0, 80))
 
         self.ui.comet_logo.setGraphicsEffect(shadow)
-        self.ui.comet_logo.setPixmap(pixmap)
+
+        # Set initial logo according to current theme
+        self._update_logo()
 
     def _setup_layout_properties(self):
         """Setup fixed layout properties to prevent resizing"""
@@ -445,6 +456,129 @@ class MainMicrostateWindow(QMainWindow):
                 if isinstance(layout, (QVBoxLayout, QGridLayout)):
                     layout.setSpacing(10)
                     layout.setContentsMargins(10, 10, 10, 10)
+
+    # ------------------------------------------------------------------
+    # Tooltip helpers
+    # ------------------------------------------------------------------
+
+    def _init_tooltips(self):
+        """Configure right-click tooltips for interactive widgets.
+
+        We attach a custom event filter that shows the tooltip text only when the
+        user right-clicks on the widget. Labels and input widgets are excluded.
+        """
+
+        # ------------------------------------------------------------------
+        # 1. Build tooltip dictionary (hand-crafted + auto-generated)
+        # ------------------------------------------------------------------
+
+        custom_tooltips = {
+            # ── Main window controls ───────────────────────────────────────────
+            "dark_mode_checkbox": (
+                "Switch between light and dark colour themes for improved readability "
+                "and reduced eye-strain."
+            ),
+            "step0_exit_button": (
+                "Close EEG-COMET and terminate the current session. Any unsaved results "
+                "will be lost."
+            ),
+            "step0_new_study_button": (
+                "Create a brand-new study. You will be guided through data import, "
+                "pre-processing, clustering, and subsequent analysis steps."
+            ),
+            "step0_load_study_button": (
+                "Load a previously saved study and restore its settings, data, and "
+                "results."
+            ),
+            "step0_compare_studies_button": (
+                "Open the comparison tool to visualise results from two separate "
+                "studies side-by-side."
+            ),
+
+            # ── Clustering tab ─────────────────────────────────────────────────
+            "step2_clustering_button": (
+                "Run the microstate clustering algorithm with the parameters specified "
+                "in the Clustering tab. A progress bar will appear during computation."
+            ),
+            "step2_numberofmaps_elbow_button": (
+                "Plot objective criteria (e.g., GEV, residual variance) across a range "
+                "of map numbers to assist in choosing an optimal k."
+            ),
+
+            # ── Backfitting tab ────────────────────────────────────────────────
+            "step3_backfit_button": (
+                "Project the derived microstate maps back onto the EEG time-series to "
+                "obtain the segmentation of microstate classes across time."
+            ),
+
+            # ── Feature extraction tab ─────────────────────────────────────────
+            "step4_extractfeatures_button": (
+                "Compute the selected temporal and complexity features for each subject "
+                "and export them in the chosen file format."
+            ),
+
+            # ── Source localisation tab ───────────────────────────────────────
+            "step5_coreg_button": (
+                "Align EEG sensor positions with the structural MRI model (coregistration) "
+                "required for accurate source reconstruction."
+            ),
+            "step5_estimate_sources_button": (
+                "Estimate cortical source time-series using the selected inverse method "
+                "and BEM settings."
+            ),
+            "step5_compute_source_microstate_correlation_button": (
+                "Compute the statistical correlation between source-localised brain "
+                "activity and the identified microstate maps."
+            ),
+        }
+
+        # Interactive widget classes allowed to carry a tooltip
+        _allowed_types = (QPushButton, QCheckBox, QRadioButton, QToolButton)
+
+        # Helper: assign tip only to explicitly interactive widgets
+        def _should_assign(w: QWidget) -> bool:
+            return isinstance(w, _allowed_types)
+
+        # Apply custom tooltips + mark widgets for event filter
+        for obj_name, tip in custom_tooltips.items():
+            widget = getattr(self.ui, obj_name, None)
+            if widget and _should_assign(widget):
+                widget.setProperty("_custom_tip", tip)
+
+        # Auto-generate for remaining eligible widgets lacking a custom tip
+        for widget in self.findChildren(QWidget):
+            if not _should_assign(widget):
+                continue
+
+            if widget.property("_custom_tip"):
+                continue  # already assigned
+
+            # Derive tooltip from the visible text of the control
+            tip_text = ""
+            if hasattr(widget, "text") and callable(widget.text):
+                tip_text = str(widget.text()).strip()
+
+            if tip_text:
+                widget.setProperty("_custom_tip", tip_text)
+
+        # ------------------------------------------------------------------
+        # 2. Install a single shared right-click event filter
+        # ------------------------------------------------------------------
+
+        class _RightClickTipFilter(QObject):
+            def eventFilter(self, obj, ev):  # type: ignore[override]
+                if ev.type() == QEvent.MouseButtonPress and ev.button() == Qt.RightButton:
+                    tip = obj.property("_custom_tip")
+                    if tip:
+                        QToolTip.showText(ev.globalPos(), f"<html><head/><body><p>{tip}</p></body></html>", obj)
+                        return True  # consume event
+                return False
+
+        self._tip_filter = _RightClickTipFilter(self)
+
+        for widget in self.findChildren(QWidget):
+            if widget.property("_custom_tip"):
+                widget.installEventFilter(self._tip_filter)
 
     def _init_widget_groups(self):
         """Initialize widget groups manager"""
@@ -463,7 +597,8 @@ class MainMicrostateWindow(QMainWindow):
         # Button actions
         button_mappings = self._get_button_mappings()
         for button, action in button_mappings.items():
-            button.clicked.connect(action)
+            if hasattr(button, "clicked"):
+                button.clicked.connect(action)  # type: ignore[attr-defined]
 
         # Menu actions
         menu_mappings = self._get_menu_mappings()
@@ -513,14 +648,19 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_show_advanced_checkbox: self._update_ui_state
         }
 
-    def _connect_control_widget(self, widget: QWidget, handler: callable):
+    @staticmethod
+    def _connect_control_widget(widget: QWidget, handler: callable):
         """Connect control widget to handler based on widget type"""
         if isinstance(widget, QComboBox):
-            widget.activated.connect(handler)
+            widget.activated.connect(handler)  # type: ignore[arg-type]
         elif isinstance(widget, (QSpinBox, QSlider)):
-            widget.valueChanged.connect(handler)
+            widget.valueChanged.connect(handler)  # type: ignore[arg-type]
         else:
-            widget.clicked.connect(handler)
+            # Some widgets (e.g., QCheckBox, QRadioButton, QPushButton) expose a
+            # `clicked` signal, but static analyzers don't recognise it on the
+            # generic QWidget type. Guard with hasattr to avoid false warnings.
+            if hasattr(widget, "clicked"):
+                widget.clicked.connect(handler)  # type: ignore[attr-defined]
 
     def _get_button_mappings(self) -> Dict[QWidget, callable]:
         """Get button to action mappings"""
@@ -597,8 +737,8 @@ class MainMicrostateWindow(QMainWindow):
 
     def _sync_processing_flags(self):
         """Sync processing flags between UI and COMET"""
-        for flag in self.processing_flags.__dataclass_fields__:
-            setattr(self.processing_flags, flag, getattr(self.comet, flag))
+        for f in fields(self.processing_flags):
+            setattr(self.processing_flags, f.name, getattr(self.comet, f.name))
 
     def _handle_preprocessing_state(self):
         """Handle UI state when preprocessing is not done"""
@@ -739,6 +879,9 @@ class MainMicrostateWindow(QMainWindow):
         """Handle UI state after clustering is done"""
         self.widget_groups.set_group_status('after_clustering', WidgetMode.ENABLE)
 
+        # Mark clustering as complete visually
+        self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
+
         # Enable microstate visualization action immediately after clustering
         self.ui.view_microstates_action.setEnabled(True)
 
@@ -749,8 +892,8 @@ class MainMicrostateWindow(QMainWindow):
         
         # Automatically open microstate visualization window ONLY after clustering just finished
         # (not when loading a study that already has clustered data)
-        if (hasattr(self.comet, 'best_maps') and self.comet.best_maps is not None and
-            getattr(self, '_clustering_just_finished', False)):
+        if (hasattr(self.comet, 'best_maps')
+                and self.comet.best_maps is not None and getattr(self, '_clustering_just_finished', False)):
             QtCore.QTimer.singleShot(100, self.visualize_microstates)
             # Reset the flag so it doesn't auto-open again
             self._clustering_just_finished = False
@@ -825,7 +968,7 @@ class MainMicrostateWindow(QMainWindow):
         self.ui.main_tab.setTabEnabled(2, False)  # Disable feature tab
         self.ui.main_tab.setTabEnabled(3, False)  # Disable source tab
 
-        self.processing_flags.done_extracting_features = False
+        self.processing_flags.reset_from('done_extracting_features')
         self._sync_flags_to_comet()
 
         self.ui.step3_backfit_button.setStyleSheet("background-color: none")
@@ -885,10 +1028,8 @@ class MainMicrostateWindow(QMainWindow):
 
         # Handle source localization method
         if self.ui.step5_use_tess_radio.isChecked():
-            self.widget_groups.set_group_status('tess', WidgetMode.ENABLE)
             self.comet.source_localization_method = 'tess'
         else:
-            self.widget_groups.set_group_status('tess', WidgetMode.DISABLE)
             self.comet.source_localization_method = 'avg'
 
         # Handle post source localization state
@@ -913,8 +1054,8 @@ class MainMicrostateWindow(QMainWindow):
 
     def _sync_flags_to_comet(self):
         """Sync processing flags to COMET instance"""
-        for flag in self.processing_flags.__dataclass_fields__:
-            setattr(self.comet, flag, getattr(self.processing_flags, flag))
+        for f in fields(self.processing_flags):
+            setattr(self.comet, f.name, getattr(self.processing_flags, f.name))
 
     # Static methods
     @staticmethod
@@ -1036,7 +1177,9 @@ class MainMicrostateWindow(QMainWindow):
 
             # Add study loading messages
             self.comet.LogWindow.append_log("Study Loading", log_type='section')
-            self.comet.LogWindow.append_log(f"Study '{self.comet.study_name}' loaded successfully from: {folder}", log_type='success')
+            self.comet.LogWindow.append_log(
+                f"Study '{self.comet.study_name}' loaded successfully from: {folder}", log_type='success'
+            )
 
         except Exception as e:
             QMessageBox.critical(
@@ -1218,10 +1361,8 @@ class MainMicrostateWindow(QMainWindow):
             )
             return
 
-        # ---------------------------------------------
-        # Re-use an existing visualization window if it
-        # is already open instead of opening duplicates
-        # ---------------------------------------------
+        # Re-use an existing visualization window if it is already open
+        # instead of opening duplicates.
         if hasattr(self, "_microstate_window") and self._microstate_window is not None:
             if self._microstate_window.isVisible():
                 # Refresh maps/labels inside the existing window
@@ -1324,8 +1465,9 @@ class MainMicrostateWindow(QMainWindow):
         viz_window.preprocessed_data_path = self.comet.preprocessed_data_path
         viz_window.extension = self.comet.extension
         viz_window.datatype = self.comet.datatype
-        viz_window.eeg_filenames_combobox.clear()
-        viz_window.eeg_filenames_combobox.addItems(self.comet.list_eegs)
+        if hasattr(viz_window, "eeg_filenames_combobox"):
+            viz_window.eeg_filenames_combobox.clear()  # type: ignore[attr-defined]
+            viz_window.eeg_filenames_combobox.addItems(self.comet.list_eegs)  # type: ignore[attr-defined]
         viz_window.segmentation_path = self.comet.segmentation_path
         viz_window.export_format = self.comet.export_format
 
@@ -1415,8 +1557,9 @@ class MainMicrostateWindow(QMainWindow):
         viz_window.extracted_features_path = self.comet.extracted_features_path
         viz_window.export_format = self.comet.export_format
         viz_window.feature_mode = self.comet.feature_mode
-        viz_window.feature_combo.clear()
-        viz_window.feature_combo.addItems(self.comet.feature_list)
+        if hasattr(viz_window, "feature_combo"):
+            viz_window.feature_combo.clear()  # type: ignore[attr-defined]
+            viz_window.feature_combo.addItems(self.comet.feature_list)  # type: ignore[attr-defined]
         viz_window.list_eegs = self.comet.list_eegs
         viz_window.reset_groups()
 
@@ -1487,7 +1630,7 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.spacing = spacing_text[start:end].lower() if start > 0 and end > start else 'ico4'
 
         # Permutations
-        self.comet.nperm = int(self.ui.step5_permutations_input.text())
+        self.comet.nperm = 2000
 
     def source_microstates_correlation(self):
         """Calculate source-microstate correlations"""
@@ -1502,7 +1645,7 @@ class MainMicrostateWindow(QMainWindow):
                 return
 
         # Set parameters
-        self.comet.nperm = int(self.ui.step5_permutations_input.text())
+        self.comet.nperm = 2000
 
         # Perform calculation
         self.comet.run_identifying_microstate_sources()
@@ -1561,3 +1704,26 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.best_maps, self.comet.micro_labels = None, []
 
         self.widget_groups.set_group_status('after_clustering', WidgetMode.DISABLE)
+
+    # ------------------------------------------------------------------
+    # Logo helpers for theme switching
+    # ------------------------------------------------------------------
+
+    def _generate_dark_logo(self, pixmap: QPixmap) -> QPixmap:
+        """Return a lightened version of the logo suitable for dark backgrounds."""
+        img: QImage = pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
+
+        # Brighten each pixel (lighter by 30%)
+        for y in range(img.height()):
+            for x in range(img.width()):
+                color = QColor(img.pixelColor(x, y))
+                color = color.lighter(130)  # 130% brightness
+                img.setPixelColor(x, y, color)
+
+        return QPixmap.fromImage(img)
+
+    def _update_logo(self):
+        """Update the displayed logo depending on dark-mode state."""
+        dark_mode = getattr(self.ui, 'dark_mode_checkbox', None)
+        use_dark = bool(dark_mode and dark_mode.isChecked())
+        self.ui.comet_logo.setPixmap(self._logo_pixmap_dark if use_dark else self._logo_pixmap_light)
