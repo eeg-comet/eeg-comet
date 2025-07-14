@@ -7,8 +7,14 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>600</height>
+    <height>800</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>800</width>
+    <height>800</height>
+   </size>
   </property>
   <property name="font">
    <font>
@@ -26,7 +32,7 @@
       <item row="1" column="1" colspan="2">
        <widget class="QLabel" name="eeg_filenames_label">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -34,7 +40,7 @@
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -113,7 +119,7 @@
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -171,7 +177,7 @@
 background-color: rgb(0, 0, 0);</string>
         </property>
         <property name="text">
-         <string>Backfitting Visualization</string>
+         <string>     Backfitting Visualization Window</string>
         </property>
        </widget>
       </item>
@@ -186,7 +192,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -212,7 +218,7 @@ background-color: rgb(0, 0, 0);</string>
       <item row="3" column="1" colspan="2">
        <widget class="QLabel" name="num_trials_label">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -220,7 +226,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -319,7 +325,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -344,7 +350,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -372,7 +378,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -403,7 +409,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -434,7 +440,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -459,7 +465,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -487,7 +493,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -506,7 +512,7 @@ background-color: rgb(0, 0, 0);</string>
         <item>
          <widget class="QRadioButton" name="win500_radio">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -514,7 +520,7 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>40</height>
+            <height>30</height>
            </size>
           </property>
           <property name="maximumSize">
@@ -534,7 +540,7 @@ background-color: rgb(0, 0, 0);</string>
         <item>
          <widget class="QRadioButton" name="win1000_radio">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -542,7 +548,7 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>40</height>
+            <height>30</height>
            </size>
           </property>
           <property name="maximumSize">
@@ -565,7 +571,7 @@ background-color: rgb(0, 0, 0);</string>
         <item>
          <widget class="QRadioButton" name="win5000_radio">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -573,7 +579,7 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>40</height>
+            <height>30</height>
            </size>
           </property>
           <property name="maximumSize">
@@ -593,7 +599,7 @@ background-color: rgb(0, 0, 0);</string>
         <item>
          <widget class="QRadioButton" name="win10000_radio">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -601,7 +607,7 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>40</height>
+            <height>30</height>
            </size>
           </property>
           <property name="maximumSize">
@@ -791,7 +797,7 @@ background-color: rgb(0, 0, 0);</string>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
