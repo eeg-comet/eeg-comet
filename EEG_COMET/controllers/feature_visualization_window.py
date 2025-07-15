@@ -200,18 +200,21 @@ class FeatureVisualizationWindow(QMainWindow):
         Handle colormap change from menu actions
         """
         self.current_colormap = colormap_name
+        self._maybe_refresh_rof_plot()
 
     def change_font_family(self, font_name):
         """
         Handle font family change from menu actions
         """
         self.current_font_family = font_name
+        self._maybe_refresh_rof_plot()
 
     def change_display_option(self, option_name, checked):
         """
         Handle display option change from menu actions
         """
         # print(f"Display option '{option_name}' set to: {checked}")
+        self._maybe_refresh_rof_plot()
 
     def change_font_size_category(self, category, font_size):
         """
@@ -223,6 +226,28 @@ class FeatureVisualizationWindow(QMainWindow):
             self.ui.font_size_input.setText(str(font_size))
         elif category == 'tick' and hasattr(self.ui, 'label_size_input'):
             self.ui.label_size_input.setText(str(font_size))
+
+        self._maybe_refresh_rof_plot()
+
+    def _maybe_refresh_rof_plot(self):
+        """Replot ROF immediately if it is the selected feature and plot is visible."""
+        if hasattr(self.ui, 'plot_rof_button') and self.get_selected_feature_code() == 'ROF':
+            # Directly call plot function so updates are instant
+            self.plot_rof_timeseries()
+
+    # ------------------------- Button highlighting -------------------------
+    def _reset_plot_button_styles(self):
+        """Reset styles for all plot buttons."""
+        for btn_name in ['plot_static_violin_plot_button', 'plot_static_box_plot_button',
+                         'plot_all_dynamic_button', 'plot_heatmap_button', 'plot_rof_button']:
+            if hasattr(self.ui, btn_name):
+                getattr(self.ui, btn_name).setStyleSheet("")
+
+    def _highlight_button(self, button_attr_name):
+        """Set given button background to green and reset others."""
+        self._reset_plot_button_styles()
+        if hasattr(self.ui, button_attr_name):
+            getattr(self.ui, button_attr_name).setStyleSheet("background-color: #4CAF50; color: white;")
 
     def get_selected_colormap(self):
         """
@@ -327,6 +352,14 @@ class FeatureVisualizationWindow(QMainWindow):
         for button in buttons:
             button.clicked.connect(self.feature_visualization_controller)
 
+        # Bind ROF plot button if exists in UI
+        if hasattr(self.ui, 'plot_rof_button'):
+            self.ui.plot_rof_button.clicked.connect(self.plot_rof_timeseries)
+
+        # Trigger controller when feature selection changes
+        if hasattr(self.ui, 'feature_combo'):
+            self.ui.feature_combo.currentIndexChanged.connect(self.feature_visualization_controller)
+
     def export_feature_image(self):
         """Export feature visualization images to file"""
         # Get study name for default filename
@@ -389,7 +422,16 @@ class FeatureVisualizationWindow(QMainWindow):
             set_widgets_status(self.ui.plot_heatmap_button, mode='show')
         else:
             set_widgets_status(self.ui.plot_heatmap_button, mode='disable')
-            set_widgets_status(self.ui.plot_heatmap_button, mode='hide')
+            set_widgets_status(self.ui.plot_heatmap_button, mode='show')
+
+        # Enable/disable ROF time-series plot button
+        if hasattr(self.ui, 'plot_rof_button'):
+            if self.get_selected_feature_code() == 'ROF':
+                set_widgets_status(self.ui.plot_rof_button, mode='enable')
+                set_widgets_status(self.ui.plot_rof_button, mode='show')
+            else:
+                set_widgets_status(self.ui.plot_rof_button, mode='disable')
+                set_widgets_status(self.ui.plot_rof_button, mode='show')
 
         # Update comparison widgets status based on list contents
         count_group_a = self.ui.group_a_files_list.count()
@@ -400,6 +442,47 @@ class FeatureVisualizationWindow(QMainWindow):
         self.ui.remove_group_b_button.setEnabled(not count_group_b == 0)
         self.ui.reset_groups_button.setEnabled(count_group_a > 0 or count_group_b > 0)
         self.ui.plot_groups_button.setEnabled(count_group_a > 0 and count_group_b > 0)
+
+        # Enable/disable other plot buttons based on ROF selection
+        if self.get_selected_feature_code() == 'ROF':
+            # Disable unrelated plot buttons
+            for btn_name in ['plot_static_violin_plot_button', 'plot_static_box_plot_button',
+                             'plot_all_dynamic_button', 'plot_heatmap_button']:
+                if hasattr(self.ui, btn_name):
+                    set_widgets_status(getattr(self.ui, btn_name), mode='disable')
+                    set_widgets_status(getattr(self.ui, btn_name), mode='show')
+        else:
+            # Re-enable standard buttons visibility (status handled earlier)
+            for btn_name in ['plot_static_violin_plot_button', 'plot_static_box_plot_button',
+                             'plot_all_dynamic_button']:
+                if hasattr(self.ui, btn_name):
+                    # ensure visible
+                    set_widgets_status(getattr(self.ui, btn_name), mode='show')
+
+        # Automatically draw plot for newly selected feature
+        self.auto_plot_selected_feature()
+
+        # Refresh ROF plot if relevant
+        self._maybe_refresh_rof_plot()
+
+    def auto_plot_selected_feature(self):
+        """Automatically plot the currently selected feature without extra clicks."""
+        feature_code = self.get_selected_feature_code()
+
+        if feature_code == 'ROF':
+            self.plot_rof_timeseries()
+        elif feature_code == 'TP':
+            # If at least one file selected
+            if self.ui.all_files_list.selectedItems():
+                self.show_tp_heatmap()
+        else:
+            # Static or dynamic depending on mode
+            if 'sliding' in self.feature_mode:
+                if self.ui.all_files_list.currentItem():
+                    self.show_dynamic_line_all()
+            else:
+                if self.ui.all_files_list.selectedItems():
+                    self.show_static_box_plot()
 
     @staticmethod
     def move_file_between_lists(source_list, target_list):
@@ -484,6 +567,7 @@ class FeatureVisualizationWindow(QMainWindow):
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
         self.plot_violin(features_df, selected_feature, font_sizes, colormap, font_family, display_options)
+        self._highlight_button('plot_static_violin_plot_button')
 
     def show_static_box_plot(self):
         """
@@ -498,6 +582,7 @@ class FeatureVisualizationWindow(QMainWindow):
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
         self.plot_box(features_df, selected_feature, font_sizes, colormap, font_family, display_options)
+        self._highlight_button('plot_static_box_plot_button')
 
     def show_dynamic_line_all(self):
         """
@@ -508,6 +593,7 @@ class FeatureVisualizationWindow(QMainWindow):
         features_df = self.load_features("sliding").query(f'Filename == "{selected_file}"')
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
         self.plot_line(features_df, selected_feature, font_sizes, colormap, font_family, display_options)
+        self._highlight_button('plot_all_dynamic_button')
 
     def show_tp_heatmap(self):
         """
@@ -521,6 +607,7 @@ class FeatureVisualizationWindow(QMainWindow):
         features_df = all_features_df[all_features_df['Filename'].isin(selected_files)]
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
         self.plot_heatmap(features_df, font_sizes, font_family, display_options)
+        self._highlight_button('plot_heatmap_button')
 
         # Set figure title
         self.figure.suptitle("Transition Probability Heatmap",
@@ -577,14 +664,14 @@ class FeatureVisualizationWindow(QMainWindow):
                 return state_str
 
         # Determine appropriate x-tick labels
-        if feature == 'TP':
-            # Expect column names like "TP_1_2" → "A-B"
+        if feature in ['TP', 'RTF']:
+            # Expect column names like "TP_1_2" → "A-B" or "RTF_A_B"
             xticklabels = []
             for col in filter_cols:
                 parts = col.split('_')
                 if len(parts) >= 3:
-                    from_letter = _state_to_letter(parts[1])
-                    to_letter = _state_to_letter(parts[2])
+                    from_letter = _state_to_letter(parts[-2])
+                    to_letter = _state_to_letter(parts[-1])
                     xticklabels.append(f"{from_letter}-{to_letter}")
                 else:
                     # Fallback to original logic if format unexpected
@@ -771,6 +858,10 @@ class FeatureVisualizationWindow(QMainWindow):
             item.set_fontsize(font_sizes['tick'])
             item.set_fontfamily(font_family)
 
+        # Remove top and right spines for cleaner look
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
     def plot_group_comparison(self, features_df, selected_feature, group_a_name, group_b_name, font_sizes,
                               colormap, font_family, display_options):
         """
@@ -857,3 +948,116 @@ class FeatureVisualizationWindow(QMainWindow):
                 legend.remove()
 
         self.canvas.draw()
+
+    def plot_rof_timeseries(self):
+        """Plot average baseline-corrected ROF time-series with 95 % CI across all subjects."""
+
+        # Determine file path
+        if not hasattr(self.comet, 'extracted_features_path'):
+            print("[ERROR] COMET extracted_features_path not set")
+            return
+
+        rof_file = os.path.join(self.comet.extracted_features_path, f"ROF_timeseries{self.comet.export_format}")
+        if not os.path.exists(rof_file):
+            print(f"[ERROR] ROF time-series file not found: {rof_file}")
+            return
+
+        # Load data
+        try:
+            if self.comet.export_format == '.csv':
+                rof_df = pd.read_csv(rof_file)
+            elif self.comet.export_format == '.pkl':
+                rof_df = pd.read_pickle(rof_file)
+            elif self.comet.export_format == '.hdf':
+                rof_df = pd.read_hdf(rof_file, key='rof')
+            elif self.comet.export_format == '.json':
+                rof_df = pd.read_json(rof_file, orient='records', lines=True)
+            else:
+                print("[ERROR] Unsupported export format for ROF file")
+                return
+        except Exception as e:
+            print(f"[ERROR] Failed to load ROF file: {e}")
+            return
+
+        # Filter by selected files if any
+        selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
+        if selected_files:
+            rof_df = rof_df[rof_df['Filename'].isin(selected_files)]
+
+        # Determine microstate columns
+        ms_cols = [c for c in rof_df.columns if c.startswith('ROF_')]
+        if not ms_cols:
+            print("[ERROR] No ROF_* columns found in data")
+            return
+
+        # Filter desired time window
+        rof_df = rof_df[(rof_df['Time_ms'] >= -100) & (rof_df['Time_ms'] <= 600)].copy()
+        if rof_df.empty:
+            print("[ERROR] No data in requested time window")
+            return
+
+        # Prepare plotting data: group by Time_ms, compute mean and 95% CI across filenames
+        grouped = rof_df.groupby('Time_ms')
+
+        # Get current style parameters from UI/menu
+        font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
+
+        # Reset figure
+        self.figure.clear()
+        ax = self.canvas.figure.gca()
+
+        # Apply base font settings and clear axes
+        self.clear_and_set_fonts(ax, font_family, font_sizes)
+
+        palette = sns.color_palette(colormap, n_colors=len(ms_cols))
+
+        for idx, ms in enumerate(ms_cols):
+            means = grouped[ms].mean()
+            means = means.dropna()
+            counts = grouped[ms].count()
+            stds = grouped[ms].std(ddof=1)
+            se = stds / np.sqrt(counts)
+            ci95 = 1.96 * se
+
+            times = means.index.values.astype(float)
+
+            ax.plot(times, means.values, label=ms, color=palette[idx])
+            ax.fill_between(times, means - ci95, means + ci95, color=palette[idx], alpha=0.3)
+
+        # Styling
+        ax.set_xlim(-100, 600)
+        ax.set_xlabel('Time (ms)', fontsize=font_sizes['label'], fontfamily=font_family)
+        ax.set_ylabel('Relative Occurrence Frequency', fontsize=font_sizes['label'], fontfamily=font_family)
+        ax.set_title('Average ROF across subjects', fontsize=font_sizes['title'], fontfamily=font_family)
+
+        # Add vertical line at t=0
+        ax.axvline(0, color='red', linewidth=2, zorder=5)
+        # Add horizontal line at y=0
+        ax.axhline(0, color='black', linewidth=2, linestyle='--', zorder=5)
+
+        # Handle legend display
+        legend = ax.legend()
+        if legend:
+            if display_options.get('show_legend', True):
+                for text in legend.get_texts():
+                    text.set_fontsize(font_sizes['legend'])
+                    text.set_fontfamily(font_family)
+            else:
+                legend.remove()
+
+        # Grid and axes visibility
+        if not display_options.get('show_axes', True):
+            ax.axis('off')
+
+        if display_options.get('show_grid', False):
+            ax.grid(True, alpha=0.3)
+
+        # Update tick label fonts
+        for label in ax.get_xticklabels() + ax.get_yticklabels():
+            label.set_fontsize(font_sizes['tick'])
+            label.set_fontfamily(font_family)
+
+        self.canvas.draw()
+
+        # Highlight ROF button
+        self._highlight_button('plot_rof_button')

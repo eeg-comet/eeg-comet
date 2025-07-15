@@ -98,51 +98,66 @@ class SegmentationIO:
                 if 'trial' in df.columns:
                     trials = df['trial'].unique()
                     time_points = df['time'].unique()
-                    segmentation_array = np.empty((len(trials), len(time_points)), dtype=object)
+                    # Use string dtype to ensure hashable labels
+                    segmentation_array = np.empty((len(trials), len(time_points)), dtype='<U10')
                     for trial in trials:
                         trial_data = df[df['trial'] == trial]
-                        segmentation_array[trial - 1, :] = trial_data['label'].values
+                        # Convert labels to strings and ensure proper ordering by time
+                        trial_data_sorted = trial_data.sort_values('time')
+                        labels = trial_data_sorted['label'].astype(str).values
+                        segmentation_array[trial - 1, :] = labels
                     return segmentation_array
                 else:
-                    return np.array([df['label'].values], dtype=object)
+                    # For non-epoched data, also convert to string
+                    labels = df['label'].astype(str).values
+                    return np.array([labels], dtype='<U10')
             elif import_format == '.pkl':
                 with open(segmentation_path, 'rb') as f:
                     data = pickle.load(f)
                     if 'trial' in data:
                         trials = np.unique(data['trial'])
                         time_points = np.unique(data['time'])
-                        segmentation_array = np.empty((len(trials), len(time_points)), dtype=object)
+                        # Use string dtype to ensure hashable labels
+                        segmentation_array = np.empty((len(trials), len(time_points)), dtype='<U10')
                         for i, trial in enumerate(trials):
                             indices = np.where(data['trial'] == trial)
-                            segmentation_array[i, :] = np.array(data['label'])[indices]
+                            labels = np.array(data['label'])[indices].astype(str)
+                            segmentation_array[i, :] = labels
                         return segmentation_array
                     else:
-                        return np.array([data['label']], dtype=object)
+                        labels = np.array(data['label']).astype(str)
+                        return np.array([labels], dtype='<U10')
             elif import_format == '.hdf':
                 with h5py.File(segmentation_path, 'r') as h5f:
                     if 'trial' in h5f.keys():
                         trials = np.unique(h5f['trial'])
                         time_points = np.unique(h5f['time'])
-                        segmentation_array = np.empty((len(trials), len(time_points)), dtype=object)
+                        # Use string dtype to ensure hashable labels
+                        segmentation_array = np.empty((len(trials), len(time_points)), dtype='<U10')
                         for i, trial in enumerate(trials):
                             indices = np.where(h5f['trial'][:] == trial)
-                            segmentation_array[i, :] = h5f['label'][indices].astype(str)
+                            labels = h5f['label'][indices].astype(str)
+                            segmentation_array[i, :] = labels
                         return segmentation_array
                     else:
-                        return np.array([h5f['label'][:].astype(str)], dtype=object)
+                        labels = h5f['label'][:].astype(str)
+                        return np.array([labels], dtype='<U10')
             elif import_format == '.json':
                 with open(segmentation_path, 'r') as f:
                     data = json.load(f)
                     if 'trial' in data:
                         trials = np.unique(data['trial'])
                         time_points = np.unique(data['time'])
-                        segmentation_array = np.empty((len(trials), len(time_points)), dtype=object)
+                        # Use string dtype to ensure hashable labels
+                        segmentation_array = np.empty((len(trials), len(time_points)), dtype='<U10')
                         for i, trial in enumerate(trials):
                             indices = np.where(np.array(data['trial']) == trial)
-                            segmentation_array[i, :] = np.array(data['label'])[indices].astype(str)
+                            labels = np.array(data['label'])[indices].astype(str)
+                            segmentation_array[i, :] = labels
                         return segmentation_array
                     else:
-                        return np.array([data['label']], dtype=object)
+                        labels = np.array(data['label']).astype(str)
+                        return np.array([labels], dtype='<U10')
 
         except Exception as e:
             print(f"Import error: {e}")

@@ -19,12 +19,44 @@ class FeatureExtractor:
             sliding_window_size (int): The sliding window size in seconds. Defaults to 1 second.
             feature_mode (str, optional): The feature extraction mode ('averaged' or 'sliding'). Defaults to 'averaged'.
         """
-
-        self.input_sequence = input_sequence
+        
+        # Ensure input_sequence contains only hashable types (strings)
+        if isinstance(input_sequence, np.ndarray):
+            if input_sequence.ndim == 1:
+                # 1D array - convert each element to string
+                self.input_sequence = [str(item) for item in input_sequence]
+            elif input_sequence.ndim == 2:
+                # 2D array - keep as numpy array but ensure string dtype
+                self.input_sequence = input_sequence.astype(str)
+            else:
+                # Higher dimensions - flatten and convert to strings
+                self.input_sequence = [str(item) for item in input_sequence.flatten()]
+        elif isinstance(input_sequence, list):
+            # List - ensure all elements are strings
+            self.input_sequence = [str(item) for item in input_sequence]
+        else:
+            # Other types - try to convert to list of strings
+            try:
+                self.input_sequence = [str(item) for item in input_sequence]
+            except:
+                self.input_sequence = [str(input_sequence)]
+        
         self.sampling_rate = sampling_rate
         self.sliding_window_size = sliding_window_size
         self.feature_mode = feature_mode
-        self.num_windows = len(input_sequence) // (sampling_rate * sliding_window_size)
+        
+        # Calculate num_windows based on the processed input_sequence
+        if hasattr(self.input_sequence, '__len__'):
+            self.num_windows = len(self.input_sequence) // (sampling_rate * sliding_window_size)
+        else:
+            self.num_windows = 1
+
+    def _get_flat_sequence(self):
+        """Return the input sequence flattened to a 1-D list of hashable elements (strings)."""
+        if isinstance(self.input_sequence, np.ndarray):
+            return [str(elem) for elem in self.input_sequence.flatten()]
+        else:
+            return [str(elem) for elem in self.input_sequence]
 
     def global_explained_variance(self, eeg_data, microstate_maps, microstate_labels=None):
         """
@@ -155,30 +187,39 @@ class FeatureExtractor:
                   If feature_mode is 'sliding', returns a list of dictionaries where each dictionary represents the
                   coverage percentages for each element in a window.
         """
-
+        
         if self.feature_mode == 'averaged':
-            element_counts = Counter(self.input_sequence)
-            total_elements = len(self.input_sequence)
-            return {
-                element: (count / total_elements) * 100
-                for element, count in element_counts.items()
-            }
+            try:
+                element_counts = Counter(self._get_flat_sequence())
+                total_elements = len(self._get_flat_sequence())
+                result = {
+                    element: (count / total_elements) * 100
+                    for element, count in element_counts.items()
+                }
+                return result
+            except Exception as e:
+                raise
 
         elif self.feature_mode == 'sliding':
-            window_element_coverage = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
-                                       for _ in range(self.num_windows)]
-            for window_index in range(self.num_windows):
-                window_start = window_index * self.sliding_window_size * self.sampling_rate
-                window_end = (window_index + 1) * self.sliding_window_size * self.sampling_rate
-                window_input_sequence = self.input_sequence[window_start:window_end]
-                element_counts = Counter(window_input_sequence)
-                total_elements = sum(element_counts.values())
-                if total_elements > 0:
-                    for element, count in element_counts.items():
-                        coverage = (count / total_elements) * 100
-                        window_element_coverage[window_index][element] = coverage
-
-            return window_element_coverage
+            try:
+                window_element_coverage = [FeatureHelper().initialize_empty_window_data(self.input_sequence)
+                                           for _ in range(self.num_windows)]
+                
+                for window_index in range(self.num_windows):
+                    window_start = window_index * self.sliding_window_size * self.sampling_rate
+                    window_end = (window_index + 1) * self.sliding_window_size * self.sampling_rate
+                    window_input_sequence = self.input_sequence[window_start:window_end]
+                    
+                    element_counts = Counter(window_input_sequence)
+                    total_elements = sum(element_counts.values())
+                    if total_elements > 0:
+                        for element, count in element_counts.items():
+                            coverage = (count / total_elements) * 100
+                            window_element_coverage[window_index][element] = coverage
+                
+                return window_element_coverage
+            except Exception as e:
+                raise
 
         else:
             raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
@@ -197,20 +238,20 @@ class FeatureExtractor:
 
         samples_per_second = self.sampling_rate
         if self.feature_mode == 'averaged':
-            sequence_without_repeats = FeatureHelper().remove_repetition_sequence(self.input_sequence)
+            sequence_without_repeats = FeatureHelper().remove_repetition_sequence(self._get_flat_sequence())
             total_element_counts = Counter(sequence_without_repeats)
-            total_duration_seconds = len(self.input_sequence) / samples_per_second
+            total_duration_seconds = len(self._get_flat_sequence()) / samples_per_second
             return {
                 element: count / total_duration_seconds
                 for element, count in total_element_counts.items()
             }
         elif self.feature_mode == 'sliding':
-            num_seconds = len(self.input_sequence) // samples_per_second
+            num_seconds = len(self._get_flat_sequence()) // samples_per_second
             window_change_counts = []
             for second in range(num_seconds):
                 window_start = second * samples_per_second
                 window_end = (second + 1) * samples_per_second
-                window_input_sequence = self.input_sequence[window_start:window_end]
+                window_input_sequence = self._get_flat_sequence()[window_start:window_end]
                 window_input_sequence = FeatureHelper().remove_repetition_sequence(window_input_sequence)
                 element_counts = Counter(window_input_sequence)
                 window_change_counts.append({
@@ -260,7 +301,7 @@ class FeatureExtractor:
 
         if self.feature_mode == 'averaged':
             # Static mode: calculate average duration for the whole sequence
-            average_durations = calculate_average_durations(self.input_sequence)
+            average_durations = calculate_average_durations(self._get_flat_sequence())
 
         elif self.feature_mode == 'sliding' and self.sliding_window_size is not None:
             # Dynamic mode: calculate average duration for each window
@@ -297,9 +338,10 @@ class FeatureExtractor:
 
         transitions = defaultdict(int)
         total_transitions = 0
-        for i in range(len(self.input_sequence) - 1):
-            current_element = self.input_sequence[i]
-            next_element = self.input_sequence[i + 1]
+        flat_seq = self._get_flat_sequence()
+        for i in range(len(flat_seq) - 1):
+            current_element = flat_seq[i]
+            next_element = flat_seq[i + 1]
             # Skip self-transitions
             if current_element == next_element:
                 continue
@@ -328,7 +370,7 @@ class FeatureExtractor:
 
         # Ensure consistent sample size for averaged mode
         if self.feature_mode == 'averaged':
-            consistent_sequence = FeatureHelper().ensure_consistent_samples(self.input_sequence, min_samples)
+            consistent_sequence = FeatureHelper().ensure_consistent_samples(self._get_flat_sequence(), min_samples)
             h_rate, _ = FeatureHelper().compute_entropy_rate(consistent_sequence, ns, kmax)
             return h_rate
 
@@ -364,7 +406,7 @@ class FeatureExtractor:
             float: The Lempel-Ziv complexity of the input sequence.
         """
         # First remove repetitions, then ensure consistent sample size
-        sequence_without_repeats = FeatureHelper().remove_repetition_sequence(self.input_sequence)
+        sequence_without_repeats = FeatureHelper().remove_repetition_sequence(self._get_flat_sequence())
         consistent_sequence = FeatureHelper().ensure_consistent_samples(sequence_without_repeats, min_samples)
         return FeatureHelper().compute_lempel_ziv_complexity(consistent_sequence)
 
@@ -394,7 +436,7 @@ class FeatureExtractor:
             window_input_sequence = self.input_sequence[window_start:window_end]
             window_entropy_representations[window_index] = FeatureHelper().calculate_entropy(window_input_sequence)
         if self.feature_mode == 'averaged':
-            overall_entropy_representations, _ = MicroSynt().sequence_analysis(self.input_sequence, word_size)
+            overall_entropy_representations, _ = MicroSynt().sequence_analysis(self._get_flat_sequence(), word_size)
             return overall_entropy_representations
         elif self.feature_mode == 'sliding':
             return window_entropy_representations
@@ -402,18 +444,70 @@ class FeatureExtractor:
         else:
             raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
-    def relative_occurrence_frequency(self):
+    def relative_occurrence_frequency(self, time_array, input_sequence=None):
         """
-        Computes the time-based relative occurrence frequency of each microstate, averaged across all trials per subject.
+        Computes the baseline-corrected relative occurrence frequency (ROF) for TMS-EEG epoched data.
+        
+        This method is specifically designed for epoched TMS-EEG data and calculates ROF by:
+        1. Determining occurrence counts for each microstate at each time point across all trials
+        2. Averaging across trials to create temporal profiles
+        3. Applying centered log-ratio (CLR) transformation for compositional data
+        4. Performing baseline correction using baseline period (-1000ms to -10ms)
+        
+        Args:
+            time_array (numpy.ndarray): Time points in milliseconds for the epoch
+            
+        Returns:
+            dict: Dictionary containing baseline-corrected ROF values and related metrics
         """
-        return FeatureHelper().compute_relative_occurrence_frequency(self.input_sequence)
+        import numpy as np
 
-    def relative_transition_frequency(self):
+        seq = input_sequence if input_sequence is not None else self.input_sequence
+
+        # Ensure numpy 2D array of string type
+        seq_array = np.asarray(seq)
+        if seq_array.dtype == object:
+            seq_array = seq_array.astype(str)
+
+        if seq_array.ndim != 2:
+            raise ValueError(
+                f"ROF calculation requires epoched data with shape (trials, timepoints). Current shape: {seq_array.shape}"
+            )
+
+        return FeatureHelper().compute_relative_occurrence_frequency(seq_array, time_array, self.sampling_rate)
+
+    def relative_transition_frequency(self, time_array=None, input_sequence=None):
         """
-        Computes the time-based relative transition frequency between each pair of microstates, averaged across all
-        trials per subject.
+        Extract relative transition frequencies (RTF) - transition probabilities with baseline correction.
+        
+        This method calculates RTF by:
+        1. Creating transition time series by counting transitions at each time point
+        2. Averaging over trials
+        3. Calculating average transitions for each time window
+        4. Applying baseline correction
+        
+        Args:
+            time_array (array-like, optional): Time points in milliseconds. If None, uses default.
+            input_sequence (array-like, optional): Input sequence to use. If None, uses self.input_sequence.
+        
+        Returns:
+            dict: Dictionary containing baseline-corrected RTF values and related metrics
         """
-        return FeatureHelper().compute_relative_transition_frequency(self.input_sequence)
+        import numpy as np
+
+        seq = input_sequence if input_sequence is not None else self.input_sequence
+
+        # Ensure numpy 2D array of string type
+        seq_array = np.asarray(seq)
+        if seq_array.dtype == object:
+            seq_array = seq_array.astype(str)
+
+        if seq_array.ndim != 2:
+            raise ValueError(
+                f"RTF calculation requires epoched data with shape (trials, timepoints). Current shape: {seq_array.shape}"
+            )
+
+        return FeatureHelper().compute_relative_transition_frequency(seq_array, time_array, microstates=None, time_window_ranges=None)
 
     def hurst_exponent(self, min_samples=50, max_samples=2500, num_scales=50):
         """
@@ -439,7 +533,7 @@ class FeatureExtractor:
         """
         if self.feature_mode == 'averaged':
             return FeatureHelper().calculate_hurst_exponent(
-                self.input_sequence,
+                self._get_flat_sequence(),
                 min_samples=min_samples,
                 max_samples=max_samples,
                 num_scales=num_scales
@@ -469,7 +563,8 @@ class FeatureExtractor:
             raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
     def extract_microstate_features(
-            self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None, word_size=2, min_samples=None):
+            self, filename, feature_list, eeg_data=None, microstate_maps=None, microstate_labels=None,
+            word_size=2, min_samples=None, time_array=None, epoched_labels=None):
         """
         Extracts a set of microstate features from EEG data input_sequences, given a list of feature identifiers.
         The function operates in two modes: 'averaged' and 'sliding'.
@@ -486,6 +581,8 @@ class FeatureExtractor:
             word_size (int, optional): The size of the word for entropy calculation. Defaults to 2.
             min_samples (int, optional): Minimum number of samples to use for consistent comparison in SE and LZC.
                                        If None, uses the full sequence length.
+            time_array (numpy.ndarray, optional): Time points in milliseconds for epoched data. Required for ROF calculation.
+            epoched_labels (numpy.ndarray, optional): Epoched labels for ROF calculation.
 
         Returns:
             pandas.DataFrame: A DataFrame containing the extracted microstate features.
@@ -517,6 +614,31 @@ class FeatureExtractor:
             if extracted_hurst is None:
                 extracted_hurst = np.nan
             features_dict.append(('HE', extracted_hurst))
+        if 'ROF' in feature_list:
+            try:
+                if time_array is None or epoched_labels is None:
+                    print(
+                        f"Warning: ROF feature skipped for {filename} - requires time_array and epoched_labels for epoched TMS-EEG data"
+                    )
+                else:
+                    extracted_rof = self.relative_occurrence_frequency(time_array, input_sequence=epoched_labels)
+                    features_dict.append(('ROF', extracted_rof))
+            except ValueError as e:
+                print(f"Warning: ROF feature skipped for {filename} - {str(e)}")
+
+        if 'RTF' in feature_list:
+            try:
+                if time_array is None or epoched_labels is None:
+                    print(
+                        f"Warning: RTF feature skipped for {filename} - requires time_array and epoched_labels for epoched TMS-EEG data"
+                    )
+                else:
+                    extracted_rtf = self.relative_transition_frequency(time_array, input_sequence=epoched_labels)
+                    features_dict.append(('RTF', extracted_rtf))
+            except ValueError as e:
+                print(f"Warning: RTF feature skipped for {filename} - {str(e)}")
+            except Exception as e:
+                print(f"Warning: RTF feature skipped for {filename} - {str(e)}")
 
         # Only add TP and LZC if the mode is not sliding
         if 'LZC' in feature_list and self.feature_mode != 'sliding':
@@ -529,7 +651,19 @@ class FeatureExtractor:
         # Create a list to hold the data
         output_features_data = []
 
+        # Handle ROF and RTF features specially due to their complex return structures
+        special_features_dict = []
+        non_special_features_dict = []
+        
         for feature, feature_data in features_dict:
+            if feature in ['ROF', 'RTF']:
+                # ROF and RTF return complex dictionaries, handle them separately
+                special_features_dict.append((feature, feature_data))
+            else:
+                non_special_features_dict.append((feature, feature_data))
+
+        # Process non-special features first
+        for feature, feature_data in non_special_features_dict:
             if self.feature_mode == 'sliding':
                 if not isinstance(feature_data, (list, tuple)):
                     feature_data = [feature_data]
@@ -549,6 +683,62 @@ class FeatureExtractor:
                     )
                 else:
                     output_features_data.append([filename, feature, feature_data])
+
+        # Process special features separately
+        for feature, feature_data in special_features_dict:
+            if self.feature_mode == 'averaged':
+                if feature == 'ROF':
+                    # For averaged mode, add summary statistics from ROF
+                    microstates = feature_data.get('microstates', [])
+                    baseline_corrected_rof = feature_data.get('occurrences_clr_bc', {})
+                    
+                    if baseline_corrected_rof:
+                        # Add mean baseline-corrected ROF for each microstate
+                        for microstate in microstates:
+                            if microstate in baseline_corrected_rof:
+                                mean_rof = np.mean(baseline_corrected_rof[microstate])
+                                output_features_data.append([filename, f"ROF_mean_{microstate}", mean_rof])
+                                
+                                # Add std baseline-corrected ROF for each microstate  
+                                std_rof = np.std(baseline_corrected_rof[microstate])
+                                output_features_data.append([filename, f"ROF_std_{microstate}", std_rof])
+                
+                elif feature == 'RTF':
+                    # For averaged mode, add summary statistics from RTF
+                    microstates = feature_data.get('microstates', [])
+                    transition_averages_bc = feature_data.get('transition_averages_bc', {})
+                    
+                    if transition_averages_bc:
+                        # Add transition averages for each time window
+                        for window_name, transition_matrix in transition_averages_bc.items():
+                            if isinstance(transition_matrix, np.ndarray):
+                                # Extract individual transitions
+                                for i, from_state in enumerate(microstates):
+                                    for j, to_state in enumerate(microstates):
+                                        if i != j:  # Skip self-transitions
+                                            transition_value = transition_matrix[i, j]
+                                            output_features_data.append([filename, f"RTF_{window_name}_{from_state}_{to_state}", transition_value])
+            
+            elif self.feature_mode == 'sliding':
+                # For sliding mode, this would typically not be used since ROF/RTF are for epoched data
+                # But if needed, could add time-resolved values here
+                pass
+
+        # Store full ROF data for separate export if ROF was computed
+        if special_features_dict:
+            # Store the full ROF data in the DataFrame metadata for later export
+            if not hasattr(self, '_rof_data_for_export'):
+                self._rof_data_for_export = {}
+            # Store the full RTF data in the DataFrame metadata for later export
+            if not hasattr(self, '_rtf_data_for_export'):
+                self._rtf_data_for_export = {}
+
+            # Process ROF data
+            for feature, feature_data in special_features_dict:
+                if feature == 'ROF':
+                    self._rof_data_for_export[filename] = feature_data
+                elif feature == 'RTF':
+                    self._rtf_data_for_export[filename] = feature_data
 
         if self.feature_mode == 'sliding':
             columns = ["Filename", "Window_index", "Feature", "Value"]
@@ -773,16 +963,38 @@ class FeatureExtractionCoordinator:
                 microstate_maps = segmentation.get('microstate_maps', None)
                 microstate_labels = segmentation.get('microstate_labels', None)
                 
+                # Pass time_array if available for ROF calculation
+                time_array = segmentation.get('time', None)
+                
+                # Determine epoched labels if present
+                epoched_labels_param = segmentation.get('epoched_labels', None)
+                if isinstance(epoched_labels_param, np.ndarray) and epoched_labels_param.dtype == object:
+                    epoched_labels_param = epoched_labels_param.astype(str)
+
                 extracted_df = feature_extractor.extract_microstate_features(
                     filename=filename,
                     feature_list=feature_list,
                     eeg_data=eeg_data,
                     microstate_maps=microstate_maps,
                     microstate_labels=microstate_labels,
-                    min_samples=min_samples
+                    min_samples=min_samples,
+                    time_array=time_array,
+                    epoched_labels=epoched_labels_param
                 )
                 
                 results[mode][feature_type].append(extracted_df)
+                
+                # Store ROF data if it was computed
+                if hasattr(feature_extractor, '_rof_data_for_export') and feature_extractor._rof_data_for_export:
+                    if 'rof_data' not in results[mode]:
+                        results[mode]['rof_data'] = {}
+                    results[mode]['rof_data'].update(feature_extractor._rof_data_for_export)
+
+                # Store RTF data if it was computed
+                if hasattr(feature_extractor, '_rtf_data_for_export') and feature_extractor._rtf_data_for_export:
+                    if 'rtf_data' not in results[mode]:
+                        results[mode]['rtf_data'] = {}
+                    results[mode]['rtf_data'].update(feature_extractor._rtf_data_for_export)
         
         return results
 
@@ -903,7 +1115,9 @@ class FeatureExtractionCoordinator:
                             eeg_data=pre_eeg,
                             microstate_maps=microstate_maps,
                             microstate_labels=microstate_labels,
-                            min_samples=min_samples
+                            min_samples=min_samples,
+                            time_array=time_array[pre_start_idx:pre_end_idx] if 'ROF' in feature_list else None,
+                            epoched_labels=getattr(pre_extractor, '_rof_epoched_labels', None) # Pass epoched_labels to extractor
                         )
                         
                         # Add window type and trial info
@@ -946,7 +1160,9 @@ class FeatureExtractionCoordinator:
                             eeg_data=post_eeg,
                             microstate_maps=microstate_maps,
                             microstate_labels=microstate_labels,
-                            min_samples=min_samples
+                            min_samples=min_samples,
+                            time_array=time_array[post_start_idx:post_end_idx] if 'ROF' in feature_list else None,
+                            epoched_labels=getattr(post_extractor, '_rof_epoched_labels', None) # Pass epoched_labels to extractor
                         )
                         
                         # Add window type and trial info

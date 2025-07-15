@@ -1,4 +1,3 @@
-
 import math
 import random
 import itertools
@@ -98,7 +97,16 @@ class FeatureHelper:
             dict: A dictionary with zero values for each element in the input_sequence.
         """
         
-        return {element: 0 for element in set(input_sequence)}
+        try:
+            unique_elements = set(input_sequence)
+            result = {element: 0 for element in unique_elements}
+            return result
+        except Exception as e:
+            # Fallback: convert all elements to strings
+            input_sequence_str = [str(item) for item in input_sequence]
+            unique_elements = set(input_sequence_str)
+            result = {element: 0 for element in unique_elements}
+            return result
 
     @staticmethod
     def initialize_dynamic_windows(input_sequence, sampling_rate, window_size):
@@ -207,62 +215,296 @@ class FeatureHelper:
         return c / b
 
     @staticmethod
-    def compute_relative_occurrence_frequency(input_sequence):
+    def centered_log_ratio(x, delta=0.5):
         """
-        Computes the relative occurrence frequency of each unique element in the input sequence over time,
-        followed by a centered log-ratio (CLR) transformation.
+        Apply centered log-ratio transformation to compositional data.
+        
+        This function applies the centered log-ratio (CLR) transformation to a
+        compositional vector, efficiently handling zeros using the multiplicative
+        replacement method.
+        
+        Args:
+            x (numpy.ndarray): Compositional vector containing proportions of microstate occurrences
+            delta (float): Scaling factor that determines the proportion of the smallest
+                         non-zero component used for replacing zeros (default: 0.5)
+        
+        Returns:
+            numpy.ndarray: CLR-transformed vector
         """
-        # Step 1: Identify unique elements across the entire input_sequence
-        unique_elements = np.unique(input_sequence)
-        num_elements = len(unique_elements)
-
-        # Step 2: Initialize array to store occurrences of each element at each time point
-        # Averaging over trials gives us a (num_elements, num_times) array
-        num_times = input_sequence.shape[1]
-        occurrence_counts = np.zeros((num_elements, num_times))
-
-        # Step 3: Count occurrences of each element at each time point
-        for i, element in enumerate(unique_elements):
-            occurrence_counts[i] = np.mean(input_sequence == element, axis=0)
-
-        # Step 4: Sum occurrences across elements for each time point to get relative frequencies
-        relative_frequencies = np.sum(occurrence_counts, axis=0)
-
-        # Step 5: Apply CLR transformation
-        # This requires dividing by the geometric mean, then taking log
-        geometric_mean = gmean(relative_frequencies[relative_frequencies > 0])  # Avoid zero values
-        clr_transformed = np.log(relative_frequencies / geometric_mean)
-
-        return clr_transformed
+        # Ensure input is numpy array
+        x = np.asarray(x)
+        
+        # Get number of components
+        D = len(x)
+        
+        # Identify zero elements
+        zero_mask = (x == 0)
+        num_zeros = np.sum(zero_mask)
+        
+        # Handle zeros using multiplicative replacement
+        if num_zeros > 0:
+            # Total sum of non-zero components
+            x_nonzero_sum = np.sum(x[~zero_mask])
+            
+            # Initialize replacement vector
+            x_replaced = x.copy()
+            
+            # Calculate replacement value
+            epsilon = delta * np.min(x[x > 0]) / D
+            
+            # Replace zeros with epsilon
+            x_replaced[zero_mask] = epsilon
+            
+            # Adjust non-zero components to maintain compositional constraint
+            if x_nonzero_sum > 0:
+                x_replaced[~zero_mask] = x[~zero_mask] - (epsilon * num_zeros) * (x[~zero_mask] / x_nonzero_sum)
+            
+            # Ensure data remains compositional (sums to original total)
+            x_replaced = x_replaced / np.sum(x_replaced) * np.sum(x)
+        else:
+            # No zeros to replace
+            x_replaced = x
+        
+        # Apply CLR transformation
+        # Calculate geometric mean of replaced vector
+        geo_mean = gmean(x_replaced)
+        
+        # Perform CLR transformation
+        y = np.log(x_replaced / geo_mean)
+        
+        return y
 
     @staticmethod
-    def compute_relative_transition_frequency(input_sequence):
+    def compute_relative_occurrence_frequency(input_sequence, time_array, microstates=None):
         """
-        Computes the relative transition frequency between each pair of microstates
-        by identifying exact times and indices where transitions occur, then averages
-        these over all trials within each subject.
+        Extract relative occurrence frequencies (ROF) - baseline-corrected CLR values.
+        
+        This function calculates ROF for different EEG microstates using the following approach:
+        1. Calculates occurrence proportion for each microstate at each time point
+        2. Applies CLR transformation with multiplicative replacement for zeros
+        3. Applies baseline correction by subtracting baseline median from all time points
+        
+        Args:
+            input_sequence (numpy.ndarray): Epoched microstate data with shape (trials, timepoints)
+            time_array (numpy.ndarray): Time points in milliseconds 
+            microstates (list, optional): List of microstate labels. If None, inferred from data.
+            
+        Returns:
+            dict: Dictionary containing:
+                - 'occurrences': Raw occurrence proportions for each microstate
+                - 'occurrences_clr': CLR-transformed occurrences
+                - 'occurrences_clr_bc': Baseline-corrected CLR occurrences
+                - 'baseline_indices': Indices corresponding to baseline period
+                - 'microstates': List of microstate labels
         """
+        
+        # Ensure time_array is a numpy array
+        time_array = np.asarray(time_array)
+        
+        if input_sequence.ndim != 2:
+            raise ValueError("Input sequence must be 2D array with shape (trials, timepoints)")
+        
+        # Define baseline period: -1000 to -10 ms
+        baseline_start = -1000
+        baseline_end = -10
+        
+        # Find baseline indices
+        baseline_indices = np.where((time_array >= baseline_start) & (time_array <= baseline_end))[0]
+        
+        if len(baseline_indices) == 0:
+            raise ValueError("No baseline period found in time array")
+        
+        # Get microstates from data if not provided
+        if microstates is None:
+            unique_vals = np.unique(input_sequence.flatten())
+            
+            # Convert to hashable types (strings) - should already be strings from SegmentationIO
+            microstates = [str(val) for val in unique_vals]
+        else:
+            # Ensure provided microstates are hashable
+            microstates = [str(ms) for ms in microstates]
+        
+        ntrials = input_sequence.shape[0]
+        
+        # Calculate occurrence proportion for each microstate
+        occurrences = {}
+        for i, microstate in enumerate(microstates):
+            try:
+                # Input sequence should now be string array, so direct comparison should work
+                index = (input_sequence == microstate)
+                # Calculate proportion at each time point
+                occurrence = np.sum(index, axis=0) / ntrials
+                occurrences[microstate] = occurrence
+            except Exception as e:
+                raise
+        
+        # Combine all microstate occurrences into matrix
+        all_occ = np.column_stack([occurrences[ms] for ms in microstates])
+        
+        # Apply CLR transformation
+        clr_occ = np.zeros_like(all_occ)
+        for jj in range(all_occ.shape[0]):
+            try:
+                clr_occ[jj, :] = FeatureHelper.centered_log_ratio(all_occ[jj, :], delta=0.5)
+            except Exception as e:
+                print(f"Error in CLR transformation at timepoint {jj}: {e}")
+                print(f"Input values: {all_occ[jj, :]}")
+                raise
+        
+        # Baseline correction
+        baseline_shift_clr = np.median(clr_occ[baseline_indices, :], axis=0)
+        baseline_corr_clr = clr_occ - baseline_shift_clr
+        
+        # Store results
+        occurrences_clr = {}
+        occurrences_clr_bc = {}
+        for i, microstate in enumerate(microstates):
+            occurrences_clr[microstate] = clr_occ[:, i]
+            occurrences_clr_bc[microstate] = baseline_corr_clr[:, i]
+        
+        return {
+            'occurrences': occurrences,
+            'occurrences_clr': occurrences_clr,
+            'occurrences_clr_bc': occurrences_clr_bc,
+            'baseline_indices': baseline_indices,
+            'microstates': microstates,
+            'time_ms': time_array  # store time array for export
+        }
 
-        # Find unique microstates
-        unique_states = np.unique(input_sequence)
-
-        # Initialize a dictionary to hold transition counts
-        transition_counts = {f"{state1}->{state2}": 0 for state1 in unique_states for state2 in unique_states if
-                             state1 != state2}
+    @staticmethod
+    def compute_relative_transition_frequency(input_sequence, time_array, microstates=None, 
+                                            time_window_ranges=None):
+        """
+        Extract relative transition frequencies (RTF) - transition probabilities with baseline correction.
+        
+        This function calculates RTF by:
+        1. Creating transition time series by counting transitions at each time point
+        2. Averaging over trials
+        3. Calculating average transitions for each time window
+        4. Applying baseline correction
+        
+        Args:
+            input_sequence (numpy.ndarray): Epoched microstate data with shape (trials, timepoints)
+            time_array (numpy.ndarray): Time points in milliseconds
+            microstates (list, optional): List of microstate labels. If None, inferred from data.
+            time_window_ranges (dict, optional): Dictionary with time window definitions.
+                                               Default: {'baseline': [-1000, -10], 'post_tms': [20, 1000]}
+        
+        Returns:
+            dict: Dictionary containing:
+                - 'transitions_time_series': 3D array of transition counts over time
+                - 'transition_averages': Average transitions for each time window
+                - 'transition_averages_bc': Baseline-corrected transition averages
+                - 'time_window_indices': Indices for each time window
+                - 'microstates': List of microstate labels
+        """
+        
+        # Ensure time_array is a numpy array BEFORE calling .min() and .max()
+        time_array = np.asarray(time_array)
+        
+        if input_sequence.ndim != 2:
+            raise ValueError("Input sequence must be 2D array with shape (trials, timepoints)")
+        
+        # Default time windows
+        if time_window_ranges is None:
+            time_window_ranges = {
+                'baseline': [-1000, -10],
+                'post_tms': [20, 1000]
+            }
+        
+        # Get microstates from data if not provided
+        if microstates is None:
+            unique_vals = np.unique(input_sequence.flatten())
+            
+            # Convert to hashable types (strings) - should already be strings from SegmentationIO
+            microstates = [str(val) for val in unique_vals]
+        else:
+            # Ensure provided microstates are hashable
+            microstates = [str(ms) for ms in microstates]
+        
+        # Initialize state mapping
+        num_states = len(microstates)
+        state_label_to_code = {label: i for i, label in enumerate(microstates)}
+        
+        # Ensure time_array is a numpy array
+        time_array = np.asarray(time_array)
+        
+        # Define time vectors
+        dt = time_array[1] - time_array[0] if len(time_array) > 1 else 1
+        transition_times = time_array[:-1] + dt/2  # Transition midpoints
+        
+        # Compute time window indices
+        time_window_indices = {}
+        for window_name, time_range in time_window_ranges.items():
+            start_time, end_time = time_range
+            time_indices = (transition_times >= start_time) & (transition_times <= end_time)
+            time_window_indices[window_name] = time_indices
+        
+        # Initialize transition time series
+        transitions_time_series = np.zeros((num_states, num_states, len(transition_times)))
+        
         num_trials = input_sequence.shape[0]
-
-        # Iterate over each trial
-        for trial in input_sequence:
-            # Iterate through each time point and identify transitions
-            for i in range(1, len(trial)):
-                if trial[i] != trial[i - 1]:  # Transition found
-                    transition = f"{trial[i - 1]}->{trial[i]}"
-                    transition_counts[transition] += 1  # Increment the transition count
-
-        # Average transition counts over the number of trials
-        transition_frequencies = {key: count / num_trials for key, count in transition_counts.items()}
-
-        return transition_frequencies
+        
+        # Process each trial
+        for trial_idx in range(num_trials):
+            try:
+                # Get state sequence for this trial - should already be strings
+                state_labels_trial = input_sequence[trial_idx, :]
+                
+                # Convert to numeric codes
+                state_numbers_trial = np.array([state_label_to_code[label] for label in state_labels_trial])
+                
+                # Find transitions (where consecutive states differ)
+                s1 = state_numbers_trial[:-1]
+                s2 = state_numbers_trial[1:]
+                transition_indices = np.where(s1 != s2)[0]
+                
+                # Update transition counts
+                for k in transition_indices:
+                    from_state = s1[k]
+                    to_state = s2[k]
+                    transitions_time_series[from_state, to_state, k] += 1
+                
+            except Exception as e:
+                print(f"Error processing trial {trial_idx}: {e}")
+                print(f"Trial data sample: {state_labels_trial[:5]}")
+                raise
+        
+        # Average over trials
+        transitions_time_series = transitions_time_series / num_trials
+        total_transitions = np.sum(transitions_time_series)
+        
+        # Calculate average transitions for each time window
+        transition_averages = {}
+        for window_name, time_indices in time_window_indices.items():
+            transition_avg = np.zeros((num_states, num_states))
+            
+            # Average transitions within window (excluding self-transitions)
+            for s1 in range(num_states):
+                for s2 in range(num_states):
+                    if s1 != s2:
+                        data = transitions_time_series[s1, s2, time_indices]
+                        transition_avg[s1, s2] = np.mean(data)
+            
+            transition_averages[window_name] = transition_avg
+        
+        # Baseline correction
+        transition_averages_bc = {}
+        if 'baseline' in transition_averages:
+            baseline_averages = transition_averages['baseline']
+            for window_name, window_avg in transition_averages.items():
+                if window_name != 'baseline':
+                    transition_averages_bc[window_name] = window_avg - baseline_averages
+        else:
+            print("Warning: No baseline window found for baseline correction")
+        
+        return {
+            'transitions_time_series': transitions_time_series,
+            'transition_averages': transition_averages,
+            'transition_averages_bc': transition_averages_bc,
+            'time_window_indices': time_window_indices,
+            'microstates': microstates
+        }
 
     @staticmethod
     def generate_synthetic_sequence(input_sequence, method='random'):
@@ -427,12 +669,12 @@ class FeatureHelper:
         Returns:
             list: List of tuples, each containing two lists representing the partition
         """
-        from itertools import combinations
+
         states = list(range(num_states))
         partitions = []
         
         # Generate all possible combinations of size 2
-        for subset1 in combinations(states, 2):
+        for subset1 in itertools.combinations(states, 2):
             subset2 = [x for x in states if x not in subset1]
             partitions.append((list(subset1), subset2))
             

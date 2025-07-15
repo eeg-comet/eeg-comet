@@ -1420,37 +1420,50 @@ class COMET:
 
             # Convert to expected format for feature extraction
             if segmentation_array is not None:
-                # Check if we have epoched data with sliding features enabled
+                # Check if we have epoched data with sliding features enabled OR ROF feature requested
                 is_epoched_sliding = (self.datatype == 'epoched' and 'sliding' in self.feature_mode)
+                needs_epoched_structure = (self.datatype == 'epoched' and 'ROF' in self.feature_list)
                 
-                if is_epoched_sliding and len(segmentation_array.shape) == 2:
-                    # For epoched sliding features, preserve trial structure
+                if (is_epoched_sliding or needs_epoched_structure) and len(segmentation_array.shape) == 2:
+                    # For epoched sliding features or ROF, preserve trial structure
                     # Use first trial for time array creation, but keep all trials for processing
-                    labels = segmentation_array[0, :].tolist()  # For time array creation
+                    labels = [str(item) for item in segmentation_array[0, :]]  # Ensure strings
                     # Store original segmentation array for feature extraction
                     original_segmentation_array = segmentation_array
                 else:
                     # Standard processing - flatten if needed
                     if len(segmentation_array.shape) == 2:
-                        labels = segmentation_array[0, :].tolist()  # Use first trial
+                        labels = [str(item) for item in segmentation_array[0, :]]  # Ensure strings
                     else:
-                        labels = segmentation_array.tolist()
+                        labels = [str(item) for item in segmentation_array]  # Ensure strings
                     original_segmentation_array = None
                 
-                # Create time array (assuming consistent sampling)
+                # Retrieve accurate time points directly from segmentation file when available
                 num_samples = len(labels)
-                if hasattr(self, 'sample_rate') and self.sample_rate:
-                    time_step = 1000 / self.sample_rate  # Convert to ms
-                    
-                    # For epoched data, create time array centered around TMS (t=0)
-                    if self.datatype == 'epoched':
-                        # Assuming typical TMS epoch: -1000ms to +1000ms around TMS
-                        start_time = -1000  # Start at -1000ms
-                        time = [start_time + i * time_step for i in range(num_samples)]
+                time = None
+                try:
+                    if self.export_format == '.csv':
+                        import pandas as pd
+                        df_time = pd.read_csv(segmentation_path, usecols=['time'])
+                        time_unique = sorted(df_time['time'].unique())
+                        if len(time_unique) == num_samples:
+                            time = list(time_unique)
+                    # TODO: handle other formats (pkl, hdf, json) similarly if needed
+                except Exception as _e_time:
+                    # Fallback to old behaviour if reading fails
+                    time = None
+
+                if time is None:
+                    # Fallback: derive from sampling rate as before
+                    if hasattr(self, 'sample_rate') and self.sample_rate:
+                        time_step = 1000 / self.sample_rate  # ms
+                        if self.datatype == 'epoched':
+                            start_time = -1000
+                            time = [start_time + i * time_step for i in range(num_samples)]
+                        else:
+                            time = [i * time_step for i in range(num_samples)]
                     else:
-                        time = [i * time_step for i in range(num_samples)]
-                else:
-                    time = list(range(num_samples))  # Default time points
+                        time = list(range(num_samples))
                 
                 # Load corresponding EEG data
                 eeg_name = os.path.splitext(segmentation_name)[0]
@@ -1485,9 +1498,12 @@ class COMET:
                     'microstate_labels': self.micro_labels
                 }
                 
-                # Add original segmentation data for epoched sliding processing
+                # Add original segmentation data for epoched sliding processing or ROF
                 if original_segmentation_array is not None:
                     segmentation['original_segmentation_array'] = original_segmentation_array
+                    # For ROF calculation, also store the epoched labels directly
+                    if needs_epoched_structure:
+                        segmentation['epoched_labels'] = original_segmentation_array
             else:
                 # Create empty segmentation if loading failed
                 segmentation = {
@@ -1561,6 +1577,18 @@ class COMET:
                                 organized_results[mode][feature_type].extend(
                                     extracted_features[mode][feature_type]
                                 )
+                        
+                        # Handle ROF data separately
+                        if 'rof_data' in extracted_features[mode]:
+                            if 'rof_data' not in organized_results[mode]:
+                                organized_results[mode]['rof_data'] = {}
+                            organized_results[mode]['rof_data'].update(extracted_features[mode]['rof_data'])
+                        
+                        # Handle RTF data separately
+                        if 'rtf_data' in extracted_features[mode]:
+                             if 'rtf_data' not in organized_results[mode]:
+                                 organized_results[mode]['rtf_data'] = {}
+                             organized_results[mode]['rtf_data'].update(extracted_features[mode]['rtf_data'])
         
         # Combine DataFrames for each mode and type
         for mode in self.feature_mode:
@@ -1591,6 +1619,47 @@ class COMET:
                         print(error_msg)
                         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                             self.LogWindow.append_log(error_msg, log_type='error')
+        
+        # Export aggregated ROF and RTF data (single file each) if available
+        for mode in self.feature_mode:
+            if mode in organized_results:
+                # ROF export
+                if 'rof_data' in organized_results[mode]:
+                    rof_data = organized_results[mode]['rof_data']
+                    if rof_data:
+                        try:
+                            self.comet_feature_io.export_rof_timeseries(
+                                rof_data_dict=rof_data,
+                                output_folder=self.extracted_features_path,
+                                export_format=self.export_format
+                            )
+
+                            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                                self.LogWindow.append_log(f"Exported aggregated ROF time-series for {mode} mode ({len(rof_data)} files)", log_type='success')
+                        except Exception as rof_export_error:
+                            error_msg = f"[ERROR] Failed to export ROF data for {mode} mode: {rof_export_error}"
+                            print(error_msg)
+                            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                                self.LogWindow.append_log(error_msg, log_type='error')
+
+                # RTF export
+                if 'rtf_data' in organized_results[mode]:
+                    rtf_data = organized_results[mode]['rtf_data']
+                    if rtf_data:
+                        try:
+                            self.comet_feature_io.export_rtf_data(
+                                rtf_data_dict=rtf_data,
+                                output_folder=self.extracted_features_path,
+                                export_format=self.export_format
+                            )
+
+                            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                                self.LogWindow.append_log(f"Exported aggregated RTF averages for {mode} mode ({len(rtf_data)} files)", log_type='success')
+                        except Exception as rtf_export_error:
+                            error_msg = f"[ERROR] Failed to export RTF data for {mode} mode: {rtf_export_error}"
+                            print(error_msg)
+                            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                                self.LogWindow.append_log(error_msg, log_type='error')
 
         # Set feature extraction flag
         self.done_extracting_features = True
