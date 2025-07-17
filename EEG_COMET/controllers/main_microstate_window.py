@@ -9,10 +9,10 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QComboBox, QSpinBox, QSlider,
     QMessageBox, QGraphicsDropShadowEffect, QWidget,
     QVBoxLayout, QGridLayout, QRadioButton, QCheckBox, QPushButton, QLineEdit,
-    QLabel, QToolTip, QToolButton
+    QLabel, QToolTip, QToolButton, QTextBrowser, QFrame, QDesktopWidget
 )
-from PyQt5.QtGui import QPixmap, QColor, QKeySequence, QFont, QImage
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QPixmap, QColor, QKeySequence, QFont, QImage, QDesktopServices
+from PyQt5.QtCore import Qt, pyqtSignal, QUrl
 from PyQt5.QtCore import QObject, QEvent
 
 from .new_study_window import NewStudyWindow
@@ -303,6 +303,65 @@ class WidgetGroups:
         ]
 
 
+class InteractiveTooltip(QTextBrowser):
+    """Custom tooltip widget that supports clickable links"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setMaximumWidth(400)
+        self.setMaximumHeight(200)
+        self.setOpenExternalLinks(True)  # Enable automatic link opening
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        # Style the tooltip
+        self.setStyleSheet("""
+            QTextBrowser {
+                background-color: #ffffcc;
+                border: 1px solid #999999;
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 11pt;
+                color: #000000;
+            }
+            QTextBrowser a {
+                color: #0066cc;
+                text-decoration: underline;
+            }
+            QTextBrowser a:hover {
+                color: #004499;
+            }
+        """)
+    
+    def show_at_position(self, pos, text):
+        """Show tooltip at specified position with given text"""
+        self.setHtml(f"<html><body>{text}</body></html>")
+        
+        # Adjust size based on content
+        self.document().adjustSize()
+        doc_size = self.document().size().toSize()
+        self.resize(min(400, doc_size.width() + 20), min(200, doc_size.height() + 20))
+        
+        # Position the tooltip, ensuring it stays on screen
+        desktop = QDesktopWidget()
+        screen = desktop.screenGeometry()
+        if pos.x() + self.width() > screen.right():
+            pos.setX(screen.right() - self.width())
+        if pos.y() + self.height() > screen.bottom():
+            pos.setY(screen.bottom() - self.height())
+        
+        self.move(pos)
+        self.show()
+        self.raise_()
+    
+    def leaveEvent(self, event):
+        """Hide tooltip when mouse leaves"""
+        super().leaveEvent(event)
+        self.hide()
+
+
 class MainMicrostateWindow(QMainWindow):
     """Optimized main window for EEG-COMET microstate analysis"""
 
@@ -374,6 +433,9 @@ class MainMicrostateWindow(QMainWindow):
 
         # Initial font scaling
         self._update_font_sizes()
+        
+        # Initialize interactive tooltip
+        self._interactive_tooltip = None
 
     def toggle_theme(self, checked: bool):
         """Toggle application-wide theme."""
@@ -595,6 +657,12 @@ class MainMicrostateWindow(QMainWindow):
                 "Compute the selected temporal and complexity features for each subject "
                 "and export them in the chosen file format."
             ),
+            "step4_complexity_label": (
+                "Information-theoretic measures of microstate sequence complexity, capturing temporal dependencies and statistical patterns across multiple time scales.<br/><br/>"
+                "For more information, refer to:<br/>"
+                "• <a href='https://doi.org/10.1007/s10548-023-01006-2'>https://doi.org/10.1007/s10548-023-01006-2</a><br/>"
+                "• <a href='https://doi.org/10.1016/j.neuroimage.2025.121090'>https://doi.org/10.1016/j.neuroimage.2025.121090</a>"
+            ),
 
             # ── Source localisation tab ───────────────────────────────────────
             "step5_coreg_button": (
@@ -612,7 +680,7 @@ class MainMicrostateWindow(QMainWindow):
         }
 
         # Interactive widget classes allowed to carry a tooltip
-        _allowed_types = (QPushButton, QCheckBox, QRadioButton, QToolButton)
+        _allowed_types = (QPushButton, QCheckBox, QRadioButton, QToolButton, QLabel)
 
         # Helper: assign tip only to explicitly interactive widgets
         def _should_assign(w: QWidget) -> bool:
@@ -645,19 +713,53 @@ class MainMicrostateWindow(QMainWindow):
         # ------------------------------------------------------------------
 
         class _RightClickTipFilter(QObject):
+            def __init__(self, main_window):
+                super().__init__()
+                self.main_window = main_window
+                
             def eventFilter(self, obj, ev):  # type: ignore[override]
-                if ev.type() == QEvent.MouseButtonPress and ev.button() == Qt.RightButton:
-                    tip = obj.property("_custom_tip")
-                    if tip:
-                        QToolTip.showText(ev.globalPos(), f"<html><head/><body><p>{tip}</p></body></html>", obj)
-                        return True  # consume event
+                if ev.type() == QEvent.MouseButtonRelease:
+                    # Show tooltip on right-click release
+                    if ev.button() == Qt.RightButton:
+                        tip = obj.property("_custom_tip")
+                        if tip:
+                            self._show_interactive_tooltip(ev.globalPos(), tip)
+                            return True  # consume event so context menu etc. don't trigger
+                    # Hide tooltip on left-click outside of tooltip area
+                    elif ev.button() == Qt.LeftButton:
+                        self._hide_tooltip_if_not_hovered(ev.globalPos())
                 return False
+            
+            def _show_interactive_tooltip(self, pos, text):
+                """Show interactive tooltip at position"""
+                # Hide existing tooltip first
+                if self.main_window._interactive_tooltip:
+                    self.main_window._interactive_tooltip.hide()
+                    self.main_window._interactive_tooltip.deleteLater()
+                
+                # Create new tooltip
+                self.main_window._interactive_tooltip = InteractiveTooltip()
+                self.main_window._interactive_tooltip.show_at_position(pos, text)
+            
+            def _hide_tooltip_if_not_hovered(self, pos):
+                """Hide tooltip if click is outside tooltip area"""
+                if self.main_window._interactive_tooltip and self.main_window._interactive_tooltip.isVisible():
+                    tooltip_rect = self.main_window._interactive_tooltip.geometry()
+                    if not tooltip_rect.contains(pos):
+                        self.main_window._interactive_tooltip.hide()
 
         self._tip_filter = _RightClickTipFilter(self)
 
+        # Install the filter on widgets with custom tips (for right-click detection)
         for widget in self.findChildren(QWidget):
             if widget.property("_custom_tip"):
                 widget.installEventFilter(self._tip_filter)
+
+        # Install the same filter on the application instance so that a left-click
+        # anywhere hides a visible tooltip.
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.installEventFilter(self._tip_filter)
 
     def _init_widget_groups(self):
         """Initialize widget groups manager"""
@@ -1781,6 +1883,11 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.clustering_completed_callback = None
         if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow is not None:
             self.comet.LogWindow.close()
+
+        # Close interactive tooltip
+        if self._interactive_tooltip:
+            self._interactive_tooltip.hide()
+            self._interactive_tooltip.deleteLater()
 
         # Close all dialogs
         for dialog in self.dialogs.values():
