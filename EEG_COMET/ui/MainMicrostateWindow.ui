@@ -437,9 +437,9 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-180</y>
-               <width>1153</width>
-               <height>1155</height>
+               <y>0</y>
+               <width>1137</width>
+               <height>1205</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
@@ -2016,8 +2016,8 @@ background-color: rgb(0, 0, 0);</string>
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>1153</width>
-               <height>746</height>
+               <width>1137</width>
+               <height>780</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_5">
@@ -2772,9 +2772,9 @@ background-color: rgb(0, 0, 0);</string>
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-456</y>
-               <width>1153</width>
-               <height>890</height>
+               <y>0</y>
+               <width>1137</width>
+               <height>932</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_9">
@@ -3088,7 +3088,7 @@ background-color: rgb(0, 0, 0);</string>
                      </font>
                     </property>
                     <property name="text">
-                     <string>Temporal Features</string>
+                     <string>Classical Microstate Metrics</string>
                     </property>
                    </widget>
                   </item>
@@ -3211,40 +3211,15 @@ background-color: rgb(0, 0, 0);</string>
                     <property name="text">
                      <string>Global Explained Variance (GEV)</string>
                     </property>
+                    <property name="checked">
+                     <bool>true</bool>
+                    </property>
                    </widget>
                   </item>
                   <item row="0" column="1" rowspan="7">
                    <widget class="Line" name="line">
                     <property name="orientation">
                      <enum>Qt::Vertical</enum>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="6" column="0">
-                   <widget class="QCheckBox" name="step4_feature_tp_checkbox">
-                    <property name="enabled">
-                     <bool>false</bool>
-                    </property>
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="minimumSize">
-                     <size>
-                      <width>0</width>
-                      <height>50</height>
-                     </size>
-                    </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>16777215</width>
-                      <height>80</height>
-                     </size>
-                    </property>
-                    <property name="text">
-                     <string>Transition Probability (TP)</string>
                     </property>
                    </widget>
                   </item>
@@ -3275,42 +3250,28 @@ background-color: rgb(0, 0, 0);</string>
                      </font>
                     </property>
                     <property name="text">
-                     <string>Complexity Features</string>
+                     <string>Microstate Sequence and Complexity Features</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                     </property>
                    </widget>
                   </item>
-                  <item row="2" column="2">
-                   <widget class="QCheckBox" name="step4_feature_er_checkbox">
-                    <property name="enabled">
-                     <bool>false</bool>
-                    </property>
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="minimumSize">
-                     <size>
-                      <width>0</width>
-                      <height>50</height>
-                     </size>
-                    </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>16777215</width>
-                      <height>80</height>
-                     </size>
-                    </property>
-                    <property name="text">
-                     <string>Entropy Rate (ER)</string>
+                  <item row="1" column="0">
+                   <widget class="Line" name="line_2">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
                     </property>
                    </widget>
                   </item>
-                  <item row="5" column="2">
+                  <item row="1" column="2">
+                   <widget class="Line" name="line_3">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="6" column="2">
                    <widget class="QCheckBox" name="step4_feature_err_checkbox">
                     <property name="enabled">
                      <bool>false</bool>
@@ -3338,7 +3299,7 @@ background-color: rgb(0, 0, 0);</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="4" column="2">
+                  <item row="5" column="2">
                    <widget class="QCheckBox" name="step4_feature_he_checkbox">
                     <property name="enabled">
                      <bool>false</bool>
@@ -3366,7 +3327,7 @@ background-color: rgb(0, 0, 0);</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="2">
+                  <item row="4" column="2">
                    <widget class="QCheckBox" name="step4_feature_lzc_checkbox">
                     <property name="enabled">
                      <bool>false</bool>
@@ -3394,17 +3355,59 @@ background-color: rgb(0, 0, 0);</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="0">
-                   <widget class="Line" name="line_2">
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
+                  <item row="3" column="2">
+                   <widget class="QCheckBox" name="step4_feature_er_checkbox">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>0</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>16777215</width>
+                      <height>80</height>
+                     </size>
+                    </property>
+                    <property name="text">
+                     <string>Entropy Rate (ER)</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="1" column="2">
-                   <widget class="Line" name="line_3">
-                    <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
+                  <item row="2" column="2">
+                   <widget class="QCheckBox" name="step4_feature_tp_checkbox">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>0</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>16777215</width>
+                      <height>80</height>
+                     </size>
+                    </property>
+                    <property name="text">
+                     <string>Transition Probability (TP)</string>
                     </property>
                    </widget>
                   </item>
@@ -3797,8 +3800,8 @@ background-color: rgb(0, 0, 0);</string>
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>1153</width>
-               <height>816</height>
+               <width>1137</width>
+               <height>856</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
@@ -4808,7 +4811,7 @@ background-color: rgb(0, 0, 0);</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>18</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -5029,10 +5032,10 @@ background-color: rgb(0, 0, 0);</string>
  <buttongroups>
   <buttongroup name="buttonGroup_7"/>
   <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_6"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_5"/>
  </buttongroups>
 </ui>
