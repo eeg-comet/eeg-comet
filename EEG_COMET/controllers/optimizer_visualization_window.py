@@ -1,8 +1,6 @@
-import os
 import time
 import numpy as np
-import pandas as pd
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5 import uic
@@ -16,6 +14,365 @@ from matplotlib.figure import Figure
 from data_utils.data_initializer import DataInitializer
 from clustering_utils.clusterer_optimizer import ClustererOptimizer, OptimizationResult
 from clustering_utils.microstate_clusterer import MicrostateClusterer
+
+
+# ============================================================================
+# Custom Microstate Clustering Metrics
+# ============================================================================
+
+class MicrostateClusteringMetrics:
+    """
+    A collection of clustering quality metrics specifically designed for
+    polarity-invariant microstate analysis.
+    """
+
+    @staticmethod
+    def compute_custom_silhouette(data: np.ndarray, labels: np.ndarray,
+                                  maps: Optional[np.ndarray] = None) -> float:
+        """
+        Compute silhouette score for polarity-invariant microstate clustering.
+        Optimized version that avoids creating large pairwise distance matrices.
+
+        The silhouette coefficient for a sample is (b - a) / max(a, b), where:
+        - a is the mean distance between a sample and all other points in the same cluster
+        - b is the mean distance between a sample and all points in the nearest cluster
+
+        This implementation uses correlation-based distances: d = 1 - |correlation|
+        to handle polarity invariance in EEG microstates.
+
+        Parameters
+        ----------
+        data : np.ndarray
+            Data matrix of shape (n_channels, n_samples) or (n_samples, n_channels)
+        labels : np.ndarray
+            Cluster labels for each sample
+        maps : np.ndarray, optional
+            Cluster centers (n_clusters, n_channels) - not used in this implementation
+            but kept for API consistency
+
+        Returns
+        -------
+        float
+            Average silhouette score across all samples (-1 to 1, higher is better)
+        """
+        # Ensure data is in (n_samples, n_channels) format for easier computation
+        if data.shape[0] < data.shape[1]:
+            data = data.T
+
+        n_samples, n_channels = data.shape
+        unique_labels = np.unique(labels)
+        n_clusters = len(unique_labels)
+
+        # Handle edge case: only one cluster
+        if n_clusters == 1:
+            return 0.0
+
+        # Check for very large datasets and warn/optimize accordingly
+        if n_samples > 50000:
+            print(f"Warning: Very large dataset ({n_samples} samples). Using aggressive sampling for performance.")
+            return MicrostateClusteringMetrics._compute_sampled_silhouette(
+                data, labels, unique_labels, sample_size=2000
+            )
+        elif n_samples > 10000:
+            print(f"Warning: Large dataset ({n_samples} samples). Using sampling for performance.")
+            return MicrostateClusteringMetrics._compute_sampled_silhouette(
+                data, labels, unique_labels, sample_size=5000
+            )
+        elif n_samples > 1000:
+            return MicrostateClusteringMetrics._compute_batch_silhouette(
+                data, labels, unique_labels
+            )
+        else:
+            return MicrostateClusteringMetrics._compute_efficient_silhouette(
+                data, labels, unique_labels
+            )
+
+    @staticmethod
+    def _compute_sampled_silhouette(data: np.ndarray, labels: np.ndarray, 
+                                    unique_labels: np.ndarray, sample_size: int = 5000) -> float:
+        """
+        Compute silhouette score using sampling for very large datasets.
+        """
+        # Normalize data for correlation computation
+        data_norm = data / (np.linalg.norm(data, axis=1, keepdims=True) + 1e-10)
+        n_samples = data_norm.shape[0]
+        
+        # Stratified sampling to ensure each cluster is represented
+        sample_indices = []
+        for label in unique_labels:
+            label_indices = np.where(labels == label)[0]
+            if len(label_indices) > 0:
+                # Sample proportionally from each cluster
+                cluster_sample_size = max(1, int(sample_size * len(label_indices) / n_samples))
+                cluster_sample_size = min(cluster_sample_size, len(label_indices))
+                sampled = np.random.choice(label_indices, size=cluster_sample_size, replace=False)
+                sample_indices.extend(sampled)
+        
+        sample_indices = np.array(sample_indices)
+        
+        # Compute silhouette on sampled data
+        sampled_data = data_norm[sample_indices]
+        sampled_labels = labels[sample_indices]
+        
+        return MicrostateClusteringMetrics._compute_efficient_silhouette(sampled_data, sampled_labels, unique_labels)
+
+    @staticmethod
+    def _compute_batch_silhouette(data: np.ndarray, labels: np.ndarray, 
+                                  unique_labels: np.ndarray, batch_size: int = 1000) -> float:
+        """
+        Compute silhouette score using batch processing to manage memory.
+        """
+        # Normalize data for correlation computation
+        data_norm = data / (np.linalg.norm(data, axis=1, keepdims=True) + 1e-10)
+        n_samples = data_norm.shape[0]
+        silhouette_scores = np.zeros(n_samples)
+        
+        # Process data in batches
+        for start_idx in range(0, n_samples, batch_size):
+            end_idx = min(start_idx + batch_size, n_samples)
+            batch_indices = slice(start_idx, end_idx)
+            
+            batch_data = data_norm[batch_indices]
+            batch_labels = labels[batch_indices]
+            
+            # Compute distances for this batch against all data
+            batch_scores = MicrostateClusteringMetrics._compute_batch_scores(
+                batch_data, batch_labels, data_norm, labels, unique_labels, start_idx
+            )
+            
+            silhouette_scores[batch_indices] = batch_scores
+        
+        return np.mean(silhouette_scores)
+
+    @staticmethod
+    def _compute_batch_scores(batch_data: np.ndarray, batch_labels: np.ndarray,
+                              all_data: np.ndarray, all_labels: np.ndarray,
+                              unique_labels: np.ndarray, start_idx: int) -> np.ndarray:
+        """
+        Compute silhouette scores for a batch of samples.
+        """
+        batch_size = batch_data.shape[0]
+        batch_scores = np.zeros(batch_size)
+        
+        for i in range(batch_size):
+            global_i = start_idx + i
+            current_label = batch_labels[i]
+            sample = batch_data[i:i+1]  # Keep as 2D array
+            
+            # Calculate a(i): average distance to points in same cluster
+            same_cluster_mask = (all_labels == current_label) & (np.arange(len(all_labels)) != global_i)
+            n_same = np.sum(same_cluster_mask)
+            
+            if n_same > 0:
+                same_cluster_data = all_data[same_cluster_mask]
+                correlations = np.abs(np.dot(sample, same_cluster_data.T)).flatten()
+                distances = 1 - correlations
+                a_i = np.mean(distances)
+            else:
+                a_i = 0.0
+            
+            # Calculate b(i): minimum average distance to points in other clusters
+            b_i = np.inf
+            
+            for other_label in unique_labels:
+                if other_label != current_label:
+                    other_cluster_mask = all_labels == other_label
+                    n_other = np.sum(other_cluster_mask)
+                    
+                    if n_other > 0:
+                        other_cluster_data = all_data[other_cluster_mask]
+                        correlations = np.abs(np.dot(sample, other_cluster_data.T)).flatten()
+                        distances = 1 - correlations
+                        mean_dist = np.mean(distances)
+                        b_i = min(b_i, mean_dist)
+            
+            # Calculate silhouette coefficient for this sample
+            if b_i == np.inf:
+                s_i = 0.0
+            else:
+                max_val = max(a_i, b_i)
+                if max_val > 0:
+                    s_i = (b_i - a_i) / max_val
+                else:
+                    s_i = 0.0
+            
+            batch_scores[i] = s_i
+        
+        return batch_scores
+
+    @staticmethod
+    def _compute_efficient_silhouette(data_norm: np.ndarray, labels: np.ndarray, 
+                                      unique_labels: np.ndarray) -> float:
+        """
+        Compute silhouette score efficiently for small to moderate datasets.
+        """
+        n_samples = data_norm.shape[0]
+        silhouette_scores = np.zeros(n_samples)
+        
+        for i in range(n_samples):
+            current_label = labels[i]
+            sample = data_norm[i:i+1]  # Keep as 2D array
+            
+            # Calculate a(i): average distance to points in same cluster
+            same_cluster_mask = (labels == current_label) & (np.arange(n_samples) != i)
+            n_same = np.sum(same_cluster_mask)
+            
+            if n_same > 0:
+                same_cluster_data = data_norm[same_cluster_mask]
+                # Compute correlations in batches if needed
+                if n_same > 5000:
+                    correlations = []
+                    batch_size = 1000
+                    for start in range(0, n_same, batch_size):
+                        end = min(start + batch_size, n_same)
+                        batch_corr = np.abs(np.dot(sample, same_cluster_data[start:end].T)).flatten()
+                        correlations.extend(batch_corr)
+                    correlations = np.array(correlations)
+                else:
+                    correlations = np.abs(np.dot(sample, same_cluster_data.T)).flatten()
+                
+                distances = 1 - correlations
+                a_i = np.mean(distances)
+            else:
+                a_i = 0.0
+            
+            # Calculate b(i): minimum average distance to points in other clusters
+            b_i = np.inf
+            
+            for other_label in unique_labels:
+                if other_label != current_label:
+                    other_cluster_mask = labels == other_label
+                    n_other = np.sum(other_cluster_mask)
+                    
+                    if n_other > 0:
+                        other_cluster_data = data_norm[other_cluster_mask]
+                        # Compute correlations in batches if needed
+                        if n_other > 5000:
+                            correlations = []
+                            batch_size = 1000
+                            for start in range(0, n_other, batch_size):
+                                end = min(start + batch_size, n_other)
+                                batch_corr = np.abs(np.dot(sample, other_cluster_data[start:end].T)).flatten()
+                                correlations.extend(batch_corr)
+                            correlations = np.array(correlations)
+                        else:
+                            correlations = np.abs(np.dot(sample, other_cluster_data.T)).flatten()
+                        
+                        distances = 1 - correlations
+                        mean_dist = np.mean(distances)
+                        b_i = min(b_i, mean_dist)
+            
+            # Calculate silhouette coefficient for this sample
+            if b_i == np.inf:
+                s_i = 0.0
+            else:
+                max_val = max(a_i, b_i)
+                if max_val > 0:
+                    s_i = (b_i - a_i) / max_val
+                else:
+                    s_i = 0.0
+            
+            silhouette_scores[i] = s_i
+        
+        return np.mean(silhouette_scores)
+
+    @staticmethod
+    def compute_custom_davies_bouldin(data: np.ndarray, labels: np.ndarray,
+                                      maps: np.ndarray) -> float:
+        """
+        Compute Davies-Bouldin Index for polarity-invariant microstate clustering.
+
+        The Davies-Bouldin Index is defined as:
+        DBI = (1/K) * Σ(i=1 to K) max_j≠i[(S_i + S_j) / d_ij]
+
+        Where:
+        - K is the number of clusters
+        - S_i is the average within-cluster distance for cluster i
+        - d_ij is the distance between cluster centers i and j
+
+        Lower values indicate better clustering (minimum value is 0).
+        This implementation uses correlation-based distances for polarity invariance.
+
+        Parameters
+        ----------
+        data : np.ndarray
+            Data matrix of shape (n_channels, n_samples)
+        labels : np.ndarray
+            Cluster labels for each sample
+        maps : np.ndarray
+            Cluster centers of shape (n_clusters, n_channels)
+
+        Returns
+        -------
+        float
+            Davies-Bouldin Index (lower is better)
+        """
+        n_channels, n_samples = data.shape
+        unique_labels = np.unique(labels)
+        n_clusters = len(unique_labels)
+
+        # Handle edge case: only one cluster
+        if n_clusters == 1:
+            return 0.0
+
+        # Normalize data and maps for correlation computation
+        data_norm = data / (np.linalg.norm(data, axis=0, keepdims=True) + 1e-10)
+        maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
+
+        # Step 1: Calculate within-cluster scatter (S_i) for each cluster
+        within_cluster_scatter = np.zeros(n_clusters)
+
+        for i, label in enumerate(unique_labels):
+            cluster_mask = labels == label
+            n_points = np.sum(cluster_mask)
+
+            if n_points > 0:
+                # Get normalized cluster data
+                cluster_data = data_norm[:, cluster_mask]
+                cluster_center = maps_norm[i:i + 1]
+
+                # Compute scatter as average correlation distance from center
+                # Correlation: center @ data
+                correlations = np.abs(np.dot(cluster_center, cluster_data)).flatten()
+                distances = 1 - correlations
+
+                # S_i = average distance within cluster
+                within_cluster_scatter[i] = np.mean(distances)
+            else:
+                within_cluster_scatter[i] = 0.0
+
+        # Step 2: Calculate between-cluster distances (d_ij) using correlation
+        between_cluster_dist = np.zeros((n_clusters, n_clusters))
+
+        for i in range(n_clusters):
+            for j in range(i + 1, n_clusters):
+                # Correlation-based distance between normalized cluster centers
+                correlation = np.abs(np.dot(maps_norm[i], maps_norm[j]))
+                distance = 1 - correlation
+                between_cluster_dist[i, j] = distance
+                between_cluster_dist[j, i] = distance  # Symmetric matrix
+
+        # Step 3: For each cluster, find the maximum similarity ratio
+        db_scores = np.zeros(n_clusters)
+
+        for i in range(n_clusters):
+            max_ratio = 0.0
+
+            for j in range(n_clusters):
+                if i != j:
+                    # Calculate similarity ratio: (S_i + S_j) / d_ij
+                    if between_cluster_dist[i, j] > 1e-10:
+                        ratio = (within_cluster_scatter[i] + within_cluster_scatter[j]) / between_cluster_dist[i, j]
+                        max_ratio = max(max_ratio, ratio)
+                    else:
+                        # If centers are nearly identical (shouldn't happen in practice)
+                        # Assign a high penalty
+                        max_ratio = max(max_ratio, 10.0)
+
+            db_scores[i] = max_ratio
+
+        # Step 4: Return average of maximum ratios
+        return np.mean(db_scores)
 
 
 # ============================================================================
@@ -259,12 +616,97 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             self.eeg_data = self.maps2use
             print(f"Data already in correct format: {self.eeg_data.shape}")
 
+        # Validate data size and provide memory warnings
+        n_channels, n_samples = self.eeg_data.shape
+        self._validate_data_size(n_channels, n_samples)
+
         self.batch_size = batch_size
+
+        # Initialize metrics calculator
+        self.metrics_calculator = MicrostateClusteringMetrics()
 
         print(f"Initialized MicrostateClustererOptimizer:")
         print(f"  EEG data shape: {self.eeg_data.shape} (channels × samples)")
         print(f"  K range: {kmin} to {kmax}")
         print(f"  Using modified K-means (polarity-independent)")
+        print(f"  Memory usage strategy: {self._get_memory_strategy(n_samples)}")
+
+    def _validate_data_size(self, n_channels: int, n_samples: int):
+        """
+        Validate data size and provide warnings about potential memory issues.
+        """
+        # Calculate approximate memory requirements
+        memory_gb = self._estimate_memory_usage(n_samples)
+        
+        print(f"\nData validation:")
+        print(f"  Channels: {n_channels}")
+        print(f"  Samples: {n_samples:,}")
+        print(f"  Estimated peak memory usage: {memory_gb:.2f} GB")
+        
+        # Provide warnings based on data size
+        if n_samples > 100000:
+            print(f"\n⚠️  WARNING: Very large dataset detected!")
+            print(f"  - {n_samples:,} samples may cause memory issues")
+            print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
+            print(f"  - Using aggressive sampling and batch processing")
+            print(f"  - Consider using fewer samples or more RAM")
+            
+        elif n_samples > 50000:
+            print(f"\n⚠️  WARNING: Large dataset detected!")
+            print(f"  - {n_samples:,} samples will use sampling for efficiency")
+            print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
+            print(f"  - Processing will be slower but memory-safe")
+            
+        elif n_samples > 10000:
+            print(f"\nℹ️  INFO: Medium dataset detected")
+            print(f"  - {n_samples:,} samples will use batch processing")
+            print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
+            print(f"  - Processing optimized for memory efficiency")
+            
+        else:
+            print(f"\nℹ️  INFO: Small dataset - optimal for full computation")
+            print(f"  - {n_samples:,} samples can be processed efficiently")
+
+        # Check if this might be raw data instead of GFP peaks
+        if n_samples > 50000:
+            print(f"\n🔍 DIAGNOSTIC: Very high sample count detected")
+            print(f"  - Are you using raw EEG timepoints instead of GFP peaks?")
+            print(f"  - Microstate analysis typically uses GFP peaks (~hundreds to thousands)")
+            print(f"  - Consider using only GFP peak timepoints for better results")
+
+    def _estimate_memory_usage(self, n_samples: int) -> float:
+        """
+        Estimate peak memory usage in GB for the clustering process.
+        """
+        # Main memory consumers:
+        # 1. Distance matrices for silhouette (avoided with optimization)
+        # 2. Correlation matrices in batch processing
+        # 3. Data copies and intermediate arrays
+        
+        # Conservative estimate based on optimized algorithms
+        if n_samples > 50000:
+            # Using sampling approach
+            estimated_mb = (n_samples * 64 * 8) / (1024**2)  # Basic data storage
+            estimated_mb += 100  # Overhead for sampling and processing
+        elif n_samples > 10000:
+            # Using batch processing
+            estimated_mb = (n_samples * 128 * 8) / (1024**2)  # Data + batch overhead
+        else:
+            # Full computation but optimized
+            estimated_mb = (n_samples * 256 * 8) / (1024**2)  # Data + correlation matrices
+        
+        return estimated_mb / 1024  # Convert to GB
+
+    def _get_memory_strategy(self, n_samples: int) -> str:
+        """Get the memory strategy description based on sample count."""
+        if n_samples > 50000:
+            return "Aggressive sampling (memory-critical)"
+        elif n_samples > 10000:
+            return "Stratified sampling (memory-efficient)"
+        elif n_samples > 1000:
+            return "Batch processing (balanced)"
+        else:
+            return "Full computation (optimal)"
 
     def _perform_single_clustering(self, k):
         """Perform modified K-means clustering for a single K value"""
@@ -353,188 +795,72 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
     def _compute_all_metrics(self, clustering_result, k, best_labels, best_gev, best_residual):
         """Compute all metrics for the clustering result"""
-        try:
-            # 1. Global Explained Variance (PRIMARY metric for microstates)
-            clustering_result['gev'] = best_gev
+        # 1. Global Explained Variance (PRIMARY metric for microstates)
+        clustering_result['gev'] = best_gev
 
-            # 2. Residual Variance
-            clustering_result['residual_variance'] = best_residual
+        # 2. Residual Variance
+        clustering_result['residual_variance'] = best_residual
 
-            # 3. For sklearn-compatible metrics, use the original data format
-            sample_features = self.maps2use  # (n_samples, n_features)
+        # 3. Prepare data matrix for metrics: shape (n_samples, n_features)
+        #    self.eeg_data is (n_channels × n_samples), so transpose to (n_samples × n_channels)
+        sample_features = self.eeg_data.T
 
-            # 4. Silhouette Score (if k > 1)
-            if k > 1 and len(np.unique(best_labels)) > 1:
-                clustering_result['silhouette'] = self._compute_silhouette_score(
-                    sample_features, best_labels
-                )
-            else:
-                clustering_result['silhouette'] = 0.0
-
-            # 5. Calinski-Harabasz Index (if k > 1)
-            if k > 1 and len(np.unique(best_labels)) > 1:
-                clustering_result['calinski_harabasz'] = self._compute_calinski_harabasz_score(
-                    sample_features, best_labels
-                )
-            else:
-                clustering_result['calinski_harabasz'] = 0.0
-
-            # 6. Davies-Bouldin Index (if k > 1)
-            if k > 1 and len(np.unique(best_labels)) > 1:
-                clustering_result['davies_bouldin'] = self._compute_davies_bouldin_score(
-                    sample_features, best_labels
-                )
-            else:
-                clustering_result['davies_bouldin'] = np.inf
-
-            # 7. Cross Validation Score (use GEV as proxy for microstates)
-            clustering_result['cv_score'] = best_gev
-
-            # 8. Gap Statistic (microstate-adapted version)
-            clustering_result['gap_statistic'] = self._calculate_gap_statistic_microstate(
-                clustering_result, k
+        # 4. Silhouette Score (if k > 1) - CUSTOM IMPLEMENTATION
+        if k > 1:
+            clustering_result['silhouette'] = self.metrics_calculator.compute_custom_silhouette(
+                sample_features, best_labels
             )
+        else:
+            clustering_result['silhouette'] = 0.0
 
+        # 5. Calinski-Harabasz Index
+        try:
+            # Use custom polarity-invariant CH implementation from parent class
+            maps = clustering_result.get('centers')  # shape: (k, n_channels)
+
+            # Ensure that required data are present
+            if maps is not None and maps.shape[0] == k:
+                ch_score = self._compute_custom_calinski_harabasz(
+                    data=self.eeg_data,  # (n_channels × n_samples)
+                    maps=maps,  # (k × n_channels)
+                    segmentation=best_labels,  # (n_samples,)
+                    k=k
+                )
+            else:
+                raise ValueError("Cluster centers missing or have unexpected shape for CH computation")
+
+            clustering_result['calinski_harabasz'] = ch_score
         except Exception as e:
-            print(f"        Warning: Error computing metrics for k={k}: {str(e)}")
-            # Set default values for failed metrics
-            clustering_result.setdefault('gev', 0.0)
-            clustering_result.setdefault('residual_variance', np.inf)
-            clustering_result.setdefault('silhouette', 0.0)
-            clustering_result.setdefault('calinski_harabasz', 0.0)
-            clustering_result.setdefault('davies_bouldin', np.inf)
-            clustering_result.setdefault('cv_score', 0.0)
-            clustering_result.setdefault('gap_statistic', 0.0)
+            print(f"        Warning: CH computation failed for k={k}: {str(e)}")
+            clustering_result['calinski_harabasz'] = 0.0
+
+        # 6. Davies-Bouldin Index (if k > 1) - CUSTOM IMPLEMENTATION
+        if k > 1:
+            clustering_result['davies_bouldin'] = self.metrics_calculator.compute_custom_davies_bouldin(
+                self.eeg_data,  # (n_channels × n_samples)
+                best_labels,  # (n_samples,)
+                clustering_result.get('centers')  # (k × n_channels)
+            )
+        else:
+            clustering_result['davies_bouldin'] = 0.0
+
+        # 7. Cross Validation Score (use GEV as proxy for microstates)
+        clustering_result['cv_score'] = best_gev
+
+        # 8. Gap Statistic (microstate-adapted version)
+        clustering_result['gap_statistic'] = self._calculate_gap_statistic_microstate(
+            clustering_result, k
+        )
 
     def _compute_silhouette_score(self, data, labels):
-        """Compute silhouette score"""
-        try:
-            from sklearn.metrics import silhouette_score
-            return silhouette_score(data, labels, metric='euclidean')
-        except ImportError:
-            return self._manual_silhouette_score(data, labels)
-
-    def _compute_calinski_harabasz_score(self, data, labels):
-        """Compute Calinski-Harabasz score"""
-        try:
-            from sklearn.metrics import calinski_harabasz_score
-            return calinski_harabasz_score(data, labels)
-        except ImportError:
-            return self._manual_calinski_harabasz_score(data, labels)
+        """Compute custom silhouette score for polarity-invariant clustering"""
+        return self.metrics_calculator.compute_custom_silhouette(data, labels)
 
     def _compute_davies_bouldin_score(self, data, labels):
-        """Compute Davies-Bouldin score"""
-        try:
-            from sklearn.metrics import davies_bouldin_score
-            return davies_bouldin_score(data, labels)
-        except ImportError:
-            return self._manual_davies_bouldin_score(data, labels)
-
-    def _manual_silhouette_score(self, data, labels):
-        """Manual implementation of silhouette score"""
-        n_samples = data.shape[0]
-        if n_samples < 2:
-            return 0.0
-
-        distances = np.sqrt(((data[:, np.newaxis, :] - data[np.newaxis, :, :]) ** 2).sum(axis=2))
-        silhouette_scores = []
-        unique_labels = np.unique(labels)
-
-        for i in range(n_samples):
-            current_label = labels[i]
-
-            # Calculate a(i) - mean distance to points in same cluster
-            same_cluster_mask = (labels == current_label) & (np.arange(n_samples) != i)
-            if np.sum(same_cluster_mask) > 0:
-                a_i = np.mean(distances[i, same_cluster_mask])
-            else:
-                a_i = 0.0
-
-            # Calculate b(i) - minimum mean distance to points in other clusters
-            b_i = np.inf
-            for other_label in unique_labels:
-                if other_label != current_label:
-                    other_cluster_mask = (labels == other_label)
-                    if np.sum(other_cluster_mask) > 0:
-                        mean_dist_to_other = np.mean(distances[i, other_cluster_mask])
-                        b_i = min(b_i, mean_dist_to_other)
-
-            # Calculate silhouette score for this point
-            if max(a_i, b_i) > 0:
-                s_i = (b_i - a_i) / max(a_i, b_i)
-            else:
-                s_i = 0.0
-
-            silhouette_scores.append(s_i)
-
-        return np.mean(silhouette_scores)
-
-    def _manual_calinski_harabasz_score(self, data, labels):
-        """Manual implementation of Calinski-Harabasz score"""
-        n_samples, n_features = data.shape
-        unique_labels = np.unique(labels)
-        n_clusters = len(unique_labels)
-
-        if n_clusters == 1:
-            return 0.0
-
-        overall_mean = np.mean(data, axis=0)
-        between_cluster_ss = 0.0
-        within_cluster_ss = 0.0
-
-        for label in unique_labels:
-            cluster_data = data[labels == label]
-            cluster_size = len(cluster_data)
-
-            if cluster_size > 0:
-                cluster_mean = np.mean(cluster_data, axis=0)
-                between_cluster_ss += cluster_size * np.sum((cluster_mean - overall_mean) ** 2)
-                within_cluster_ss += np.sum((cluster_data - cluster_mean) ** 2)
-
-        if within_cluster_ss == 0:
-            return 0.0
-
-        ch_score = (between_cluster_ss / (n_clusters - 1)) / (within_cluster_ss / (n_samples - n_clusters))
-        return ch_score
-
-    def _manual_davies_bouldin_score(self, data, labels):
-        """Manual implementation of Davies-Bouldin score"""
-        unique_labels = np.unique(labels)
-        n_clusters = len(unique_labels)
-
-        if n_clusters == 1:
-            return 0.0
-
-        centers = []
-        within_cluster_scatter = []
-
-        for label in unique_labels:
-            cluster_data = data[labels == label]
-            if len(cluster_data) > 0:
-                center = np.mean(cluster_data, axis=0)
-                centers.append(center)
-                scatter = np.mean(np.sqrt(np.sum((cluster_data - center) ** 2, axis=1)))
-                within_cluster_scatter.append(scatter)
-            else:
-                centers.append(np.zeros(data.shape[1]))
-                within_cluster_scatter.append(0.0)
-
-        centers = np.array(centers)
-        within_cluster_scatter = np.array(within_cluster_scatter)
-
-        db_scores = []
-
-        for i in range(n_clusters):
-            max_ratio = 0.0
-            for j in range(n_clusters):
-                if i != j:
-                    center_distance = np.sqrt(np.sum((centers[i] - centers[j]) ** 2))
-                    if center_distance > 0:
-                        ratio = (within_cluster_scatter[i] + within_cluster_scatter[j]) / center_distance
-                        max_ratio = max(max_ratio, ratio)
-            db_scores.append(max_ratio)
-
-        return np.mean(db_scores)
+        """Compute custom Davies-Bouldin score for polarity-invariant clustering"""
+        # This method should not be called anymore, but kept for compatibility
+        # The actual computation is done in _compute_all_metrics
+        return 0.0
 
     def _calculate_gap_statistic_microstate(self, clustering_result, k):
         """Calculate gap statistic adapted for microstate analysis"""
@@ -572,9 +898,9 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             print(f"\nMicrostate Metrics for k={k}:")
             print(f"  Global Explained Variance: {metrics['gev']:.4f}")
             print(f"  Residual Variance: {metrics['residual_variance']:.6f}")
-            print(f"  Silhouette Score: {metrics['silhouette']:.4f}")
-            print(f"  Calinski-Harabasz: {metrics['calinski_harabasz']:.2f}")
-            print(f"  Davies-Bouldin: {metrics['davies_bouldin']:.4f}")
+            print(f"  Silhouette Score: {metrics['silhouette']:.4f} (custom polarity-invariant)")
+            print(f"  Calinski-Harabasz: {metrics['calinski_harabasz']:.2f} (custom polarity-invariant)")
+            print(f"  Davies-Bouldin: {metrics['davies_bouldin']:.4f} (custom polarity-invariant)")
 
         return metrics
 
@@ -1167,6 +1493,7 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         print(f"Microstate optimizer initialized with K range: {kmin} to {kmax}")
         print("Using modified K-means algorithm (polarity-independent)")
+        print("Using custom Silhouette and Davies-Bouldin implementations")
 
     def _get_method_parameters(self) -> Optional[Dict[str, float]]:
         """Get parameters from UI for methods that need them"""
@@ -1229,6 +1556,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         print("\n" + "=" * 60)
         print("ALL MICROSTATE OPTIMIZATION METHODS COMPLETED AND SAVED!")
         print("Using modified K-means (polarity-independent)")
+        print("Using custom metrics for Silhouette and Davies-Bouldin")
         print("=" * 60)
 
         # Display detailed results
@@ -1266,6 +1594,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         print("\n" + "=" * 60)
         print("NOTE: All results computed using modified K-means algorithm")
         print("This ensures polarity-independent microstate identification")
+        print("Silhouette and Davies-Bouldin use custom polarity-invariant implementations")
         print("Results have been saved and will be available next time you load this study")
 
     def _on_optimization_error(self, error_msg: str):
@@ -1504,7 +1833,14 @@ class OptimizerVisualizationWindow(QMainWindow):
     def _create_plot_title(self, result: Any, results: Dict[str, Any],
                            threshold: Optional[float], method_code: str) -> str:
         """Create the plot title"""
-        title_parts = [result.method_name + " (Modified K-means)"]
+        title_parts = [result.method_name]
+
+        # Add specific notes for custom implementations
+        if method_code in ['sil', 'db']:
+            title_parts[0] += " (Custom Polarity-Invariant)"
+        else:
+            title_parts[0] += " (Modified K-means)"
+
         title_parts.append(f"K range: {result.k_values[0]} to {result.k_values[-1]}")
 
         if threshold is not None and method_code in ['gev', 'res']:
@@ -1577,6 +1913,7 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         summary = {
             'algorithm': 'Modified K-means (polarity-independent)',
+            'metrics': 'Custom implementations for Silhouette and Davies-Bouldin',
             'results': {},
             'has_saved_results': True,
             'last_updated': time.strftime('%Y-%m-%d %H:%M:%S')
