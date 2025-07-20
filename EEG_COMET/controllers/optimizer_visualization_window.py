@@ -50,8 +50,6 @@ class OptimizedOptimizerWorker(QThread):
             metrics_data = {method: [] for method in self.methods_to_run}
 
             print(f"\n[CLUSTERING] Starting microstate optimization analysis")
-            print(f"[INFO] K range: {self.optimizer.kmin} to {self.optimizer.kmax}")
-            print(f"[INFO] Methods: {', '.join(self.methods_to_run)}")
             print(f"[CLUSTERING] Using modified K-means algorithm (polarity-independent)")
 
             # For each K value, compute clustering once and calculate all metrics
