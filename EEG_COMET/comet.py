@@ -958,8 +958,8 @@ class COMET:
         Save clustering results to files
         """
         try:
-            # Create clustering results directory
-            clustering_results_path = os.path.join(self.save_dir, 'clustering_results')
+            # Create clustering results directory with proper naming convention
+            clustering_results_path = os.path.join(self.save_dir, f"{self.study_name}_clustering_results")
             os.makedirs(clustering_results_path, exist_ok=True)
 
             # Save microstate maps
@@ -974,8 +974,6 @@ class COMET:
             self.config["clustering_results"]["best_residual"] = str(self.best_residual)
             self.config["clustering_results"]["number_of_maps"] = str(self.number_of_maps)
             self.config["clustering_results"]["clustering_method"] = self.clustering_method
-
-            print(f'[CLUSTERING] Clustering results saved to: {clustering_results_path}')
 
         except Exception as e:
             error_msg = f"[ERROR] Failed to save clustering results: {str(e)}"
@@ -1228,7 +1226,6 @@ class COMET:
         Returns partial results if available.
         """
         stop_msg = f"Clustering process stopped by user at: {stopped_at_step}"
-        print(f"[INFO] {stop_msg}")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.append_log(stop_msg, log_type='warning')
@@ -1240,7 +1237,6 @@ class COMET:
             self.best_residual = best_residual
             
             partial_msg = f"Partial results saved from {completed_repetitions} completed clustering repetitions"
-            print(f"[INFO] {partial_msg}")
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(partial_msg, log_type='info')
                 self.LogWindow.append_log(f"Best GEV from partial results: {best_gev:.4f}")
@@ -1256,7 +1252,6 @@ class COMET:
         else:
             # No partial results available
             no_results_msg = "No clustering results available - process stopped too early"
-            print(f"[INFO] {no_results_msg}")
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(no_results_msg, log_type='warning')
             
@@ -1408,7 +1403,6 @@ class COMET:
                     optimizer_mode=self.stopping_mode,
                     parameter_value=self.stopping_parameter
                 )
-                print(f'[INFO] Optimal number of maps determined: {optimal_k}')
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")
 
@@ -1418,7 +1412,6 @@ class COMET:
             if "stopped by user" in str(e):
                 # Handle user-initiated stop
                 stop_msg = "Auto-k optimization stopped by user"
-                print(f"[INFO] {stop_msg}")
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(stop_msg, log_type='warning')
                 # Fallback to default
@@ -1433,7 +1426,7 @@ class COMET:
                 self.LogWindow.append_log(error_msg, log_type='error')
             # Fallback to default
             self.number_of_maps = 4
-            print(f"[INFO] Using fallback number of maps: {self.number_of_maps}")
+            print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
 
     def _run_automatic_optimization_core(self):
         """
@@ -1462,7 +1455,6 @@ class COMET:
                     optimizer_mode=self.stopping_mode,
                     parameter_value=self.stopping_parameter
                 )
-                print(f'[CLUSTERING] Optimal number of maps determined: {optimal_k}')
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")
 
@@ -2377,7 +2369,6 @@ class COMET:
             microstate_window.plot_maps()  # Plot the microstates
             microstate_window.show()
             
-            print("[INFO] Microstate labeling window launched successfully")
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log("Microstate labeling window launched", log_type='info')
                 
