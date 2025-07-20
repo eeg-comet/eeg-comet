@@ -218,7 +218,7 @@ class MicrostateClusterer:
             # Check if we should stop
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"\n[INFO] Clustering stopped at iteration {iteration}")
+                    print(f"\n[CLUSTERING] Clustering stopped at iteration {iteration}")
                 return maps, prev_residual  # Return current best maps
 
             # Initialize arrays for segmentation and best similarities
@@ -345,7 +345,6 @@ class MicrostateClusterer:
 
         if verbose:
             print(f"[CLUSTERING] Starting TAAHC clustering")
-            print(f"[INFO] Data shape: {data.shape}, Target states: {self.n_states}, Batch size: {self.batch_size}")
             print(f"[CLUSTERING] Using similarity metric: {metric}")
             start_time = time.time()
 
@@ -390,19 +389,15 @@ class MicrostateClusterer:
 
         # Step 1: Calculate GFP (Global Field Power)
         update_progress("Calculating GFP curve...")
-        if verbose:
-            print("[INFO] Calculating GFP curve...")
         gfp_curve = np.std(data, axis=0)
 
         # Step 2: Find GFP peaks (local maxima)
         update_progress("Detecting GFP peaks...")
-        if verbose:
-            print("[INFO] Detecting GFP peaks...")
         peaks = np.where((gfp_curve[:-2] < gfp_curve[1:-1]) &
                          (gfp_curve[1:-1] > gfp_curve[2:]))[0] + 1
 
         if verbose:
-            print(f"[INFO] Found {len(peaks)} GFP peaks")
+            print(f"[CLUSTERING] Found {len(peaks)} GFP peaks")
 
         if len(peaks) < self.n_states:
             update_progress(f"Adding random samples (found only {len(peaks)} peaks)...")
@@ -415,12 +410,10 @@ class MicrostateClusterer:
                                           replace=False)
             peaks = np.concatenate([peaks, additional])
             if verbose:
-                print(f"[INFO] Added {len(additional)} random samples as initial states")
+                print(f"[CLUSTERING] Added {len(additional)} random samples as initial states")
 
         # Step 3: Initialize with peak maps
         update_progress("Initializing with peak maps...")
-        if verbose:
-            print("[INFO] Initializing with peak maps...")
         peak_data = data[:, peaks]
         maps = peak_data.T.copy()  # Shape: (n_peaks, n_channels)
         n_maps = maps.shape[0]
@@ -446,7 +439,6 @@ class MicrostateClusterer:
 
         if verbose:
             print(f"[CLUSTERING] Starting hierarchical clustering with {n_maps} maps")
-            print(f"[INFO] Reducing to {self.n_states} states")
             print("=====================================================")
 
         update_progress(f"Starting hierarchical clustering: {n_maps} → {self.n_states} maps...")
@@ -500,13 +492,6 @@ class MicrostateClusterer:
                 
                 print(f"[CLUSTERING] TAAHC Iteration {iteration}: {n_maps} maps remaining ({remaining_iterations} to go), "
                       f"elapsed: {elapsed:.1f}s{eta_msg}")
-                
-                # Update progress percentage
-                if total_iterations_needed > 0:
-                    progress_pct = ((total_iterations_needed - remaining_iterations) / total_iterations_needed) * 100
-                    print(f"[INFO] Progress: {progress_pct:.1f}% complete")
-                else:
-                    print(f"[INFO] Progress: Final iteration")
 
             # Initialize arrays to store assignments and best correlations
             assignments = np.zeros(n_samples, dtype=int)
@@ -527,9 +512,6 @@ class MicrostateClusterer:
 
             for b, batch_start in enumerate(range(0, n_samples, batch_size)):
                 batch_end = min(batch_start + batch_size, n_samples)
-
-                if verbose and n_maps <= self.n_states + 10 and (b % 20 == 0 or b == batch_count - 1):
-                    print(f"[INFO] Batch {b + 1}/{batch_count}: samples {batch_start}-{batch_end}")
 
                 batch_data = data[:, batch_start:batch_end]
 
@@ -574,7 +556,6 @@ class MicrostateClusterer:
 
             if verbose and n_maps <= self.n_states + 10:
                 print(f"[CLUSTERING] Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}")
-                print(f"[INFO] Cluster size: {cluster_sizes[worst_idx]} samples")
 
             # Update progress for map removal
             update_progress(f"Removing weakest map (#{worst_idx}), reassigning {cluster_sizes[worst_idx]} points...")
@@ -584,9 +565,6 @@ class MicrostateClusterer:
 
             # Get and remove indices from the worst cluster
             removed_indices = cluster_indices.pop(worst_idx)
-
-            if verbose and n_maps <= self.n_states + 5:
-                print(f"[INFO] Reassigning {len(removed_indices)} points from removed cluster")
 
             # Get data points from removed cluster
             removed_data = peak_data[:, removed_indices].T
@@ -613,9 +591,6 @@ class MicrostateClusterer:
             for i, idx in enumerate(reassign_idx):
                 cluster_indices[idx].append(removed_indices[i])
                 updated_clusters.add(idx)
-
-            if verbose and n_maps <= self.n_states + 5:
-                print(f"[INFO] Recalculating {len(updated_clusters)} cluster centers")
 
             # Update progress for cluster center recalculation
             update_progress(f"Recalculating {len(updated_clusters)} cluster centers...")
@@ -649,10 +624,10 @@ class MicrostateClusterer:
 
             if verbose and n_maps == self.n_states:
                 print("=====================================================")
-                print(f"[INFO] Reached target of {self.n_states} states after {iteration} iterations")
+                print(f"[CLUSTERING] Reached target of {self.n_states} states after {iteration} iterations")
                 total_time = time.time() - start_time
                 avg_iter_time = np.mean(iteration_times) if iteration_times else 0
-                print(f"[INFO] Total time: {total_time:.1f}s, Average iteration time: {avg_iter_time:.3f}s")
+                print(f"[CLUSTERING] Total time: {total_time:.1f}s, Average iteration time: {avg_iter_time:.3f}s")
 
         # Final processing
         update_progress("Calculating final assignments and residual...")
@@ -674,7 +649,6 @@ class MicrostateClusterer:
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
                     print(f"\n[CLUSTERING] TAAHC stopped during final processing")
-                    print(f"[INFO] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
                 return None, np.inf
 
             if verbose and (b % 20 == 0 or b == batch_count - 1):
@@ -709,7 +683,6 @@ class MicrostateClusterer:
                 if worker and hasattr(worker, 'stopped') and worker.stopped:
                     if verbose:
                         print(f"\n[CLUSTERING] TAAHC stopped during final statistics")
-                        print(f"[INFO] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
                     # Return None for maps since we don't have the correct number of states
                     return None, np.inf
                     
@@ -728,15 +701,10 @@ class MicrostateClusterer:
             total_time = time.time() - start_time
             print("=====================================================")
             print(f"[CLUSTERING] TAAHC clustering completed successfully!")
-            print(f"[INFO] Total time: {total_time:.2f} seconds")
+            print(f"[CLUSTERING] Total time: {total_time:.2f} seconds")
             print(f"[CLUSTERING] Using similarity metric: {metric}")
-            print(f"[INFO] Final {self.n_states} microstate maps:")
-            for i in range(self.n_states):
-                count = np.sum(final_assignments == i)
-                pct = 100 * count / n_samples
-                print(f"[INFO]   Map #{i}: {count} samples ({pct:.1f}%)")
-            print(f"[INFO] Residual: {residual:.6f}")
-            print(f"[INFO] Average iteration time: {np.mean(iteration_times):.3f}s")
+            print(f"[CLUSTERING] Residual: {residual:.6f}")
+            print(f"[CLUSTERING] Average iteration time: {np.mean(iteration_times):.3f}s")
             print("=====================================================")
 
         # Final progress update
