@@ -101,7 +101,8 @@ def run_application():
 
         # Show the window
         window.show()
-        logger.success("Application started successfully!")
+        print("\n" + "=" * 60)
+        logger.info("Application started successfully")
         
         # Start the application
         exit_code = app.exec_()
