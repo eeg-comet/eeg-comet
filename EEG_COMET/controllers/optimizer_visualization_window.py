@@ -49,10 +49,10 @@ class OptimizedOptimizerWorker(QThread):
 
             metrics_data = {method: [] for method in self.methods_to_run}
 
-            print(f"\n[INFO] Starting microstate optimization analysis")
+            print(f"\n[CLUSTERING] Starting microstate optimization analysis")
             print(f"[INFO] K range: {self.optimizer.kmin} to {self.optimizer.kmax}")
             print(f"[INFO] Methods: {', '.join(self.methods_to_run)}")
-            print(f"[INFO] Using modified K-means algorithm (polarity-independent)")
+            print(f"[CLUSTERING] Using modified K-means algorithm (polarity-independent)")
 
             # For each K value, compute clustering once and calculate all metrics
             total_steps = len(k_values)
@@ -67,7 +67,7 @@ class OptimizedOptimizerWorker(QThread):
                     f"Computing all metrics for k={k} ({current_step}/{total_steps}) using modified K-means"
                 )
 
-                print(f"[INFO] Processing k={k} ({current_step}/{total_steps})")
+                print(f"[CLUSTERING] Processing k={k} ({current_step}/{total_steps})")
 
                 # Perform clustering once for this K using modified K-means
                 try:
@@ -87,7 +87,7 @@ class OptimizedOptimizerWorker(QThread):
                     for method in self.methods_to_run:
                         metrics_data[method].append(np.nan)
 
-            print(f"[INFO] Computing optimal K for each method...")
+            print(f"[CLUSTERING] Computing optimal K for each method...")
 
             # Process results for each method
             for method in self.methods_to_run:
@@ -122,7 +122,7 @@ class OptimizedOptimizerWorker(QThread):
                 }
 
                 threshold_info = f" (threshold: {self.parameters.get(method)}%)" if method in ['gev', 'res'] else ""
-                print(f"[INFO] {self._get_method_display_name(method)}: Optimal k = {optimal_k}{threshold_info}")
+                print(f"[CLUSTERING] {self._get_method_display_name(method)}: Optimal k = {optimal_k}{threshold_info}")
 
             # Final progress update
             self.progress.emit(100, 100, "All modified K-means computations complete")
@@ -1170,7 +1170,7 @@ class OptimizerVisualizationWindow(QMainWindow):
 
     def _display_optimization_summary(self, results: Dict[str, Any]):
         """Display summary of optimization results"""
-        print(f"\n[INFO] Optimization results summary:")
+        print(f"\n[CLUSTERING] Optimization results summary:")
         
         for method_code, results in results.items():
             method_name = self._get_method_name(method_code)
@@ -1178,10 +1178,10 @@ class OptimizerVisualizationWindow(QMainWindow):
             threshold = results.get('threshold', None)
 
             threshold_info = f" (threshold: {threshold}%)" if threshold is not None and method_code in ['gev', 'res'] else ""
-            print(f"[INFO] {method_name}: Optimal k = {optimal_k}{threshold_info}")
+            print(f"[CLUSTERING] {method_name}: Optimal k = {optimal_k}{threshold_info}")
 
-        print(f"[INFO] All results computed using modified K-means algorithm")
-        print(f"[INFO] Results saved and available for visualization")
+        print(f"[CLUSTERING] All results computed using modified K-means algorithm")
+        print(f"[CLUSTERING] Results saved and available for visualization")
 
     def _on_optimization_error(self, error_msg: str):
         """Handle optimization error"""

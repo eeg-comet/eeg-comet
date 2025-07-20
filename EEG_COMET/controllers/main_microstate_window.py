@@ -1606,7 +1606,7 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.stopping_parameter = None  # Not needed for majority vote
         
         # Force GFP peaks for auto-k selection (ignore use_percentages setting)
-        print("[INFO] Auto-k selection: Will use GFP peaks for optimization")
+        print("[CLUSTERING] Auto-k selection: Will use GFP peaks for optimization")
 
     def _set_user_k_parameters(self):
         """Set parameters for user-defined k"""

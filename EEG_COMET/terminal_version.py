@@ -211,7 +211,7 @@ def run_analysis_pipeline(comet, args):
                     print("\n🔧 PREPROCESSING")
                     print("-" * 40)
                     comet.run_preprocessing()
-                    print("✅ Preprocessing completed successfully")
+                    print("[PREPROCESSING] Preprocessing completed successfully")
                 else:
                     print("\n✅ Preprocessing already completed")
 
@@ -232,7 +232,7 @@ def run_analysis_pipeline(comet, args):
                             comet.optimization_results):
                         show_optimization_results(comet.optimization_results)
 
-                    print("✅ Clustering completed successfully")
+                    print("[CLUSTERING] Clustering completed successfully")
                 else:
                     print("\n✅ Clustering already completed")
 
@@ -241,7 +241,7 @@ def run_analysis_pipeline(comet, args):
                     print("\n🏷️  MICROSTATE LABELING")
                     print("-" * 40)
                     comet.run_microstate_labeling()
-                    print("[INFO] Microstate labeling completed successfully")
+                    print("[LABELING] Microstate labeling completed successfully")
                 else:
                     print("\n✅ Microstate labeling already completed")
 
@@ -250,7 +250,7 @@ def run_analysis_pipeline(comet, args):
                     print("\n📐 BACKFITTING")
                     print("-" * 40)
                     comet.run_backfitting()
-                    print("[INFO] Backfitting completed successfully")
+                    print("[BACKFITTING] Backfitting completed successfully")
                 else:
                     print("\n✅ Backfitting already completed")
 
@@ -259,7 +259,7 @@ def run_analysis_pipeline(comet, args):
                     print("\n📊 FEATURE EXTRACTION")
                     print("-" * 40)
                     comet.extract_features()
-                    print("[INFO] Feature extraction completed successfully")
+                    print("[FEATURE EXTRACTION] Feature extraction completed successfully")
                 else:
                     print("\n✅ Feature extraction already completed")
 
@@ -268,7 +268,7 @@ def run_analysis_pipeline(comet, args):
                     print("\n🧠 SOURCE LOCALIZATION")
                     print("-" * 40)
                     comet.source_localize_microstates()
-                    print("✅ Source localization completed successfully")
+                    print("[SOURCE LOCALIZATION] Source localization completed successfully")
                 else:
                     print("\n✅ Source localization already completed")
 
@@ -277,7 +277,7 @@ def run_analysis_pipeline(comet, args):
                     print("\n🔗 SOURCE-MICROSTATE CORRELATION")
                     print("-" * 40)
                     comet.source_microstates_correlation()
-                    print("✅ Source correlation completed successfully")
+                    print("[SOURCE LOCALIZATION] Source correlation completed successfully")
                 else:
                     print("\n✅ Source correlation already completed")
 

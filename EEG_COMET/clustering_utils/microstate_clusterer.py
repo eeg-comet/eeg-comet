@@ -79,7 +79,7 @@ class MicrostateClusterer:
         use_batches = self.batch_size is not None and self.batch_size > 0
 
         if use_batches and verbose:
-            print(f"[INFO] Using batch processing with batch size: {self.batch_size}")
+            print(f"[CLUSTERING] Using batch processing with batch size: {self.batch_size}")
             batch_count = int(np.ceil(n_samples / self.batch_size))
 
         # Clustering iterations
@@ -87,7 +87,7 @@ class MicrostateClusterer:
             # Check if we should stop
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"\n[INFO] Clustering stopped at iteration {iteration}")
+                    print(f"\n[CLUSTERING] Clustering stopped at iteration {iteration}")
                 return maps, prev_residual  # Return current best maps
 
             # Initialize arrays for segmentation and activations
@@ -104,7 +104,7 @@ class MicrostateClusterer:
                     batch_size_actual = batch_end - batch_start
 
                     if verbose and iteration == 0 and (b % 10 == 0 or b == batch_count - 1):
-                        print(f"[INFO] Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
+                        print(f"[CLUSTERING] Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
 
                     # Assign each sample in the batch to the best matching microstate
                     batch_activation = maps.dot(batch_data)
@@ -162,7 +162,7 @@ class MicrostateClusterer:
             # Check for convergence
             if (prev_residual - residual) < (self.clustering_tolerance * residual):
                 if verbose:
-                    print(f'[INFO] Clustering converged at {iteration} iterations')
+                    print(f'[CLUSTERING] Clustering converged at {iteration} iterations')
                 break
 
             prev_residual = residual
@@ -209,7 +209,7 @@ class MicrostateClusterer:
         use_batches = self.batch_size is not None and self.batch_size > 0
 
         if use_batches and verbose:
-            print(f"[INFO] Using batch processing with batch size: {self.batch_size}")
+            print(f"[CLUSTERING] Using batch processing with batch size: {self.batch_size}")
             print(f"[INFO] Similarity metric: {metric}")
             batch_count = int(np.ceil(n_samples / self.batch_size))
 
@@ -236,7 +236,7 @@ class MicrostateClusterer:
                     batch_size_actual = batch_end - batch_start
 
                     if verbose and iteration == 0 and (b % 10 == 0 or b == batch_count - 1):
-                        print(f"[INFO] Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
+                        print(f"[CLUSTERING] Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
 
                     # Calculate similarities between maps and data samples
                     if metric == 'Cosine Similarity':
@@ -306,7 +306,7 @@ class MicrostateClusterer:
             # Check for convergence
             if (prev_residual - residual) < (self.clustering_tolerance * residual):
                 if verbose:
-                    print(f'[INFO] Clustering converged at {iteration} iterations')
+                    print(f'[CLUSTERING] Clustering converged at {iteration} iterations')
                 break
 
             prev_residual = residual
@@ -344,9 +344,9 @@ class MicrostateClusterer:
         import time
 
         if verbose:
-            print(f"[INFO] Starting TAAHC clustering")
+            print(f"[CLUSTERING] Starting TAAHC clustering")
             print(f"[INFO] Data shape: {data.shape}, Target states: {self.n_states}, Batch size: {self.batch_size}")
-            print(f"[INFO] Using similarity metric: {metric}")
+            print(f"[CLUSTERING] Using similarity metric: {metric}")
             start_time = time.time()
 
         # Validate similarity metric
@@ -370,7 +370,7 @@ class MicrostateClusterer:
             batch_size = self.batch_size
 
         if verbose:
-            print(f"[INFO] Using batch size: {batch_size}")
+            print(f"[CLUSTERING] Using batch size: {batch_size}")
 
         # Initialize progress tracking with better estimation
         def update_progress(message, step_increment=1):
@@ -445,7 +445,7 @@ class MicrostateClusterer:
         data_sum_sq = np.sum(gfp_curve ** 2)
 
         if verbose:
-            print(f"[INFO] Starting hierarchical clustering with {n_maps} maps")
+            print(f"[CLUSTERING] Starting hierarchical clustering with {n_maps} maps")
             print(f"[INFO] Reducing to {self.n_states} states")
             print("=====================================================")
 
@@ -459,8 +459,8 @@ class MicrostateClusterer:
             # Check if we should stop
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"\n[INFO] TAAHC stopped by user with {n_maps} maps remaining")
-                    print(f"[INFO] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
+                    print(f"\n[CLUSTERING] Clustering stopped by user with {n_maps} maps remaining")
+                    print(f"[CLUSTERING] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
                 # Return None for maps since we don't have the correct number of states
                 return None, np.inf
 
@@ -473,8 +473,8 @@ class MicrostateClusterer:
                 )
                 if not continue_processing:
                     if verbose:
-                        print(f"\n[INFO] TAAHC stopped by progress callback")
-                        print(f"[INFO] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
+                        print(f"\n[CLUSTERING] Clustering stopped by progress callback")
+                        print(f"[CLUSTERING] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
                     # Return None for maps since we don't have the correct number of states
                     return None, np.inf
 
@@ -498,7 +498,7 @@ class MicrostateClusterer:
                     eta_minutes = eta_seconds / 60
                     eta_msg = f", ETA: {eta_minutes:.1f} min"
                 
-                print(f"[INFO] TAAHC Iteration {iteration}: {n_maps} maps remaining ({remaining_iterations} to go), "
+                print(f"[CLUSTERING] TAAHC Iteration {iteration}: {n_maps} maps remaining ({remaining_iterations} to go), "
                       f"elapsed: {elapsed:.1f}s{eta_msg}")
                 
                 # Update progress percentage
@@ -522,7 +522,7 @@ class MicrostateClusterer:
 
             # Process data in batches
             if verbose and n_maps <= self.n_states + 10:
-                print(f"[INFO] Processing {n_samples} samples in batches of {batch_size}...")
+                print(f"[CLUSTERING] Processing {n_samples} samples in batches of {batch_size}...")
                 batch_count = int(np.ceil(n_samples / batch_size))
 
             for b, batch_start in enumerate(range(0, n_samples, batch_size)):
@@ -573,7 +573,7 @@ class MicrostateClusterer:
             worst_idx = np.argmin(atomisation_values)
 
             if verbose and n_maps <= self.n_states + 10:
-                print(f"[INFO] Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}")
+                print(f"[CLUSTERING] Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}")
                 print(f"[INFO] Cluster size: {cluster_sizes[worst_idx]} samples")
 
             # Update progress for map removal
@@ -673,12 +673,12 @@ class MicrostateClusterer:
             # Check for stop during final processing
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"\n[INFO] TAAHC stopped during final processing")
+                    print(f"\n[CLUSTERING] TAAHC stopped during final processing")
                     print(f"[INFO] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
                 return None, np.inf
 
             if verbose and (b % 20 == 0 or b == batch_count - 1):
-                print(f"[INFO] Final processing batch {b + 1}/{batch_count}")
+                print(f"[CLUSTERING] Final processing batch {b + 1}/{batch_count}")
 
             # Update progress for final batches
             if b % max(1, batch_count // 10) == 0:  # Update every 10%
@@ -708,8 +708,9 @@ class MicrostateClusterer:
                 # Check for stop during final statistics
                 if worker and hasattr(worker, 'stopped') and worker.stopped:
                     if verbose:
-                        print(f"\n[INFO] TAAHC stopped during final statistics")
+                        print(f"\n[CLUSTERING] TAAHC stopped during final statistics")
                         print(f"[INFO] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
+                    # Return None for maps since we don't have the correct number of states
                     return None, np.inf
                     
                 batch_end = min(batch_start + batch_size, n_samples)
@@ -726,9 +727,9 @@ class MicrostateClusterer:
 
             total_time = time.time() - start_time
             print("=====================================================")
-            print(f"[INFO] TAAHC clustering completed successfully!")
+            print(f"[CLUSTERING] TAAHC clustering completed successfully!")
             print(f"[INFO] Total time: {total_time:.2f} seconds")
-            print(f"[INFO] Using similarity metric: {metric}")
+            print(f"[CLUSTERING] Using similarity metric: {metric}")
             print(f"[INFO] Final {self.n_states} microstate maps:")
             for i in range(self.n_states):
                 count = np.sum(final_assignments == i)
@@ -761,11 +762,11 @@ class MicrostateClusterer:
             # Check for stop during residual calculation
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"[INFO] TAAHC stopped during residual calculation")
+                    print(f"[CLUSTERING] TAAHC stopped during residual calculation")
                 return 1.0  # Return worst case residual
             
             if verbose and (b % 20 == 0 or b == batch_count - 1):
-                print(f"[INFO] Residual calculation batch {b + 1}/{batch_count}")
+                print(f"[CLUSTERING] Residual calculation batch {b + 1}/{batch_count}")
 
             batch_end = min(batch_start + batch_size, n_samples)
             batch_data = data[:, batch_start:batch_end]
