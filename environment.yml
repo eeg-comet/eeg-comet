@@ -1,4 +1,4 @@
-name: eeg-comet
+name: comet_env
 channels:
   - conda-forge
   - defaults
@@ -6,17 +6,19 @@ dependencies:
   - python=3.9
   - pip
   - pip:
-    - mne==1.8.0
     - eeglabio==0.1.0
-    - opencv-python==4.11.0.86
+    - h5py==3.14.0
+    - invertmeeg==0.1.0
+    - mne==1.8.0
+    - mne-qt-browser==0.6.3
     - onnxruntime==1.19.0
+    - opencv-python==4.11.0.86
+    - pandas==2.3.0
+    - pyprep==0.4.3
+    - PyQt5==5.15.11
     - pyvista==0.45.2
     - pyvistaqt==0.11.2
-    - invertmeeg==0.1.0
-    - pyprep==0.4.3
+    - scikit-learn==1.5.0
     - seaborn==0.13.2
     - statsmodels==0.14.4
-    - PyQt5==5.15.11
-    - scikit-learn==1.5.0
-    - h5py==3.14.0
-    - pandas==2.3.0
+    - tensorflow==2.16.2
