@@ -1,4 +1,4 @@
-# EEG-COMET – EEG Comprehensive Microstate Extraction Toolbox
+# ☄️ EEG-COMET – EEG Comprehensive Microstate Extraction Toolbox ☄️
 
 **Authors:** Amin Kabir, Raaj Chatterjee, Faranak Farzan  
 **Organization:** SFU eBrain Lab ([www.ebrainlab.ca](https://www.ebrainlab.ca))
