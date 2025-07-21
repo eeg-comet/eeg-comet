@@ -1,33 +1,50 @@
 # EEG-COMET – EEG Comprehensive Microstate Extraction Toolbox
 
-Authors: Amin Kabir, Raaj Chatterjee
+**Authors:** Amin Kabir, Raaj Chatterjee, Faranak Farzan  
+**Organization:** SFU eBrain Lab ([www.ebrainlab.ca](https://www.ebrainlab.ca))
 
-This git repository is for developing and publishing new versions of the app.
+---
 
-Open up your favorite python terminal
+## Overview
+EEG-COMET is a comprehensive, user-friendly toolbox for EEG microstate analysis, developed by the SFU eBrain Lab. It provides robust tools for microstate extraction, visualization, and feature analysis, supporting both research and clinical workflows.
 
-Use the following steps to create a new virtual python environment:
-https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/
+## Features
+- Intuitive graphical user interface (GUI)
+- Microstate segmentation and clustering
+- Feature extraction and visualization
+- Source localization tools
+- Study comparison and batch processing
+- Cross-platform support (Windows, macOS)
 
-Minimum requirement: Python 3.9
+## Requirements
+- Python 3.9+
+- See `requirements.txt` for full dependencies
 
-## Using Pip:
-Windows Installation (Ensure Python is properly installed):
-```
-python -m venv venv
-venv\Scripts\activate
+## Installation
+### Using pip (Recommended)
+#### Windows
+```sh
+python -m venv comet_env
+comet_env\Scripts\activate
 pip install -r requirements.txt
 ```
-Windows Run Toolbox:
-```python EEG_COMET\main.py```
-
-Mac installation:
-```
-python3 -m venv venv
-source venv/bin/activate
+#### macOS/Linux
+```sh
+python3 -m venv comet_env
+source comet_env/bin/activate
 pip install -r requirements.txt
 ```
-Mac Run Toolbox
-```  python EEG_COMET/main.py```
 
-## Using Conda:
+## Usage
+### Launch the Toolbox
+#### Windows
+```sh
+python EEG_COMET\main.py
+```
+#### macOS/Linux
+```sh
+python EEG_COMET/main.py
+```
+
+## Support
+For questions, bug reports, or contributions, please contact the authors or visit [www.ebrainlab.ca](https://www.ebrainlab.ca).
