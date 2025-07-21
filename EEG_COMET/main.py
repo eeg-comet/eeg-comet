@@ -52,7 +52,7 @@ class TerminalLogger:
     def header(message):
         """Print a header message with separators."""
         print("\n" + "=" * 60)
-        print(f"🧠 {message}")
+        print(f"☄️ {message}")
         print("=" * 60)
 
 
