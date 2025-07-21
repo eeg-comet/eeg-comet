@@ -39,7 +39,7 @@ class COMET:
     _shared_feature_results = {}
 
     def __init__(self, config=None, config_path=None, study_name=None, input_folder=None, output_folder=None,
-                 auto_save=True):
+                 auto_save=True, context=None):
         """
         Initialize COMET instance with optimized memory management.
         """
@@ -57,6 +57,7 @@ class COMET:
         self.study_name = study_name
         self.input_folder = input_folder
         self.output_folder = output_folder
+        self.context = context  # Store context reference
 
         # Initialize utility objects
         self.comet_data_io = DataIO()
@@ -67,6 +68,7 @@ class COMET:
         self.comet_feature_io = FeatureIO()
         self.comet_feature_helper = FeatureHelper()
         self.comet_feature_extractor = FeatureExtractionCoordinator()
+        self.comet_microstate_clusterer = None  # Will be initialized during clustering
 
         # Load or create configuration
         if config is not None:
@@ -104,6 +106,9 @@ class COMET:
         self.done_extracting_features = False
         self.done_source_localization = False
         self.done_identifying_microstate_sources = False
+        
+        # Initialize clustering-related attributes
+        self.batch_size = None
 
         @property
         def output_folder(self):
@@ -123,10 +128,7 @@ class COMET:
             self._input_folder = value
 
     def create_default_config(self):
-        """
-        Create a default configuration without loading from a file.
-        These defaults are intended to be overridden by user inputs.
-        """
+        """Create a default configuration without loading from a file."""
         config = ConfigParser()
 
         # Create default sections
@@ -137,7 +139,7 @@ class COMET:
         config.add_section("features_config")
         config.add_section("source_config")
 
-        # Set default values for IO section - these must be updated from UI
+        # Set default values for IO section
         config["io_config"]["study_name"] = "my_study"
         config["io_config"]["input_folder"] = ""
         config["io_config"]["montage"] = ""
@@ -244,9 +246,7 @@ class COMET:
             return self.create_default_config()
 
     def load_config_values(self):
-        """
-        Load configuration values from self.config into instance variables.
-        """
+        """Load configuration values from self.config into instance variables."""
         # Input/Output Configs
         io_config = self.config["io_config"]
         self.study_name = io_config.get("study_name", "my_study")
@@ -297,15 +297,15 @@ class COMET:
         self.choose_number_of_maps = "Auto" if number_of_maps == "auto" else "User"
 
         if self.number_of_maps == "auto":
-            self.stopping_mode = clustering_config.get("stopping_mode", "gev")
-            self.stopping_parameter = clustering_config.getfloat("stopping_parameter", 10)
             self.kmin = clustering_config.getint("kmin", 2)
             self.kmax = clustering_config.getint("kmax", 10)
+            self.stopping_mode = clustering_config.get("stopping_mode", "majority_vote")
+            self.stopping_parameter = clustering_config.getint("stopping_parameter", 10)
         else:
-            self.stopping_mode = "gev"
-            self.stopping_parameter = 10
             self.kmin = 2
             self.kmax = 10
+            self.stopping_mode = "majority_vote"
+            self.stopping_parameter = 10
 
         self.initializer = clustering_config.get("initializer", "Random")
         self.clustering_method = clustering_config.get(
@@ -319,10 +319,14 @@ class COMET:
         ) if not self.clustering_method == "Modified K-Means Clustering (Pascual-Marqui et al. 1995)" else ""
         self.number_of_repeats = clustering_config.getint("number_of_repeats", 5)
 
-        # Handle use_percentages - this could be an int or empty string
+        # Handle use_percentages
         try:
             self.use_percentages = clustering_config.getint("use_percentages", 100)
-        except ValueError:
+        except (ValueError, KeyError):
+            self.use_percentages = 100
+        
+        # Ensure use_percentages is never None
+        if self.use_percentages is None:
             self.use_percentages = 100
 
         # Backfitting Configs
@@ -393,7 +397,6 @@ class COMET:
         self.anatomy_subjects_dir = source_config.get("anatomy_subjects_dir", "")
 
         # State Flags
-        # Check if the section exists to handle loading from older config files
         if "state_flags" in self.config:
             state_flags = self.config["state_flags"]
             self.done_preprocessing = state_flags.getboolean("done_preprocessing", False)
@@ -402,10 +405,8 @@ class COMET:
             self.done_backfitting = state_flags.getboolean("done_backfitting", False)
             self.done_extracting_features = state_flags.getboolean("done_extracting_features", False)
             self.done_source_localization = state_flags.getboolean("done_source_localization", False)
-            self.done_identifying_microstate_sources = state_flags.getboolean("done_identifying_microstate_sources",
-                                                                              False)
+            self.done_identifying_microstate_sources = state_flags.getboolean("done_identifying_microstate_sources", False)
         else:
-            # Initialize state flags to False if the section doesn't exist
             self.done_preprocessing = False
             self.done_clustering = False
             self.done_microstate_labeling = False
@@ -421,7 +422,7 @@ class COMET:
         else:
             self.config_last_saved = "Unknown"
 
-        # Initialize log_text - will be loaded after directories are set up
+        # Initialize log_text
         self.log_text = ""
 
     def ensure_directory(self, path):
@@ -655,10 +656,15 @@ class COMET:
         )
         return self.comet_microstate_clusterer.compute_gev(data=all_data, maps=self.best_maps)
 
-    def cluster_eeg_microstates(self, init):
+    def cluster_eeg_microstates(self, init, worker=None):
         """
-        Perform modified K-means clustering iteration with enhanced TAAHC progress tracking
+        Perform modified K-means clustering iteration with stop check capability
         """
+        # Check if we should stop before starting
+        if worker and hasattr(worker, 'stopped') and worker.stopped:
+            self._handle_clustering_stop()
+            return None, 0.0, np.inf
+
         is_taahc = (self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering")
 
         # Initialize cluster centers (not needed for TAAHC but kept for consistency)
@@ -667,78 +673,156 @@ class COMET:
                 maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
             )
         else:
+            # TAAHC is deterministic and time-consuming - MUST use only 1 repetition
+            original_repeats = self.number_of_repeats
             self.number_of_repeats = 1
+            if original_repeats != 1:
+                print(f"[CLUSTERING] TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {original_repeats}")
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(f"TAAHC: Enforcing 1 repetition (deterministic algorithm)", log_type='info')
 
         # Perform clustering based on selected method
-        if self.clustering_method == "Modified K-Means Clustering (Pascual-Marqui et al. 1995)":
-            maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
-                data=self.maps2use,
-                initial_maps=initial_maps
-            )
-        elif self.clustering_method == "Modified K-Means Clustering with Spatial Similarity":
-            maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans_similarity(
-                data=self.maps2use,
-                initial_maps=initial_maps,
-                metric=self.similarity_metric
-            )
-        elif self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering":
-            # For TAAHC, create a comprehensive progress callback
-            def taahc_progress_callback(current_step, total_steps, message):
-                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
-                        # Calculate overall progress including the current clustering iteration
-                        overall_current = (init * total_steps) + current_step
-                        overall_total = self.number_of_repeats * total_steps
+        try:
+            if self.clustering_method == "Modified K-Means Clustering (Pascual-Marqui et al. 1995)":
+                maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
+                    data=self.maps2use,
+                    initial_maps=initial_maps,
+                    worker=worker  # Pass worker to check stopped flag
+                )
+            elif self.clustering_method == "Modified K-Means Clustering with Spatial Similarity":
+                maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans_similarity(
+                    data=self.maps2use,
+                    initial_maps=initial_maps,
+                    metric=self.similarity_metric,
+                    worker=worker  # Pass worker to check stopped flag
+                )
+            elif self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering":
+                # For TAAHC, create a comprehensive progress callback
+                def taahc_progress_callback(current_step, total_steps, message):
+                    # Check if stopped
+                    if worker and hasattr(worker, 'stopped') and worker.stopped:
+                        return False  # Signal to stop TAAHC
 
-                        # Create detailed progress message
-                        detailed_message = f"TAAHC Iteration {init + 1}/{self.number_of_repeats}: {message}"
+                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                        if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
+                            overall_current = (init * total_steps) + current_step
+                            overall_total = self.number_of_repeats * total_steps
+                            detailed_message = f"TAAHC: {message}"
+                            self.LogWindow.worker_thread.progress_updated.emit(
+                                overall_current,
+                                detailed_message
+                            )
+                    return True  # Continue processing
 
-                        # Emit progress signal from worker thread
-                        self.LogWindow.worker_thread.progress_updated.emit(
-                            overall_current,
-                            detailed_message
-                        )
-
-            # Run TAAHC with progress tracking using the original function signature
-            maps_init, residual_init = self.comet_microstate_clusterer.taahc(
-                data=self.maps2use,
-                metric=self.similarity_metric,
-                verbose=True,
-                progress_callback=taahc_progress_callback
-            )
-
-        # Compute Global Explained Variance
-        gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
-
-        # Log iteration results
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            if is_taahc:
-                log_message = (
-                    f"TAAHC Iteration [{init + 1}/{self.number_of_repeats}] Completed\n"
-                    f"✓ Hierarchical clustering processed {self.maps2use.shape[1]} timepoints\n"
-                    f"✓ Global Explained Variance: {100 * gev_init:.3f}%"
+                # Run TAAHC with progress tracking
+                maps_init, residual_init = self.comet_microstate_clusterer.taahc(
+                    data=self.maps2use,
+                    metric=self.similarity_metric,
+                    verbose=True,
+                    progress_callback=taahc_progress_callback,
+                    worker=worker
                 )
             else:
-                log_message = (
-                    f"Data Clustered [{init + 1}/{self.number_of_repeats}]\n"
-                    f"✓ Global Explained Variance: {100 * gev_init:.3f}%"
-                )
+                # Unknown clustering method
+                error_msg = f"Unknown clustering method: {self.clustering_method}"
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(error_msg, log_type='error')
+                return None, 0.0, np.inf
 
-            self.LogWindow.append_log(log_message)
-
-        # Update the best results if current gev is higher
-        if self.best_maps is None or gev_init > self.best_gev:
-            self.best_residual = residual_init.copy() if hasattr(residual_init, 'copy') else residual_init
-            self.best_gev = gev_init
-            self.best_maps = maps_init.copy() if hasattr(maps_init, 'copy') else maps_init
-
-            # Save the best maps immediately
-            self.comet_microstate_io.export_microstates(self.best_maps, self.eeg_info, self.microstate_maps_path)
-
-            # Additional logging for best result updates
+        except Exception as e:
+            error_msg = f"Clustering failed: {str(e)}"
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(
-                    f"✓ New best result found in iteration {init + 1} - GEV: {100 * gev_init:.3f}%")
+                self.LogWindow.append_log(error_msg, log_type='error')
+            return None, 0.0, np.inf
+
+        # Check if stopped after clustering
+        if worker and hasattr(worker, 'stopped') and worker.stopped:
+            self._handle_clustering_stop()
+            return None, 0.0, np.inf
+
+        # Only proceed if we have valid results
+        if maps_init is not None:
+            # Compute Global Explained Variance
+            gev_init = self.comet_microstate_clusterer.compute_gev(data=self.maps2use, maps=maps_init)
+
+            # Log iteration results
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                if is_taahc:
+                    log_message = (
+                        f"TAAHC Clustering Completed\n"
+                        f"✓ Hierarchical clustering processed {self.maps2use.shape[1]} timepoints\n"
+                        f"✓ Global Explained Variance: {100 * gev_init:.3f}%"
+                    )
+                else:
+                    log_message = (
+                        f"Data Clustered [{init + 1}/{self.number_of_repeats}]\n"
+                        f"✓ Global Explained Variance: {100 * gev_init:.3f}%"
+                    )
+
+                self.LogWindow.append_log(log_message)
+
+            # Update the best results if current gev is higher
+            if self.best_maps is None or gev_init > self.best_gev:
+                self.best_residual = residual_init.copy() if hasattr(residual_init, 'copy') else residual_init
+                self.best_gev = gev_init
+                self.best_maps = maps_init.copy() if hasattr(maps_init, 'copy') else maps_init
+
+                # Save the best maps immediately
+                self.comet_microstate_io.export_microstates(self.best_maps, self.eeg_info, self.microstate_maps_path)
+
+                # Additional logging for best result updates
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    if is_taahc:
+                        self.LogWindow.append_log(
+                            f"✓ TAAHC clustering completed - GEV: {100 * gev_init:.3f}%")
+                    else:
+                        self.LogWindow.append_log(
+                            f"✓ New best result found in iteration {init + 1} - GEV: {100 * gev_init:.3f}%")
+
+            # Return the results
+            return maps_init, gev_init, residual_init
+        else:
+            # No valid results
+            error_msg = f"Clustering iteration {init + 1} failed - no maps generated"
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+            return None, 0.0, np.inf
+
+    def _handle_clustering_stop(self):
+        """Handle clustering stop - save best maps if any exist"""
+        if self.best_maps is not None:
+            # Compute final GEV
+            self.best_gev = self.compute_gev_all_data()
+
+            # Mark clustering as completed (even if stopped early)
+            self.done_clustering = True
+
+            # Log stop with current best results
+            stop_message = (
+                f"⚠️ Clustering stopped by user\n"
+                f"✓ Saved best maps found so far: {self.number_of_maps} microstates "
+                f"(GEV: {100 * self.best_gev:.3f}%)"
+            )
+
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(stop_message, log_type='warning')
+            else:
+                print(stop_message)
+
+            # Save configuration and logs
+            if self.auto_save:
+                self.save_config()
+            self._save_logs()
+
+            # Call clustering completion callback if set
+            if self.clustering_completed_callback is not None:
+                self.clustering_completed_callback()
+        else:
+            error_msg = "❌ Clustering stopped - no maps were generated before stopping"
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+            else:
+                print(error_msg)
 
     def backfit_eeg(self, eeg_path, eeg_name):
         """
@@ -774,7 +858,8 @@ class COMET:
         """
         Preprocess all EEG files in the input folder
         """
-        print('\n[INFO] Starting data preprocessing...')
+        print('\n' + '=' * 60)
+        print('[PREPROCESSING] Starting data preprocessing...')
 
         # Reset directories based on current parameters
         self.reset_directories()
@@ -834,7 +919,7 @@ class COMET:
             # Set callback to run when preprocessing worker thread finishes
             self.LogWindow.process_finished_callback = self._on_preprocessing_finished
         else:
-            print(f"[INFO] Processing {len(self.zipped_eeg_files)} EEG files...")
+            print(f"[PREPROCESSING] Processing {len(self.zipped_eeg_files)} EEG files...")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Preprocessing"):
                 self.preprocess_eeg(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -845,219 +930,354 @@ class COMET:
         Perform clustering on preprocessed EEG data with automatic or manual k selection
         Enhanced with proper TAAHC progress tracking and batch processing support
         """
-        print('\n[INFO] Starting microstate clustering...')
+        print('\n' + '=' * 60)
+        print('[CLUSTERING] Starting microstate clustering...')
 
-        self.load_eeg_info()
-
-        # Calculate minimum distance size if smoothing GFP is enabled
-        if self.smoothing_gfp:
-            self.min_distance_size = int(int(self.smoothing_distance) / (1000 / int(self.sample_rate)))
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log("Starting microstate clustering...", log_type='section')
+            
+            # Create a single task for the entire clustering process
+            clustering_task = [('full_clustering',)]
+            
+            # Use setup_progress_dialog for worker thread
+            self.LogWindow.setup_progress_dialog(
+                window_title="Microstate Clustering...",
+                label_text="Initializing clustering process...",
+                tasks=clustering_task,
+                processing_func=self._run_full_clustering_worker
+            )
+            
+            # Set callback to handle completion
+            self.LogWindow.process_finished_callback = self._on_clustering_completed
         else:
-            self.min_distance_size = None
+            # Non-GUI mode - run directly
+            self._run_full_clustering_direct()
 
-        # Check if clustering method is supported
-        available_methods = [
-            'Modified K-Means Clustering (Pascual-Marqui et al. 1995)',
-            'Modified K-Means Clustering with Spatial Similarity',
-            'Topographic Atomize and Agglomerate Hierarchical Clustering',
-        ]
-        if self.clustering_method not in available_methods:
-            error_msg = f"[ERROR] Clustering method '{self.clustering_method}' not supported. Available methods: {', '.join(available_methods)}"
+    def _save_clustering_results(self):
+        """
+        Save clustering results to files
+        """
+        try:
+            # Create clustering results directory with proper naming convention
+            clustering_results_path = os.path.join(self.save_dir, f"{self.study_name}_clustering_results")
+            os.makedirs(clustering_results_path, exist_ok=True)
+
+            # Save microstate maps
+            maps_file = os.path.join(clustering_results_path, 'microstate_maps.npy')
+            np.save(maps_file, self.best_maps)
+
+            # Save clustering configuration and results
+            if "clustering_results" not in self.config:
+                self.config.add_section("clustering_results")
+            self.config["clustering_results"]["maps_file"] = maps_file
+            self.config["clustering_results"]["best_gev"] = str(self.best_gev)
+            self.config["clustering_results"]["best_residual"] = str(self.best_residual)
+            self.config["clustering_results"]["number_of_maps"] = str(self.number_of_maps)
+            self.config["clustering_results"]["clustering_method"] = self.clustering_method
+
+        except Exception as e:
+            error_msg = f"[ERROR] Failed to save clustering results: {str(e)}"
             print(error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(error_msg)
-            return
+                self.LogWindow.append_log(error_msg, log_type='error')
 
-        # Generate maps and peaks for clustering
-        self.maps2use, self.peaks2use = self.comet_data_initializer.generate_maps_and_peaks(
-            preprocessed_folder=self.preprocessed_data_path,
-            extension=self.extension,
-            datatype=self.datatype,
-            use_percentages=self.use_percentages,
-            min_dist=self.min_distance_size
-        )
+    def _run_full_clustering_worker(self, task_name):
+        """
+        Worker function for running the entire clustering process.
+        This method is designed to be called by the LogWindow's worker thread.
+        """
+        try:
+            # Progress tracking variables
+            total_steps = 0
+            current_step = 0
+            
+            # Calculate total steps more accurately
+            setup_steps = 5  # Steps 1-5: setup and data loading
+            if self.number_of_maps == 'auto':
+                optimization_steps = self.kmax - self.kmin + 1  # One step per k value
+                clustering_steps = self.number_of_repeats  # One step per repetition
+                total_steps = setup_steps + optimization_steps + clustering_steps
+            else:
+                clustering_steps = self.number_of_repeats  # One step per repetition
+                total_steps = setup_steps + clustering_steps
+            
+            def update_progress(step_increment=1, message=""):
+                nonlocal current_step
+                current_step += step_increment
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
+                        progress_percent = int((current_step / total_steps) * 100)
+                        self.LogWindow.worker_thread.progress_updated.emit(progress_percent, message)
+            
+            def check_stop():
+                """Check if the process has been stopped by the user."""
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
+                        return self.LogWindow.worker_thread.stopped
+                return False
 
-        # Special handling for TAAHC method
-        is_taahc = (self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering")
+            # Step 1: Load EEG info
+            update_progress(1, "Loading EEG information...")
+            if check_stop():
+                return self._handle_stopped_clustering("Loading EEG information")
+            self.load_eeg_info()
 
-        if is_taahc:
-            # TAAHC requires special batch processing setup
-            if not hasattr(self, 'batch_size') or self.batch_size is None:
-                self.batch_size = 10000  # Default large batch for TAAHC
-                print(f"[INFO] TAAHC: Setting batch size to {self.batch_size}")
+            # Step 2: Calculate minimum distance size if smoothing GFP is enabled
+            update_progress(1, "Calculating parameters...")
+            if check_stop():
+                return self._handle_stopped_clustering("Calculating parameters")
+            if self.smoothing_gfp:
+                self.min_distance_size = int(int(self.smoothing_distance) / (1000 / int(self.sample_rate)))
+            else:
+                self.min_distance_size = None
 
-            # TAAHC works better with larger datasets, so adjust use_percentages if too small
-            if self.use_percentages and self.use_percentages < 20:
-                print(f"[INFO] TAAHC: Increasing data percentage from {self.use_percentages}% to 50% for better clustering")
-                self.use_percentages = 50
-                # Regenerate maps with higher percentage
-                self.maps2use, self.peaks2use = self.comet_data_initializer.generate_maps_and_peaks(
-                    preprocessed_folder=self.preprocessed_data_path,
-                    extension=self.extension,
-                    datatype=self.datatype,
-                    use_percentages=self.use_percentages,
-                    min_dist=self.min_distance_size
-                )
+            # Step 3: Check if clustering method is supported
+            available_methods = [
+                'Modified K-Means Clustering (Pascual-Marqui et al. 1995)',
+                'Modified K-Means Clustering with Spatial Similarity',
+                'Topographic Atomize and Agglomerate Hierarchical Clustering',
+            ]
+            if self.clustering_method not in available_methods:
+                error_msg = f"[ERROR] Clustering method '{self.clustering_method}' not supported."
+                print(error_msg)
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(error_msg, log_type='error')
+                return False
 
-        # Handle automatic number of maps selection
-        if self.number_of_maps == 'auto':
+            # Step 4: Determine if we need automatic k selection
+            is_taahc = (self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering")
+
+            print(f"[CLUSTERING] Using clustering method: {self.clustering_method}")
+            print(f"[CLUSTERING] Number of maps: {self.number_of_maps}")
+
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log("Determining optimal number of clusters...")
+                self.LogWindow.append_log(f"Using clustering method: {self.clustering_method}")
+                self.LogWindow.append_log(f"Number of maps: {self.number_of_maps}")
 
-                # Create wrapper task for worker thread
-                optimization_task = [('auto_optimization',)]
+            # Step 5: Generate maps and peaks data for clustering
+            update_progress(1, "Loading preprocessed data for clustering...")
+            if check_stop():
+                return self._handle_stopped_clustering("Loading preprocessed data")
+            print('[CLUSTERING] Loading preprocessed data for clustering...')
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log("Loading preprocessed data for clustering...")
 
-                # Use setup_progress_dialog for worker thread
-                self.LogWindow.setup_progress_dialog(
-                    window_title="Finding Optimal Number of Clusters...",
-                    label_text="Running optimization methods...",
-                    tasks=optimization_task,
-                    processing_func=self._run_automatic_optimization_worker
-                )
-
-                # Wait for the worker to finish before continuing
-                if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
-                    self.LogWindow.worker_thread.wait()
-
+            # For auto-k selection, always use GFP peaks instead of random percentages
+            if self.number_of_maps == 'auto':
+                print(f"[CLUSTERING] Auto-k selection: Using GFP peaks for optimization (ignoring use_percentages setting)")
+                auto_k_use_percentages = None  # Force GFP peaks for auto-k
             else:
-                # Non-GUI mode - run directly
-                self._run_automatic_optimization_direct()
-
-        # After determining number_of_maps, perform actual clustering
-        if self.number_of_maps and self.number_of_maps != 'auto':
-            # Initialize microstate clusterer with special settings for TAAHC
-            if is_taahc:
-                # TAAHC typically needs fewer repetitions since it's deterministic
-                clustering_repeats = min(self.number_of_repeats, 3)
-                if clustering_repeats != self.number_of_repeats:
-                    print(
-                        f"[INFO] TAAHC: Reducing repetitions from {self.number_of_repeats} to {clustering_repeats}")
-            else:
-                clustering_repeats = self.number_of_repeats
-
-            self.comet_microstate_clusterer = MicrostateClusterer(
-                n_states=self.number_of_maps,
-                batch_size=self.batch_size,
-                n_inits=clustering_repeats,
-                max_iter=self.max_iterations,
-                tolerance=self.clustering_tolerance
+                auto_k_use_percentages = self.use_percentages
+            
+            self.maps2use, peaks = self.comet_data_initializer.generate_maps_and_peaks(
+                preprocessed_folder=self.preprocessed_data_path,
+                extension=self.extension,
+                datatype=self.datatype,
+                use_percentages=auto_k_use_percentages,
+                min_dist=self.min_distance_size
             )
 
-            # Log clustering settings with TAAHC-specific information
-            if self.choose_number_of_maps == "auto":
-                k_log = f'automatically determined to be {self.number_of_maps}'
-            else:
-                k_log = f'set to {self.number_of_maps} (user-defined)'
-
-            if self.use_percentages is not None:
-                cluster_data_log = f"{self.use_percentages}% randomly selected time-points"
-            else:
-                cluster_data_log = 'local peaks of the global field power'
-
-            # Enhanced clustering settings
-            additional_settings = ""
-            if self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering":
-                additional_settings = f"\nBatch Size: {self.batch_size if self.batch_size else 'Full dataset'}"
-
+            print(f'[CLUSTERING] Data shape for clustering: {self.maps2use.shape}')
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log("Microstate Clustering", log_type='section')
-                
-                clustering_info = (
-                    f"Algorithm: {self.clustering_method}\n"
-                    f"Number of Maps: {k_log}\n"
-                    f"Data Selection: {cluster_data_log}\n"
-                    f"Repetitions: {self.number_of_repeats}\n"
-                    f"Max Iterations: {self.max_iterations}\n"
-                    f"Convergence Tolerance: {self.clustering_tolerance}"
-                    f"{additional_settings}"
-                )
-                self.LogWindow.append_log(clustering_info, log_type='settings')
+                self.LogWindow.append_log(f"Data shape for clustering: {self.maps2use.shape}")
 
-            # Reset best values
-            self.best_residual, self.best_maps = None, None
-            self.best_gev = 0
+            # Step 6: Handle automatic k selection
+            if self.number_of_maps == 'auto':
+                if check_stop():
+                    return self._handle_stopped_clustering("Starting automatic optimization")
+                print(f'[CLUSTERING] Automatic k selection mode: {self.stopping_mode}')
+                print(f'[CLUSTERING] K range: {self.kmin} to {self.kmax}')
 
-            # Perform clustering iterations with enhanced progress for TAAHC
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                if is_taahc:
-                    # Special progress setup for TAAHC
-                    window_title = "TAAHC Clustering ..."
-                    label_text = "Performing Topographic Atomize and Agglomerate Hierarchical Clustering ..."
-
-                    # Estimate total progress steps for TAAHC
-                    n_timepoints = self.maps2use.shape[1]
-                    estimated_peaks = min(n_timepoints // 10, 1000)
-                    iterations_needed = max(estimated_peaks - self.number_of_maps, 0)
-                    estimated_steps_per_iteration = 10 + iterations_needed * 5 + 20
-                    total_estimated_steps = clustering_repeats * estimated_steps_per_iteration
-
-                    # Set up progress dialog with dynamic range
-                    self.LogWindow.setup_progress_dialog(
-                        window_title=window_title,
-                        label_text=label_text,
-                        tasks=list(range(clustering_repeats)),
-                        processing_func=self.cluster_eeg_microstates
-                    )
-
-                    # Update progress bar range for TAAHC
-                    self.LogWindow.ui.progress_bar.setRange(0, total_estimated_steps)
-
-                else:
-                    # Standard clustering progress
-                    self.LogWindow.setup_progress_dialog(
-                        window_title="Clustering ...",
-                        label_text="Clustering ...",
-                        tasks=list(range(clustering_repeats)),
-                        processing_func=self.cluster_eeg_microstates
-                    )
-
-                # NEW LINE: Ensure we finalize clustering once the worker is done
-                self.LogWindow.process_finished_callback = self._on_clustering_iterations_finished
-            else:
-                print(f"[INFO] Running {clustering_repeats} clustering iterations...")
-                from tqdm import tqdm
-                for init in tqdm(range(clustering_repeats), desc="Clustering"):
-                    self.cluster_eeg_microstates(init)
-
-            # Compute final GEV and save results
-            if self.best_maps is not None:
-                self.best_gev = self.compute_gev_all_data()
-                print(f'[INFO] Global Explained Variance: {100 * self.best_gev:.3f}%')
-
-                # Always set clustering flag to True if we have maps
-                self.done_clustering = True
-
-                # Log completion with method-specific information
-                completion_message = f"✓ Clustering completed successfully: {self.number_of_maps} microstates (GEV: {100 * self.best_gev:.3f}%)"
-
-                # Only print immediately if NOT using GUI (to avoid duplicate with callback)
-                if not (hasattr(self, 'LogWindow') and self.LogWindow is not None):
-                    print(completion_message)
-                
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    self.LogWindow.process_finished(completion_message)
+                    self.LogWindow.append_log("Determining optimal number of clusters...")
 
-                # Save updated configuration and parameters
-                if self.auto_save:
+                # Run automatic optimization with progress updates
+                self._run_automatic_optimization_core_with_progress(update_progress, check_stop)
+
+            # Step 7: After determining number_of_maps, perform actual clustering
+            if self.number_of_maps and self.number_of_maps != 'auto':
+                if check_stop():
+                    return self._handle_stopped_clustering("Starting clustering repetitions")
+                update_progress(1, f"Performing clustering with {self.number_of_maps} maps...")
+                print(f'[CLUSTERING] Performing clustering with {self.number_of_maps} maps...')
+
+                # Initialize microstate clusterer with special settings for TAAHC
+                if is_taahc:
+                    # TAAHC is deterministic and time-consuming - MUST use only 1 repetition
+                    clustering_repeats = 1
+                    if self.number_of_repeats != 1:
+                        print(f"[CLUSTERING] TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {self.number_of_repeats}")
+                        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                            self.LogWindow.append_log(f"TAAHC: Enforcing 1 repetition (deterministic algorithm)", log_type='info')
+                else:
+                    clustering_repeats = self.number_of_repeats
+
+                self.comet_microstate_clusterer = MicrostateClusterer(
+                    n_states=self.number_of_maps,
+                    batch_size=self.batch_size,
+                    n_inits=1,  # We'll handle repetitions manually
+                    max_iter=self.max_iterations,
+                    tolerance=self.clustering_tolerance
+                )
+
+                # Perform clustering repetitions to find best solution
+                best_maps = None
+                best_gev = 0.0
+                best_residual = np.inf
+                completed_repetitions = 0
+
+                if is_taahc:
+                    print(f'[CLUSTERING] Running TAAHC clustering (deterministic algorithm)...')
+                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                        self.LogWindow.append_log(f"Running TAAHC clustering (deterministic algorithm)...")
+                else:
+                    print(f'[CLUSTERING] Running {clustering_repeats} clustering repetitions...')
+                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                        self.LogWindow.append_log(f"Running {clustering_repeats} clustering repetitions...")
+
+                # Run clustering repetitions with progress updates
+                for init in range(clustering_repeats):
+                    if check_stop():
+                        if is_taahc:
+                            return self._handle_stopped_clustering("TAAHC clustering", 
+                                                                 best_maps, best_gev, best_residual, completed_repetitions)
+                        else:
+                            return self._handle_stopped_clustering(f"Clustering repetition {init + 1}/{clustering_repeats}", 
+                                                                 best_maps, best_gev, best_residual, completed_repetitions)
+                    
+                    if is_taahc:
+                        progress_msg = "Running TAAHC clustering..."
+                        update_progress(1, progress_msg)
+                        print(f'[CLUSTERING] {progress_msg}')
+                        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                            self.LogWindow.append_log(progress_msg)
+                    else:
+                        progress_msg = f"Clustering repetition {init + 1}/{clustering_repeats}"
+                        update_progress(1, progress_msg)
+                        print(f'[CLUSTERING] {progress_msg}')
+                        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                            self.LogWindow.append_log(progress_msg)
+                    
+                    maps, gev, residual = self.cluster_eeg_microstates(init)
+                    completed_repetitions += 1
+
+                    if gev > best_gev:
+                        best_gev = gev
+                        best_maps = maps.copy()
+                        best_residual = residual
+                        if is_taahc:
+                            print(f'[CLUSTERING] TAAHC clustering completed - GEV: {best_gev:.4f}')
+                            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                                self.LogWindow.append_log(f"TAAHC clustering completed - GEV: {best_gev:.4f}")
+                        else:
+                            print(f'[CLUSTERING] New best GEV: {best_gev:.4f}')
+                            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                                self.LogWindow.append_log(f"New best GEV: {best_gev:.4f}")
+
+                # Step 8: Store best results
+                update_progress(1, "Saving clustering results...")
+                if best_maps is not None:
+                    self.best_maps = best_maps
+                    self.best_gev = best_gev
+                    self.best_residual = best_residual
+
+                    print(f'[CLUSTERING] Clustering completed successfully!')
+                    print(f'[CLUSTERING] Best GEV: {best_gev:.4f}')
+                    print(f'[CLUSTERING] Best residual: {best_residual:.6f}')
+
+                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                        self.LogWindow.append_log("Clustering completed successfully!", log_type='success')
+                        self.LogWindow.append_log(f"Best GEV: {best_gev:.4f}")
+                        self.LogWindow.append_log(f"Best residual: {best_residual:.6f}")
+
+                    # Save clustering results
+                    self._save_clustering_results()
+
+                    # Update state flags
+                    self.done_clustering = True
                     self.save_config()
                     
-                # Ensure logs are saved
-                self._save_logs()
-                
-                # Call clustering completion callback if set
-                if self.clustering_completed_callback is not None:
-                    self.clustering_completed_callback()
+                    return True
+
+                else:
+                    error_msg = "[ERROR] Clustering failed - no valid results obtained"
+                    print(error_msg)
+                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                        self.LogWindow.append_log(error_msg, log_type='error')
+                    return False
 
             else:
-                error_msg = "[ERROR] Clustering failed - no microstate maps were generated"
+                error_msg = "[ERROR] Number of maps not determined"
+                print(error_msg)
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    self.LogWindow.append_log(error_msg)
-                else:
-                    print(error_msg)
+                    self.LogWindow.append_log(error_msg, log_type='error')
+                return False
 
-    def _run_automatic_optimization_worker(self, task_name):
+        except Exception as e:
+            error_msg = f"[ERROR] Clustering process failed: {str(e)}"
+            print(error_msg)
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+            return False
+
+    def _handle_stopped_clustering(self, stopped_at_step, best_maps=None, best_gev=0.0, best_residual=np.inf, completed_repetitions=0):
         """
-        Run automatic optimization using majority vote in worker thread.
+        Handle clustering process that was stopped by the user.
+        Returns partial results if available.
+        """
+        stop_msg = f"Clustering process stopped by user at: {stopped_at_step}"
+        
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.LogWindow.append_log(stop_msg, log_type='warning')
+        
+        # If we have partial results from clustering repetitions, save them
+        if best_maps is not None and completed_repetitions > 0:
+            self.best_maps = best_maps
+            self.best_gev = best_gev
+            self.best_residual = best_residual
+            
+            partial_msg = f"Partial results saved from {completed_repetitions} completed clustering repetitions"
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(partial_msg, log_type='info')
+                self.LogWindow.append_log(f"Best GEV from partial results: {best_gev:.4f}")
+            
+            # Save partial clustering results
+            self._save_clustering_results()
+            
+            # Update state flags
+            self.done_clustering = True
+            self.save_config()
+            
+            return True
+        else:
+            # No partial results available
+            no_results_msg = "No clustering results available - process stopped too early"
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(no_results_msg, log_type='warning')
+            
+            return False
+
+    def _run_full_clustering_direct(self):
+        """
+        Run full clustering process directly (non-GUI mode).
+        """
+        return self._run_full_clustering_worker('full_clustering')
+
+    def _run_clustering_repetition_worker(self, task_name, init):
+        """
+        Worker function for running a single clustering repetition.
+        This method is designed to be called by the LogWindow's worker thread.
+        """
+        maps, gev, residual = self.cluster_eeg_microstates(init)
+        # Store result for later collection
+        if not hasattr(self, 'clustering_results'):
+            self.clustering_results = []
+        self.clustering_results.append((maps, gev, residual))
+        return maps, gev, residual
+
+    def _run_automatic_optimization_worker(self):
+        """
+        Run automatic optimization in worker thread.
         This method is designed to be called by the LogWindow's worker thread.
         """
 
@@ -1075,7 +1295,7 @@ class COMET:
         self.comet_clusterer_optimizer = ClustererOptimizer(
             maps2use=self.maps2use,
             min_dist=self.min_distance_size,
-            n_inits=1,  # Single repeat per k as requested
+            n_inits=self.number_of_repeats,
             kmin=self.kmin,
             kmax=self.kmax,
             preprocessed_data_path=self.preprocessed_data_path,
@@ -1094,10 +1314,14 @@ class COMET:
         Run automatic optimization directly (non-GUI mode).
         """
         # Initialize optimizer without progress callback
+        # For auto-k selection, use only 1 repeat and force GFP peaks
+        auto_k_n_inits = 1  # Force single repeat for auto-k selection
+        print(f"[CLUSTERING] Auto-k selection: Using single repeat (n_inits=1) for optimization")
+        
         self.comet_clusterer_optimizer = ClustererOptimizer(
             maps2use=self.maps2use,
             min_dist=self.min_distance_size,
-            n_inits=1,  # Single repeat per k as requested
+            n_inits=auto_k_n_inits,  # Use single repeat for auto-k
             kmin=self.kmin,
             kmax=self.kmax,
             preprocessed_data_path=self.preprocessed_data_path,
@@ -1110,58 +1334,140 @@ class COMET:
         # Run automatic optimization
         self._run_automatic_optimization_core()
 
+    def _run_automatic_optimization_core_with_progress(self, update_progress_func, check_stop_func):
+        """
+        Core automatic optimization logic using majority vote with progress updates.
+        """
+        try:
+            # Create optimizer with progress callback that updates the main progress
+            def progress_callback(current, total, message):
+                # This callback is called by the optimizer for each k value
+                # We need to update the main progress tracking
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
+                        # Calculate progress within the optimization phase
+                        optimization_progress = int((current / total) * 100)
+                        # Convert to overall progress (optimization starts after setup steps)
+                        setup_steps = 5
+                        optimization_steps = self.kmax - self.kmin + 1
+                        overall_progress = int(((setup_steps + (current / total) * optimization_steps) / (setup_steps + optimization_steps + self.number_of_repeats)) * 100)
+                        self.LogWindow.worker_thread.progress_updated.emit(overall_progress, message)
+
+            # Initialize optimizer with progress callback
+            # For auto-k selection, use only 1 repeat and force GFP peaks
+            auto_k_n_inits = 1  # Force single repeat for auto-k selection
+            print(f"[CLUSTERING] Auto-k selection: Using single repeat (n_inits=1) for optimization")
+            
+            self.comet_clusterer_optimizer = ClustererOptimizer(
+                maps2use=self.maps2use,
+                min_dist=self.min_distance_size,
+                n_inits=auto_k_n_inits,  # Use single repeat for auto-k
+                kmin=self.kmin,
+                kmax=self.kmax,
+                preprocessed_data_path=self.preprocessed_data_path,
+                extension=self.extension,
+                datatype=self.datatype,
+                tolerance=self.clustering_tolerance,
+                max_iter=self.max_iterations,
+                progress_callback=progress_callback
+            )
+
+            # Connect LogWindow stop functionality to the optimizer
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                # Store reference to optimizer in LogWindow for stop functionality
+                self.LogWindow.current_optimizer = self.comet_clusterer_optimizer
+
+            # Check for stop before starting optimization
+            if check_stop_func():
+                return False
+
+            # Use majority vote for auto-k selection
+            if self.stopping_mode == 'majority_vote':
+                optimal_k = self.comet_clusterer_optimizer.find_optimal_k_majority_vote()
+                self.optimization_results = self.comet_clusterer_optimizer.get_all_results()
+                
+                # Save optimization results for later visualization
+                self.save_optimization_results(self.optimization_results)
+                
+                print(f'[CLUSTERING] Optimal number of maps determined by majority vote: {optimal_k}')
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(f"Optimal number of maps determined by majority vote: {optimal_k}")
+                    
+                    # Log individual method results
+                    for method_name, result in self.optimization_results.items():
+                        if method_name != 'majority_vote':
+                            self.LogWindow.append_log(f"  {result.method_name}: k = {result.optimal_k}")
+            else:
+                # Fallback to single method (for backward compatibility)
+                optimal_k, k_values, scores = self.comet_clusterer_optimizer.find_optimal_k(
+                    optimizer_mode=self.stopping_mode,
+                    parameter_value=self.stopping_parameter
+                )
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")
+
+            self.number_of_maps = optimal_k
+
+        except RuntimeError as e:
+            if "stopped by user" in str(e):
+                # Handle user-initiated stop
+                stop_msg = "Auto-k optimization stopped by user"
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(stop_msg, log_type='warning')
+                # Fallback to default
+                self.number_of_maps = 4
+                print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
+            else:
+                raise
+        except Exception as e:
+            error_msg = f"[ERROR] Automatic optimization failed: {str(e)}"
+            print(error_msg)
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+            # Fallback to default
+            self.number_of_maps = 4
+            print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
+
     def _run_automatic_optimization_core(self):
         """
         Core automatic optimization logic using majority vote.
         """
-        # Define methods to use for majority vote
-        methods_to_use = ['gev', 'res', 'sil', 'ch', 'db']
+        try:
+            # Use majority vote for auto-k selection
+            if self.stopping_mode == 'majority_vote':
+                optimal_k = self.comet_clusterer_optimizer.find_optimal_k_majority_vote()
+                self.optimization_results = self.comet_clusterer_optimizer.get_all_results()
+                
+                # Save optimization results for later visualization
+                self.save_optimization_results(self.optimization_results)
+                
+                print(f'[CLUSTERING] Optimal number of maps determined by majority vote: {optimal_k}')
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(f"Optimal number of maps determined by majority vote: {optimal_k}")
+                    
+                    # Log individual method results
+                    for method_name, result in self.optimization_results.items():
+                        if method_name != 'majority_vote':
+                            self.LogWindow.append_log(f"  {result.method_name}: k = {result.optimal_k}")
+            else:
+                # Fallback to single method (for backward compatibility)
+                optimal_k, k_values, scores = self.comet_clusterer_optimizer.find_optimal_k(
+                    optimizer_mode=self.stopping_mode,
+                    parameter_value=self.stopping_parameter
+                )
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")
 
-        # Conditionally include cross-validation if we have enough samples
-        if self.maps2use.shape[1] >= 50:  # Need enough samples for meaningful CV
-            methods_to_use.append('cv')
+            self.number_of_maps = optimal_k
 
-        # Skip gap statistic by default as it's computationally expensive
-        # Can be enabled if needed
-        # methods_to_use.append('gs')
-
-        # Run majority vote optimization
-        optimal_k = self.comet_clusterer_optimizer.find_optimal_k_majority_vote(methods_to_use)
-
-        # Store results
-        self.number_of_maps = optimal_k
-        self.optimization_results = self.comet_clusterer_optimizer.get_all_results()
-
-        # Log results
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log(f"\n✓ Optimal number of clusters determined: {optimal_k}")
-
-            # Log individual method results
-            self.LogWindow.append_log("\nIndividual optimization method results:")
-
-            method_names = {
-                'gev': 'Elbow - Global Explained Variance',
-                'res': 'Elbow - Residual Variance',
-                'sil': 'Silhouette Method',
-                'ch': 'Calinski-Harabasz Method',
-                'db': 'Davies-Bouldin Method',
-                'cv': 'Cross-Validation',
-                'gs': 'Gap Statistic'
-            }
-
-            for method in methods_to_use:
-                if method in self.optimization_results:
-                    k = self.optimization_results[method].optimal_k
-                    name = method_names.get(method, method.upper())
-                    self.LogWindow.append_log(f"  - {name}: k = {k}")
-
-            # Log majority vote summary
-            if 'majority_vote' in self.optimization_results:
-                votes = self.optimization_results['majority_vote'].scores
-                self.LogWindow.append_log(f"\nMajority vote: {votes}")
-
-        else:
-            print(f"[INFO] Optimal number of clusters determined: {optimal_k}")
+        except Exception as e:
+            error_msg = f"[ERROR] Automatic optimization failed: {str(e)}"
+            print(error_msg)
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+            # Fallback to default
+            self.number_of_maps = 4
+            print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
 
     def run_microstate_labeling(self):
         """
@@ -1178,7 +1484,8 @@ class COMET:
         )
 
         # Perform labeling
-        print("[INFO] Starting microstate labeling...")
+        print('\n' + '=' * 60)
+        print("[LABELING] Starting microstate labeling...")
         micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
 
         # Save updated microstate maps with labels
@@ -1194,10 +1501,10 @@ class COMET:
         self.done_microstate_labeling = True
 
         # Always print completion to terminal for important steps
-        print("✓ Microstate labeling completed successfully")
+        print("[LABELING] Microstate labeling completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.process_finished("✓ Microstates have been successfully labeled!")
+            self.LogWindow.process_finished("Microstates have been successfully labeled!")
 
         # Save parameters
         if self.auto_save:
@@ -1207,7 +1514,8 @@ class COMET:
         """
         Backfit microstate maps to all EEG files
         """
-        print('\n[INFO] Starting microstate backfitting...')
+        print('\n' + '=' * 60)
+        print('[BACKFITTING] Starting microstate backfitting...')
 
         # Check if best maps are available
         if self.best_maps is None:
@@ -1245,7 +1553,7 @@ class COMET:
                     max_value=len(self.list_eegs_path)
                 )
             else:
-                print("[INFO] Identifying optimal smoothing window length...")
+                print("[BACKFITTING] Identifying optimal smoothing window length...")
 
             rm_max_len = 50
             len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
@@ -1269,7 +1577,7 @@ class COMET:
             self.filter_segments_less_than_ms = self.comet_microstate_backfitter.identify_optimal_length_filter(
                 similarity_scores=similarity_scores
             )
-            print(f"[INFO] Optimal filter length determined: {self.filter_segments_less_than_ms} ms")
+            print(f"[BACKFITTING] Optimal filter length determined: {self.filter_segments_less_than_ms} ms")
         else:
             if self.filter_segments:
                 self.filter_segments_less_than_ms = self.filter_segments_less_than
@@ -1322,7 +1630,7 @@ class COMET:
             # Set callback to run when backfitting worker thread finishes
             self.LogWindow.process_finished_callback = self._on_backfitting_finished
         else:
-            print(f"[INFO] Processing {len(self.zipped_eeg_files)} EEG files...")
+            print(f"[BACKFITTING] Processing {len(self.zipped_eeg_files)} EEG files...")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Backfitting"):
                 self.backfit_eeg(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -1332,7 +1640,8 @@ class COMET:
         """
         Extract features from all segmentation files
         """
-        print('\n[INFO] Starting feature extraction...')
+        print('\n' + '=' * 60)
+        print('[FEATURE EXTRACTION] Starting feature extraction...')
 
         # Create features output directory
         os.makedirs(self.extracted_features_path, exist_ok=True)
@@ -1392,7 +1701,7 @@ class COMET:
             self.LogWindow.process_finished_callback = self.collect_feature_extraction_results
         else:
             # Fallback: run sequentially in the main thread
-            print(f"[INFO] Processing {len(tasks)} segmentation files...")
+            print(f"[FEATURE EXTRACTION] Processing {len(tasks)} segmentation files...")
             for task in tqdm(tasks, desc="Feature Extraction"):
                 self.extract_features_for_file_threadsafe(*task)
             # Collect results immediately when done
@@ -1665,12 +1974,12 @@ class COMET:
         self.done_extracting_features = True
 
         # Always print completion to terminal for important steps
-        print("✓ Feature extraction completed successfully")
+        print("[FEATURE EXTRACTION] Feature extraction completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent infinite recursion
             self.LogWindow.process_finished_callback = None
-            self.LogWindow.process_finished("✓ All features have been successfully extracted!")
+            self.LogWindow.process_finished("All features have been successfully extracted!")
 
         # Save parameters
         if self.auto_save:
@@ -1735,7 +2044,8 @@ class COMET:
         """
         Perform source localization for microstates
         """
-        print("\n[INFO] Starting source localization...")
+        print('\n' + '=' * 60)
+        print("[SOURCE LOCALIZATION] Starting source localization...")
 
         # Check if backfitting has been done
         if not self.done_backfitting:
@@ -1804,7 +2114,7 @@ class COMET:
             # Set callback to run when source localization worker thread finishes
             self.LogWindow.process_finished_callback = self._on_source_localization_finished
         else:
-            print(f"[INFO] Processing {len(self.zipped_eeg_files)} EEG files...")
+            print(f"[SOURCE LOCALIZATION] Processing {len(self.zipped_eeg_files)} EEG files...")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Source Localization"):
                 self.source_localize_file(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -1814,7 +2124,8 @@ class COMET:
         """
         Correlate sources and microstates
         """
-        print("\n[INFO] Starting source-microstate correlation...")
+        print('\n' + '=' * 60)
+        print("[SOURCE LOCALIZATION] Starting source-microstate correlation...")
 
         # Check if source localization has been done
         if not self.done_source_localization:
@@ -1885,7 +2196,7 @@ class COMET:
             # Set callback to run when source identification worker thread finishes
             self.LogWindow.process_finished_callback = self._on_source_identification_finished
         else:
-            print(f"[INFO] Processing {len(self.zipped_eeg_files)} EEG files...")
+            print(f"[SOURCE LOCALIZATION] Processing {len(self.zipped_eeg_files)} EEG files...")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Source Identification"):
                 self.source_identify_file(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -2029,11 +2340,130 @@ class COMET:
         """Save optimization results to configuration"""
         self.optimization_results = results
 
+    def _launch_microstate_labeling(self):
+        """Launch the microstate labeling window after clustering completion."""
+        try:
+            # Import the microstate labeling window
+            from controllers.microstate_visualization_window import MicrostateVisualizationWindow
+            
+            # Check if we have a context available
+            if not hasattr(self, 'context') or self.context is None:
+                print("[WARNING] Could not find context for microstate visualization window")
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.append_log("Could not launch microstate labeling window - context not available", log_type='warning')
+                return
+            
+            # Get the main window from LogWindow if available
+            main_window = None
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                main_window = getattr(self.LogWindow, 'parent', None)
+                if main_window is None:
+                    main_window = self.LogWindow
+            
+            # Create the microstate visualization window with correct parameters
+            microstate_window = MicrostateVisualizationWindow(
+                self.context,
+                main_window=main_window,
+                tbx=self
+            )
+            microstate_window.plot_maps()  # Plot the microstates
+            microstate_window.show()
+            
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log("Microstate labeling window launched", log_type='info')
+                
+        except Exception as e:
+            error_msg = f"[ERROR] Failed to launch microstate labeling window: {str(e)}"
+            print(error_msg)
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+
+    def _on_clustering_completed(self, message=None):
+        """Handle completion of the full clustering process."""
+        try:
+            # Clear the callback to prevent infinite recursion
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.process_finished_callback = None
+                
+            # Ensure logs are saved
+            self._save_logs()
+            
+            # Launch microstate labeling window
+            self._launch_microstate_labeling()
+            
+        except Exception as e:
+            error_msg = f"[ERROR] Error in clustering completion handler: {str(e)}"
+            print(error_msg)
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+
+    def _on_clustering_repetitions_finished(self, message=None):
+        """Collect clustering results from worker threads and find the best solution."""
+        # Find the best result from all repetitions
+        best_maps = None
+        best_gev = 0.0
+        best_residual = np.inf
+        
+        if hasattr(self, 'clustering_results') and self.clustering_results:
+            for maps, gev, residual in self.clustering_results:
+                if gev > best_gev:
+                    best_gev = gev
+                    best_maps = maps.copy()
+                    best_residual = residual
+        
+        # Store best results
+        if best_maps is not None:
+            self.best_maps = best_maps
+            self.best_gev = best_gev
+            self.best_residual = best_residual
+
+            print(f'[CLUSTERING] Clustering completed successfully!')
+            print(f'[CLUSTERING] Best GEV: {best_gev:.4f}')
+            print(f'[CLUSTERING] Best residual: {best_residual:.6f}')
+
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log("Clustering completed successfully!", log_type='success')
+                self.LogWindow.append_log(f"Best GEV: {best_gev:.4f}")
+                self.LogWindow.append_log(f"Best residual: {best_residual:.6f}")
+
+            # Save clustering results
+            self._save_clustering_results()
+
+            # Update state flags
+            self.done_clustering = True
+            self.save_config()
+            
+            # Clear the callback to prevent infinite recursion
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.process_finished_callback = None
+                
+            # Ensure logs are saved
+            self._save_logs()
+            
+            # Launch microstate labeling window
+            self._launch_microstate_labeling()
+
+        else:
+            error_msg = "[ERROR] Clustering failed - no valid results obtained"
+            print(error_msg)
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type='error')
+
     def _on_clustering_iterations_finished(self, *args, **kwargs):
         """Finalize clustering once the worker thread has completed all iterations."""
+        # Check if worker was stopped
+        worker_stopped = False
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
+                worker_stopped = self.LogWindow.worker_thread.stopped
+
         # Verify that clustering produced maps
         if self.best_maps is None:
-            error_msg = "Clustering failed - no microstate maps were generated"
+            if worker_stopped:
+                error_msg = "Clustering stopped before any maps were generated"
+            else:
+                error_msg = "Clustering failed - no microstate maps were generated"
+
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
             else:
@@ -2047,14 +2477,24 @@ class COMET:
         self.done_clustering = True
 
         # Compose completion message
-        completion_message = f"✓ Clustering completed successfully: {self.number_of_maps} microstates (GEV: {100 * self.best_gev:.3f}%)"
+        if worker_stopped:
+            completion_message = (
+                f"⚠️ Clustering stopped early but maps were saved\n"
+                f"✓ Best maps: {self.number_of_maps} microstates (GEV: {100 * self.best_gev:.3f}%)"
+            )
+        else:
+            completion_message = (
+                f"[CLUSTERING] Clustering completed successfully: {self.number_of_maps} microstates "
+                f"(GEV: {100 * self.best_gev:.3f}%)"
+            )
 
         # Always print completion to terminal for important steps
         print(completion_message)
-        
+
         # Log or print completion
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log(completion_message, log_type='success')
+            log_type = 'warning' if worker_stopped else 'success'
+            self.LogWindow.append_log(completion_message, log_type=log_type)
             # Clear the callback to prevent it from being triggered by other processes
             self.LogWindow.process_finished_callback = None
 
@@ -2074,7 +2514,7 @@ class COMET:
         self.done_preprocessing = True
 
         # Always print completion to terminal for important steps
-        print("✓ Preprocessing completed successfully")
+        print("[PREPROCESSING] Preprocessing completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
@@ -2094,12 +2534,12 @@ class COMET:
         self.done_backfitting = True
 
         # Always print completion to terminal for important steps
-        print("✓ Backfitting completed successfully")
+        print("[BACKFITTING] Backfitting completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
             self.LogWindow.process_finished_callback = None
-            self.LogWindow.process_finished("✓ Microstates have been successfully backfitted to the data!")
+            self.LogWindow.process_finished("Microstates have been successfully backfitted to the data!")
 
         # Save parameters
         if self.auto_save:
@@ -2114,7 +2554,7 @@ class COMET:
         self.done_source_localization = True
 
         # Always print completion to terminal for important steps
-        print("✓ Source localization completed successfully")
+        print("[SOURCE LOCALIZATION] Source localization completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
@@ -2134,7 +2574,7 @@ class COMET:
         self.done_identifying_microstate_sources = True
 
         # Always print completion to terminal for important steps
-        print("✓ Source-microstate correlation completed successfully")
+        print("[SOURCE LOCALIZATION] Source-microstate correlation completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes

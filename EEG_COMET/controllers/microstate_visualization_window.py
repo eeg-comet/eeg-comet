@@ -384,7 +384,7 @@ class MicrostateVisualizationWindow(QMainWindow):
                 label_widget.setDisabled(True)
             self.sync_labels_with_widgets()  # Sync after setting widget texts
             self.reorder_microstates()
-            if self.main_window:
+            if self.main_window and hasattr(self.main_window, 'mainwindow_controller'):
                 self.main_window.mainwindow_controller()
 
     def reorder_microstates(self):
@@ -504,14 +504,15 @@ class MicrostateVisualizationWindow(QMainWindow):
             'done_source_localization', 'done_identifying_microstate_sources'
         ]
         # Reset relevant processing flags on the main window
-        if hasattr(self.main_window, "processing_flags"):
+        if self.main_window and hasattr(self.main_window, "processing_flags"):
             for flag in processing_flags:
                 setattr(self.main_window.processing_flags, flag, False)
 
             # Sync flags to COMET so the rest of the app reflects the change
             if hasattr(self.main_window, "_sync_flags_to_comet"):
                 self.main_window._sync_flags_to_comet()
-        self.main_window.mainwindow_controller()
+        if self.main_window and hasattr(self.main_window, 'mainwindow_controller'):
+            self.main_window.mainwindow_controller()
 
     def sync_labels_with_widgets(self):
         """Ensure current_order_labels stays in sync with widget state"""
@@ -538,7 +539,8 @@ class MicrostateVisualizationWindow(QMainWindow):
             )
             self.comet.done_microstate_labeling = True
             # Update MainWindow's log if necessary
-            self.main_window.mainwindow_controller()
+            if self.main_window and hasattr(self.main_window, 'mainwindow_controller'):
+                self.main_window.mainwindow_controller()
             self.close()
         else:
             # Show message

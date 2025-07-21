@@ -416,37 +416,22 @@ background-color: rgb(0, 0, 0);</string>
       </property>
       <item>
        <property name="text">
-        <string>Elbow - Global Explained Variance</string>
+        <string>Global Explained Variance Criterion</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>Elbow - Residual Variance</string>
+        <string>Davies-Bouldin Criterion</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>Silhouette Method</string>
+        <string>Cross Validation Criterion</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>Calinski-Harabasz Method</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>Davies-Bouldin Method</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>Cross Validation</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>Gap Statistic</string>
+        <string>Krzanowski-Lai Criterion</string>
        </property>
       </item>
      </widget>

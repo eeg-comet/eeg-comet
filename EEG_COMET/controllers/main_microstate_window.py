@@ -189,7 +189,7 @@ class WidgetGroups:
         """Get preprocessing-related widgets"""
         return [
             self.ui.step2_line1, self.ui.step2_line2, self.ui.step2_line3,
-            self.ui.step2_line4, self.ui.step2_similarity_label,
+            self.ui.step2_similarity_label,
             self.ui.step2_similarity_combobox, self.ui.step2_initializer_label,
             self.ui.step2_random_initializer_radio,
             self.ui.step2_kmeans_initializer_radio, self.ui.step2_select_times_label,
@@ -207,10 +207,8 @@ class WidgetGroups:
     def _get_auto_k_widgets(self):
         """Get auto-k related widgets"""
         return [
-            self.ui.step2_auto_target_label, self.ui.step2_auto_target_parameter_label,
-            self.ui.step2_stopping_threshold_input, self.ui.step2_auto_range_kmin_spinbox,
-            self.ui.step2_auto_range_kmax_spinbox, self.ui.step2_auto_k_method_combobox,
-            self.ui.step2_auto_range_label
+            self.ui.step2_auto_range_kmin_spinbox,
+            self.ui.step2_auto_range_kmax_spinbox
         ]
 
     def _get_convergence_widgets(self):
@@ -286,7 +284,7 @@ class WidgetGroups:
             self.ui.step5_line4, self.ui.step5_stc_settings_label,
             self.ui.step5_bem_method_label, self.ui.step5_bem_mne_radio,
             self.ui.step5_bem_openmeeg_radio, self.ui.step5_anatomy_label,
-            self.ui.step5_subjects_dir_label, self.ui.step5_use_fsaverage_radio,
+            self.ui.step5_use_fsaverage_radio,
             self.ui.step5_use_individual_radio, self.ui.step5_inverse_method_label,
             self.ui.step5_inverse_method_combobox, self.ui.step5_spacing_label,
             self.ui.step5_spacing_combobox, self.ui.step5_coreg_button,
@@ -373,7 +371,7 @@ class MainMicrostateWindow(QMainWindow):
 
         # Initialize core components
         self.context = context
-        self.comet = COMET()
+        self.comet = COMET(context=context)
         self.comet.initialize_log_window()
         self.comet.LogWindow.show()
 
@@ -799,7 +797,7 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_use_percent_radio: self._update_ui_state,
             self.ui.step2_use_peaks_radio: self._update_ui_state,
             self.ui.step2_clustermethod_combobox: self._update_ui_state,
-            self.ui.step2_auto_k_method_combobox: self._update_ui_state,
+
             self.ui.step2_auto_range_kmin_spinbox: self._update_ui_state,
             self.ui.step2_auto_range_kmax_spinbox: self._update_ui_state,
             self.ui.step2_percent_slider: self._update_ui_state,
@@ -1018,23 +1016,16 @@ class MainMicrostateWindow(QMainWindow):
             if kmax <= kmin:
                 self.ui.step2_auto_range_kmax_spinbox.setValue(kmin + 1)
 
-            # Update target parameter label
-            self._update_auto_k_parameter_label()
+                    # Auto-k selection now uses majority vote across all methods
         else:
             self.widget_groups.set_group_status('user_k', WidgetMode.ENABLE)
             self.widget_groups.set_group_status('auto_k', WidgetMode.DISABLE)
 
     def _update_auto_k_parameter_label(self):
-        """Update auto-k parameter label based on method"""
-        method = self.ui.step2_auto_k_method_combobox.currentText()
-        label_map = {
-            'Gap Statistic': 'Random datasets:',
-            'Cross Validation': 'Folds:',
-            'Elbow - Global Explained Variance': 'Threshold (%):',
-            'Elbow - Residual Variance': 'Threshold (%):'
-        }
-        label_text = label_map.get(method, '')
-        self.ui.step2_auto_target_parameter_label.setText(label_text)
+        """Update auto-k parameter label - now uses majority vote across all methods"""
+        # This method is kept for compatibility but no longer needed
+        # Auto-k selection now uses majority vote across all methods automatically
+        pass
 
     def _handle_batch_processing_settings(self):
         """Handle batch processing UI settings"""
@@ -1258,12 +1249,12 @@ class MainMicrostateWindow(QMainWindow):
     @staticmethod
     def open_github():
         """Open the GitHub page in the default web browser"""
-        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction')
+        webbrowser.open('https://github.com/eBrainLab/eeg-comet/tree/stable')
 
     @staticmethod
     def report_issues():
         """Open the GitHub issues page in the default web browser"""
-        webbrowser.open('https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/issues/new')
+        webbrowser.open('https://github.com/eBrainLab/eeg-comet/issues/new')
 
     def update_toolbox(self):
         """Ask the user if they want to download the toolbox"""
@@ -1275,7 +1266,7 @@ class MainMicrostateWindow(QMainWindow):
         )
         if reply == QMessageBox.Yes:
             webbrowser.open(
-                'https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction/archive/refs/heads/main.zip')
+                'https://github.com/eBrainLab/eeg-comet/archive/refs/heads/stable.zip')
 
     # Dialog methods
     def open_new_study_dialog(self):
@@ -1380,12 +1371,115 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.LogWindow.append_log(
                 f"Study '{self.comet.study_name}' loaded successfully from: {folder}", log_type='success'
             )
+            
+            # Log completion status of all steps
+            self._log_study_completion_status()
 
         except Exception as e:
             QMessageBox.critical(
                 self, "Load Error",
                 f"Failed to load study parameters: {e}",
                 QMessageBox.Ok
+            )
+
+    def _log_study_completion_status(self):
+        """Log the completion status of all processing steps"""
+        print('\n' + '=' * 60)
+        print('[INFO] Study Completion Status:')
+        print('=' * 60)
+        
+        # Check each processing step
+        steps_status = []
+        
+        # Preprocessing
+        if self.comet.done_preprocessing:
+            steps_status.append("✅ Data Preprocessing")
+            print("[INFO] ✅ Data Preprocessing - COMPLETED")
+        else:
+            steps_status.append("❌ Data Preprocessing")
+            print("[INFO] ❌ Data Preprocessing - NOT COMPLETED")
+        
+        # Clustering
+        if self.comet.done_clustering:
+            steps_status.append("✅ Microstate Clustering")
+            print("[INFO] ✅ Microstate Clustering - COMPLETED")
+            if hasattr(self.comet, 'best_gev') and self.comet.best_gev is not None:
+                print(f"[INFO]   └─ Best GEV: {100 * self.comet.best_gev:.3f}%")
+            if hasattr(self.comet, 'number_of_maps') and self.comet.number_of_maps is not None:
+                print(f"[INFO]   └─ Number of Maps: {self.comet.number_of_maps}")
+        else:
+            steps_status.append("❌ Microstate Clustering")
+            print("[INFO] ❌ Microstate Clustering - NOT COMPLETED")
+        
+        # Microstate Labeling
+        if self.comet.done_microstate_labeling:
+            steps_status.append("✅ Microstate Labeling")
+            print("[INFO] ✅ Microstate Labeling - COMPLETED")
+        else:
+            steps_status.append("❌ Microstate Labeling")
+            print("[INFO] ❌ Microstate Labeling - NOT COMPLETED")
+        
+        # Backfitting
+        if self.comet.done_backfitting:
+            steps_status.append("✅ Microstate Backfitting")
+            print("[INFO] ✅ Microstate Backfitting - COMPLETED")
+        else:
+            steps_status.append("❌ Microstate Backfitting")
+            print("[INFO] ❌ Microstate Backfitting - NOT COMPLETED")
+        
+        # Feature Extraction
+        if self.comet.done_extracting_features:
+            steps_status.append("✅ Feature Extraction")
+            print("[INFO] ✅ Feature Extraction - COMPLETED")
+        else:
+            steps_status.append("❌ Feature Extraction")
+            print("[INFO] ❌ Feature Extraction - NOT COMPLETED")
+        
+        # Source Localization
+        if self.comet.done_source_localization:
+            steps_status.append("✅ Source Localization")
+            print("[INFO] ✅ Source Localization - COMPLETED")
+        else:
+            steps_status.append("❌ Source Localization")
+            print("[INFO] ❌ Source Localization - NOT COMPLETED")
+        
+        # Source-Microstate Correlation
+        if self.comet.done_identifying_microstate_sources:
+            steps_status.append("✅ Source-Microstate Correlation")
+            print("[INFO] ✅ Source-Microstate Correlation - COMPLETED")
+        else:
+            steps_status.append("❌ Source-Microstate Correlation")
+            print("[INFO] ❌ Source-Microstate Correlation - NOT COMPLETED")
+        
+        # Summary
+        completed_steps = sum(1 for step in steps_status if step.startswith("✅"))
+        total_steps = len(steps_status)
+        
+        print('=' * 60)
+        print(f"[INFO] Summary: {completed_steps}/{total_steps} steps completed")
+        
+        if completed_steps == total_steps:
+            print("[INFO] 🎉 All processing steps completed!")
+        elif completed_steps == 0:
+            print("[INFO] 📋 No processing steps completed yet")
+        else:
+            print(f"[INFO] 📊 {completed_steps} steps completed, {total_steps - completed_steps} remaining")
+        
+        print('=' * 60)
+        
+        # Also log to GUI if available
+        if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow is not None:
+            self.comet.LogWindow.append_log("Study Completion Status", log_type='section')
+            
+            for step in steps_status:
+                if step.startswith("✅"):
+                    self.comet.LogWindow.append_log(f"{step} - COMPLETED", log_type='success')
+                else:
+                    self.comet.LogWindow.append_log(f"{step} - NOT COMPLETED", log_type='warning')
+            
+            self.comet.LogWindow.append_log(
+                f"Summary: {completed_steps}/{total_steps} steps completed", 
+                log_type='info'
             )
 
     # Processing methods
@@ -1405,7 +1499,7 @@ class MainMicrostateWindow(QMainWindow):
         if self.ui.step2_use_percent_radio.isChecked():
             self.comet.use_percentages = int(self.ui.step2_percent_slider.value())
         else:
-            self.comet.use_percentages = None
+            self.comet.use_percentages = 100  # Use 100% of data when percentage option is not selected
 
         # Clustering parameters
         self.comet.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
@@ -1506,19 +1600,12 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.choose_number_of_maps = "auto"
         self.comet.number_of_maps = 'auto'
 
-        method_map = {
-            'Gap Statistic': 'gs',
-            'Cross Validation': 'cv',
-            'Elbow - Global Explained Variance': 'gev',
-            'Elbow - Residual Variance': 'res',
-            'Silhouette Method': 'sil',
-            'Calinski-Harabasz Method': 'ch',
-            'Davies-Bouldin Method': 'db'
-        }
-
-        method = self.ui.step2_auto_k_method_combobox.currentText()
-        self.comet.stopping_mode = method_map.get(method, 'gev')
-        self.comet.stopping_parameter = float(self.ui.step2_stopping_threshold_input.text())
+        # Auto-k selection now uses majority vote across all methods
+        self.comet.stopping_mode = 'majority_vote'
+        self.comet.stopping_parameter = None  # Not needed for majority vote
+        
+        # Force GFP peaks for auto-k selection (ignore use_percentages setting)
+        print("[CLUSTERING] Auto-k selection: Will use GFP peaks for optimization")
 
     def _set_user_k_parameters(self):
         """Set parameters for user-defined k"""

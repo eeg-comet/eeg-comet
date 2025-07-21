@@ -21,7 +21,7 @@ class Worker(QThread):
         self.processing_func = processing_func
         self.stopped = False
         self.total_tasks = len(tasks) if hasattr(tasks, '__len__') else 1
-        self.dynamic_total = None  # For dynamic task counts like TAAHC
+        self.dynamic_total = None
 
     def run(self):
         total_tasks = len(self.tasks)
@@ -30,20 +30,24 @@ class Worker(QThread):
                 self.finished.emit("Process stopped by user!")
                 return
 
-            if isinstance(task, (tuple, list)) and not isinstance(task, str):
-                self.processing_func(*task)
-            else:
-                self.processing_func(task)
+            # Pass the worker instance to allow checking stopped flag
+            # Use try-except to handle functions that don't accept worker parameter
+            try:
+                if isinstance(task, (tuple, list)) and not isinstance(task, str):
+                    self.processing_func(*task, worker=self)
+                else:
+                    self.processing_func(task, worker=self)
+            except TypeError:
+                # If the function doesn't accept worker parameter, call without it
+                if isinstance(task, (tuple, list)) and not isinstance(task, str):
+                    self.processing_func(*task)
+                else:
+                    self.processing_func(task)
 
-            # For standard progress (non-TAAHC)
             if self.dynamic_total is None:
                 self.progress_updated.emit(idx, f"Completed task {idx} of {total_tasks}")
 
         self.finished.emit("✅ All tasks have been successfully processed!")
-
-    def set_dynamic_total(self, total):
-        """Set dynamic total for methods like TAAHC that have variable progress steps"""
-        self.dynamic_total = total
 
     def stop(self):
         """Signal the thread to stop processing."""
@@ -67,6 +71,9 @@ class LogWindow(QWidget):
         
         # Callback function to be called when processing is finished
         self.process_finished_callback = None
+        
+        # Reference to current optimizer for stop functionality
+        self.current_optimizer = None
 
     def _is_main_thread(self):
         """Check if we're currently in the main thread."""
@@ -209,10 +216,17 @@ class LogWindow(QWidget):
 
     def stop_process(self):
         """Stop the process if it is running."""
+        # Stop the worker thread if running
         if self.worker_thread and self.worker_thread.isRunning():
             self.worker_thread.stop()
             # Optionally wait for the thread to finish.
             self.worker_thread.wait()
+        
+        # Stop the optimizer if it's running
+        if hasattr(self, 'current_optimizer') and self.current_optimizer is not None:
+            self.current_optimizer.stop()
+            self.current_optimizer = None
+        
         self.ui.progress_stop_button.setEnabled(False)
 
     def show_hide_log_window(self):

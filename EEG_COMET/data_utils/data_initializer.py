@@ -64,7 +64,7 @@ class DataInitializer:
         return initial_centers
 
     @staticmethod
-    def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None):
+    def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None, random_seed=None):
         """Extract Global Field Power (GFP) peaks and corresponding topographical maps.
 
         GFP is calculated as the standard deviation across channels at each time point.
@@ -78,6 +78,8 @@ class DataInitializer:
                 Defaults to None (use peak detection)
             min_dist (int, optional): Minimum distance between peaks in samples.
                 If 0, no minimum distance is enforced. Defaults to None
+            random_seed (int, optional): Random seed for reproducible random sampling.
+                Only used when use_percentages is provided. Defaults to None
 
         Returns:
             tuple: Contains:
@@ -93,7 +95,12 @@ class DataInitializer:
 
         if use_percentages is not None:
             num_samples = int(data.shape[1] * (int(use_percentages) / 100))
-            peaks = np.random.choice(data.shape[1], size=num_samples, replace=False)
+            if random_seed is not None:
+                # Set random seed for reproducible sampling
+                rng = np.random.RandomState(random_seed)
+                peaks = rng.choice(data.shape[1], size=num_samples, replace=False)
+            else:
+                peaks = np.random.choice(data.shape[1], size=num_samples, replace=False)
         else:
             if min_dist == 0:
                 min_dist = None
@@ -103,7 +110,7 @@ class DataInitializer:
         return maps, peaks
 
     @staticmethod
-    def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percentages=None, min_dist=None):
+    def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percentages=None, min_dist=None, random_seed=None):
         """Generate GFP maps and peak indices from multiple preprocessed EEG files.
 
         Loads all EEG files from the specified folder that match the extension,
@@ -117,6 +124,8 @@ class DataInitializer:
                 select instead of using peak detection (0-100). Defaults to None
             min_dist (int, optional): Minimum distance between peaks in samples.
                 Defaults to None
+            random_seed (int, optional): Random seed for reproducible random sampling.
+                Only used when use_percentages is provided. Defaults to None
 
         Returns:
             tuple: Contains:
@@ -132,10 +141,23 @@ class DataInitializer:
         all_preprocessed_paths, _ = data_io.find_data(preprocessed_folder, extension)
         maps2use, peaks2use = [], []
         counter = 0
+        
+        # If using random sampling with a seed, we need to ensure consistent sampling across files
+        if use_percentages is not None and random_seed is not None:
+            # Create a random state for consistent sampling
+            rng = np.random.RandomState(random_seed)
+        
         for eeg_path in all_preprocessed_paths:
             eeg = data_io.load_eeg(eeg_path, datatype)
             eeg_data = data_io.get_eeg_data(eeg, datatype)
-            maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist)
+            
+            # For random sampling with seed, we need to pass a different seed for each file
+            # to ensure different samples but reproducible results
+            if use_percentages is not None and random_seed is not None:
+                file_seed = random_seed + counter  # Different seed for each file
+                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist, file_seed)
+            else:
+                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist)
 
             if counter == 0:
                 maps2use = maps

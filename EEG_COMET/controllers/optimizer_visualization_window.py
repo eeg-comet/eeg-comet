@@ -17,365 +17,6 @@ from clustering_utils.microstate_clusterer import MicrostateClusterer
 
 
 # ============================================================================
-# Custom Microstate Clustering Metrics
-# ============================================================================
-
-class MicrostateClusteringMetrics:
-    """
-    A collection of clustering quality metrics specifically designed for
-    polarity-invariant microstate analysis.
-    """
-
-    @staticmethod
-    def compute_custom_silhouette(data: np.ndarray, labels: np.ndarray,
-                                  maps: Optional[np.ndarray] = None) -> float:
-        """
-        Compute silhouette score for polarity-invariant microstate clustering.
-        Optimized version that avoids creating large pairwise distance matrices.
-
-        The silhouette coefficient for a sample is (b - a) / max(a, b), where:
-        - a is the mean distance between a sample and all other points in the same cluster
-        - b is the mean distance between a sample and all points in the nearest cluster
-
-        This implementation uses correlation-based distances: d = 1 - |correlation|
-        to handle polarity invariance in EEG microstates.
-
-        Parameters
-        ----------
-        data : np.ndarray
-            Data matrix of shape (n_channels, n_samples) or (n_samples, n_channels)
-        labels : np.ndarray
-            Cluster labels for each sample
-        maps : np.ndarray, optional
-            Cluster centers (n_clusters, n_channels) - not used in this implementation
-            but kept for API consistency
-
-        Returns
-        -------
-        float
-            Average silhouette score across all samples (-1 to 1, higher is better)
-        """
-        # Ensure data is in (n_samples, n_channels) format for easier computation
-        if data.shape[0] < data.shape[1]:
-            data = data.T
-
-        n_samples, n_channels = data.shape
-        unique_labels = np.unique(labels)
-        n_clusters = len(unique_labels)
-
-        # Handle edge case: only one cluster
-        if n_clusters == 1:
-            return 0.0
-
-        # Check for very large datasets and warn/optimize accordingly
-        if n_samples > 50000:
-            print(f"Warning: Very large dataset ({n_samples} samples). Using aggressive sampling for performance.")
-            return MicrostateClusteringMetrics._compute_sampled_silhouette(
-                data, labels, unique_labels, sample_size=2000
-            )
-        elif n_samples > 10000:
-            print(f"Warning: Large dataset ({n_samples} samples). Using sampling for performance.")
-            return MicrostateClusteringMetrics._compute_sampled_silhouette(
-                data, labels, unique_labels, sample_size=5000
-            )
-        elif n_samples > 1000:
-            return MicrostateClusteringMetrics._compute_batch_silhouette(
-                data, labels, unique_labels
-            )
-        else:
-            return MicrostateClusteringMetrics._compute_efficient_silhouette(
-                data, labels, unique_labels
-            )
-
-    @staticmethod
-    def _compute_sampled_silhouette(data: np.ndarray, labels: np.ndarray, 
-                                    unique_labels: np.ndarray, sample_size: int = 5000) -> float:
-        """
-        Compute silhouette score using sampling for very large datasets.
-        """
-        # Normalize data for correlation computation
-        data_norm = data / (np.linalg.norm(data, axis=1, keepdims=True) + 1e-10)
-        n_samples = data_norm.shape[0]
-        
-        # Stratified sampling to ensure each cluster is represented
-        sample_indices = []
-        for label in unique_labels:
-            label_indices = np.where(labels == label)[0]
-            if len(label_indices) > 0:
-                # Sample proportionally from each cluster
-                cluster_sample_size = max(1, int(sample_size * len(label_indices) / n_samples))
-                cluster_sample_size = min(cluster_sample_size, len(label_indices))
-                sampled = np.random.choice(label_indices, size=cluster_sample_size, replace=False)
-                sample_indices.extend(sampled)
-        
-        sample_indices = np.array(sample_indices)
-        
-        # Compute silhouette on sampled data
-        sampled_data = data_norm[sample_indices]
-        sampled_labels = labels[sample_indices]
-        
-        return MicrostateClusteringMetrics._compute_efficient_silhouette(sampled_data, sampled_labels, unique_labels)
-
-    @staticmethod
-    def _compute_batch_silhouette(data: np.ndarray, labels: np.ndarray, 
-                                  unique_labels: np.ndarray, batch_size: int = 1000) -> float:
-        """
-        Compute silhouette score using batch processing to manage memory.
-        """
-        # Normalize data for correlation computation
-        data_norm = data / (np.linalg.norm(data, axis=1, keepdims=True) + 1e-10)
-        n_samples = data_norm.shape[0]
-        silhouette_scores = np.zeros(n_samples)
-        
-        # Process data in batches
-        for start_idx in range(0, n_samples, batch_size):
-            end_idx = min(start_idx + batch_size, n_samples)
-            batch_indices = slice(start_idx, end_idx)
-            
-            batch_data = data_norm[batch_indices]
-            batch_labels = labels[batch_indices]
-            
-            # Compute distances for this batch against all data
-            batch_scores = MicrostateClusteringMetrics._compute_batch_scores(
-                batch_data, batch_labels, data_norm, labels, unique_labels, start_idx
-            )
-            
-            silhouette_scores[batch_indices] = batch_scores
-        
-        return np.mean(silhouette_scores)
-
-    @staticmethod
-    def _compute_batch_scores(batch_data: np.ndarray, batch_labels: np.ndarray,
-                              all_data: np.ndarray, all_labels: np.ndarray,
-                              unique_labels: np.ndarray, start_idx: int) -> np.ndarray:
-        """
-        Compute silhouette scores for a batch of samples.
-        """
-        batch_size = batch_data.shape[0]
-        batch_scores = np.zeros(batch_size)
-        
-        for i in range(batch_size):
-            global_i = start_idx + i
-            current_label = batch_labels[i]
-            sample = batch_data[i:i+1]  # Keep as 2D array
-            
-            # Calculate a(i): average distance to points in same cluster
-            same_cluster_mask = (all_labels == current_label) & (np.arange(len(all_labels)) != global_i)
-            n_same = np.sum(same_cluster_mask)
-            
-            if n_same > 0:
-                same_cluster_data = all_data[same_cluster_mask]
-                correlations = np.abs(np.dot(sample, same_cluster_data.T)).flatten()
-                distances = 1 - correlations
-                a_i = np.mean(distances)
-            else:
-                a_i = 0.0
-            
-            # Calculate b(i): minimum average distance to points in other clusters
-            b_i = np.inf
-            
-            for other_label in unique_labels:
-                if other_label != current_label:
-                    other_cluster_mask = all_labels == other_label
-                    n_other = np.sum(other_cluster_mask)
-                    
-                    if n_other > 0:
-                        other_cluster_data = all_data[other_cluster_mask]
-                        correlations = np.abs(np.dot(sample, other_cluster_data.T)).flatten()
-                        distances = 1 - correlations
-                        mean_dist = np.mean(distances)
-                        b_i = min(b_i, mean_dist)
-            
-            # Calculate silhouette coefficient for this sample
-            if b_i == np.inf:
-                s_i = 0.0
-            else:
-                max_val = max(a_i, b_i)
-                if max_val > 0:
-                    s_i = (b_i - a_i) / max_val
-                else:
-                    s_i = 0.0
-            
-            batch_scores[i] = s_i
-        
-        return batch_scores
-
-    @staticmethod
-    def _compute_efficient_silhouette(data_norm: np.ndarray, labels: np.ndarray, 
-                                      unique_labels: np.ndarray) -> float:
-        """
-        Compute silhouette score efficiently for small to moderate datasets.
-        """
-        n_samples = data_norm.shape[0]
-        silhouette_scores = np.zeros(n_samples)
-        
-        for i in range(n_samples):
-            current_label = labels[i]
-            sample = data_norm[i:i+1]  # Keep as 2D array
-            
-            # Calculate a(i): average distance to points in same cluster
-            same_cluster_mask = (labels == current_label) & (np.arange(n_samples) != i)
-            n_same = np.sum(same_cluster_mask)
-            
-            if n_same > 0:
-                same_cluster_data = data_norm[same_cluster_mask]
-                # Compute correlations in batches if needed
-                if n_same > 5000:
-                    correlations = []
-                    batch_size = 1000
-                    for start in range(0, n_same, batch_size):
-                        end = min(start + batch_size, n_same)
-                        batch_corr = np.abs(np.dot(sample, same_cluster_data[start:end].T)).flatten()
-                        correlations.extend(batch_corr)
-                    correlations = np.array(correlations)
-                else:
-                    correlations = np.abs(np.dot(sample, same_cluster_data.T)).flatten()
-                
-                distances = 1 - correlations
-                a_i = np.mean(distances)
-            else:
-                a_i = 0.0
-            
-            # Calculate b(i): minimum average distance to points in other clusters
-            b_i = np.inf
-            
-            for other_label in unique_labels:
-                if other_label != current_label:
-                    other_cluster_mask = labels == other_label
-                    n_other = np.sum(other_cluster_mask)
-                    
-                    if n_other > 0:
-                        other_cluster_data = data_norm[other_cluster_mask]
-                        # Compute correlations in batches if needed
-                        if n_other > 5000:
-                            correlations = []
-                            batch_size = 1000
-                            for start in range(0, n_other, batch_size):
-                                end = min(start + batch_size, n_other)
-                                batch_corr = np.abs(np.dot(sample, other_cluster_data[start:end].T)).flatten()
-                                correlations.extend(batch_corr)
-                            correlations = np.array(correlations)
-                        else:
-                            correlations = np.abs(np.dot(sample, other_cluster_data.T)).flatten()
-                        
-                        distances = 1 - correlations
-                        mean_dist = np.mean(distances)
-                        b_i = min(b_i, mean_dist)
-            
-            # Calculate silhouette coefficient for this sample
-            if b_i == np.inf:
-                s_i = 0.0
-            else:
-                max_val = max(a_i, b_i)
-                if max_val > 0:
-                    s_i = (b_i - a_i) / max_val
-                else:
-                    s_i = 0.0
-            
-            silhouette_scores[i] = s_i
-        
-        return np.mean(silhouette_scores)
-
-    @staticmethod
-    def compute_custom_davies_bouldin(data: np.ndarray, labels: np.ndarray,
-                                      maps: np.ndarray) -> float:
-        """
-        Compute Davies-Bouldin Index for polarity-invariant microstate clustering.
-
-        The Davies-Bouldin Index is defined as:
-        DBI = (1/K) * Σ(i=1 to K) max_j≠i[(S_i + S_j) / d_ij]
-
-        Where:
-        - K is the number of clusters
-        - S_i is the average within-cluster distance for cluster i
-        - d_ij is the distance between cluster centers i and j
-
-        Lower values indicate better clustering (minimum value is 0).
-        This implementation uses correlation-based distances for polarity invariance.
-
-        Parameters
-        ----------
-        data : np.ndarray
-            Data matrix of shape (n_channels, n_samples)
-        labels : np.ndarray
-            Cluster labels for each sample
-        maps : np.ndarray
-            Cluster centers of shape (n_clusters, n_channels)
-
-        Returns
-        -------
-        float
-            Davies-Bouldin Index (lower is better)
-        """
-        n_channels, n_samples = data.shape
-        unique_labels = np.unique(labels)
-        n_clusters = len(unique_labels)
-
-        # Handle edge case: only one cluster
-        if n_clusters == 1:
-            return 0.0
-
-        # Normalize data and maps for correlation computation
-        data_norm = data / (np.linalg.norm(data, axis=0, keepdims=True) + 1e-10)
-        maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
-
-        # Step 1: Calculate within-cluster scatter (S_i) for each cluster
-        within_cluster_scatter = np.zeros(n_clusters)
-
-        for i, label in enumerate(unique_labels):
-            cluster_mask = labels == label
-            n_points = np.sum(cluster_mask)
-
-            if n_points > 0:
-                # Get normalized cluster data
-                cluster_data = data_norm[:, cluster_mask]
-                cluster_center = maps_norm[i:i + 1]
-
-                # Compute scatter as average correlation distance from center
-                # Correlation: center @ data
-                correlations = np.abs(np.dot(cluster_center, cluster_data)).flatten()
-                distances = 1 - correlations
-
-                # S_i = average distance within cluster
-                within_cluster_scatter[i] = np.mean(distances)
-            else:
-                within_cluster_scatter[i] = 0.0
-
-        # Step 2: Calculate between-cluster distances (d_ij) using correlation
-        between_cluster_dist = np.zeros((n_clusters, n_clusters))
-
-        for i in range(n_clusters):
-            for j in range(i + 1, n_clusters):
-                # Correlation-based distance between normalized cluster centers
-                correlation = np.abs(np.dot(maps_norm[i], maps_norm[j]))
-                distance = 1 - correlation
-                between_cluster_dist[i, j] = distance
-                between_cluster_dist[j, i] = distance  # Symmetric matrix
-
-        # Step 3: For each cluster, find the maximum similarity ratio
-        db_scores = np.zeros(n_clusters)
-
-        for i in range(n_clusters):
-            max_ratio = 0.0
-
-            for j in range(n_clusters):
-                if i != j:
-                    # Calculate similarity ratio: (S_i + S_j) / d_ij
-                    if between_cluster_dist[i, j] > 1e-10:
-                        ratio = (within_cluster_scatter[i] + within_cluster_scatter[j]) / between_cluster_dist[i, j]
-                        max_ratio = max(max_ratio, ratio)
-                    else:
-                        # If centers are nearly identical (shouldn't happen in practice)
-                        # Assign a high penalty
-                        max_ratio = max(max_ratio, 10.0)
-
-            db_scores[i] = max_ratio
-
-        # Step 4: Return average of maximum ratios
-        return np.mean(db_scores)
-
-
-# ============================================================================
 # Worker Thread Classes
 # ============================================================================
 
@@ -408,18 +49,8 @@ class OptimizedOptimizerWorker(QThread):
 
             metrics_data = {method: [] for method in self.methods_to_run}
 
-            print(f"\n{'=' * 60}")
-            print(f"MICROSTATE CLUSTERING ANALYSIS (Modified K-means)")
-            print(f"{'=' * 60}")
-            print(f"K range: {self.optimizer.kmin} to {self.optimizer.kmax}")
-            print(f"Methods: {', '.join(self.methods_to_run)}")
-            print(f"Using polarity-independent modified K-means algorithm")
-            print(f"Parameters:")
-            for method, param in self.parameters.items():
-                print(f"  {method}: {param}")
-            print(
-                f"Total computations: {len(k_values)} × {len(self.methods_to_run)} = {len(k_values) * len(self.methods_to_run)}")
-            print(f"{'=' * 60}")
+            print(f"\n[CLUSTERING] Starting microstate optimization analysis")
+            print(f"[CLUSTERING] Using modified K-means algorithm (polarity-independent)")
 
             # For each K value, compute clustering once and calculate all metrics
             total_steps = len(k_values)
@@ -434,30 +65,27 @@ class OptimizedOptimizerWorker(QThread):
                     f"Computing all metrics for k={k} ({current_step}/{total_steps}) using modified K-means"
                 )
 
-                print(f"\nProcessing k={k} ({current_step}/{total_steps}) with modified K-means...")
+                print(f"[CLUSTERING] Processing k={k} ({current_step}/{total_steps})")
 
                 # Perform clustering once for this K using modified K-means
                 try:
-                    clustering_result = self.optimizer._perform_single_clustering(k)
+                    clustering_result = self.optimizer._get_clustering_result(k)
 
                     # Compute all metrics on this clustering result
                     for method in self.methods_to_run:
                         try:
                             score = self._compute_metric(method, clustering_result, k)
                             metrics_data[method].append(score)
-                            print(f"  {method}: {score:.4f}")
                         except Exception as e:
-                            print(f"  Error computing {method} for k={k}: {str(e)}")
+                            print(f"[ERROR] Error computing {method} for k={k}: {str(e)}")
                             metrics_data[method].append(np.nan)
 
                 except Exception as e:
-                    print(f"  Error in modified K-means clustering for k={k}: {str(e)}")
+                    print(f"[ERROR] Error in clustering for k={k}: {str(e)}")
                     for method in self.methods_to_run:
                         metrics_data[method].append(np.nan)
 
-            print(f"\n{'=' * 60}")
-            print("CREATING RESULTS...")
-            print(f"{'=' * 60}")
+            print(f"[CLUSTERING] Computing optimal K for each method...")
 
             # Process results for each method
             for method in self.methods_to_run:
@@ -492,7 +120,7 @@ class OptimizedOptimizerWorker(QThread):
                 }
 
                 threshold_info = f" (threshold: {self.parameters.get(method)}%)" if method in ['gev', 'res'] else ""
-                print(f"{self._get_method_display_name(method)}: Optimal k = {optimal_k}{threshold_info}")
+                print(f"[CLUSTERING] {self._get_method_display_name(method)}: Optimal k = {optimal_k}{threshold_info}")
 
             # Final progress update
             self.progress.emit(100, 100, "All modified K-means computations complete")
@@ -501,7 +129,7 @@ class OptimizedOptimizerWorker(QThread):
         except Exception as e:
             import traceback
             error_msg = f"Error in optimization: {str(e)}\n{traceback.format_exc()}"
-            print(error_msg)
+            print(f"[ERROR] {error_msg}")
             self.error.emit(error_msg)
 
     def _compute_metric(self, method, clustering_result, k):
@@ -513,7 +141,7 @@ class OptimizedOptimizerWorker(QThread):
             'ch': 'calinski_harabasz',
             'db': 'davies_bouldin',
             'cv': 'cv_score',
-            'gs': 'gap_statistic'
+            'kl': 'kl_score'
         }
 
         metric_key = metric_map.get(method)
@@ -528,7 +156,7 @@ class OptimizedOptimizerWorker(QThread):
             return k_values[0] if k_values else 2
 
         # Handle methods based on optimization direction
-        if method == 'sil' or method == 'ch' or method == 'gs':
+        if method == 'sil' or method == 'ch':
             # Higher is better - find maximum
             max_idx = np.argmax(scores)
             return k_values[max_idx]
@@ -545,7 +173,11 @@ class OptimizedOptimizerWorker(QThread):
             threshold = self.parameters.get(method, 5.0)
             return self._find_elbow_point(k_values, scores, threshold, higher_is_better=False)
         elif method == 'cv':
-            # Cross validation - typically higher is better
+            # Cross validation - typically lower is better
+            min_idx = np.argmin(scores)
+            return k_values[min_idx]
+        elif method == 'kl':
+            # Krzanowski-Lai - higher is better
             max_idx = np.argmax(scores)
             return k_values[max_idx]
         else:
@@ -557,8 +189,6 @@ class OptimizedOptimizerWorker(QThread):
         if len(scores) < 2:
             return k_values[0]
 
-        print(f"\n  Finding elbow point with threshold {threshold}%:")
-
         for i in range(1, len(scores)):
             # Calculate percentage change
             if scores[i - 1] != 0:
@@ -566,41 +196,40 @@ class OptimizedOptimizerWorker(QThread):
             else:
                 change_percent = 100.0
 
-            print(f"    K={k_values[i - 1]} to K={k_values[i]}: {change_percent:.2f}% change")
-
             # Check if improvement is below threshold
             if change_percent < threshold:
-                print(f"    Elbow detected at K={k_values[i]} (change {change_percent:.2f}% < threshold {threshold}%)")
                 return k_values[i]
 
         # If no elbow found, return the last K
-        print(f"    No elbow found with threshold {threshold}%, returning last K={k_values[-1]}")
         return k_values[-1]
 
     def _is_higher_better(self, method):
         """Determine if higher scores are better for the method"""
-        return method in ['gev', 'sil', 'ch', 'gs', 'cv']
+        return method in ['gev', 'sil', 'ch', 'kl']
 
     def _get_method_display_name(self, method):
         """Get display name for method"""
         name_map = {
-            'gev': 'Elbow - Global Explained Variance',
+            'gev': 'Global Explained Variance Criterion',
             'res': 'Elbow - Residual Variance',
             'sil': 'Silhouette Method',
             'ch': 'Calinski-Harabasz Method',
-            'db': 'Davies-Bouldin Method',
-            'cv': 'Cross Validation',
-            'gs': 'Gap Statistic'
+            'db': 'Davies-Bouldin Criterion',
+            'cv': 'Cross Validation Criterion',
+            'kl': 'Krzanowski-Lai Criterion'
         }
         return name_map.get(method, method)
 
 
 # ============================================================================
-# Extended Optimizer Class
+# Extended Optimizer Class - Uses ClustererOptimizer metrics
 # ============================================================================
 
 class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
-    """Extended optimizer that uses modified K-means for microstate clustering"""
+    """
+    Extended optimizer that uses modified K-means for microstate clustering.
+    All metric computations are inherited from ClustererOptimizer (single source of truth).
+    """
 
     def __init__(self, maps2use, min_dist=None, n_inits=10, kmin=2, kmax=10,
                  preprocessed_data_path=None, extension=None, datatype=None,
@@ -622,14 +251,12 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
         self.batch_size = batch_size
 
-        # Initialize metrics calculator
-        self.metrics_calculator = MicrostateClusteringMetrics()
-
         print(f"Initialized MicrostateClustererOptimizer:")
         print(f"  EEG data shape: {self.eeg_data.shape} (channels × samples)")
         print(f"  K range: {kmin} to {kmax}")
         print(f"  Using modified K-means (polarity-independent)")
         print(f"  Memory usage strategy: {self._get_memory_strategy(n_samples)}")
+        print(f"  All metrics computed via ClustererOptimizer (consolidated)")
 
     def _validate_data_size(self, n_channels: int, n_samples: int):
         """
@@ -637,12 +264,12 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         """
         # Calculate approximate memory requirements
         memory_gb = self._estimate_memory_usage(n_samples)
-        
+
         print(f"\nData validation:")
         print(f"  Channels: {n_channels}")
         print(f"  Samples: {n_samples:,}")
         print(f"  Estimated peak memory usage: {memory_gb:.2f} GB")
-        
+
         # Provide warnings based on data size
         if n_samples > 100000:
             print(f"\n⚠️  WARNING: Very large dataset detected!")
@@ -650,19 +277,19 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
             print(f"  - Using aggressive sampling and batch processing")
             print(f"  - Consider using fewer samples or more RAM")
-            
+
         elif n_samples > 50000:
             print(f"\n⚠️  WARNING: Large dataset detected!")
             print(f"  - {n_samples:,} samples will use sampling for efficiency")
             print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
             print(f"  - Processing will be slower but memory-safe")
-            
+
         elif n_samples > 10000:
             print(f"\nℹ️  INFO: Medium dataset detected")
             print(f"  - {n_samples:,} samples will use batch processing")
             print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
             print(f"  - Processing optimized for memory efficiency")
-            
+
         else:
             print(f"\nℹ️  INFO: Small dataset - optimal for full computation")
             print(f"  - {n_samples:,} samples can be processed efficiently")
@@ -682,19 +309,19 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         # 1. Distance matrices for silhouette (avoided with optimization)
         # 2. Correlation matrices in batch processing
         # 3. Data copies and intermediate arrays
-        
+
         # Conservative estimate based on optimized algorithms
         if n_samples > 50000:
             # Using sampling approach
-            estimated_mb = (n_samples * 64 * 8) / (1024**2)  # Basic data storage
+            estimated_mb = (n_samples * 64 * 8) / (1024 ** 2)  # Basic data storage
             estimated_mb += 100  # Overhead for sampling and processing
         elif n_samples > 10000:
             # Using batch processing
-            estimated_mb = (n_samples * 128 * 8) / (1024**2)  # Data + batch overhead
+            estimated_mb = (n_samples * 128 * 8) / (1024 ** 2)  # Data + batch overhead
         else:
             # Full computation but optimized
-            estimated_mb = (n_samples * 256 * 8) / (1024**2)  # Data + correlation matrices
-        
+            estimated_mb = (n_samples * 256 * 8) / (1024 ** 2)  # Data + correlation matrices
+
         return estimated_mb / 1024  # Convert to GB
 
     def _get_memory_strategy(self, n_samples: int) -> str:
@@ -777,7 +404,7 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             'n_iter': None,
         }
 
-        # Compute all metrics efficiently
+        # Compute all metrics efficiently using CONSOLIDATED METHODS from ClustererOptimizer
         self._compute_all_metrics(clustering_result, k, best_labels, best_gev, best_residual)
 
         elapsed = time.time() - start_time
@@ -794,7 +421,10 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         return clustering_result
 
     def _compute_all_metrics(self, clustering_result, k, best_labels, best_gev, best_residual):
-        """Compute all metrics for the clustering result"""
+        """
+        Compute all metrics for the clustering result using CONSOLIDATED METHODS
+        from ClustererOptimizer (single source of truth).
+        """
         # 1. Global Explained Variance (PRIMARY metric for microstates)
         clustering_result['gev'] = best_gev
 
@@ -805,22 +435,23 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         #    self.eeg_data is (n_channels × n_samples), so transpose to (n_samples × n_channels)
         sample_features = self.eeg_data.T
 
-        # 4. Silhouette Score (if k > 1) - CUSTOM IMPLEMENTATION
+        # 4. Silhouette Score (if k > 1) - USING CONSOLIDATED METHOD
         if k > 1:
-            clustering_result['silhouette'] = self.metrics_calculator.compute_custom_silhouette(
-                sample_features, best_labels
+            clustering_result['silhouette'] = self.compute_custom_silhouette(
+                data=sample_features,
+                labels=best_labels,
+                maps=clustering_result.get('centers')
             )
         else:
             clustering_result['silhouette'] = 0.0
 
-        # 5. Calinski-Harabasz Index
+        # 5. Calinski-Harabasz Index - USING CONSOLIDATED METHOD
         try:
-            # Use custom polarity-invariant CH implementation from parent class
             maps = clustering_result.get('centers')  # shape: (k, n_channels)
 
             # Ensure that required data are present
             if maps is not None and maps.shape[0] == k:
-                ch_score = self._compute_custom_calinski_harabasz(
+                ch_score = self.compute_custom_calinski_harabasz(
                     data=self.eeg_data,  # (n_channels × n_samples)
                     maps=maps,  # (k × n_channels)
                     segmentation=best_labels,  # (n_samples,)
@@ -834,45 +465,18 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             print(f"        Warning: CH computation failed for k={k}: {str(e)}")
             clustering_result['calinski_harabasz'] = 0.0
 
-        # 6. Davies-Bouldin Index (if k > 1) - CUSTOM IMPLEMENTATION
+        # 6. Davies-Bouldin Index (if k > 1) - USING CONSOLIDATED METHOD
         if k > 1:
-            clustering_result['davies_bouldin'] = self.metrics_calculator.compute_custom_davies_bouldin(
-                self.eeg_data,  # (n_channels × n_samples)
-                best_labels,  # (n_samples,)
-                clustering_result.get('centers')  # (k × n_channels)
+            clustering_result['davies_bouldin'] = self.compute_custom_davies_bouldin(
+                data=self.eeg_data,  # (n_channels × n_samples)
+                labels=best_labels,  # (n_samples,)
+                maps=clustering_result.get('centers')  # (k × n_channels)
             )
         else:
             clustering_result['davies_bouldin'] = 0.0
 
         # 7. Cross Validation Score (use GEV as proxy for microstates)
         clustering_result['cv_score'] = best_gev
-
-        # 8. Gap Statistic (microstate-adapted version)
-        clustering_result['gap_statistic'] = self._calculate_gap_statistic_microstate(
-            clustering_result, k
-        )
-
-    def _compute_silhouette_score(self, data, labels):
-        """Compute custom silhouette score for polarity-invariant clustering"""
-        return self.metrics_calculator.compute_custom_silhouette(data, labels)
-
-    def _compute_davies_bouldin_score(self, data, labels):
-        """Compute custom Davies-Bouldin score for polarity-invariant clustering"""
-        # This method should not be called anymore, but kept for compatibility
-        # The actual computation is done in _compute_all_metrics
-        return 0.0
-
-    def _calculate_gap_statistic_microstate(self, clustering_result, k):
-        """Calculate gap statistic adapted for microstate analysis"""
-        gev = clustering_result['gev']
-        random_gev_estimate = max(0.1, 1.0 / k)
-
-        if gev > 0 and random_gev_estimate > 0:
-            gap = np.log(gev) - np.log(random_gev_estimate)
-        else:
-            gap = 0.0
-
-        return max(0.0, gap)
 
     def get_microstate_maps(self, k):
         """Get the final microstate maps for a specific k value"""
@@ -898,9 +502,9 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             print(f"\nMicrostate Metrics for k={k}:")
             print(f"  Global Explained Variance: {metrics['gev']:.4f}")
             print(f"  Residual Variance: {metrics['residual_variance']:.6f}")
-            print(f"  Silhouette Score: {metrics['silhouette']:.4f} (custom polarity-invariant)")
-            print(f"  Calinski-Harabasz: {metrics['calinski_harabasz']:.2f} (custom polarity-invariant)")
-            print(f"  Davies-Bouldin: {metrics['davies_bouldin']:.4f} (custom polarity-invariant)")
+            print(f"  Silhouette Score: {metrics['silhouette']:.4f} (consolidated polarity-invariant)")
+            print(f"  Calinski-Harabasz: {metrics['calinski_harabasz']:.2f} (consolidated polarity-invariant)")
+            print(f"  Davies-Bouldin: {metrics['davies_bouldin']:.4f} (consolidated polarity-invariant)")
 
         return metrics
 
@@ -913,6 +517,7 @@ class OptimizerVisualizationWindow(QMainWindow):
     """
     Window for manual inspection of microstate clustering optimization results.
     Uses modified K-means algorithm that ignores polarity shifts with persistent results.
+    All clustering metrics are computed via ClustererOptimizer (single source of truth).
     """
 
     def __init__(self, context, comet_instance, parent=None):
@@ -1179,7 +784,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             return
 
         # Try to select GEV as default, or the first available method
-        preferred_order = ['gev', 'res', 'sil', 'ch', 'db', 'cv', 'gs']
+        preferred_order = ['gev', 'res', 'sil', 'ch', 'db', 'cv']
 
         for method_code in preferred_order:
             if method_code in self.results_cache:
@@ -1299,13 +904,13 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         # Define parameter labels for each method
         param_labels = {
-            'Gap Statistic': 'Reference datasets:',
-            'Cross Validation': 'Number of folds:',
-            'Elbow - Global Explained Variance': 'Threshold (%):',
+            'Cross Validation Criterion': 'Number of folds:',
+            'Global Explained Variance Criterion': 'Threshold (%):',
             'Elbow - Residual Variance': 'Threshold (%):',
             'Silhouette Method': '',
             'Calinski-Harabasz Method': '',
-            'Davies-Bouldin Method': ''
+            'Davies-Bouldin Criterion': '',
+            'Krzanowski-Lai Criterion': ''
         }
 
         label = param_labels.get(optimizer_method, '')
@@ -1341,11 +946,9 @@ class OptimizerVisualizationWindow(QMainWindow):
 
     def _set_default_threshold(self, optimizer_method: str):
         """Set default threshold values for methods."""
-        if optimizer_method == 'Gap Statistic':
-            self.ui.optimizer_stopping_threshold_input.setText('10')
-        elif optimizer_method == 'Cross Validation':
+        if optimizer_method == 'Cross Validation Criterion':
             self.ui.optimizer_stopping_threshold_input.setText('5')
-        elif optimizer_method in ['Elbow - Global Explained Variance', 'Elbow - Residual Variance']:
+        elif optimizer_method in ['Global Explained Variance Criterion', 'Elbow - Residual Variance']:
             self.ui.optimizer_stopping_threshold_input.setText('5')
 
     def _on_threshold_changed(self):
@@ -1429,9 +1032,10 @@ class OptimizerVisualizationWindow(QMainWindow):
         print(f"\nStarting microstate optimization with modified K-means")
         print(f"K range: {kmin} to {kmax}")
         print(f"Total K values to process: {kmax - kmin + 1}")
+        print(f"Using consolidated metrics from ClustererOptimizer")
 
         # Get all methods to run
-        all_methods = ['gev', 'res', 'sil', 'ch', 'db', 'cv', 'gs']
+        all_methods = ['gev', 'res', 'sil', 'ch', 'db', 'cv', 'kl']
 
         # Get parameters from UI for methods that need them
         parameters = self._get_method_parameters()
@@ -1493,7 +1097,7 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         print(f"Microstate optimizer initialized with K range: {kmin} to {kmax}")
         print("Using modified K-means algorithm (polarity-independent)")
-        print("Using custom Silhouette and Davies-Bouldin implementations")
+        print("Using consolidated metrics from ClustererOptimizer (single source of truth)")
 
     def _get_method_parameters(self) -> Optional[Dict[str, float]]:
         """Get parameters from UI for methods that need them"""
@@ -1517,13 +1121,13 @@ class OptimizerVisualizationWindow(QMainWindow):
         parameters['gev'] = threshold_value
         parameters['res'] = threshold_value
         parameters['cv'] = int(threshold_value) if threshold_value.is_integer() else 5
-        parameters['gs'] = int(threshold_value) if threshold_value.is_integer() else 10
 
         # Store the parameters used
         self.last_used_parameters = parameters.copy()
 
         print(f"Using parameters: {parameters}")
         print("Algorithm: Modified K-means (polarity-independent)")
+        print("Metrics: Consolidated implementation from ClustererOptimizer")
 
         return parameters
 
@@ -1556,7 +1160,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         print("\n" + "=" * 60)
         print("ALL MICROSTATE OPTIMIZATION METHODS COMPLETED AND SAVED!")
         print("Using modified K-means (polarity-independent)")
-        print("Using custom metrics for Silhouette and Davies-Bouldin")
+        print("Using consolidated metrics from ClustererOptimizer (single source of truth)")
         print("=" * 60)
 
         # Display detailed results
@@ -1564,42 +1168,22 @@ class OptimizerVisualizationWindow(QMainWindow):
 
     def _display_optimization_summary(self, results: Dict[str, Any]):
         """Display summary of optimization results"""
+        print(f"\n[CLUSTERING] Optimization results summary:")
+        
         for method_code, results in results.items():
             method_name = self._get_method_name(method_code)
             optimal_k = results['optimal_k']
-            k_values = results['k_values']
-            scores = results['scores']
             threshold = results.get('threshold', None)
 
-            print(f"\n{method_name}:")
-            print(f"  Optimal k = {optimal_k}")
-            if threshold is not None and method_code in ['gev', 'res']:
-                print(f"  Threshold used: {threshold}%")
-            print(f"  K values tested: {k_values[0]} to {k_values[-1]} ({len(k_values)} values)")
+            threshold_info = f" (threshold: {threshold}%)" if threshold is not None and method_code in ['gev', 'res'] else ""
+            print(f"[CLUSTERING] {method_name}: Optimal k = {optimal_k}{threshold_info}")
 
-            # Filter out NaN scores for min/max calculation
-            valid_scores = [s for s in scores if not np.isnan(s)]
-            if valid_scores:
-                print(f"  Score range: {min(valid_scores):.4f} to {max(valid_scores):.4f}")
-            else:
-                print(f"  Score range: All scores invalid")
-
-            # Show scores for each K
-            print("  Scores by K:")
-            for k, score in zip(k_values, scores):
-                marker = " <-- OPTIMAL" if k == optimal_k else ""
-                score_str = f"{score:.4f}" if not np.isnan(score) else "NaN"
-                print(f"    k={k}: {score_str}{marker}")
-
-        print("\n" + "=" * 60)
-        print("NOTE: All results computed using modified K-means algorithm")
-        print("This ensures polarity-independent microstate identification")
-        print("Silhouette and Davies-Bouldin use custom polarity-invariant implementations")
-        print("Results have been saved and will be available next time you load this study")
+        print(f"[CLUSTERING] All results computed using modified K-means algorithm")
+        print(f"[CLUSTERING] Results saved and available for visualization")
 
     def _on_optimization_error(self, error_msg: str):
         """Handle optimization error"""
-        print(f"Modified K-means optimization error: {error_msg}")
+        print(f"[ERROR] Optimization error: {error_msg}")
         self.ui.optimizer_button.setEnabled(True)
         self.ui.optimizer_progressbar.setValue(0)
         self.ui.statusbar.showMessage(f"Error: {error_msg}")
@@ -1836,8 +1420,8 @@ class OptimizerVisualizationWindow(QMainWindow):
         title_parts = [result.method_name]
 
         # Add specific notes for custom implementations
-        if method_code in ['sil', 'db']:
-            title_parts[0] += " (Custom Polarity-Invariant)"
+        if method_code in ['sil', 'db', 'ch']:
+            title_parts[0] += " (Consolidated Implementation)"
         else:
             title_parts[0] += " (Modified K-means)"
 
@@ -1913,7 +1497,7 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         summary = {
             'algorithm': 'Modified K-means (polarity-independent)',
-            'metrics': 'Custom implementations for Silhouette and Davies-Bouldin',
+            'metrics': 'Consolidated implementations from ClustererOptimizer',
             'results': {},
             'has_saved_results': True,
             'last_updated': time.strftime('%Y-%m-%d %H:%M:%S')
@@ -1980,50 +1564,50 @@ class OptimizerVisualizationWindow(QMainWindow):
     def _get_method_code(self, method_name: str) -> str:
         """Convert method name to internal code"""
         method_map = {
-            'Elbow - Global Explained Variance': 'gev',
+            'Global Explained Variance Criterion': 'gev',
             'Elbow - Residual Variance': 'res',
             'Silhouette Method': 'sil',
             'Calinski-Harabasz Method': 'ch',
-            'Davies-Bouldin Method': 'db',
-            'Cross Validation': 'cv',
-            'Gap Statistic': 'gs'
+            'Davies-Bouldin Criterion': 'db',
+            'Cross Validation Criterion': 'cv',
+            'Krzanowski-Lai Criterion': 'kl'
         }
         return method_map.get(method_name, 'gev')
 
     def _get_method_name(self, method_code: str) -> str:
         """Convert method code to display name"""
         name_map = {
-            'gev': 'Elbow - Global Explained Variance',
+            'gev': 'Global Explained Variance Criterion',
             'res': 'Elbow - Residual Variance',
             'sil': 'Silhouette Method',
             'ch': 'Calinski-Harabasz Method',
-            'db': 'Davies-Bouldin Method',
-            'cv': 'Cross Validation',
-            'gs': 'Gap Statistic'
+            'db': 'Davies-Bouldin Criterion',
+            'cv': 'Cross Validation Criterion',
+            'kl': 'Krzanowski-Lai Criterion'
         }
         return name_map.get(method_code, method_code)
 
     def _get_method_display_names(self) -> Dict[str, str]:
         """Get all method display names"""
         return {
-            'gev': 'Elbow - Global Explained Variance',
+            'gev': 'Global Explained Variance Criterion',
             'res': 'Elbow - Residual Variance',
             'sil': 'Silhouette Method',
             'ch': 'Calinski-Harabasz Method',
-            'db': 'Davies-Bouldin Method',
-            'cv': 'Cross Validation',
-            'gs': 'Gap Statistic'
+            'db': 'Davies-Bouldin Criterion',
+            'cv': 'Cross Validation Criterion',
+            'kl': 'Krzanowski-Lai Criterion'
         }
 
     def _get_ylabel(self, method_name: str) -> str:
         """Get appropriate y-axis label for method"""
         labels = {
-            'Elbow - Global Explained Variance': 'Global Explained Variance',
+            'Global Explained Variance Criterion': 'Global Explained Variance',
             'Elbow - Residual Variance': 'Residual Variance',
             'Silhouette Method': 'Silhouette Score',
             'Calinski-Harabasz Method': 'Calinski-Harabasz Index',
-            'Davies-Bouldin Method': 'Davies-Bouldin Index',
-            'Cross Validation': 'Cross-Validation Score (GEV)',
-            'Gap Statistic': 'Gap Score'
+            'Davies-Bouldin Criterion': 'Davies-Bouldin Index',
+            'Cross Validation Criterion': 'Cross-Validation Score',
+            'Krzanowski-Lai Criterion': 'Krzanowski-Lai Score'
         }
         return labels.get(method_name, 'Score')

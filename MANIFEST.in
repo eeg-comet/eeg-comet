@@ -1,4 +1,0 @@
-include LICENSE
-include README.md
-recursive-include eeg_comet/models *.onnx
-recursive-include eeg_comet/ui *.png *.ico
