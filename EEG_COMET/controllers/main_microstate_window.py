@@ -189,7 +189,7 @@ class WidgetGroups:
         """Get preprocessing-related widgets"""
         return [
             self.ui.step2_line1, self.ui.step2_line2, self.ui.step2_line3,
-            self.ui.step2_line4, self.ui.step2_similarity_label,
+            self.ui.step2_similarity_label,
             self.ui.step2_similarity_combobox, self.ui.step2_initializer_label,
             self.ui.step2_random_initializer_radio,
             self.ui.step2_kmeans_initializer_radio, self.ui.step2_select_times_label,
@@ -208,8 +208,7 @@ class WidgetGroups:
         """Get auto-k related widgets"""
         return [
             self.ui.step2_auto_range_kmin_spinbox,
-            self.ui.step2_auto_range_kmax_spinbox,
-            self.ui.step2_auto_range_label
+            self.ui.step2_auto_range_kmax_spinbox
         ]
 
     def _get_convergence_widgets(self):
@@ -285,7 +284,7 @@ class WidgetGroups:
             self.ui.step5_line4, self.ui.step5_stc_settings_label,
             self.ui.step5_bem_method_label, self.ui.step5_bem_mne_radio,
             self.ui.step5_bem_openmeeg_radio, self.ui.step5_anatomy_label,
-            self.ui.step5_subjects_dir_label, self.ui.step5_use_fsaverage_radio,
+            self.ui.step5_use_fsaverage_radio,
             self.ui.step5_use_individual_radio, self.ui.step5_inverse_method_label,
             self.ui.step5_inverse_method_combobox, self.ui.step5_spacing_label,
             self.ui.step5_spacing_combobox, self.ui.step5_coreg_button,
