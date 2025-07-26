@@ -470,7 +470,17 @@ class NewStudyWindow(QDialog):
             self.highcut_freq = ''
 
         self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
-        self.sample_rate = int(self.ui.step2_downsamp_freq_input.text()) if self.downsample_data else ''
+        if self.downsample_data:
+            self.sample_rate = int(self.ui.step2_downsamp_freq_input.text())
+        else:
+            # When not downsampling, use the original sampling frequency from the data
+            if self.comet.list_eegs_path:
+                # Load the first EEG file to get its sampling frequency
+                first_eeg_path = self.comet.list_eegs_path[0]
+                temp_eeg = DataIO().load_eeg(first_eeg_path, self.comet.datatype, montage=None)
+                self.sample_rate = temp_eeg.info['sfreq']
+            else:
+                self.sample_rate = ''
         self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
         self.chan2rm = (self.ui.step2_ch2rm_combobox.currentData() if self.ui.step2_ch2rm_radio.isChecked()
                         else 'missing')
