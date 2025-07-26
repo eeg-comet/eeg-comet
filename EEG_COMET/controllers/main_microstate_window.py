@@ -1275,6 +1275,13 @@ class MainMicrostateWindow(QMainWindow):
         self.processing_flags.reset_all()
         self._sync_flags_to_comet()
 
+        # Clear any callbacks from previous processing
+        self.comet.clustering_completed_callback = None
+        self.comet.backfitting_completed_callback = None
+        self.comet.feature_extraction_completed_callback = None
+        self.comet.source_localization_completed_callback = None
+        self.comet.source_microstate_correlation_completed_callback = None
+
         # Hide small logos when starting a new study
         self._hide_small_logos()
 
@@ -1310,6 +1317,9 @@ class MainMicrostateWindow(QMainWindow):
         # Save the configuration to persist the initial log
         if self.comet.auto_save:
             self.comet.save_config()
+
+        # Update UI state after loading
+        self._update_ui_state()
 
     def _handle_existing_study_load(self):
         """Handle loading existing study"""
@@ -1374,6 +1384,9 @@ class MainMicrostateWindow(QMainWindow):
             
             # Log completion status of all steps
             self._log_study_completion_status()
+
+            # Update UI state after loading study
+            self._update_ui_state()
 
         except Exception as e:
             QMessageBox.critical(
@@ -1580,12 +1593,17 @@ class MainMicrostateWindow(QMainWindow):
         # Set other parameters
         self._set_clustering_parameters()
 
+        # Clear any previous callbacks from other processing steps
+        self.comet.backfitting_completed_callback = None
+        self.comet.feature_extraction_completed_callback = None
+        self.comet.source_localization_completed_callback = None
+        self.comet.source_microstate_correlation_completed_callback = None
+
         # Set up callback to update UI when clustering finishes
         self.comet.clustering_completed_callback = self._on_clustering_finished
 
         # Perform clustering
         self.comet.run_clustering()
-        self._update_ui_state()
 
     def _on_clustering_finished(self):
         """Called when clustering is finished to update UI state"""
@@ -1593,6 +1611,26 @@ class MainMicrostateWindow(QMainWindow):
         self._clustering_just_finished = True
         
         # Update the UI state now that clustering is complete
+        self._update_ui_state()
+
+    def _on_backfitting_finished(self):
+        """Called when backfitting is finished to update UI state"""
+        # Update the UI state now that backfitting is complete
+        self._update_ui_state()
+
+    def _on_feature_extraction_finished(self):
+        """Called when feature extraction is finished to update UI state"""
+        # Update the UI state now that feature extraction is complete
+        self._update_ui_state()
+
+    def _on_source_localization_finished(self):
+        """Called when source localization is finished to update UI state"""
+        # Update the UI state now that source localization is complete
+        self._update_ui_state()
+
+    def _on_source_microstate_correlation_finished(self):
+        """Called when source-microstate correlation is finished to update UI state"""
+        # Update the UI state now that source-microstate correlation is complete
         self._update_ui_state()
 
     def _set_auto_k_parameters(self):
@@ -1695,10 +1733,12 @@ class MainMicrostateWindow(QMainWindow):
         # Set backfitting parameters
         self._set_backfitting_parameters()
 
+        # Set up callback to update UI when backfitting finishes
+        self.comet.backfitting_completed_callback = self._on_backfitting_finished
+
         # Perform backfitting
         self.comet.run_backfitting()
         self.ui.main_tab.setCurrentIndex(2)
-        self._update_ui_state()
 
     def _set_backfitting_parameters(self):
         """Set backfitting parameters from UI"""
@@ -1784,14 +1824,16 @@ class MainMicrostateWindow(QMainWindow):
 
         # Clear any previous callbacks
         self.comet.clustering_completed_callback = None
+        self.comet.backfitting_completed_callback = None
 
         # Set feature parameters
         self._set_feature_extraction_parameters()
 
+        # Set up callback to update UI when feature extraction finishes
+        self.comet.feature_extraction_completed_callback = self._on_feature_extraction_finished
+
         # Perform feature extraction
         self.comet.run_feature_extraction()
-        self.comet.done_extracting_features = True
-        self._update_ui_state()
 
     def _set_feature_extraction_parameters(self):
         """Set feature extraction parameters from UI"""
@@ -1893,12 +1935,19 @@ class MainMicrostateWindow(QMainWindow):
         self._sync_flags_to_comet()
         self._update_ui_state()
 
+        # Clear any previous callbacks
+        self.comet.clustering_completed_callback = None
+        self.comet.backfitting_completed_callback = None
+        self.comet.feature_extraction_completed_callback = None
+
         # Set source localization parameters
         self._set_source_localization_parameters()
 
+        # Set up callback to update UI when source localization finishes
+        self.comet.source_localization_completed_callback = self._on_source_localization_finished
+
         # Perform source localization
         self.comet.run_source_localization()
-        self._update_ui_state()
 
     def _set_source_localization_parameters(self):
         """Set source localization parameters from UI"""
@@ -1935,13 +1984,20 @@ class MainMicrostateWindow(QMainWindow):
             if reply != QMessageBox.Yes:
                 return
 
+        # Clear any previous callbacks
+        self.comet.clustering_completed_callback = None
+        self.comet.backfitting_completed_callback = None
+        self.comet.feature_extraction_completed_callback = None
+        self.comet.source_localization_completed_callback = None
+
         # Set parameters
         self.comet.nperm = 2000
 
+        # Set up callback to update UI when source-microstate correlation finishes
+        self.comet.source_microstate_correlation_completed_callback = self._on_source_microstate_correlation_finished
+
         # Perform calculation
         self.comet.run_identifying_microstate_sources()
-        self.comet.done_identifying_microstate_sources = True
-        self._update_ui_state()
 
     def visualize_source_localized_microstates(self):
         """Open source visualization window"""
@@ -1968,6 +2024,11 @@ class MainMicrostateWindow(QMainWindow):
         """Handle window close event"""
         # Clear any callbacks
         self.comet.clustering_completed_callback = None
+        self.comet.backfitting_completed_callback = None
+        self.comet.feature_extraction_completed_callback = None
+        self.comet.source_localization_completed_callback = None
+        self.comet.source_microstate_correlation_completed_callback = None
+        
         if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow is not None:
             self.comet.LogWindow.close()
 
