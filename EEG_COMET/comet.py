@@ -681,7 +681,7 @@ class COMET:
             original_repeats = self.number_of_repeats
             self.number_of_repeats = 1
             if original_repeats != 1:
-                print(f"[CLUSTERING] TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {original_repeats}")
+                print(f"☄️  [CLUSTERING] TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {original_repeats}")
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(f"TAAHC: Enforcing 1 repetition (deterministic algorithm)", log_type='info')
 
@@ -823,7 +823,7 @@ class COMET:
             if self.clustering_completed_callback is not None:
                 self.clustering_completed_callback()
         else:
-            error_msg = "❌ Clustering stopped - no maps were generated before stopping"
+            error_msg = "❌  Clustering stopped - no maps were generated before stopping"
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
             else:
@@ -902,9 +902,9 @@ class COMET:
         steps_desc = ", ".join(preprocessing_steps) if preprocessing_steps else "None"
 
         # Print succinct overview to the terminal (always, even in GUI mode)
-        print(f"[PREPROCESSING] Steps selected: {steps_desc}")
-        print(f"[PREPROCESSING] Files to process: {len(self.list_eegs_path)}")
-        print(f"[PREPROCESSING] Export directory: {self.preprocessed_data_path}")
+        print(f"☄️  [PREPROCESSING] Steps selected: {steps_desc}")
+        print(f"☄️  [PREPROCESSING] Files to process: {len(self.list_eegs_path)}")
+        print(f"☄️  [PREPROCESSING] Export directory: {self.preprocessed_data_path}")
 
         # Log the preprocessing start
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
@@ -1074,8 +1074,8 @@ class COMET:
             # Step 4: Determine if we need automatic k selection
             is_taahc = (self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering")
 
-            print(f"[CLUSTERING] Using clustering method: {self.clustering_method}")
-            print(f"[CLUSTERING] Number of maps: {self.number_of_maps}")
+            print(f"☄️  [CLUSTERING] Using clustering method: {self.clustering_method}")
+            print(f"☄️  [CLUSTERING] Number of maps: {self.number_of_maps}")
 
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(f"Using clustering method: {self.clustering_method}")
@@ -1085,13 +1085,13 @@ class COMET:
             update_progress(1, "Loading preprocessed data for clustering...")
             if check_stop():
                 return self._handle_stopped_clustering("Loading preprocessed data")
-            print('[CLUSTERING] Loading preprocessed data for clustering...')
+            print('☄️  [CLUSTERING] Loading preprocessed data for clustering...')
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log("Loading preprocessed data for clustering...")
 
             # For auto-k selection, always use GFP peaks instead of random percentages
             if self.number_of_maps == 'auto':
-                print(f"[CLUSTERING] Auto-k selection: Using GFP peaks for optimization (ignoring use_percentages setting)")
+                print(f"☄️  [CLUSTERING] Auto-k selection: Using GFP peaks for optimization (ignoring use_percentages setting)")
                 auto_k_use_percentages = None  # Force GFP peaks for auto-k
             else:
                 auto_k_use_percentages = self.use_percentages
@@ -1104,7 +1104,7 @@ class COMET:
                 min_dist=self.min_distance_size
             )
 
-            print(f'[CLUSTERING] Data shape for clustering: {self.maps2use.shape}')
+            print(f'☄️  [CLUSTERING] Data shape for clustering: {self.maps2use.shape}')
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(f"Data shape for clustering: {self.maps2use.shape}")
 
@@ -1112,8 +1112,8 @@ class COMET:
             if self.number_of_maps == 'auto':
                 if check_stop():
                     return self._handle_stopped_clustering("Starting automatic optimization")
-                print(f'[CLUSTERING] Automatic k selection mode: {self.stopping_mode}')
-                print(f'[CLUSTERING] K range: {self.kmin} to {self.kmax}')
+                print(f'☄️  [CLUSTERING] Automatic k selection mode: {self.stopping_mode}')
+                print(f'☄️  [CLUSTERING] K range: {self.kmin} to {self.kmax}')
 
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log("Determining optimal number of clusters...")
@@ -1126,14 +1126,14 @@ class COMET:
                 if check_stop():
                     return self._handle_stopped_clustering("Starting clustering repetitions")
                 update_progress(1, f"Performing clustering with {self.number_of_maps} maps...")
-                print(f'[CLUSTERING] Performing clustering with {self.number_of_maps} maps...')
+                print(f'☄️  [CLUSTERING] Performing clustering with {self.number_of_maps} maps...')
 
                 # Initialize microstate clusterer with special settings for TAAHC
                 if is_taahc:
                     # TAAHC is deterministic and time-consuming - MUST use only 1 repetition
                     clustering_repeats = 1
                     if self.number_of_repeats != 1:
-                        print(f"[CLUSTERING] TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {self.number_of_repeats}")
+                        print(f"☄️  [CLUSTERING] TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {self.number_of_repeats}")
                         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                             self.LogWindow.append_log(f"TAAHC: Enforcing 1 repetition (deterministic algorithm)", log_type='info')
                 else:
@@ -1154,11 +1154,11 @@ class COMET:
                 completed_repetitions = 0
 
                 if is_taahc:
-                    print(f'[CLUSTERING] Running TAAHC clustering (deterministic algorithm)...')
+                    print(f'☄️  [CLUSTERING] Running TAAHC clustering (deterministic algorithm)...')
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                         self.LogWindow.append_log(f"Running TAAHC clustering (deterministic algorithm)...")
                 else:
-                    print(f'[CLUSTERING] Running {clustering_repeats} clustering repetitions...')
+                    print(f'☄️  [CLUSTERING] Running {clustering_repeats} clustering repetitions...')
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                         self.LogWindow.append_log(f"Running {clustering_repeats} clustering repetitions...")
 
@@ -1241,7 +1241,7 @@ class COMET:
                 return False
 
         except Exception as e:
-            error_msg = f"❌ ☄️  [CLUSTERING] Clustering process failed: {str(e)}"
+            error_msg = f"❌  [CLUSTERING] Clustering process failed: {str(e)}"
             print(error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
@@ -1343,7 +1343,7 @@ class COMET:
         # Initialize optimizer without progress callback
         # For auto-k selection, use only 1 repeat and force GFP peaks
         auto_k_n_inits = 1  # Force single repeat for auto-k selection
-        print(f"[CLUSTERING] Auto-k selection: Using single repeat (n_inits=1) for optimization")
+        print(f"☄️  [CLUSTERING] Auto-k selection: Using single repeat (n_inits=1) for optimization")
         
         self.comet_clusterer_optimizer = ClustererOptimizer(
             maps2use=self.maps2use,
@@ -1383,7 +1383,7 @@ class COMET:
             # Initialize optimizer with progress callback
             # For auto-k selection, use only 1 repeat and force GFP peaks
             auto_k_n_inits = 1  # Force single repeat for auto-k selection
-            print(f"[CLUSTERING] Auto-k selection: Using single repeat (n_inits=1) for optimization")
+            print(f"☄️  [CLUSTERING] Auto-k selection: Using single repeat (n_inits=1) for optimization")
             
             self.comet_clusterer_optimizer = ClustererOptimizer(
                 maps2use=self.maps2use,
@@ -1416,7 +1416,7 @@ class COMET:
                 # Save optimization results for later visualization
                 self.save_optimization_results(self.optimization_results)
                 
-                print(f'[CLUSTERING] Optimal number of maps determined by majority vote: {optimal_k}')
+                print(f'☄️  [CLUSTERING] Optimal number of maps determined by majority vote: {optimal_k}')
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined by majority vote: {optimal_k}")
                     
@@ -1443,7 +1443,7 @@ class COMET:
                     self.LogWindow.append_log(stop_msg, log_type='warning')
                 # Fallback to default
                 self.number_of_maps = 4
-                print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
+                print(f"☄️  [CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
             else:
                 raise
         except Exception as e:
@@ -1453,7 +1453,7 @@ class COMET:
                 self.LogWindow.append_log(error_msg, log_type='error')
             # Fallback to default
             self.number_of_maps = 4
-            print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
+            print(f"☄️  [CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
 
     def _run_automatic_optimization_core(self):
         """
@@ -1468,7 +1468,7 @@ class COMET:
                 # Save optimization results for later visualization
                 self.save_optimization_results(self.optimization_results)
                 
-                print(f'[CLUSTERING] Optimal number of maps determined by majority vote: {optimal_k}')
+                print(f'☄️  [CLUSTERING] Optimal number of maps determined by majority vote: {optimal_k}')
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined by majority vote: {optimal_k}")
                     
@@ -1494,7 +1494,7 @@ class COMET:
                 self.LogWindow.append_log(error_msg, log_type='error')
             # Fallback to default
             self.number_of_maps = 4
-            print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
+            print(f"☄️  [CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
 
     def run_microstate_labeling(self):
         """
@@ -1580,7 +1580,7 @@ class COMET:
                     max_value=len(self.list_eegs_path)
                 )
             else:
-                print("[BACKFITTING] Identifying optimal smoothing window length...")
+                print("☄️  [BACKFITTING] Identifying optimal smoothing window length...")
 
             rm_max_len = 50
             len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
@@ -1604,7 +1604,7 @@ class COMET:
             self.filter_segments_less_than_ms = self.comet_microstate_backfitter.identify_optimal_length_filter(
                 similarity_scores=similarity_scores
             )
-            print(f"[BACKFITTING] Optimal filter length determined: {self.filter_segments_less_than_ms} ms")
+            print(f"☄️  [BACKFITTING] Optimal filter length determined: {self.filter_segments_less_than_ms} ms")
         else:
             if self.filter_segments:
                 self.filter_segments_less_than_ms = self.filter_segments_less_than
@@ -2479,7 +2479,7 @@ class COMET:
             self._launch_microstate_labeling()
 
         else:
-            error_msg = "❌ ☄️  [CLUSTERING] Clustering failed - no valid results obtained"
+            error_msg = "❌  [CLUSTERING] Clustering failed - no valid results obtained"
             print(error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
