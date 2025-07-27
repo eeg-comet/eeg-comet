@@ -30,13 +30,13 @@ class TerminalLogger:
     """
     @staticmethod
     def info(message):
-        """Print an info message with prefix."""
-        print(f"[INFO] {message}")
+        """Print an info message with standardized EEG-COMET prefix."""
+        print(f"☄️  [EEG-COMET] {message}")
     
     @staticmethod
     def success(message):
-        """Print a success message with checkmark."""
-        print(f"✓ {message}")
+        """Print a success message with green checkmark and standardized prefix."""
+        print(f"✅  [EEG-COMET] {message}")
     
     @staticmethod
     def error(message):
@@ -50,10 +50,11 @@ class TerminalLogger:
     
     @staticmethod
     def header(message):
-        """Print a header message with separators."""
-        print("\n" + "=" * 60)
-        print(f"☄️ {message}")
-        print("=" * 60)
+        """Print a header banner with wider separators and symmetric emojis."""
+        separator = "=" * 70
+        print("\n" + separator)
+        print(f"☄️ {message} ☄️")
+        print(separator)
 
 
 class CustomApplicationContext:
@@ -81,15 +82,16 @@ def run_application():
     logger.header("EEG-COMET (EEG Comprehensive Microstate Extraction Toolbox)")
     logger.info("Authors: Amin Kabir, Raaj Chatterjee, Faranak Farzan")
     logger.info("Organization: SFU eBrain Lab (www.ebrainlab.ca)")
+    logger.info("GitHub: https://github.com/eBrainLab/eeg-comet")
     
     try:
         # Create a custom application context
-        logger.info("Initializing application...")
+        logger.info("Initializing graphical user interface ...")
         app_context = CustomApplicationContext()
         app = app_context.app
 
         # Initialize main window
-        logger.info("Loading main window...")
+        logger.info("Loading main window ...")
         window = MainMicrostateWindow(app_context, parent=None)
         
         # Set the application icon
@@ -101,8 +103,7 @@ def run_application():
 
         # Show the window
         window.show()
-        print("\n" + "=" * 60)
-        logger.info("Application started successfully")
+        logger.success("Application started successfully")
         
         # Start the application
         exit_code = app.exec_()
