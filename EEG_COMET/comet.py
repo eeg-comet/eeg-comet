@@ -27,12 +27,6 @@ class COMET:
     It provides methods to load configuration settings, perform various processes
     such as preprocessing, clustering, labeling, backfitting, feature extraction,
     source localization, and source-microstate correlation.
-
-    This version uses optimized data storage strategies, saving only critical
-    parameters and metadata in memory while storing large datasets on disk.
-
-    It also eliminates dependency on external configuration files, allowing
-    direct parameter configuration or using optional config files.
     """
 
     # Class-level shared storage for feature extraction results
@@ -43,8 +37,12 @@ class COMET:
         """
         Initialize COMET instance with optimized memory management.
         """
-        # Initialize callback for clustering completion
+        # Initialize callbacks for process completion
         self.clustering_completed_callback = None
+        self.backfitting_completed_callback = None
+        self.feature_extraction_completed_callback = None
+        self.source_localization_completed_callback = None
+        self.source_microstate_correlation_completed_callback = None
         
         # Initialize basic attributes
         self.auto_save = auto_save
@@ -1990,6 +1988,10 @@ class COMET:
 
         # Clear the shared storage to free memory
         COMET._shared_feature_results = {}
+        
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'feature_extraction_completed_callback') and self.feature_extraction_completed_callback is not None:
+            self.feature_extraction_completed_callback()
 
     def get_segmentation(self, subject_name):
         """
@@ -2394,6 +2396,10 @@ class COMET:
             # Launch microstate labeling window
             self._launch_microstate_labeling()
             
+            # Notify any registered callbacks (e.g., GUI updates)
+            if hasattr(self, 'clustering_completed_callback') and self.clustering_completed_callback is not None:
+                self.clustering_completed_callback()
+            
         except Exception as e:
             error_msg = f"[ERROR] Error in clustering completion handler: {str(e)}"
             print(error_msg)
@@ -2550,6 +2556,10 @@ class COMET:
             
         # Ensure logs are saved
         self._save_logs()
+        
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'backfitting_completed_callback') and self.backfitting_completed_callback is not None:
+            self.backfitting_completed_callback()
 
     def _on_source_localization_finished(self, message=None):
         """Handle source localization completion when worker thread finishes."""
@@ -2570,6 +2580,10 @@ class COMET:
             
         # Ensure logs are saved
         self._save_logs()
+        
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'source_localization_completed_callback') and self.source_localization_completed_callback is not None:
+            self.source_localization_completed_callback()
 
     def _on_source_identification_finished(self, message=None):
         """Handle source identification completion when worker thread finishes."""
@@ -2590,3 +2604,7 @@ class COMET:
             
         # Ensure logs are saved
         self._save_logs()
+        
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'source_microstate_correlation_completed_callback') and self.source_microstate_correlation_completed_callback is not None:
+            self.source_microstate_correlation_completed_callback()
