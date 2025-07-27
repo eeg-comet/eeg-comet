@@ -515,9 +515,22 @@ class NewStudyWindow(QDialog):
         # Now let COMET handle directory creation and processing
         self.comet.run_preprocessing()
 
+        # Defer main window update until preprocessing has actually finished so that
+        # the clustering widgets become available automatically without requiring
+        # the user to manually trigger a GUI refresh.
         if self.main_window:
-            self.main_window.load_study(from_new_study=True)
-            self.main_window.main_tab.setCurrentIndex(0)
+            main_window_ref = self.main_window  # keep a safe reference inside the closure
+
+            def _on_preproc_done():
+                # Load the freshly-created study and switch to the clustering tab
+                main_window_ref.load_study(from_new_study=True)
+                # Ensure the clustering tab is selected (index 0)
+                main_window_ref.main_tab.setCurrentIndex(0)
+
+            # Register the callback on the COMET instance
+            self.comet.preprocessing_completed_callback = _on_preproc_done
+
+        # Close the New Study window – preprocessing continues in the background
         self.close()
 
     def item_selected(self):

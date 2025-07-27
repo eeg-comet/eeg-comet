@@ -43,6 +43,9 @@ class COMET:
         self.feature_extraction_completed_callback = None
         self.source_localization_completed_callback = None
         self.source_microstate_correlation_completed_callback = None
+        # Callback that gets invoked when the full preprocessing pipeline has finished
+        # (e.g. to let the GUI update its widget state automatically once data are ready).
+        self.preprocessing_completed_callback = None
         
         # Initialize basic attributes
         self.auto_save = auto_save
@@ -2536,6 +2539,13 @@ class COMET:
             
         # Ensure logs are saved
         self._save_logs()
++
++        # Notify any registered callbacks (e.g., GUI updates)
++        if hasattr(self, 'preprocessing_completed_callback') and self.preprocessing_completed_callback is not None:
++            try:
++                self.preprocessing_completed_callback()
++            except Exception as cb_err:
++                print(f"[WARNING] Error in preprocessing completion callback: {cb_err}")
 
     def _on_backfitting_finished(self, message=None):
         """Handle backfitting completion when worker thread finishes."""
