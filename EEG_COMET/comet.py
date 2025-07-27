@@ -883,6 +883,28 @@ class COMET:
                 self.LogWindow.append_log(error_msg, log_type='error')
             return
 
+        # -------------------------------------------------------------
+        # Terminal logging: summarize preprocessing configuration
+        # -------------------------------------------------------------
+        preprocessing_steps = []
+        if getattr(self, 'temporal_filter_data', False):
+            preprocessing_steps.append(
+                f"Bandpass {self.lowcut_freq}-{self.highcut_freq} Hz ({self.filter_method.upper()})"
+            )
+        if getattr(self, 'spatial_filter_data', False):
+            preprocessing_steps.append("Spatial smoothing")
+        if getattr(self, 'downsample_data', False):
+            preprocessing_steps.append(f"Downsampling to {self.sample_rate} Hz")
+        if getattr(self, 'prep_data', False):
+            preprocessing_steps.append("Bad channel detection / interpolation")
+
+        steps_desc = ", ".join(preprocessing_steps) if preprocessing_steps else "None"
+
+        # Print succinct overview to the terminal (always, even in GUI mode)
+        print(f"[PREPROCESSING] Steps selected: {steps_desc}")
+        print(f"[PREPROCESSING] Files to process: {len(self.list_eegs_path)}")
+        print(f"[PREPROCESSING] Export directory: {self.preprocessed_data_path}")
+
         # Log the preprocessing start
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.append_log("Data Preprocessing", log_type='section')
