@@ -734,7 +734,8 @@ class COMET:
                 return None, 0.0, np.inf
 
         except Exception as e:
-            error_msg = f"Clustering failed: {str(e)}"
+            error_msg = f"❌  [CLUSTERING] Clustering process failed: {str(e)}"
+            print(error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
             return None, 0.0, np.inf
@@ -863,7 +864,7 @@ class COMET:
         Preprocess all EEG files in the input folder
         """
         print('\n' + '=' * 60)
-        print('[PREPROCESSING] Starting data preprocessing...')
+        print('☄️  [PREPROCESSING] Starting data preprocessing...')
 
         # Reset directories based on current parameters
         self.reset_directories()
@@ -945,7 +946,7 @@ class COMET:
             # Set callback to run when preprocessing worker thread finishes
             self.LogWindow.process_finished_callback = self._on_preprocessing_finished
         else:
-            print(f"[PREPROCESSING] Processing {len(self.zipped_eeg_files)} EEG files...")
+            print(f"☄️  [PREPROCESSING] Processing {len(self.zipped_eeg_files)} EEG files...")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Preprocessing"):
                 self.preprocess_eeg(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -957,7 +958,7 @@ class COMET:
         Enhanced with proper TAAHC progress tracking and batch processing support
         """
         print('\n' + '=' * 60)
-        print('[CLUSTERING] Starting microstate clustering...')
+        print('☄️  [CLUSTERING] Starting microstate clustering...')
 
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.append_log("Starting microstate clustering...", log_type='section')
@@ -1174,13 +1175,13 @@ class COMET:
                     if is_taahc:
                         progress_msg = "Running TAAHC clustering..."
                         update_progress(1, progress_msg)
-                        print(f'[CLUSTERING] {progress_msg}')
+                        print(f'☄️  [CLUSTERING] {progress_msg}')
                         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                             self.LogWindow.append_log(progress_msg)
                     else:
                         progress_msg = f"Clustering repetition {init + 1}/{clustering_repeats}"
                         update_progress(1, progress_msg)
-                        print(f'[CLUSTERING] {progress_msg}')
+                        print(f'☄️  [CLUSTERING] {progress_msg}')
                         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                             self.LogWindow.append_log(progress_msg)
                     
@@ -1192,11 +1193,11 @@ class COMET:
                         best_maps = maps.copy()
                         best_residual = residual
                         if is_taahc:
-                            print(f'[CLUSTERING] TAAHC clustering completed - GEV: {best_gev:.4f}')
+                            print(f'☄️  [CLUSTERING] TAAHC clustering completed - GEV: {best_gev:.4f}')
                             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                                 self.LogWindow.append_log(f"TAAHC clustering completed - GEV: {best_gev:.4f}")
                         else:
-                            print(f'[CLUSTERING] New best GEV: {best_gev:.4f}')
+                            print(f'☄️  [CLUSTERING] New best GEV: {best_gev:.4f}')
                             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                                 self.LogWindow.append_log(f"New best GEV: {best_gev:.4f}")
 
@@ -1207,9 +1208,9 @@ class COMET:
                     self.best_gev = best_gev
                     self.best_residual = best_residual
 
-                    print(f'[CLUSTERING] Clustering completed successfully!')
-                    print(f'[CLUSTERING] Best GEV: {best_gev:.4f}')
-                    print(f'[CLUSTERING] Best residual: {best_residual:.6f}')
+                    print(f'✅  [CLUSTERING] Clustering completed successfully!')
+                    print(f'☄️  [CLUSTERING] Best GEV: {best_gev:.4f}')
+                    print(f'☄️  [CLUSTERING] Best residual: {best_residual:.6f}')
 
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                         self.LogWindow.append_log("Clustering completed successfully!", log_type='success')
@@ -1226,21 +1227,21 @@ class COMET:
                     return True
 
                 else:
-                    error_msg = "[ERROR] Clustering failed - no valid results obtained"
+                    error_msg = "❌  [CLUSTERING] Clustering failed - no valid results obtained"
                     print(error_msg)
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                         self.LogWindow.append_log(error_msg, log_type='error')
                     return False
 
             else:
-                error_msg = "[ERROR] Number of maps not determined"
+                error_msg = "❌  [CLUSTERING] Number of maps not determined"
                 print(error_msg)
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(error_msg, log_type='error')
                 return False
 
         except Exception as e:
-            error_msg = f"[ERROR] Clustering process failed: {str(e)}"
+            error_msg = f"❌ ☄️  [CLUSTERING] Clustering process failed: {str(e)}"
             print(error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
@@ -1511,7 +1512,7 @@ class COMET:
 
         # Perform labeling
         print('\n' + '=' * 60)
-        print("[LABELING] Starting microstate labeling...")
+        print("☄️  [LABELING] Starting microstate labeling...")
         micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
 
         # Save updated microstate maps with labels
@@ -1527,7 +1528,7 @@ class COMET:
         self.done_microstate_labeling = True
 
         # Always print completion to terminal for important steps
-        print("[LABELING] Microstate labeling completed successfully")
+        print("✅  [LABELING] Microstate labeling completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             self.LogWindow.process_finished("Microstates have been successfully labeled!")
@@ -1541,7 +1542,7 @@ class COMET:
         Backfit microstate maps to all EEG files
         """
         print('\n' + '=' * 60)
-        print('[BACKFITTING] Starting microstate backfitting...')
+        print('☄️  [BACKFITTING] Starting microstate backfitting...')
 
         # Check if best maps are available
         if self.best_maps is None:
@@ -1656,7 +1657,7 @@ class COMET:
             # Set callback to run when backfitting worker thread finishes
             self.LogWindow.process_finished_callback = self._on_backfitting_finished
         else:
-            print(f"[BACKFITTING] Processing {len(self.zipped_eeg_files)} EEG files...")
+            print(f"☄️  [BACKFITTING] Processing {len(self.zipped_eeg_files)} EEG files...")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Backfitting"):
                 self.backfit_eeg(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -1667,7 +1668,7 @@ class COMET:
         Extract features from all segmentation files
         """
         print('\n' + '=' * 60)
-        print('[FEATURE EXTRACTION] Starting feature extraction...')
+        print('☄️  [FEATURE EXTRACTION] Starting feature extraction...')
 
         # Create features output directory
         os.makedirs(self.extracted_features_path, exist_ok=True)
@@ -1727,7 +1728,7 @@ class COMET:
             self.LogWindow.process_finished_callback = self.collect_feature_extraction_results
         else:
             # Fallback: run sequentially in the main thread
-            print(f"[FEATURE EXTRACTION] Processing {len(tasks)} segmentation files...")
+            print(f"☄️  [FEATURE EXTRACTION] Processing {len(tasks)} segmentation files...")
             for task in tqdm(tasks, desc="Feature Extraction"):
                 self.extract_features_for_file_threadsafe(*task)
             # Collect results immediately when done
@@ -2000,7 +2001,7 @@ class COMET:
         self.done_extracting_features = True
 
         # Always print completion to terminal for important steps
-        print("[FEATURE EXTRACTION] Feature extraction completed successfully")
+        print("✅  [FEATURE EXTRACTION] Feature extraction completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent infinite recursion
@@ -2075,7 +2076,7 @@ class COMET:
         Perform source localization for microstates
         """
         print('\n' + '=' * 60)
-        print("[SOURCE LOCALIZATION] Starting source localization...")
+        print("☄️  [SOURCE LOCALIZATION] Starting source localization...")
 
         # Check if backfitting has been done
         if not self.done_backfitting:
@@ -2144,7 +2145,7 @@ class COMET:
             # Set callback to run when source localization worker thread finishes
             self.LogWindow.process_finished_callback = self._on_source_localization_finished
         else:
-            print(f"[SOURCE LOCALIZATION] Processing {len(self.zipped_eeg_files)} EEG files...")
+            print(f"☄️  [SOURCE LOCALIZATION] Processing {len(self.zipped_eeg_files)} EEG files...")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Source Localization"):
                 self.source_localize_file(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -2155,7 +2156,7 @@ class COMET:
         Correlate sources and microstates
         """
         print('\n' + '=' * 60)
-        print("[SOURCE LOCALIZATION] Starting source-microstate correlation...")
+        print("☄️  [SOURCE LOCALIZATION] Starting source-microstate correlation...")
 
         # Check if source localization has been done
         if not self.done_source_localization:
@@ -2226,7 +2227,7 @@ class COMET:
             # Set callback to run when source identification worker thread finishes
             self.LogWindow.process_finished_callback = self._on_source_identification_finished
         else:
-            print(f"[SOURCE LOCALIZATION] Processing {len(self.zipped_eeg_files)} EEG files...")
+            print(f"☄️  [SOURCE LOCALIZATION] Processing {len(self.zipped_eeg_files)} EEG files...")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Source Identification"):
                 self.source_identify_file(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -2451,9 +2452,9 @@ class COMET:
             self.best_gev = best_gev
             self.best_residual = best_residual
 
-            print(f'[CLUSTERING] Clustering completed successfully!')
-            print(f'[CLUSTERING] Best GEV: {best_gev:.4f}')
-            print(f'[CLUSTERING] Best residual: {best_residual:.6f}')
+            print(f'✅  [CLUSTERING] Clustering completed successfully!')
+            print(f'☄️  [CLUSTERING] Best GEV: {best_gev:.4f}')
+            print(f'☄️  [CLUSTERING] Best residual: {best_residual:.6f}')
 
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log("Clustering completed successfully!", log_type='success')
@@ -2478,7 +2479,7 @@ class COMET:
             self._launch_microstate_labeling()
 
         else:
-            error_msg = "[ERROR] Clustering failed - no valid results obtained"
+            error_msg = "❌ ☄️  [CLUSTERING] Clustering failed - no valid results obtained"
             print(error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
@@ -2518,7 +2519,7 @@ class COMET:
             )
         else:
             completion_message = (
-                f"[CLUSTERING] Clustering completed successfully: {self.number_of_maps} microstates "
+                f"✅  [CLUSTERING] Clustering completed successfully: {self.number_of_maps} microstates "
                 f"(GEV: {100 * self.best_gev:.3f}%)"
             )
 
@@ -2548,7 +2549,7 @@ class COMET:
         self.done_preprocessing = True
 
         # Always print completion to terminal for important steps
-        print("[PREPROCESSING] Preprocessing completed successfully")
+        print("✅  [PREPROCESSING] Preprocessing completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
@@ -2575,7 +2576,7 @@ class COMET:
         self.done_backfitting = True
 
         # Always print completion to terminal for important steps
-        print("[BACKFITTING] Backfitting completed successfully")
+        print("✅  [BACKFITTING] Backfitting completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
@@ -2599,7 +2600,7 @@ class COMET:
         self.done_source_localization = True
 
         # Always print completion to terminal for important steps
-        print("[SOURCE LOCALIZATION] Source localization completed successfully")
+        print("✅  [SOURCE LOCALIZATION] Source localization completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
@@ -2623,7 +2624,7 @@ class COMET:
         self.done_identifying_microstate_sources = True
 
         # Always print completion to terminal for important steps
-        print("[SOURCE LOCALIZATION] Source-microstate correlation completed successfully")
+        print("✅  [SOURCE LOCALIZATION] Source-microstate correlation completed successfully")
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
