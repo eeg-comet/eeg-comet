@@ -112,7 +112,7 @@ class MicrostateClusterer:
                     
                     # Validate segmentation indices
                     if np.any(batch_segmentation >= self.n_states) or np.any(batch_segmentation < 0):
-                        print(f"[WARNING] Invalid batch segmentation indices. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
+                        print(f"⚠️  [CLUSTERING] Invalid batch segmentation indices. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
                         # Clip indices to valid range
                         batch_segmentation = np.clip(batch_segmentation, 0, self.n_states - 1)
 
@@ -142,7 +142,7 @@ class MicrostateClusterer:
                 
                 # Validate segmentation indices
                 if np.any(segmentation >= self.n_states) or np.any(segmentation < 0):
-                    print(f"[WARNING] Invalid segmentation indices in non-batch mode. Max: {np.max(segmentation)}, Min: {np.min(segmentation)}, n_states: {self.n_states}")
+                    print(f"⚠️  [CLUSTERING] Invalid segmentation indices in non-batch mode. Max: {np.max(segmentation)}, Min: {np.min(segmentation)}, n_states: {self.n_states}")
                     # Clip indices to valid range
                     segmentation = np.clip(segmentation, 0, self.n_states - 1)
 
@@ -210,7 +210,7 @@ class MicrostateClusterer:
 
         if use_batches and verbose:
             print(f"[CLUSTERING] Using batch processing with batch size: {self.batch_size}")
-            print(f"[INFO] Similarity metric: {metric}")
+            print(f"[CLUSTERING] Similarity metric: {metric}")
             batch_count = int(np.ceil(n_samples / self.batch_size))
 
         # Clustering iterations
@@ -257,7 +257,7 @@ class MicrostateClusterer:
                     
                     # Validate segmentation indices
                     if np.any(batch_segmentation >= self.n_states) or np.any(batch_segmentation < 0):
-                        print(f"[WARNING] Invalid batch segmentation indices in similarity mode. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
+                        print(f"⚠️  [CLUSTERING] Invalid batch segmentation indices in similarity mode. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
                         # Clip indices to valid range
                         batch_segmentation = np.clip(batch_segmentation, 0, self.n_states - 1)
 
@@ -402,8 +402,8 @@ class MicrostateClusterer:
         if len(peaks) < self.n_states:
             update_progress(f"Adding random samples (found only {len(peaks)} peaks)...")
             if verbose:
-                print(f"[WARNING] Only {len(peaks)} GFP peaks found, less than requested {self.n_states} states")
-                print("[INFO] Adding random samples to reach required number of initial states")
+                print(f"⚠️  [CLUSTERING] Only {len(peaks)} GFP peaks found, less than requested {self.n_states} states")
+                print("[CLUSTERING] Adding random samples to reach required number of initial states")
             # Add random samples if needed
             additional = np.random.choice(np.arange(n_samples),
                                           size=max(self.n_states - len(peaks), 0),
@@ -534,7 +534,7 @@ class MicrostateClusterer:
                 best_corrs[batch_start:batch_end] = batch_best_corrs
 
             if verbose and n_maps <= self.n_states + 10:
-                print("[INFO] Calculating atomization values for each map...")
+                print("[CLUSTERING] Calculating atomization values for each map...")
 
             # Calculate atomization criterion for each map
             atomisation_values = np.zeros(n_maps)
@@ -632,7 +632,7 @@ class MicrostateClusterer:
         # Final processing
         update_progress("Calculating final assignments and residual...")
         if verbose:
-            print("[INFO] Calculating final assignments and residual...")
+            print("[CLUSTERING] Calculating final assignments and residual...")
 
         # Calculate final residual - using batches
         final_corrs = np.zeros(n_samples)
@@ -824,4 +824,7 @@ class MicrostateClusterer:
 
         # Calculate GEV
         return np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
+
+
+# wrapper removed
 
