@@ -439,7 +439,7 @@ class MicrostateClusterer:
 
         if verbose:
             print(f"[CLUSTERING] Starting hierarchical clustering with {n_maps} maps")
-            print("=====================================================")
+            print("=" * 70)
 
         update_progress(f"Starting hierarchical clustering: {n_maps} → {self.n_states} maps...")
 
@@ -623,7 +623,7 @@ class MicrostateClusterer:
             iteration_times.append(iteration_time)
 
             if verbose and n_maps == self.n_states:
-                print("=====================================================")
+                print("=" * 70)
                 print(f"[CLUSTERING] Reached target of {self.n_states} states after {iteration} iterations")
                 total_time = time.time() - start_time
                 avg_iter_time = np.mean(iteration_times) if iteration_times else 0
@@ -699,13 +699,13 @@ class MicrostateClusterer:
                 final_assignments[batch_start:batch_end] = np.argmax(batch_corrs, axis=0)
 
             total_time = time.time() - start_time
-            print("=====================================================")
+            print("=" * 70)
             print(f"[CLUSTERING] TAAHC clustering completed successfully!")
             print(f"[CLUSTERING] Total time: {total_time:.2f} seconds")
             print(f"[CLUSTERING] Using similarity metric: {metric}")
             print(f"[CLUSTERING] Residual: {residual:.6f}")
             print(f"[CLUSTERING] Average iteration time: {np.mean(iteration_times):.3f}s")
-            print("=====================================================")
+            print("=" * 70)
 
         # Final progress update
         update_progress("TAAHC clustering completed successfully!")
