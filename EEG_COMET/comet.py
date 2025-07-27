@@ -592,10 +592,16 @@ class COMET:
         """
         self.eeg_info = mne.io.read_info(self.eeg_info_path)
 
-    def preprocess_eeg(self, eeg_path, eeg_name):
+    def preprocess_eeg(self, eeg_path, eeg_name, worker=None):
         """
-        Preprocess a single EEG file
+        Preprocess a single EEG file. If the optional worker argument is supplied and its
+        stopped flag is set, the function returns immediately so that the thread can
+        terminate quickly when the user presses the STOP button.
         """
+        # Early-exit if the user requested cancellation
+        if worker is not None and getattr(worker, "stopped", False):
+            return
+
         # Load EEG data
         eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
         
@@ -829,10 +835,11 @@ class COMET:
             else:
                 print(error_msg)
 
-    def backfit_eeg(self, eeg_path, eeg_name):
-        """
-        Backfit microstate maps to an EEG file
-        """
+    def backfit_eeg(self, eeg_path, eeg_name, worker=None):
+        """Backfit microstate maps to an EEG file with safe-stop support."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
+
         eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
         time_array = eeg.times * 1000
 
@@ -1734,19 +1741,11 @@ class COMET:
             # Collect results immediately when done
             self.collect_feature_extraction_results()
 
-    def extract_features_for_file_threadsafe(self, segmentation_idx, segmentation_path, segmentation_name):
-        """
-        Extract features for a single file (thread-safe version).
-        
-        Parameters:
-        -----------
-        segmentation_idx : int
-            Index of the segmentation file
-        segmentation_path : str
-            Path to the segmentation file
-        segmentation_name : str
-            Name of the segmentation file
-        """
+    def extract_features_for_file_threadsafe(self, segmentation_idx, segmentation_path, segmentation_name, worker=None):
+        """Thread-safe feature extraction with stop check."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
+
         try:
             # Load segmentation
             segmentation_array = self.comet_segmentation_io.load_segmentation(
@@ -2029,17 +2028,11 @@ class COMET:
             import_format=self.export_format
         )
 
-    def source_localize_file(self, eeg_path, eeg_name):
-        """
-        Process source localization for a single file (worker-friendly version).
+    def source_localize_file(self, eeg_path, eeg_name, worker=None):
+        """Perform source localization for a single file. Terminates early if stop requested."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
 
-        Parameters:
-        -----------
-        eeg_path : str
-            Path to the EEG file
-        eeg_name : str
-            Name of the EEG file
-        """
         success = self.comet_source_localizer.localize_single_file(eeg_path, eeg_name)
 
         # Log the source localization progress
@@ -2049,17 +2042,11 @@ class COMET:
             else:
                 self.LogWindow.append_log(f"Error Source Localizing: {eeg_name}")
 
-    def source_identify_file(self, eeg_path, eeg_name):
-        """
-        Process microstate source identification for a single file (worker-friendly version).
+    def source_identify_file(self, eeg_path, eeg_name, worker=None):
+        """Identify microstate sources for a single file with stop support."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
 
-        Parameters:
-        -----------
-        eeg_path : str
-            Path to the EEG file
-        eeg_name : str
-            Name of the EEG file
-        """
         success = self.comet_source_localizer.identify_sources_single_file(
             eeg_path, eeg_name, self.source_localization_method
         )
