@@ -2539,13 +2539,13 @@ class COMET:
             
         # Ensure logs are saved
         self._save_logs()
-+
-+        # Notify any registered callbacks (e.g., GUI updates)
-+        if hasattr(self, 'preprocessing_completed_callback') and self.preprocessing_completed_callback is not None:
-+            try:
-+                self.preprocessing_completed_callback()
-+            except Exception as cb_err:
-+                print(f"[WARNING] Error in preprocessing completion callback: {cb_err}")
+
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'preprocessing_completed_callback') and self.preprocessing_completed_callback is not None:
+            try:
+                self.preprocessing_completed_callback()
+            except Exception as cb_err:
+                print(f"[WARNING] Error in preprocessing completion callback: {cb_err}")
 
     def _on_backfitting_finished(self, message=None):
         """Handle backfitting completion when worker thread finishes."""
