@@ -109,6 +109,9 @@ class COMET:
         
         # Initialize clustering-related attributes
         self.batch_size = None
+        self.best_maps = None
+        self.best_gev = 0.0
+        self.best_residual = np.inf
 
         @property
         def output_folder(self):
@@ -762,7 +765,7 @@ class COMET:
                 self.LogWindow.append_log(log_message)
 
             # Update the best results if current gev is higher
-            if self.best_maps is None or gev_init > self.best_gev:
+            if self.best_maps is None or (hasattr(self, 'best_gev') and gev_init > self.best_gev) or not hasattr(self, 'best_gev'):
                 self.best_residual = residual_init.copy() if hasattr(residual_init, 'copy') else residual_init
                 self.best_gev = gev_init
                 self.best_maps = maps_init.copy() if hasattr(maps_init, 'copy') else maps_init
