@@ -975,11 +975,10 @@ class COMET:
         if getattr(self, 'number_of_maps', None) == 'auto':
             clustering_settings["K Range"] = f"{getattr(self, 'kmin', 'Unknown')} to {getattr(self, 'kmax', 'Unknown')}"
             clustering_settings["Stopping Mode"] = getattr(self, 'stopping_mode', 'Unknown')
-        
-        self.logger.settings_info("CLUSTERING", clustering_settings)
-        
+
         # Start clustering
         self.logger.processing_start("CLUSTERING", "Starting microstate clustering")
+        self.logger.settings_info("CLUSTERING", clustering_settings)
 
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Calculate total steps for clustering - only count clustering repetitions
@@ -1162,11 +1161,9 @@ class COMET:
                 completed_repetitions = 0
 
                 if is_taahc:
-                    print(f'☄️  [CLUSTERING] Running TAAHC clustering (deterministic algorithm)...')
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                         self.LogWindow.append_log(f"Running TAAHC clustering (deterministic algorithm)...")
                 else:
-                    print(f'☄️  [CLUSTERING] Running {clustering_repeats} clustering repetitions...')
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                         self.LogWindow.append_log(f"Running {clustering_repeats} clustering repetitions...")
 
