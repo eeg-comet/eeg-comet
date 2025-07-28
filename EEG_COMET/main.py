@@ -24,37 +24,10 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom operations
 warnings.filterwarnings('ignore', category=UserWarning, module='.*tensorflow.*')
 
 
-class TerminalLogger:
-    """
-    Simple terminal logger for important steps only.
-    """
-    @staticmethod
-    def info(message):
-        """Print an info message with standardized EEG-COMET prefix."""
-        print(f"☄️  [EEG-COMET] {message}")
-    
-    @staticmethod
-    def success(message):
-        """Print a success message with green checkmark and standardized prefix."""
-        print(f"✅  [EEG-COMET] {message}")
-    
-    @staticmethod
-    def error(message):
-        """Print an error message with prefix."""
-        print(f"[ERROR] {message}")
-    
-    @staticmethod
-    def warning(message):
-        """Print a warning message with prefix."""
-        print(f"[WARNING] {message}")
-    
-    @staticmethod
-    def header(message):
-        """Print a header banner with wider separators and symmetric emojis."""
-        separator = "=" * 70
-        print("\n" + separator)
-        print(f"☄️ {message} ☄️")
-        print(separator)
+from gui_utils.logger import get_logger
+
+# Initialize global logger
+logger = get_logger()
 
 
 class CustomApplicationContext:
@@ -76,22 +49,19 @@ def run_application():
     """
     Run the EEG-COMET application.
     """
-    logger = TerminalLogger()
-    
     # Display welcome message
-    logger.header("EEG-COMET (EEG Comprehensive Microstate Extraction Toolbox)")
-    logger.info("Authors: Amin Kabir, Raaj Chatterjee, Faranak Farzan")
-    logger.info("Organization: SFU eBrain Lab (www.ebrainlab.ca)")
-    logger.info("GitHub: https://github.com/eBrainLab/eeg-comet")
+    logger.toolbox_header("EEG-COMET", "(EEG Comprehensive Microstate Extraction Toolbox)")
+    logger.processing_info("INITIALIZATION", "Organization: SFU eBrain Lab (https://www.ebrainlab.ca/)")
+    logger.processing_info("INITIALIZATION", "GitHub: https://github.com/eBrainLab/eeg-comet/")
+    logger.processing_info("INITIALIZATION", "Contacting authors: Amin Kabir, Faranak Farzan")
     
     try:
         # Create a custom application context
-        logger.info("Initializing graphical user interface ...")
+        logger.processing_start("INITIALIZATION", "Initializing graphical user interface")
         app_context = CustomApplicationContext()
         app = app_context.app
 
         # Initialize main window
-        logger.info("Loading main window ...")
         window = MainMicrostateWindow(app_context, parent=None)
         
         # Set the application icon
@@ -99,21 +69,21 @@ def run_application():
         if os.path.exists(icon_path):
             app.setWindowIcon(QIcon(icon_path))
         else:
-            logger.warning("Application icon not found")
+            logger.warning("INITIALIZATION", "Application icon not found")
 
         # Show the window
         window.show()
-        logger.success("Application started successfully")
+        logger.processing_success("INITIALIZATION", "Application started successfully")
         
         # Start the application
         exit_code = app.exec_()
         
         # Cleanup
-        logger.info("Application closed")
+        logger.processing_info("INITIALIZATION", "Application closed")
         sys.exit(exit_code)
         
     except Exception as e:
-        logger.error(f"Failed to start application: {str(e)}")
+        logger.error("INITIALIZATION", f"Failed to start application: {str(e)}")
         sys.exit(1)
 
 

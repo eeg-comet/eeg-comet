@@ -25,6 +25,7 @@ from .coregistration_window import CoregistrationWindow
 from .source_visualization_window import SourceVisualizationWindow
 from gui_utils.set_widgets_status import set_widgets_status
 from comet import COMET
+from gui_utils.logger import get_logger
 
 
 class WidgetMode(Enum):
@@ -1397,103 +1398,84 @@ class MainMicrostateWindow(QMainWindow):
 
     def _log_study_completion_status(self):
         """Log the completion status of all processing steps"""
-        print('\n' + '=' * 60)
-        print('[INFO] Study Completion Status:')
-        print('=' * 60)
+        logger = get_logger()
         
-        # Check each processing step
+        # First log that the study was loaded successfully
+        logger.processing_success("INITIALIZATION", f"Study '{self.comet.study_name}' loaded successfully")
+        
+        # Log section header for completion status
+        logger.section_header("STUDY_STATUS")
+        
+        # Check each processing step and log with consistent emojis
         steps_status = []
         
         # Preprocessing
         if self.comet.done_preprocessing:
             steps_status.append("✅ Data Preprocessing")
-            print("[INFO] ✅ Data Preprocessing - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Data Preprocessing - COMPLETED")
         else:
             steps_status.append("❌ Data Preprocessing")
-            print("[INFO] ❌ Data Preprocessing - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Data Preprocessing - NOT COMPLETED")
         
         # Clustering
         if self.comet.done_clustering:
             steps_status.append("✅ Microstate Clustering")
-            print("[INFO] ✅ Microstate Clustering - COMPLETED")
-            if hasattr(self.comet, 'best_gev') and self.comet.best_gev is not None:
-                print(f"[INFO]   └─ Best GEV: {100 * self.comet.best_gev:.3f}%")
-            if hasattr(self.comet, 'number_of_maps') and self.comet.number_of_maps is not None:
-                print(f"[INFO]   └─ Number of Maps: {self.comet.number_of_maps}")
+            logger.processing_success("STUDY_STATUS", "Microstate Clustering - COMPLETED")
         else:
             steps_status.append("❌ Microstate Clustering")
-            print("[INFO] ❌ Microstate Clustering - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Microstate Clustering - NOT COMPLETED")
         
         # Microstate Labeling
         if self.comet.done_microstate_labeling:
             steps_status.append("✅ Microstate Labeling")
-            print("[INFO] ✅ Microstate Labeling - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Microstate Labeling - COMPLETED")
         else:
             steps_status.append("❌ Microstate Labeling")
-            print("[INFO] ❌ Microstate Labeling - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Microstate Labeling - NOT COMPLETED")
         
         # Backfitting
         if self.comet.done_backfitting:
             steps_status.append("✅ Microstate Backfitting")
-            print("[INFO] ✅ Microstate Backfitting - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Microstate Backfitting - COMPLETED")
         else:
             steps_status.append("❌ Microstate Backfitting")
-            print("[INFO] ❌ Microstate Backfitting - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Microstate Backfitting - NOT COMPLETED")
         
         # Feature Extraction
         if self.comet.done_extracting_features:
             steps_status.append("✅ Feature Extraction")
-            print("[INFO] ✅ Feature Extraction - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Feature Extraction - COMPLETED")
         else:
             steps_status.append("❌ Feature Extraction")
-            print("[INFO] ❌ Feature Extraction - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Feature Extraction - NOT COMPLETED")
         
         # Source Localization
         if self.comet.done_source_localization:
             steps_status.append("✅ Source Localization")
-            print("[INFO] ✅ Source Localization - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Source Localization - COMPLETED")
         else:
             steps_status.append("❌ Source Localization")
-            print("[INFO] ❌ Source Localization - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Source Localization - NOT COMPLETED")
         
         # Source-Microstate Correlation
         if self.comet.done_identifying_microstate_sources:
             steps_status.append("✅ Source-Microstate Correlation")
-            print("[INFO] ✅ Source-Microstate Correlation - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Source-Microstate Correlation - COMPLETED")
         else:
             steps_status.append("❌ Source-Microstate Correlation")
-            print("[INFO] ❌ Source-Microstate Correlation - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Source-Microstate Correlation - NOT COMPLETED")
         
         # Summary
         completed_steps = sum(1 for step in steps_status if step.startswith("✅"))
         total_steps = len(steps_status)
         
-        print('=' * 60)
-        print(f"[INFO] Summary: {completed_steps}/{total_steps} steps completed")
-        
+        # Log summary
         if completed_steps == total_steps:
-            print("[INFO] 🎉 All processing steps completed!")
+            logger.processing_success("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - All processing steps completed!")
         elif completed_steps == 0:
-            print("[INFO] 📋 No processing steps completed yet")
+            logger.warning("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - No processing steps completed yet")
         else:
-            print(f"[INFO] 📊 {completed_steps} steps completed, {total_steps - completed_steps} remaining")
-        
-        print('=' * 60)
-        
-        # Also log to GUI if available
-        if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow is not None:
-            self.comet.LogWindow.append_log("Study Completion Status", log_type='section')
-            
-            for step in steps_status:
-                if step.startswith("✅"):
-                    self.comet.LogWindow.append_log(f"{step} - COMPLETED", log_type='success')
-                else:
-                    self.comet.LogWindow.append_log(f"{step} - NOT COMPLETED", log_type='warning')
-            
-            self.comet.LogWindow.append_log(
-                f"Summary: {completed_steps}/{total_steps} steps completed", 
-                log_type='info'
-            )
+            logger.processing_info("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - {completed_steps} steps completed, {total_steps - completed_steps} remaining")
 
     # Processing methods
     def _update_comet_clustering_parameters(self):

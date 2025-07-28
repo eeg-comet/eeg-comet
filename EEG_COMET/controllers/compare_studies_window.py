@@ -865,89 +865,89 @@ class CompareStudiesWindow(QDialog):
 
     def _log_study_completion_status(self, comet_instance, study_name):
         """Log the completion status of all processing steps for a study"""
-        print('\n' + '=' * 60)
-        print(f'[INFO] {study_name} Completion Status:')
-        print('=' * 60)
-
-        # Check each processing step
+        from gui_utils.logger import get_logger
+        logger = get_logger()
+        
+        # First log that the study was loaded successfully
+        logger.processing_success("INITIALIZATION", f"Study '{comet_instance.study_name}' loaded successfully")
+        
+        # Log section header for completion status
+        logger.section_header("STUDY_STATUS")
+        
+        # Check each processing step and log with consistent emojis
         steps_status = []
 
         # Preprocessing
         if comet_instance.done_preprocessing:
             steps_status.append("✅ Data Preprocessing")
-            print(f"[INFO] ✅ Data Preprocessing - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Data Preprocessing - COMPLETED")
         else:
             steps_status.append("❌ Data Preprocessing")
-            print(f"[INFO] ❌ Data Preprocessing - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Data Preprocessing - NOT COMPLETED")
 
         # Clustering
         if comet_instance.done_clustering:
             steps_status.append("✅ Microstate Clustering")
-            print(f"[INFO] ✅ Microstate Clustering - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Microstate Clustering - COMPLETED")
             if hasattr(comet_instance, 'best_gev') and comet_instance.best_gev is not None:
-                print(f"[INFO]   └─ Best GEV: {100 * comet_instance.best_gev:.3f}%")
+                logger.processing_info("STUDY_STATUS", f"Best GEV: {100 * comet_instance.best_gev:.3f}%")
             if hasattr(comet_instance, 'number_of_maps') and comet_instance.number_of_maps is not None:
-                print(f"[INFO]   └─ Number of Maps: {comet_instance.number_of_maps}")
+                logger.processing_info("STUDY_STATUS", f"Number of Maps: {comet_instance.number_of_maps}")
         else:
             steps_status.append("❌ Microstate Clustering")
-            print(f"[INFO] ❌ Microstate Clustering - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Microstate Clustering - NOT COMPLETED")
 
         # Microstate Labeling
         if comet_instance.done_microstate_labeling:
             steps_status.append("✅ Microstate Labeling")
-            print(f"[INFO] ✅ Microstate Labeling - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Microstate Labeling - COMPLETED")
         else:
             steps_status.append("❌ Microstate Labeling")
-            print(f"[INFO] ❌ Microstate Labeling - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Microstate Labeling - NOT COMPLETED")
 
         # Backfitting
         if comet_instance.done_backfitting:
             steps_status.append("✅ Microstate Backfitting")
-            print(f"[INFO] ✅ Microstate Backfitting - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Microstate Backfitting - COMPLETED")
         else:
             steps_status.append("❌ Microstate Backfitting")
-            print(f"[INFO] ❌ Microstate Backfitting - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Microstate Backfitting - NOT COMPLETED")
 
         # Feature Extraction
         if comet_instance.done_extracting_features:
             steps_status.append("✅ Feature Extraction")
-            print(f"[INFO] ✅ Feature Extraction - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Feature Extraction - COMPLETED")
         else:
             steps_status.append("❌ Feature Extraction")
-            print(f"[INFO] ❌ Feature Extraction - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Feature Extraction - NOT COMPLETED")
 
         # Source Localization
         if comet_instance.done_source_localization:
             steps_status.append("✅ Source Localization")
-            print(f"[INFO] ✅ Source Localization - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Source Localization - COMPLETED")
         else:
             steps_status.append("❌ Source Localization")
-            print(f"[INFO] ❌ Source Localization - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Source Localization - NOT COMPLETED")
 
         # Source-Microstate Correlation
         if comet_instance.done_identifying_microstate_sources:
             steps_status.append("✅ Source-Microstate Correlation")
-            print(f"[INFO] ✅ Source-Microstate Correlation - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Source-Microstate Correlation - COMPLETED")
         else:
             steps_status.append("❌ Source-Microstate Correlation")
-            print(f"[INFO] ❌ Source-Microstate Correlation - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Source-Microstate Correlation - NOT COMPLETED")
 
         # Summary
         completed_steps = sum(1 for step in steps_status if step.startswith("✅"))
         total_steps = len(steps_status)
 
-        print('=' * 60)
-        print(f"[INFO] {study_name} Summary: {completed_steps}/{total_steps} steps completed")
-
+        # Log summary
         if completed_steps == total_steps:
-            print(f"[INFO] 🎉 All processing steps completed for {study_name}!")
+            logger.processing_success("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - All processing steps completed!")
         elif completed_steps == 0:
-            print(f"[INFO] 📋 No processing steps completed yet for {study_name}")
+            logger.warning("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - No processing steps completed yet")
         else:
-            print(
-                f"[INFO] 📊 {completed_steps} steps completed, {total_steps - completed_steps} remaining for {study_name}")
-
-        print('=' * 60)
+            logger.processing_info("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - {completed_steps} steps completed, {total_steps - completed_steps} remaining")
 
     def calculate_icc(self, ratings, icc_type='ICC(2,1)'):
         """

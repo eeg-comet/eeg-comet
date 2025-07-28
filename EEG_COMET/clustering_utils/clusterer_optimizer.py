@@ -119,6 +119,16 @@ class ClustererOptimizer:
     def stop(self):
         """Stop the optimization process."""
         self._stopped = True
+        # Log stop request using the new logger format if available
+        if hasattr(self, 'progress_callback') and self.progress_callback:
+            # Try to get the logger from the progress callback context
+            try:
+                # This is a bit of a hack - we'll try to access the logger through the callback
+                # In practice, the progress_callback is usually connected to the LogWindow
+                # which has access to the COMET instance and its logger
+                pass
+            except:
+                pass
         self._log_message("Optimization process stopped by user", level="warning")
 
     def is_stopped(self):
