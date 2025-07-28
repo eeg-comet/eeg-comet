@@ -333,13 +333,33 @@ class LogWindow(QWidget):
             print(f"Error exporting logs: {e}")
             return False
 
+    def closeEvent(self, event):
+        """Handle window close event"""
+        # Add closing log before closing
+        self.append_log("EEG-COMET Session Ended", log_type='section')
+        self.append_log("Thank you for using EEG-COMET!", log_type='info')
+        
+        # Save final log state
+        self._save_log_to_comet()
+        
+        # Accept the close event
+        event.accept()
+
     def log_clustering_setup_step(self, step_name, step_description=""):
         """Log clustering setup steps for better user visibility."""
         if self.current_step == "CLUSTERING":
-            if step_description:
-                self.append_log(f"⚙️ {step_name}: {step_description}", log_type='process')
+            # Use ⌛ for actual processing steps that take time
+            if step_name.lower() == "starting clustering":
+                if step_description:
+                    self.append_log(f"⌛ {step_name}: {step_description}", log_type='process')
+                else:
+                    self.append_log(f"⌛ {step_name}", log_type='process')
             else:
-                self.append_log(f"⚙️ {step_name}", log_type='process')
+                # Use ⚙️ for setup steps
+                if step_description:
+                    self.append_log(f"⚙️ {step_name}: {step_description}", log_type='process')
+                else:
+                    self.append_log(f"⚙️ {step_name}", log_type='process')
 
     def log_clustering_progress(self, repetition_num, total_repetitions, gev=None, is_best=False):
         """Log detailed clustering progress information."""

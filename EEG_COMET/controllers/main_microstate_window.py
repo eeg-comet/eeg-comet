@@ -435,6 +435,15 @@ class MainMicrostateWindow(QMainWindow):
         
         # Initialize interactive tooltip
         self._interactive_tooltip = None
+        
+        # Initialize window creation flags
+        self._creating_microstate_window = False
+        self._auto_opening_in_progress = False
+        
+        # Initialize processing completion flags
+        self._clustering_just_finished = False
+        self._microstate_labeling_just_finished = False
+        self._loading_study = False
 
     def toggle_theme(self, checked: bool):
         """Toggle application-wide theme."""
@@ -901,6 +910,15 @@ class MainMicrostateWindow(QMainWindow):
         # Sync flags with COMET
         self._sync_processing_flags()
 
+        # Check if microstate labeling just completed (called from microstate visualization window)
+        # Only print if not loading a study (to avoid duplicate printing)
+        if (self.comet.done_microstate_labeling and 
+            not self._microstate_labeling_just_finished and 
+            hasattr(self, '_microstate_labeling_just_finished') and
+            not hasattr(self, '_loading_study')):
+            self._microstate_labeling_just_finished = True
+            self._print_study_status()
+
         # Update UI based on processing state
         if not self.comet.done_preprocessing:
             self._handle_preprocessing_state()
@@ -1083,9 +1101,10 @@ class MainMicrostateWindow(QMainWindow):
         # (not when loading a study that already has clustered data)
         if (hasattr(self.comet, 'best_maps')
                 and self.comet.best_maps is not None and getattr(self, '_clustering_just_finished', False)):
-            QtCore.QTimer.singleShot(100, self.visualize_microstates)
-            # Reset the flag so it doesn't auto-open again
+            # Reset the flag immediately to prevent multiple auto-openings
             self._clustering_just_finished = False
+            # Use a longer delay to ensure UI state is fully updated and prevent race conditions
+            QtCore.QTimer.singleShot(500, self._auto_open_microstate_visualization)
 
     def _handle_post_labeling_state(self):
         """Handle UI state after microstate labeling"""
@@ -1108,7 +1127,7 @@ class MainMicrostateWindow(QMainWindow):
         output_format = self.ui.step4_outputformats_combobox.currentText()
         start = output_format.find("(") + 1
         end = output_format.find(")")
-        if start > 0 and end > start:
+        if 0 < start < end:
             self.comet.export_format = output_format[start:end]
 
     def _handle_filter_segments_settings(self):
@@ -1283,6 +1302,24 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.source_localization_completed_callback = None
         self.comet.source_microstate_correlation_completed_callback = None
 
+        # Close and clear microstate visualization window if open
+        if hasattr(self, "_microstate_window") and self._microstate_window is not None:
+            if self._microstate_window.isVisible():
+                self._microstate_window.close()
+            self._microstate_window = None
+
+        # Reset window creation flags
+        self._creating_microstate_window = False
+        self._auto_opening_in_progress = False
+        
+        # Reset processing completion flags
+        self._clustering_just_finished = False
+        self._microstate_labeling_just_finished = False
+        self._loading_study = False
+
+        # Set up preprocessing completion callback
+        self.comet.preprocessing_completed_callback = self._on_preprocessing_finished
+
         # Hide small logos when starting a new study
         self._hide_small_logos()
 
@@ -1298,12 +1335,18 @@ class MainMicrostateWindow(QMainWindow):
     # Study management methods
     def load_study(self, from_new_study=False):
         """Load a study with improved error handling"""
+        # Set loading flag to prevent duplicate status printing
+        self._loading_study = True
+        
         if from_new_study:
             self._handle_new_study_load()
         else:
             self._handle_existing_study_load()
 
         self._update_ui_state()
+        
+        # Clear loading flag after study is loaded
+        self._loading_study = False
 
     def _handle_new_study_load(self):
         """Handle loading from new study"""
@@ -1318,6 +1361,14 @@ class MainMicrostateWindow(QMainWindow):
         # Save the configuration to persist the initial log
         if self.comet.auto_save:
             self.comet.save_config()
+
+        # Reset processing completion flags when loading new study
+        self._clustering_just_finished = False
+        self._microstate_labeling_just_finished = False
+        self._loading_study = False
+
+        # Set up preprocessing completion callback
+        self.comet.preprocessing_completed_callback = self._on_preprocessing_finished
 
         # Update UI state after loading
         self._update_ui_state()
@@ -1372,18 +1423,28 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet.restore_logs_if_available()
             
             self.comet.load_eeg_info()
-            self.comet.load_maps()
+            
+            # Only load maps if clustering has been completed
+            if self.comet.done_clustering:
+                try:
+                    self.comet.load_maps()
+                except FileNotFoundError:
+                    # Maps file doesn't exist, which is expected if clustering hasn't been done
+                    pass
+            
             self.comet.load_clean()
 
             self.comet.LogWindow.show()
 
-            # Add study loading messages
-            self.comet.LogWindow.append_log("Study Loading", log_type='section')
-            self.comet.LogWindow.append_log(
-                f"Study '{self.comet.study_name}' loaded successfully from: {folder}", log_type='success'
-            )
+            # Reset processing completion flags when loading existing study
+            self._clustering_just_finished = False
+            self._microstate_labeling_just_finished = False
+            self._loading_study = False
             
-            # Log completion status of all steps
+            # Set up preprocessing completion callback
+            self.comet.preprocessing_completed_callback = self._on_preprocessing_finished
+            
+            # Log completion status of all steps (includes study loading section)
             self._log_study_completion_status()
 
             # Update UI state after loading study
@@ -1400,8 +1461,11 @@ class MainMicrostateWindow(QMainWindow):
         """Log the completion status of all processing steps"""
         logger = get_logger()
         
-        # First log that the study was loaded successfully
-        logger.processing_success("INITIALIZATION", f"Study '{self.comet.study_name}' loaded successfully")
+        # Log section header for study loading
+        logger.section_header("STUDY_LOADING")
+        
+        # Log that the study was loaded successfully
+        logger.processing_success("STUDY_LOADING", f"Study '{self.comet.study_name}' Loaded Successfully")
         
         # Log section header for completion status
         logger.section_header("STUDY_STATUS")
@@ -1465,17 +1529,75 @@ class MainMicrostateWindow(QMainWindow):
             steps_status.append("❌ Source-Microstate Correlation")
             logger.warning("STUDY_STATUS", "Source-Microstate Correlation - NOT COMPLETED")
         
-        # Summary
-        completed_steps = sum(1 for step in steps_status if step.startswith("✅"))
-        total_steps = len(steps_status)
+        # Summary section removed - no longer needed
+
+    def _print_study_status(self):
+        """Print the current study status after major step completion"""
+        logger = get_logger()
         
-        # Log summary
-        if completed_steps == total_steps:
-            logger.processing_success("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - All processing steps completed!")
-        elif completed_steps == 0:
-            logger.warning("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - No processing steps completed yet")
+        # Log section header for completion status
+        logger.section_header("STUDY_STATUS")
+        
+        # Check each processing step and log with consistent emojis
+        steps_status = []
+        
+        # Preprocessing
+        if self.comet.done_preprocessing:
+            steps_status.append("✅ Data Preprocessing")
+            logger.processing_success("STUDY_STATUS", "Data Preprocessing - COMPLETED")
         else:
-            logger.processing_info("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - {completed_steps} steps completed, {total_steps - completed_steps} remaining")
+            steps_status.append("❌ Data Preprocessing")
+            logger.warning("STUDY_STATUS", "Data Preprocessing - NOT COMPLETED")
+        
+        # Clustering
+        if self.comet.done_clustering:
+            steps_status.append("✅ Microstate Clustering")
+            logger.processing_success("STUDY_STATUS", "Microstate Clustering - COMPLETED")
+        else:
+            steps_status.append("❌ Microstate Clustering")
+            logger.warning("STUDY_STATUS", "Microstate Clustering - NOT COMPLETED")
+        
+        # Microstate Labeling
+        if self.comet.done_microstate_labeling:
+            steps_status.append("✅ Microstate Labeling")
+            logger.processing_success("STUDY_STATUS", "Microstate Labeling - COMPLETED")
+        else:
+            steps_status.append("❌ Microstate Labeling")
+            logger.warning("STUDY_STATUS", "Microstate Labeling - NOT COMPLETED")
+        
+        # Backfitting
+        if self.comet.done_backfitting:
+            steps_status.append("✅ Microstate Backfitting")
+            logger.processing_success("STUDY_STATUS", "Microstate Backfitting - COMPLETED")
+        else:
+            steps_status.append("❌ Microstate Backfitting")
+            logger.warning("STUDY_STATUS", "Microstate Backfitting - NOT COMPLETED")
+        
+        # Feature Extraction
+        if self.comet.done_extracting_features:
+            steps_status.append("✅ Feature Extraction")
+            logger.processing_success("STUDY_STATUS", "Feature Extraction - COMPLETED")
+        else:
+            steps_status.append("❌ Feature Extraction")
+            logger.warning("STUDY_STATUS", "Feature Extraction - NOT COMPLETED")
+        
+        # Source Localization
+        if self.comet.done_source_localization:
+            steps_status.append("✅ Source Localization")
+            logger.processing_success("STUDY_STATUS", "Source Localization - COMPLETED")
+        else:
+            steps_status.append("❌ Source Localization")
+            logger.warning("STUDY_STATUS", "Source Localization - NOT COMPLETED")
+        
+        # Source-Microstate Correlation
+        if self.comet.done_identifying_microstate_sources:
+            steps_status.append("✅ Source-Microstate Correlation")
+            logger.processing_success("STUDY_STATUS", "Source-Microstate Correlation - COMPLETED")
+        else:
+            steps_status.append("❌ Source-Microstate Correlation")
+            logger.warning("STUDY_STATUS", "Source-Microstate Correlation - NOT COMPLETED")
+
+        # Summary section removed - no longer needed
 
     # Processing methods
     def _update_comet_clustering_parameters(self):
@@ -1559,6 +1681,11 @@ class MainMicrostateWindow(QMainWindow):
             self.processing_flags.reset_from('done_clustering')
             self._sync_flags_to_comet()
 
+            # Reset processing completion flags
+            self._clustering_just_finished = False
+            self._microstate_labeling_just_finished = False
+            self._loading_study = False
+
             # Clear previous results
             if hasattr(self.comet, 'optimization_results'):
                 self.comet.optimization_results = None
@@ -1576,6 +1703,7 @@ class MainMicrostateWindow(QMainWindow):
         self._set_clustering_parameters()
 
         # Clear any previous callbacks from other processing steps
+        self.comet.preprocessing_completed_callback = None
         self.comet.backfitting_completed_callback = None
         self.comet.feature_extraction_completed_callback = None
         self.comet.source_localization_completed_callback = None
@@ -1592,27 +1720,50 @@ class MainMicrostateWindow(QMainWindow):
         # Set flag to indicate clustering just completed (for auto-opening visualization)
         self._clustering_just_finished = True
         
+        # Print study status after clustering completion
+        self._print_study_status()
+        
         # Update the UI state now that clustering is complete
         self._update_ui_state()
 
     def _on_backfitting_finished(self):
         """Called when backfitting is finished to update UI state"""
+        # Print study status after backfitting completion
+        self._print_study_status()
+        
         # Update the UI state now that backfitting is complete
         self._update_ui_state()
 
     def _on_feature_extraction_finished(self):
         """Called when feature extraction is finished to update UI state"""
+        # Print study status after feature extraction completion
+        self._print_study_status()
+        
         # Update the UI state now that feature extraction is complete
         self._update_ui_state()
 
     def _on_source_localization_finished(self):
         """Called when source localization is finished to update UI state"""
+        # Print study status after source localization completion
+        self._print_study_status()
+        
         # Update the UI state now that source localization is complete
         self._update_ui_state()
 
     def _on_source_microstate_correlation_finished(self):
         """Called when source-microstate correlation is finished to update UI state"""
+        # Print study status after source-microstate correlation completion
+        self._print_study_status()
+        
         # Update the UI state now that source-microstate correlation is complete
+        self._update_ui_state()
+
+    def _on_preprocessing_finished(self):
+        """Called when preprocessing is finished to update UI state"""
+        # Print study status after preprocessing completion
+        self._print_study_status()
+        
+        # Update the UI state now that preprocessing is complete
         self._update_ui_state()
 
     def _set_auto_k_parameters(self):
@@ -1625,7 +1776,8 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.stopping_parameter = None  # Not needed for majority vote
         
         # Force GFP peaks for auto-k selection (ignore use_percentages setting)
-        print("[CLUSTERING] Auto-k selection: Will use GFP peaks for optimization")
+        # Don't log this redundant information
+        # print("[CLUSTERING] Auto-k selection: Will use GFP peaks for optimization")
 
     def _set_user_k_parameters(self):
         """Set parameters for user-defined k"""
@@ -1657,6 +1809,45 @@ class MainMicrostateWindow(QMainWindow):
         # Paths
         self.comet.microstate_maps_path = os.path.join(self.comet.save_dir, 'microstate_maps.csv')
 
+    def _auto_open_microstate_visualization(self):
+        """Automatically open microstate visualization window after clustering"""
+        # Check if microstate maps are available
+        if not hasattr(self.comet, 'best_maps') or self.comet.best_maps is None:
+            return
+
+        # Add a flag to prevent multiple simultaneous window creations
+        if hasattr(self, "_creating_microstate_window") and self._creating_microstate_window:
+            return
+            
+        # Additional safeguard: check if auto-opening is already in progress
+        if hasattr(self, "_auto_opening_in_progress") and self._auto_opening_in_progress:
+            return
+        
+        # Check if window is already open and visible
+        if hasattr(self, "_microstate_window") and self._microstate_window is not None:
+            if self._microstate_window.isVisible():
+                # Window is already open, just refresh and bring to front
+                self._microstate_window.plot_maps()
+                self._microstate_window.raise_()
+                self._microstate_window.activateWindow()
+                return
+
+        # Additional check: if we already have a window reference, don't create another
+        if hasattr(self, "_microstate_window") and self._microstate_window is not None:
+            return
+
+        # Set flags to prevent multiple creations
+        self._creating_microstate_window = True
+        self._auto_opening_in_progress = True
+        
+        try:
+            # Create new window for automatic opening
+            self._create_microstate_visualization_window()
+        finally:
+            # Reset flags after creation (even if it fails)
+            self._creating_microstate_window = False
+            self._auto_opening_in_progress = False
+
     def visualize_microstates(self):
         """Visualize microstate maps for labeling"""
         # Check if microstate maps are available
@@ -1666,6 +1857,10 @@ class MainMicrostateWindow(QMainWindow):
                 "No Microstate Maps Available",
                 "No microstate maps have been generated yet. Please complete the clustering process first."
             )
+            return
+
+        # Add a flag to prevent multiple simultaneous window creations
+        if hasattr(self, "_creating_microstate_window") and self._creating_microstate_window:
             return
 
         # Re-use an existing visualization window if it is already open
@@ -1678,6 +1873,18 @@ class MainMicrostateWindow(QMainWindow):
                 self._microstate_window.activateWindow()
                 return  # Skip creating a new window
 
+        # Set flag to prevent multiple creations
+        self._creating_microstate_window = True
+        
+        try:
+            # Create new window
+            self._create_microstate_visualization_window()
+        finally:
+            # Reset flag after creation (even if it fails)
+            self._creating_microstate_window = False
+
+    def _create_microstate_visualization_window(self):
+        """Create and show microstate visualization window"""
         # Create new instance to ensure fresh state
         microstate_window = MicrostateVisualizationWindow(
             self.context,
@@ -1690,8 +1897,13 @@ class MainMicrostateWindow(QMainWindow):
 
         # Cache reference so we can reuse/refresh it later
         self._microstate_window = microstate_window
+        
         # Ensure cache is cleared when window is closed
-        microstate_window.destroyed.connect(lambda: setattr(self, "_microstate_window", None))
+        def clear_window_reference():
+            if hasattr(self, "_microstate_window") and self._microstate_window == microstate_window:
+                self._microstate_window = None
+        
+        microstate_window.destroyed.connect(clear_window_reference)
 
     def do_backfitting(self):
         """Perform microstate backfitting"""
@@ -1708,8 +1920,14 @@ class MainMicrostateWindow(QMainWindow):
         # Reset flags
         self.processing_flags.reset_from('done_extracting_features')
         self._sync_flags_to_comet()
+        
+        # Reset processing completion flags
+        self._clustering_just_finished = False
+        self._microstate_labeling_just_finished = False
+        self._loading_study = False
 
         # Clear any previous callbacks
+        self.comet.preprocessing_completed_callback = None
         self.comet.clustering_completed_callback = None
 
         # Set backfitting parameters
@@ -1802,9 +2020,16 @@ class MainMicrostateWindow(QMainWindow):
 
         # Reset flag and update UI
         self.comet.done_extracting_features = False
+        
+        # Reset processing completion flags
+        self._clustering_just_finished = False
+        self._microstate_labeling_just_finished = False
+        self._loading_study = False
+        
         self._update_ui_state()
 
         # Clear any previous callbacks
+        self.comet.preprocessing_completed_callback = None
         self.comet.clustering_completed_callback = None
         self.comet.backfitting_completed_callback = None
 
@@ -1915,9 +2140,16 @@ class MainMicrostateWindow(QMainWindow):
         # Reset flags
         self.processing_flags.reset_from('done_source_localization')
         self._sync_flags_to_comet()
+        
+        # Reset processing completion flags
+        self._clustering_just_finished = False
+        self._microstate_labeling_just_finished = False
+        self._loading_study = False
+        
         self._update_ui_state()
 
         # Clear any previous callbacks
+        self.comet.preprocessing_completed_callback = None
         self.comet.clustering_completed_callback = None
         self.comet.backfitting_completed_callback = None
         self.comet.feature_extraction_completed_callback = None
@@ -1967,10 +2199,16 @@ class MainMicrostateWindow(QMainWindow):
                 return
 
         # Clear any previous callbacks
+        self.comet.preprocessing_completed_callback = None
         self.comet.clustering_completed_callback = None
         self.comet.backfitting_completed_callback = None
         self.comet.feature_extraction_completed_callback = None
         self.comet.source_localization_completed_callback = None
+        
+        # Reset processing completion flags
+        self._clustering_just_finished = False
+        self._microstate_labeling_just_finished = False
+        self._loading_study = False
 
         # Set parameters
         self.comet.nperm = 2000
@@ -1989,6 +2227,9 @@ class MainMicrostateWindow(QMainWindow):
 
     def exit_msg(self):
         """Display confirmation before quitting"""
+        from gui_utils.logger import get_logger
+        logger = get_logger()
+        
         reply = QMessageBox.question(
             self, "Quit",
             "Are you sure you want to quit?",
@@ -1997,13 +2238,20 @@ class MainMicrostateWindow(QMainWindow):
         )
 
         if reply == QMessageBox.Yes:
+            # Add closing message to log window
             if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow:
+                self.comet.LogWindow.append_log("EEG-COMET Session Ended", log_type='section')
+                self.comet.LogWindow.append_log("Thank you for using EEG-COMET!", log_type='info')
                 self.comet.LogWindow.close()
+            
             self.close()
 
     # Override close event for cleanup
     def closeEvent(self, event):
         """Handle window close event"""
+        from gui_utils.logger import get_logger
+        logger = get_logger()
+        
         # Clear any callbacks
         self.comet.clustering_completed_callback = None
         self.comet.backfitting_completed_callback = None
@@ -2011,8 +2259,27 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.source_localization_completed_callback = None
         self.comet.source_microstate_correlation_completed_callback = None
         
+        # Close log window
         if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow is not None:
+            # Add closing message to log window
+            self.comet.LogWindow.append_log("EEG-COMET Session Ended", log_type='section')
+            self.comet.LogWindow.append_log("Thank you for using EEG-COMET!", log_type='info')
             self.comet.LogWindow.close()
+
+        # Close microstate visualization window if open
+        if hasattr(self, "_microstate_window") and self._microstate_window is not None:
+            if self._microstate_window.isVisible():
+                self._microstate_window.close()
+            self._microstate_window = None
+
+        # Reset window creation flags
+        self._creating_microstate_window = False
+        self._auto_opening_in_progress = False
+        
+        # Reset processing completion flags
+        self._clustering_just_finished = False
+        self._microstate_labeling_just_finished = False
+        self._loading_study = False
 
         # Close interactive tooltip
         if self._interactive_tooltip:
@@ -2020,9 +2287,22 @@ class MainMicrostateWindow(QMainWindow):
             self._interactive_tooltip.deleteLater()
 
         # Close all dialogs
-        for dialog in self.dialogs.values():
+        for name, dialog in self.dialogs.items():
             if dialog and hasattr(dialog, 'close'):
-                dialog.close()
+                try:
+                    dialog.close()
+                except Exception as e:
+                    logger.warning("SHUTDOWN", f"Error closing {name} dialog: {str(e)}")
+
+        # Force close any remaining top-level widgets
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            remaining_widgets = [w for w in app_instance.topLevelWidgets() if w.isVisible() and w != self]
+            for widget in remaining_widgets:
+                try:
+                    widget.close()
+                except Exception as e:
+                    logger.warning("SHUTDOWN", f"Error closing remaining window: {str(e)}")
 
         event.accept()
 
@@ -2048,7 +2328,8 @@ class MainMicrostateWindow(QMainWindow):
     # Logo helpers for theme switching
     # ------------------------------------------------------------------
 
-    def _generate_dark_logo(self, pixmap: QPixmap) -> QPixmap:
+    @staticmethod
+    def _generate_dark_logo(pixmap: QPixmap) -> QPixmap:
         """Return a lightened version of the logo suitable for dark backgrounds."""
         img: QImage = pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
 

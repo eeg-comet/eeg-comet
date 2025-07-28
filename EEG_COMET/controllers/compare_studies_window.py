@@ -252,7 +252,15 @@ class CompareStudiesWindow(QDialog):
 
             # Load study data
             self.comet_tbx_study1.load_eeg_info()
-            self.comet_tbx_study1.load_maps()
+            
+            # Only load maps if clustering has been completed
+            if self.comet_tbx_study1.done_clustering:
+                try:
+                    self.comet_tbx_study1.load_maps()
+                except FileNotFoundError:
+                    # Maps file doesn't exist, which is expected if clustering hasn't been done
+                    pass
+            
             self.comet_tbx_study1.load_clean()
 
             self.study1_loaded = True
@@ -306,7 +314,15 @@ class CompareStudiesWindow(QDialog):
 
             # Load study data
             self.comet_tbx_study2.load_eeg_info()
-            self.comet_tbx_study2.load_maps()
+            
+            # Only load maps if clustering has been completed
+            if self.comet_tbx_study2.done_clustering:
+                try:
+                    self.comet_tbx_study2.load_maps()
+                except FileNotFoundError:
+                    # Maps file doesn't exist, which is expected if clustering hasn't been done
+                    pass
+            
             self.comet_tbx_study2.load_clean()
 
             self.study2_loaded = True
@@ -349,6 +365,17 @@ class CompareStudiesWindow(QDialog):
             ax.set_yticks([])
             ax.set_xlabel('')
             ax.set_ylabel('')
+
+        # Check if microstate maps are available
+        if not hasattr(tbx, 'best_maps') or tbx.best_maps is None or not hasattr(tbx, 'micro_labels') or not tbx.micro_labels:
+            # No maps available - show message
+            ax = figure.add_subplot(1, 1, 1)
+            ax.text(0.5, 0.5, 'No microstate maps available\nClustering not completed yet', 
+                   transform=ax.transAxes, ha='center', va='center', fontsize=14)
+            ax.axis('off')
+            figure.tight_layout()
+            canvas.draw()
+            return
 
         # Create subplots for each microstate
         axs = [
@@ -868,8 +895,11 @@ class CompareStudiesWindow(QDialog):
         from gui_utils.logger import get_logger
         logger = get_logger()
         
-        # First log that the study was loaded successfully
-        logger.processing_success("INITIALIZATION", f"Study '{comet_instance.study_name}' loaded successfully")
+        # Log section header for study loading
+        logger.section_header("STUDY_LOADING")
+        
+        # Log that the study was loaded successfully
+        logger.processing_success("STUDY_LOADING", f"Study '{comet_instance.study_name}' loaded successfully")
         
         # Log section header for completion status
         logger.section_header("STUDY_STATUS")
@@ -937,17 +967,7 @@ class CompareStudiesWindow(QDialog):
             steps_status.append("❌ Source-Microstate Correlation")
             logger.warning("STUDY_STATUS", "Source-Microstate Correlation - NOT COMPLETED")
 
-        # Summary
-        completed_steps = sum(1 for step in steps_status if step.startswith("✅"))
-        total_steps = len(steps_status)
-
-        # Log summary
-        if completed_steps == total_steps:
-            logger.processing_success("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - All processing steps completed!")
-        elif completed_steps == 0:
-            logger.warning("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - No processing steps completed yet")
-        else:
-            logger.processing_info("STUDY_STATUS", f"Summary: {completed_steps}/{total_steps} steps completed - {completed_steps} steps completed, {total_steps - completed_steps} remaining")
+        # Summary section removed - no longer needed
 
     def calculate_icc(self, ratings, icc_type='ICC(2,1)'):
         """

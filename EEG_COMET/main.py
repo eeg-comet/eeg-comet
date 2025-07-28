@@ -1,30 +1,16 @@
-"""
-EEG-COMET Main Application
-
-Authors:
-    - Amin Kabir
-    - Raaj Chatterjee
-    - Faranak Farzan
-
-Organization:
-    SFU eBrain Lab
-    Website: www.ebrainlab.ca
-"""
-
 import sys
 import os
 import warnings
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 from controllers.main_microstate_window import MainMicrostateWindow
+from gui_utils.logger import get_logger
+
 
 # Silence TensorFlow warnings before any imports that might use it
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Hide INFO and WARNING messages
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom operations
 warnings.filterwarnings('ignore', category=UserWarning, module='.*tensorflow.*')
-
-
-from gui_utils.logger import get_logger
 
 # Initialize global logger
 logger = get_logger()
@@ -51,13 +37,12 @@ def run_application():
     """
     # Display welcome message
     logger.toolbox_header("EEG-COMET", "(EEG Comprehensive Microstate Extraction Toolbox)")
-    logger.processing_info("INITIALIZATION", "Organization: SFU eBrain Lab (https://www.ebrainlab.ca/)")
-    logger.processing_info("INITIALIZATION", "GitHub: https://github.com/eBrainLab/eeg-comet/")
-    logger.processing_info("INITIALIZATION", "Contacting authors: Amin Kabir, Faranak Farzan")
+    logger.processing_info("ORGANIZATION", "SFU eBrain Lab (https://www.ebrainlab.ca/)")
+    logger.processing_info("GITHUB", "https://github.com/eBrainLab/eeg-comet/")
+    logger.processing_info("CONTACT", "@ Amin Kabir, @ Faranak Farzan")
     
     try:
         # Create a custom application context
-        logger.processing_start("INITIALIZATION", "Initializing graphical user interface")
         app_context = CustomApplicationContext()
         app = app_context.app
 
@@ -73,17 +58,35 @@ def run_application():
 
         # Show the window
         window.show()
-        logger.processing_success("INITIALIZATION", "Application started successfully")
+        logger.processing_success("INITIALIZATION", "Application Started Successfully")
         
         # Start the application
         exit_code = app.exec_()
         
-        # Cleanup
-        logger.processing_info("INITIALIZATION", "Application closed")
+        # Cleanup and close all windows
+        # Add final closing message to log window if available
+        if hasattr(window, 'comet') and hasattr(window.comet, 'LogWindow') and window.comet.LogWindow:
+            window.comet.LogWindow.append_log("EEG-COMET Session Ended", log_type='section')
+            window.comet.LogWindow.append_log("Thank you for using EEG-COMET!", log_type='info')
+        
+        # Close the main window (this will trigger closeEvent and close all dialogs)
+        if hasattr(window, 'close'):
+            window.close()
+        
+        # Force close any remaining windows
+        for widget in app.topLevelWidgets():
+            if widget.isVisible():
+                widget.close()
+        
+        # Add separator before shutdown message
+        print()  # Empty line
+        print("=" * 60)  # Separator line
+        
+        logger.processing_info("SHUTDOWN", "EEG-COMET Application Closed Successfully")
         sys.exit(exit_code)
         
     except Exception as e:
-        logger.error("INITIALIZATION", f"Failed to start application: {str(e)}")
+        logger.error("INITIALIZATION", f"Failed to Start Application: {str(e)}")
         sys.exit(1)
 
 

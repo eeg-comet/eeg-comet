@@ -160,19 +160,22 @@ def configure_comet_for_clustering(comet, args):
         comet.kmin = args.kmin
         comet.kmax = args.kmax
         comet.stopping_mode = 'majority_vote'  # Use robust majority vote
-        logger.processing_info("CLUSTERING", f"Automatic k selection enabled: k ∈ [{args.kmin}, {args.kmax}]")
-        logger.processing_info("CLUSTERING", "Using majority vote across all optimization methods")
-        logger.processing_info("CLUSTERING", "Using single repeat (n_inits=1) for optimization")
-        logger.processing_info("CLUSTERING", "Using GFP peaks for optimization (ignoring use_percentages setting)")
+        # Don't log these redundant information messages
+        # logger.processing_info("CLUSTERING", f"Automatic k selection enabled: k ∈ [{args.kmin}, {args.kmax}]")
+        # logger.processing_info("CLUSTERING", "Using majority vote across all optimization methods")
+        # logger.processing_info("CLUSTERING", "Using single repeat (n_inits=1) for optimization")
+        # logger.processing_info("CLUSTERING", "Using GFP peaks for optimization (ignoring use_percentages setting)")
     elif args.k:
         comet.number_of_maps = args.k
         comet.choose_number_of_maps = "user"
-        logger.processing_info("CLUSTERING", f"Using specified k value: {args.k}")
+        # Don't log this redundant information
+        # logger.processing_info("CLUSTERING", f"Using specified k value: {args.k}")
 
     # Set number of repetitions
     if args.repeats:
         comet.number_of_repeats = args.repeats
-        logger.processing_info("CLUSTERING", f"Clustering repetitions: {args.repeats}")
+        # Don't log this redundant information
+        # logger.processing_info("CLUSTERING", f"Clustering repetitions: {args.repeats}")
 
 
 def run_analysis_pipeline(comet, args):

@@ -44,7 +44,7 @@ class MicrostateClusterer:
     # CORE CLUSTERING ALGORITHMS
     # --------------------------------------------------------------------------
 
-    def modified_kmeans(self, data, initial_maps, verbose=True, worker=None):
+    def modified_kmeans(self, data, initial_maps, verbose=True, worker=None, repetition_num=None):
         """Perform topographic clustering of EEG data to identify brain microstates.
 
         This implements the modified K-means clustering algorithm described by
@@ -164,14 +164,17 @@ class MicrostateClusterer:
             # Check for convergence
             if (prev_residual - residual) < (self.clustering_tolerance * residual):
                 if verbose:
-                    self.logger.processing_info("CLUSTERING", f"Clustering converged at {iteration} iterations")
+                    if repetition_num is not None:
+                        self.logger.processing_info("CLUSTERING", f"Clustering {repetition_num} converged at {iteration} iterations")
+                    else:
+                        self.logger.processing_info("CLUSTERING", f"Clustering converged at {iteration} iterations")
                 break
 
             prev_residual = residual
 
         return maps, residual
 
-    def modified_kmeans_similarity(self, data, initial_maps, metric='Cosine Similarity', verbose=True, worker=None):
+    def modified_kmeans_similarity(self, data, initial_maps, metric='Cosine Similarity', verbose=True, worker=None, repetition_num=None):
         """Perform K-means clustering using spatial similarity metrics.
 
         This variant of the modified K-means algorithm uses either cosine similarity
@@ -308,7 +311,10 @@ class MicrostateClusterer:
             # Check for convergence
             if (prev_residual - residual) < (self.clustering_tolerance * residual):
                 if verbose:
-                    self.logger.processing_info("CLUSTERING", f"Clustering converged at {iteration} iterations")
+                    if repetition_num is not None:
+                        self.logger.processing_info("CLUSTERING", f"Clustering {repetition_num} converged at {iteration} iterations")
+                    else:
+                        self.logger.processing_info("CLUSTERING", f"Clustering converged at {iteration} iterations")
                 break
 
             prev_residual = residual
@@ -441,7 +447,6 @@ class MicrostateClusterer:
 
         if verbose:
             self.logger.processing_info("CLUSTERING", f"Starting hierarchical clustering with {n_maps} maps")
-            self.logger.processing_info("=" * 70)
 
         update_progress(f"Starting hierarchical clustering: {n_maps} → {self.n_states} maps...")
 

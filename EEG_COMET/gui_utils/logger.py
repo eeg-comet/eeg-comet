@@ -6,13 +6,6 @@ from typing import Optional, Callable
 class EEGCometLogger:
     """
     Comprehensive logging utility for EEG-COMET with consistent emoji patterns.
-    
-    Emoji patterns:
-    - ☄️  : Regular processing that requires time to finish (with 3 dots at end)
-    - ℹ️  : Reporting current parameters and settings
-    - ✅  : Processing is done (success)
-    - ⚠️  : Warning messages
-    - ❌  : Error messages (app should not crash)
     """
     
     def __init__(self, log_window=None):
@@ -26,19 +19,23 @@ class EEGCometLogger:
         """
         self.log_window = log_window
         self._step_prefixes = {
-            'PREPROCESSING': '☄️  [PREPROCESSING]',
-            'CLUSTERING': '☄️  [CLUSTERING]',
+            'PREPROCESSING': '⌛  [PREPROCESSING]',
+            'CLUSTERING': '⌛  [CLUSTERING]',
             'LABELING': '☄️  [LABELING]',
-            'BACKFITTING': '☄️  [BACKFITTING]',
-            'FEATURE_EXTRACTION': '☄️  [FEATURE EXTRACTION]',
-            'SOURCE_LOCALIZATION': '☄️  [SOURCE LOCALIZATION]',
-            'OPTIMIZATION': '☄️  [OPTIMIZATION]',
+            'BACKFITTING': '⌛  [BACKFITTING]',
+            'FEATURE_EXTRACTION': '⌛  [FEATURE EXTRACTION]',
+            'SOURCE_LOCALIZATION': '⌛  [SOURCE LOCALIZATION]',
+            'OPTIMIZATION': '⌛  [OPTIMIZATION]',
             'COREGISTRATION': '☄️  [COREGISTRATION]',
             'VISUALIZATION': '☄️  [VISUALIZATION]',
             'DATA_IO': '☄️  [DATA I/O]',
             'CONFIGURATION': 'ℹ️  [CONFIGURATION]',
             'VALIDATION': 'ℹ️  [VALIDATION]',
-            'INITIALIZATION': 'ℹ️  [INITIALIZATION]'
+            'STUDY_LOADING': 'ℹ️  [STUDY LOADING]',
+            'SHUTDOWN': '👋  [SHUTDOWN]',
+            'ORGANIZATION': '🧠  [ORGANIZATION]',
+            'GITHUB': '🌐  [GITHUB]',
+            'CONTACT': '✉️  [CONTACT]'
         }
     
     def _get_step_prefix(self, step: str) -> str:
@@ -136,8 +133,12 @@ class EEGCometLogger:
         message : str
             The message to display
         """
-        prefix = self._get_step_prefix(step)
-        full_message = f"{prefix} {message}..."
+        # Use ☄️ for "Starting" messages, step-specific prefix for others
+        if message.lower().startswith("starting"):
+            full_message = f"☄️  [{step.replace('_', ' ').upper()}] {message}..."
+        else:
+            prefix = self._get_step_prefix(step)
+            full_message = f"{prefix} {message}..."
         
         self._print_to_console(full_message)
         self._log_to_gui(message, log_type='process')
@@ -153,7 +154,13 @@ class EEGCometLogger:
         message : str
             The message to display
         """
-        prefix = self._get_info_prefix(step)
+        # Use step-specific prefix for SHUTDOWN, ORGANIZATION, GITHUB, CONTACT, and CLUSTERING processing messages
+        if step.upper() in ['SHUTDOWN', 'ORGANIZATION', 'GITHUB', 'CONTACT'] or \
+           (step.upper() == 'CLUSTERING' and 'Identifying' in message):
+            prefix = self._get_step_prefix(step)
+        else:
+            prefix = self._get_info_prefix(step)
+        
         full_message = f"{prefix} {message}"
         
         self._print_to_console(full_message)
@@ -216,10 +223,10 @@ class EEGCometLogger:
         step : str
             The processing step
         """
-        stop_message = f"❌  [{step.replace('_', ' ').upper()}] Stop requested - please wait ..."
+        stop_message = f"❌  [{step.replace('_', ' ').upper()}] Stop Requested - Please Wait ..."
         
         self._print_to_console(stop_message)
-        self._log_to_gui("Stop requested - please wait ...", log_type='warning')
+        self._log_to_gui("Stop Requested - Please Wait ...", log_type='warning')
     
     def settings_info(self, step: str, settings_dict: dict):
         """
@@ -232,8 +239,12 @@ class EEGCometLogger:
         settings_dict : dict
             Dictionary of settings to log
         """
-        # Print each setting as individual info lines
+        # Print each setting as individual info lines, but skip redundant clustering info
         for key, value in settings_dict.items():
+            # Skip redundant clustering settings that are already shown in the main message
+            if step.upper() == "CLUSTERING" and key in ["Number of Maps", "Number of Repeats"]:
+                continue
+                
             # Special handling for clustering method to show shorter citation in logs
             if key == "Clustering Method" and step.upper() == "CLUSTERING":
                 # Map full method names to shorter citation format
