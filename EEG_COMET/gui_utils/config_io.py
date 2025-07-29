@@ -1,4 +1,3 @@
-
 from configparser import ConfigParser
 
 def initialize_config(config_path, config):

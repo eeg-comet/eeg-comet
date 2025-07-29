@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 
 from comet import COMET
+from gui_utils.logger import get_logger
 
 # Silence TensorFlow warnings before any imports that might use it
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Hide INFO and WARNING messages
@@ -23,15 +24,12 @@ warnings.filterwarnings('ignore', category=UserWarning, module='.*tensorflow.*')
 
 def display_welcome_message():
     """Display the welcome message for EEG-COMET terminal version"""
-    print("=" * 80)
-    print("🧠 EEG-COMET: Comprehensive Microstate Extraction Toolbox")
-    print("=" * 80)
-    print("Authors: Amin Kabir, Raaj Chatterjee, Faranak Farzan")
-    print("Organization: SFU eBrain Lab (www.ebrainlab.ca)")
-    print("GitHub: https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction")
-    print("=" * 80)
-    print("🖥️  Terminal Version - Enhanced with Automatic K Selection")
-    print("=" * 80)
+    logger = get_logger()
+    logger.toolbox_header("🧠 EEG-COMET", "(EEG Comprehensive Microstate Extraction Toolbox)")
+    logger.processing_info("INITIALIZATION", "Authors: Amin Kabir, Raaj Chatterjee, Faranak Farzan")
+    logger.processing_info("INITIALIZATION", "Organization: SFU eBrain Lab (www.ebrainlab.ca)")
+    logger.processing_info("INITIALIZATION", "GitHub: https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction")
+    logger.processing_info("INITIALIZATION", "🖥️  Terminal Version - Enhanced with Automatic K Selection")
 
 
 def setup_argument_parser():
@@ -144,6 +142,7 @@ def validate_arguments(args):
 
 def configure_comet_for_clustering(comet, args):
     """Configure COMET instance for clustering based on arguments"""
+    logger = get_logger()
 
     # Set clustering method
     if args.method:
@@ -161,19 +160,22 @@ def configure_comet_for_clustering(comet, args):
         comet.kmin = args.kmin
         comet.kmax = args.kmax
         comet.stopping_mode = 'majority_vote'  # Use robust majority vote
-        print(f"🔍 Automatic k selection enabled: k ∈ [{args.kmin}, {args.kmax}]")
-        print(f"🎯 Using majority vote across all optimization methods")
-        print(f"⚡ Using single repeat (n_inits=1) for optimization")
-        print(f"📊 Using GFP peaks for optimization (ignoring use_percentages setting)")
+        # Don't log these redundant information messages
+        # logger.processing_info("CLUSTERING", f"Automatic k selection enabled: k ∈ [{args.kmin}, {args.kmax}]")
+        # logger.processing_info("CLUSTERING", "Using majority vote across all optimization methods")
+        # logger.processing_info("CLUSTERING", "Using single repeat (n_inits=1) for optimization")
+        # logger.processing_info("CLUSTERING", "Using GFP peaks for optimization (ignoring use_percentages setting)")
     elif args.k:
         comet.number_of_maps = args.k
         comet.choose_number_of_maps = "user"
-        print(f"📌 Using specified k value: {args.k}")
+        # Don't log this redundant information
+        # logger.processing_info("CLUSTERING", f"Using specified k value: {args.k}")
 
     # Set number of repetitions
     if args.repeats:
         comet.number_of_repeats = args.repeats
-        print(f"🔄 Clustering repetitions: {args.repeats}")
+        # Don't log this redundant information
+        # logger.processing_info("CLUSTERING", f"Clustering repetitions: {args.repeats}")
 
 
 def run_analysis_pipeline(comet, args):
@@ -200,26 +202,20 @@ def run_analysis_pipeline(comet, args):
         if args.correlation:
             steps_to_run.append('correlation')
 
-    print(f"\n📋 Analysis pipeline: {' → '.join(steps_to_run)}")
-    print("=" * 60)
+    logger = get_logger()
+    logger.processing_info("INITIALIZATION", f"Analysis pipeline: {' → '.join(steps_to_run)}")
 
     # Run each step
     for step in steps_to_run:
         try:
             if step == 'preprocess':
                 if not comet.done_preprocessing:
-                    print("\n🔧 PREPROCESSING")
-                    print("-" * 40)
                     comet.run_preprocessing()
-                    print("[PREPROCESSING] Preprocessing completed successfully")
                 else:
-                    print("\n✅ Preprocessing already completed")
+                    logger.processing_info("PREPROCESSING", "Preprocessing already completed")
 
             elif step == 'cluster':
                 if not comet.done_clustering:
-                    print("\n🎯 MICROSTATE CLUSTERING")
-                    print("-" * 40)
-
                     # Configure clustering parameters
                     configure_comet_for_clustering(comet, args)
 
@@ -231,55 +227,38 @@ def run_analysis_pipeline(comet, args):
                             hasattr(comet, 'optimization_results') and
                             comet.optimization_results):
                         show_optimization_results(comet.optimization_results)
-
-                    print("[CLUSTERING] Clustering completed successfully")
                 else:
-                    print("\n✅ Clustering already completed")
+                    logger.processing_info("CLUSTERING", "Clustering already completed")
 
             elif step == 'label':
                 if not comet.done_microstate_labeling:
-                    print("\n🏷️  MICROSTATE LABELING")
-                    print("-" * 40)
                     comet.run_microstate_labeling()
-                    print("[LABELING] Microstate labeling completed successfully")
                 else:
-                    print("\n✅ Microstate labeling already completed")
+                    logger.processing_info("LABELING", "Microstate labeling already completed")
 
             elif step == 'backfit':
                 if not comet.done_backfitting:
-                    print("\n📐 BACKFITTING")
-                    print("-" * 40)
                     comet.run_backfitting()
-                    print("[BACKFITTING] Backfitting completed successfully")
                 else:
-                    print("\n✅ Backfitting already completed")
+                    logger.processing_info("BACKFITTING", "Backfitting already completed")
 
             elif step == 'features':
                 if not comet.done_extracting_features:
-                    print("\n📊 FEATURE EXTRACTION")
-                    print("-" * 40)
-                    comet.extract_features()
-                    print("[FEATURE EXTRACTION] Feature extraction completed successfully")
+                    comet.run_feature_extraction()
                 else:
-                    print("\n✅ Feature extraction already completed")
+                    logger.processing_info("FEATURE_EXTRACTION", "Feature extraction already completed")
 
             elif step == 'source':
                 if not comet.done_source_localization:
-                    print("\n🧠 SOURCE LOCALIZATION")
-                    print("-" * 40)
-                    comet.source_localize_microstates()
-                    print("[SOURCE LOCALIZATION] Source localization completed successfully")
+                    comet.run_source_localization()
                 else:
-                    print("\n✅ Source localization already completed")
+                    logger.processing_info("SOURCE_LOCALIZATION", "Source localization already completed")
 
             elif step == 'correlation':
                 if not comet.done_identifying_microstate_sources:
-                    print("\n🔗 SOURCE-MICROSTATE CORRELATION")
-                    print("-" * 40)
-                    comet.source_microstates_correlation()
-                    print("[SOURCE LOCALIZATION] Source correlation completed successfully")
+                    comet.run_identifying_microstate_sources()
                 else:
-                    print("\n✅ Source correlation already completed")
+                    logger.processing_info("SOURCE_LOCALIZATION", "Source correlation already completed")
 
         except Exception as e:
             print(f"❌ Error in {step}: {str(e)}")
@@ -293,28 +272,25 @@ def run_analysis_pipeline(comet, args):
 
 def show_optimization_results(optimization_results):
     """Display optimization results in a formatted way"""
-    print("\n" + "=" * 60)
-    print("🔍 AUTOMATIC K SELECTION RESULTS")
-    print("=" * 60)
+    logger = get_logger()
+    logger.section_header("OPTIMIZATION", "🔍 AUTOMATIC K SELECTION RESULTS")
 
     # Show individual method results
     for method_name, result in optimization_results.items():
         if method_name != 'majority_vote':
-            print(f"📊 {result.method_name}: k = {result.optimal_k}")
+            logger.processing_info("OPTIMIZATION", f"{result.method_name}: k = {result.optimal_k}")
 
     # Show majority vote result
     if 'majority_vote' in optimization_results:
         majority_result = optimization_results['majority_vote']
-        print(f"\n🎯 FINAL DECISION (Majority Vote): k = {majority_result.optimal_k}")
+        logger.processing_info("OPTIMIZATION", f"FINAL DECISION (Majority Vote): k = {majority_result.optimal_k}")
 
         # Show vote breakdown
         from collections import Counter
         vote_counts = Counter(majority_result.scores)
-        print("\n📈 Vote breakdown:")
+        logger.processing_info("OPTIMIZATION", "Vote breakdown:")
         for k_value, count in sorted(vote_counts.items()):
-            print(f"   k={k_value}: {count} votes")
-
-    print("=" * 60)
+            logger.processing_info("OPTIMIZATION", f"   k={k_value}: {count} votes")
 
 
 def main():
@@ -329,9 +305,10 @@ def main():
     # Validate arguments
     validation_errors = validate_arguments(args)
     if validation_errors:
-        print("❌ Validation errors:")
+        logger = get_logger()
+        logger.error("VALIDATION", "Validation errors:")
         for error in validation_errors:
-            print(f"   • {error}")
+            logger.error("VALIDATION", f"   • {error}")
         parser.print_help()
         return 1
 
@@ -342,7 +319,8 @@ def main():
 
     try:
         # Initialize COMET instance
-        print(f"📂 Loading configuration from: {args.config}")
+        logger = get_logger()
+        logger.processing_info("INITIALIZATION", f"Loading configuration from: {args.config}")
 
         comet = COMET(
             config_path=args.config,
@@ -351,28 +329,28 @@ def main():
             output_folder=args.output
         )
 
-        print(f"📋 Study: {comet.study_name}")
-        print(f"📁 Input: {comet.input_folder}")
-        print(f"💾 Output: {comet.output_folder}")
+        logger.processing_info("INITIALIZATION", f"Study: {comet.study_name}")
+        logger.processing_info("INITIALIZATION", f"Input: {comet.input_folder}")
+        logger.processing_info("INITIALIZATION", f"Output: {comet.output_folder}")
 
         # Run analysis pipeline
         success = run_analysis_pipeline(comet, args)
 
         if success:
-            print("\n🎉 ANALYSIS COMPLETED SUCCESSFULLY!")
-            print("=" * 60)
-            print(f"📊 Results saved to: {comet.output_folder}")
-            print(f"📝 Logs saved to: {comet.log_file_path}")
+            logger.processing_success("INITIALIZATION", "ANALYSIS COMPLETED SUCCESSFULLY!")
+
             return 0
         else:
-            print("\n❌ ANALYSIS FAILED!")
+            logger.error("INITIALIZATION", "ANALYSIS FAILED!")
             return 1
 
     except KeyboardInterrupt:
-        print("\n⚠️  Analysis interrupted by user")
+        logger = get_logger()
+        logger.warning("INITIALIZATION", "Analysis interrupted by user")
         return 1
     except Exception as e:
-        print(f"\n❌ Fatal error: {str(e)}")
+        logger = get_logger()
+        logger.error("INITIALIZATION", f"Fatal error: {str(e)}")
         if args.verbose:
             import traceback
             traceback.print_exc()

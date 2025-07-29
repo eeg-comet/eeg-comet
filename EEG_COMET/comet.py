@@ -6,6 +6,7 @@ from tqdm import tqdm
 from configparser import ConfigParser
 
 from controllers.logging_window import LogWindow
+from gui_utils.logger import get_logger
 from data_utils.data_io import DataIO
 from data_utils.data_preprocessor import DataPreprocessor
 from data_utils.data_initializer import DataInitializer
@@ -27,12 +28,6 @@ class COMET:
     It provides methods to load configuration settings, perform various processes
     such as preprocessing, clustering, labeling, backfitting, feature extraction,
     source localization, and source-microstate correlation.
-
-    This version uses optimized data storage strategies, saving only critical
-    parameters and metadata in memory while storing large datasets on disk.
-
-    It also eliminates dependency on external configuration files, allowing
-    direct parameter configuration or using optional config files.
     """
 
     # Class-level shared storage for feature extraction results
@@ -43,8 +38,18 @@ class COMET:
         """
         Initialize COMET instance with optimized memory management.
         """
-        # Initialize callback for clustering completion
+        # Initialize logger
+        self.logger = get_logger()
+        
+        # Initialize callbacks for process completion
         self.clustering_completed_callback = None
+        self.backfitting_completed_callback = None
+        self.feature_extraction_completed_callback = None
+        self.source_localization_completed_callback = None
+        self.source_microstate_correlation_completed_callback = None
+        # Callback that gets invoked when the full preprocessing pipeline has finished
+        # (e.g. to let the GUI update its widget state automatically once data are ready).
+        self.preprocessing_completed_callback = None
         
         # Initialize basic attributes
         self.auto_save = auto_save
@@ -109,6 +114,9 @@ class COMET:
         
         # Initialize clustering-related attributes
         self.batch_size = None
+        self.best_maps = None
+        self.best_gev = 0.0
+        self.best_residual = np.inf
 
         @property
         def output_folder(self):
@@ -127,7 +135,8 @@ class COMET:
         def input_folder(self, value):
             self._input_folder = value
 
-    def create_default_config(self):
+    @staticmethod
+    def create_default_config():
         """Create a default configuration without loading from a file."""
         config = ConfigParser()
 
@@ -233,7 +242,7 @@ class COMET:
         Load configuration from a file path.
         """
         if not os.path.exists(config_path):
-            print(f"[WARNING] Config file {config_path} not found. Using default configuration.")
+            self.logger.warning("CONFIGURATION", f"Config file {config_path} not found. Using default configuration.")
             return self.create_default_config()
 
         config = ConfigParser()
@@ -242,7 +251,7 @@ class COMET:
             config.read(config_path, encoding='utf-8')
             return config
         except Exception as e:
-            print(f"[WARNING] Failed to load configuration: {e}")
+            self.logger.warning("CONFIGURATION", f"Failed to load configuration: {e}")
             return self.create_default_config()
 
     def load_config_values(self):
@@ -425,7 +434,8 @@ class COMET:
         # Initialize log_text
         self.log_text = ""
 
-    def ensure_directory(self, path):
+    @staticmethod
+    def ensure_directory(path):
         """
         Ensures a directory exists and is writable.
 
@@ -451,7 +461,7 @@ class COMET:
             os.remove(test_file)
             return True
         except (PermissionError, OSError) as e:
-            print(f"Warning: Cannot access directory {path}: {str(e)}")
+            self.logger.warning("DATA_IO", f"Cannot access directory {path}: {str(e)}")
             return False
 
     def setup_directories(self):
@@ -464,13 +474,13 @@ class COMET:
 
         if not self.study_name:
             self.study_name = "my_study"
-            print(f"No study name specified, using: {self.study_name}")
+            self.logger.warning("CONFIGURATION", f"No study name specified, using: {self.study_name}")
 
         # Create output folder if it doesn't exist
         if not self.ensure_directory(self.output_folder):
             old_output = self.output_folder
             self.output_folder = os.path.expanduser("~/EEG-COMET_Data")
-            print(f"Cannot access {old_output}, falling back to: {self.output_folder}")
+            self.logger.warning("DATA_IO", f"Cannot access {old_output}, falling back to: {self.output_folder}")
             self.ensure_directory(self.output_folder)
 
         # Setup study directory
@@ -494,6 +504,9 @@ class COMET:
         Initialize the logging window
         """
         self.LogWindow = LogWindow(comet_instance=self)
+        
+        # Set the log window for the logger
+        self.logger.log_window = self.LogWindow
         
         # Add default session messages (will be replaced if logs are restored)
         self.LogWindow.append_log("EEG-COMET Session Started", log_type='section')
@@ -566,7 +579,6 @@ class COMET:
 
         Args:
             eeg_info_path (str): Path where the EEG information will be saved
-            eeg_info (object): EEG information object to be serialized
         """
         # Create a basic Info object
         eeg_info = mne.create_info(
@@ -588,10 +600,16 @@ class COMET:
         """
         self.eeg_info = mne.io.read_info(self.eeg_info_path)
 
-    def preprocess_eeg(self, eeg_path, eeg_name):
+    def preprocess_eeg(self, eeg_path, eeg_name, worker=None):
         """
-        Preprocess a single EEG file
+        Preprocess a single EEG file. If the optional worker argument is supplied and its
+        stopped flag is set, the function returns immediately so that the thread can
+        terminate quickly when the user presses the STOP button.
         """
+        # Early-exit if the user requested cancellation
+        if worker is not None and getattr(worker, "stopped", False):
+            return
+
         # Load EEG data
         eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
         
@@ -677,7 +695,7 @@ class COMET:
             original_repeats = self.number_of_repeats
             self.number_of_repeats = 1
             if original_repeats != 1:
-                print(f"[CLUSTERING] TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {original_repeats}")
+                self.logger.warning("CLUSTERING", f"TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {original_repeats}")
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(f"TAAHC: Enforcing 1 repetition (deterministic algorithm)", log_type='info')
 
@@ -687,14 +705,16 @@ class COMET:
                 maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
                     data=self.maps2use,
                     initial_maps=initial_maps,
-                    worker=worker  # Pass worker to check stopped flag
+                    worker=worker,  # Pass worker to check stopped flag
+                    repetition_num=f"{init + 1}/{self.number_of_repeats}"  # Pass repetition number
                 )
             elif self.clustering_method == "Modified K-Means Clustering with Spatial Similarity":
                 maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans_similarity(
                     data=self.maps2use,
                     initial_maps=initial_maps,
                     metric=self.similarity_metric,
-                    worker=worker  # Pass worker to check stopped flag
+                    worker=worker,  # Pass worker to check stopped flag
+                    repetition_num=f"{init + 1}/{self.number_of_repeats}"  # Pass repetition number
                 )
             elif self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering":
                 # For TAAHC, create a comprehensive progress callback
@@ -703,15 +723,11 @@ class COMET:
                     if worker and hasattr(worker, 'stopped') and worker.stopped:
                         return False  # Signal to stop TAAHC
 
+                    # Only log internal TAAHC progress, don't update main progress bar
+                    # The main progress will be updated when the entire TAAHC iteration is completed
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                        if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
-                            overall_current = (init * total_steps) + current_step
-                            overall_total = self.number_of_repeats * total_steps
-                            detailed_message = f"TAAHC: {message}"
-                            self.LogWindow.worker_thread.progress_updated.emit(
-                                overall_current,
-                                detailed_message
-                            )
+                        self.LogWindow.append_log(f"TAAHC internal progress: {message}", log_type='process')
+                    
                     return True  # Continue processing
 
                 # Run TAAHC with progress tracking
@@ -730,7 +746,8 @@ class COMET:
                 return None, 0.0, np.inf
 
         except Exception as e:
-            error_msg = f"Clustering failed: {str(e)}"
+            error_msg = f"Clustering process failed: {str(e)}"
+            self.logger.error("CLUSTERING", error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
             return None, 0.0, np.inf
@@ -762,7 +779,7 @@ class COMET:
                 self.LogWindow.append_log(log_message)
 
             # Update the best results if current gev is higher
-            if self.best_maps is None or gev_init > self.best_gev:
+            if self.best_maps is None or (hasattr(self, 'best_gev') and gev_init > self.best_gev) or not hasattr(self, 'best_gev'):
                 self.best_residual = residual_init.copy() if hasattr(residual_init, 'copy') else residual_init
                 self.best_gev = gev_init
                 self.best_maps = maps_init.copy() if hasattr(maps_init, 'copy') else maps_init
@@ -799,6 +816,7 @@ class COMET:
 
             # Log stop with current best results
             stop_message = (
+                f"❌  [CLUSTERING] Stop Requested - Please Wait ...\n"
                 f"⚠️ Clustering stopped by user\n"
                 f"✓ Saved best maps found so far: {self.number_of_maps} microstates "
                 f"(GEV: {100 * self.best_gev:.3f}%)"
@@ -807,7 +825,7 @@ class COMET:
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(stop_message, log_type='warning')
             else:
-                print(stop_message)
+                self.logger.warning("CLUSTERING", stop_message)
 
             # Save configuration and logs
             if self.auto_save:
@@ -818,16 +836,17 @@ class COMET:
             if self.clustering_completed_callback is not None:
                 self.clustering_completed_callback()
         else:
-            error_msg = "❌ Clustering stopped - no maps were generated before stopping"
+            error_msg = "Clustering stopped - no maps were generated before stopping"
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
             else:
-                print(error_msg)
+                self.logger.error("CLUSTERING", error_msg)
 
-    def backfit_eeg(self, eeg_path, eeg_name):
-        """
-        Backfit microstate maps to an EEG file
-        """
+    def backfit_eeg(self, eeg_path, eeg_name, worker=None):
+        """Backfit microstate maps to an EEG file with safe-stop support."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
+
         eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
         time_array = eeg.times * 1000
 
@@ -858,8 +877,11 @@ class COMET:
         """
         Preprocess all EEG files in the input folder
         """
-        print('\n' + '=' * 60)
-        print('[PREPROCESSING] Starting data preprocessing...')
+        # Log section header
+        self.logger.section_header("PREPROCESSING")
+        
+        # Start preprocessing
+        self.logger.processing_start("PREPROCESSING", "Starting data preprocessing")
 
         # Reset directories based on current parameters
         self.reset_directories()
@@ -873,33 +895,45 @@ class COMET:
 
         # Check if any files were found
         if not hasattr(self, 'list_eegs_path') or len(self.list_eegs_path) == 0:
-            error_msg = f"[ERROR] No EEG files found in {self.input_folder} with extension {self.extension}"
-            print(error_msg)
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(error_msg, log_type='error')
+            self.logger.error("PREPROCESSING", f"No EEG files found in {self.input_folder} with extension {self.extension}")
             return
 
-        # Log the preprocessing start
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log("Data Preprocessing", log_type='section')
-            
-            # Study information
-            study_info = (
-                f"Study Name: {self.study_name}\n"
-                f"Input Directory: {self.input_folder}\n"
-                f"Output Directory: {self.save_dir}\n"
-                f"Files Found: {len(self.list_eegs_path)} {self.datatype} EEG files with {self.extension} extension"
+        # Log preprocessing configuration
+        preprocessing_steps = []
+        if getattr(self, 'temporal_filter_data', False):
+            preprocessing_steps.append(
+                f"Bandpass {self.lowcut_freq}-{self.highcut_freq} Hz ({self.filter_method.upper()})"
             )
-            self.LogWindow.append_log(study_info, log_type='info')
+        if getattr(self, 'spatial_filter_data', False):
+            preprocessing_steps.append("Spatial smoothing")
+        if getattr(self, 'downsample_data', False):
+            preprocessing_steps.append(f"Downsampling to {self.sample_rate} Hz")
+        if getattr(self, 'prep_data', False):
+            preprocessing_steps.append("Bad channel detection / interpolation")
+
+        # Log study information and settings
+        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            # Study information
+            study_info = {
+                "Study Name": self.study_name,
+                "Input Directory": self.input_folder,
+                "Output Directory": self.save_dir,
+                "Files Found": f"{len(self.list_eegs_path)} {self.datatype} EEG files with {self.extension} extension"
+            }
+            self.logger.settings_info("PREPROCESSING", study_info)
 
             # Preprocessing settings
-            filter_info = f"Bandpass Filter: {self.filter_method.upper()} method ({self.lowcut_freq}-{self.highcut_freq} Hz)" if self.temporal_filter_data else "Bandpass Filter: Disabled"
-            spatial_info = f"Spatial Filtering: {'Enabled' if self.spatial_filter_data else 'Disabled'}"
-            downsample_info = f"Downsampling: {self.sample_rate} Hz" if self.downsample_data else "Downsampling: Disabled"
-            channels_info = f"Channels to Remove: {self.chan2rm}" if self.chan2rm else "Channels to Remove: None"
+            preprocessing_settings = {}
+            if self.temporal_filter_data:
+                preprocessing_settings["Bandpass Filter"] = f"{self.filter_method.upper()} method ({self.lowcut_freq}-{self.highcut_freq} Hz)"
+            else:
+                preprocessing_settings["Bandpass Filter"] = "Disabled"
             
-            settings_text = f"{filter_info}\n{spatial_info}\n{downsample_info}\n{channels_info}"
-            self.LogWindow.append_log(settings_text, log_type='settings')
+            preprocessing_settings["Spatial Filtering"] = "Enabled" if self.spatial_filter_data else "Disabled"
+            preprocessing_settings["Downsampling"] = f"{self.sample_rate} Hz" if self.downsample_data else "Disabled"
+            preprocessing_settings["Channels to Remove"] = str(self.chan2rm) if self.chan2rm else "None"
+            
+            self.logger.settings_info("PREPROCESSING", preprocessing_settings)
 
         # Build a list of EEG files
         self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
@@ -909,7 +943,7 @@ class COMET:
 
         # Start preprocessing
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log(f"Starting preprocessing of {len(self.zipped_eeg_files)} files...", log_type='process')
+            self.logger.processing_start("PREPROCESSING", f"Processing {len(self.zipped_eeg_files)} EEG files")
             self.LogWindow.setup_progress_dialog(
                 window_title="Preprocessing ...",
                 label_text="Preprocessing file ...",
@@ -919,7 +953,7 @@ class COMET:
             # Set callback to run when preprocessing worker thread finishes
             self.LogWindow.process_finished_callback = self._on_preprocessing_finished
         else:
-            print(f"[PREPROCESSING] Processing {len(self.zipped_eeg_files)} EEG files...")
+            self.logger.processing_start("PREPROCESSING", f"Preprocessing {len(self.zipped_eeg_files)} EEG files")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Preprocessing"):
                 self.preprocess_eeg(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -930,20 +964,39 @@ class COMET:
         Perform clustering on preprocessed EEG data with automatic or manual k selection
         Enhanced with proper TAAHC progress tracking and batch processing support
         """
-        print('\n' + '=' * 60)
-        print('[CLUSTERING] Starting microstate clustering...')
+        # Log section header
+        self.logger.section_header("CLUSTERING")
+        
+        # Log clustering configuration
+        clustering_settings = {}
+        clustering_settings["Clustering Method"] = getattr(self, 'clustering_method', 'Unknown')
+        clustering_settings["Number of Maps"] = getattr(self, 'number_of_maps', 'Unknown')
+        clustering_settings["Number of Repeats"] = getattr(self, 'number_of_repeats', 'Unknown')
+        
+        if getattr(self, 'number_of_maps', None) == 'auto':
+            clustering_settings["K Range"] = f"{getattr(self, 'kmin', 'Unknown')} to {getattr(self, 'kmax', 'Unknown')}"
+            clustering_settings["Stopping Mode"] = getattr(self, 'stopping_mode', 'Unknown')
+
+        # Start clustering
+        self.logger.processing_start("CLUSTERING", "Starting Microstate Clustering")
+        self.logger.settings_info("CLUSTERING", clustering_settings)
+        
+        # Add specific clustering parameters message with ⌛ emoji
+        if self.number_of_maps != 'auto':
+            self.logger.processing_info("CLUSTERING", f"Identifying {self.number_of_maps} Microstate Maps with {self.number_of_repeats} Repetitions...")
 
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log("Starting microstate clustering...", log_type='section')
+            # Calculate total steps for clustering - only count clustering repetitions
+            clustering_steps = self.number_of_repeats  # One step per repetition
             
             # Create a single task for the entire clustering process
             clustering_task = [('full_clustering',)]
             
-            # Use setup_progress_dialog for worker thread
+            # Use setup_progress_dialog for worker thread with correct total steps
             self.LogWindow.setup_progress_dialog(
                 window_title="Microstate Clustering...",
                 label_text="Initializing clustering process...",
-                tasks=clustering_task,
+                tasks=clustering_steps,  # Pass only clustering steps
                 processing_func=self._run_full_clustering_worker
             )
             
@@ -976,38 +1029,39 @@ class COMET:
             self.config["clustering_results"]["clustering_method"] = self.clustering_method
 
         except Exception as e:
-            error_msg = f"[ERROR] Failed to save clustering results: {str(e)}"
-            print(error_msg)
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(error_msg, log_type='error')
+            self.logger.error("CLUSTERING", f"Failed to save clustering results: {str(e)}")
 
     def _run_full_clustering_worker(self, task_name):
         """
         Worker function for running the entire clustering process.
         This method is designed to be called by the LogWindow's worker thread.
         """
+        # Ignore task_name parameter for step-based processing
         try:
-            # Progress tracking variables
-            total_steps = 0
+            # Progress tracking variables - only count clustering repetitions
+            total_steps = self.number_of_repeats  # Only clustering repetitions
             current_step = 0
-            
-            # Calculate total steps more accurately
-            setup_steps = 5  # Steps 1-5: setup and data loading
-            if self.number_of_maps == 'auto':
-                optimization_steps = self.kmax - self.kmin + 1  # One step per k value
-                clustering_steps = self.number_of_repeats  # One step per repetition
-                total_steps = setup_steps + optimization_steps + clustering_steps
-            else:
-                clustering_steps = self.number_of_repeats  # One step per repetition
-                total_steps = setup_steps + clustering_steps
             
             def update_progress(step_increment=1, message=""):
                 nonlocal current_step
-                current_step += step_increment
+                # Handle both increment mode and absolute value mode
+                if isinstance(step_increment, int) and step_increment >= 0:
+                    # If step_increment is small (1-10), treat as increment
+                    if step_increment <= 10:
+                        current_step += step_increment
+                    else:
+                        # If step_increment is large, treat as absolute step value
+                        current_step = step_increment
+                else:
+                    # If step_increment is a percentage (0-100), convert to step
+                    current_step = int((step_increment / 100) * total_steps)
+                
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
-                        progress_percent = int((current_step / total_steps) * 100)
-                        self.LogWindow.worker_thread.progress_updated.emit(progress_percent, message)
+                        # Use current_step directly as the progress value (0 to total_steps)
+                        # The progress bar range is already set to (0, total_steps)
+                        progress_value = min(current_step, total_steps)
+                        self.LogWindow.worker_thread.progress_updated.emit(progress_value, message)
             
             def check_stop():
                 """Check if the process has been stopped by the user."""
@@ -1017,13 +1071,15 @@ class COMET:
                 return False
 
             # Step 1: Load EEG info
-            update_progress(1, "Loading EEG information...")
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.log_clustering_setup_step("Loading EEG information")
             if check_stop():
                 return self._handle_stopped_clustering("Loading EEG information")
             self.load_eeg_info()
 
             # Step 2: Calculate minimum distance size if smoothing GFP is enabled
-            update_progress(1, "Calculating parameters...")
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.log_clustering_setup_step("Calculating parameters")
             if check_stop():
                 return self._handle_stopped_clustering("Calculating parameters")
             if self.smoothing_gfp:
@@ -1032,14 +1088,16 @@ class COMET:
                 self.min_distance_size = None
 
             # Step 3: Check if clustering method is supported
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.log_clustering_setup_step("Validating clustering method", self.clustering_method)
             available_methods = [
                 'Modified K-Means Clustering (Pascual-Marqui et al. 1995)',
                 'Modified K-Means Clustering with Spatial Similarity',
                 'Topographic Atomize and Agglomerate Hierarchical Clustering',
             ]
             if self.clustering_method not in available_methods:
-                error_msg = f"[ERROR] Clustering method '{self.clustering_method}' not supported."
-                print(error_msg)
+                error_msg = f"Clustering method '{self.clustering_method}' not supported."
+                self.logger.error("CLUSTERING", error_msg)
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(error_msg, log_type='error')
                 return False
@@ -1047,24 +1105,14 @@ class COMET:
             # Step 4: Determine if we need automatic k selection
             is_taahc = (self.clustering_method == "Topographic Atomize and Agglomerate Hierarchical Clustering")
 
-            print(f"[CLUSTERING] Using clustering method: {self.clustering_method}")
-            print(f"[CLUSTERING] Number of maps: {self.number_of_maps}")
-
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(f"Using clustering method: {self.clustering_method}")
-                self.LogWindow.append_log(f"Number of maps: {self.number_of_maps}")
-
             # Step 5: Generate maps and peaks data for clustering
-            update_progress(1, "Loading preprocessed data for clustering...")
+            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                self.LogWindow.log_clustering_setup_step("Loading preprocessed data")
             if check_stop():
                 return self._handle_stopped_clustering("Loading preprocessed data")
-            print('[CLUSTERING] Loading preprocessed data for clustering...')
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log("Loading preprocessed data for clustering...")
 
             # For auto-k selection, always use GFP peaks instead of random percentages
             if self.number_of_maps == 'auto':
-                print(f"[CLUSTERING] Auto-k selection: Using GFP peaks for optimization (ignoring use_percentages setting)")
                 auto_k_use_percentages = None  # Force GFP peaks for auto-k
             else:
                 auto_k_use_percentages = self.use_percentages
@@ -1077,38 +1125,31 @@ class COMET:
                 min_dist=self.min_distance_size
             )
 
-            print(f'[CLUSTERING] Data shape for clustering: {self.maps2use.shape}')
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(f"Data shape for clustering: {self.maps2use.shape}")
-
             # Step 6: Handle automatic k selection
             if self.number_of_maps == 'auto':
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.log_clustering_setup_step("Starting automatic optimization", f"k range: {self.kmin}-{self.kmax}")
+                    # Add the processing message with ⌛ emoji
+                    self.LogWindow.append_log(f"⌛ Identifying {self.kmax - self.kmin + 1} optimal microstate maps...")
                 if check_stop():
                     return self._handle_stopped_clustering("Starting automatic optimization")
-                print(f'[CLUSTERING] Automatic k selection mode: {self.stopping_mode}')
-                print(f'[CLUSTERING] K range: {self.kmin} to {self.kmax}')
-
-                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    self.LogWindow.append_log("Determining optimal number of clusters...")
 
                 # Run automatic optimization with progress updates
                 self._run_automatic_optimization_core_with_progress(update_progress, check_stop)
 
             # Step 7: After determining number_of_maps, perform actual clustering
             if self.number_of_maps and self.number_of_maps != 'auto':
+                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                    self.LogWindow.log_clustering_setup_step("Starting clustering", f"{self.number_of_maps} maps, {self.number_of_repeats} repetitions")
                 if check_stop():
                     return self._handle_stopped_clustering("Starting clustering repetitions")
-                update_progress(1, f"Performing clustering with {self.number_of_maps} maps...")
-                print(f'[CLUSTERING] Performing clustering with {self.number_of_maps} maps...')
 
                 # Initialize microstate clusterer with special settings for TAAHC
                 if is_taahc:
                     # TAAHC is deterministic and time-consuming - MUST use only 1 repetition
                     clustering_repeats = 1
                     if self.number_of_repeats != 1:
-                        print(f"[CLUSTERING] TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {self.number_of_repeats}")
-                        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                            self.LogWindow.append_log(f"TAAHC: Enforcing 1 repetition (deterministic algorithm)", log_type='info')
+                        self.logger.warning("CLUSTERING", f"TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {self.number_of_repeats}")
                 else:
                     clustering_repeats = self.number_of_repeats
 
@@ -1127,13 +1168,11 @@ class COMET:
                 completed_repetitions = 0
 
                 if is_taahc:
-                    print(f'[CLUSTERING] Running TAAHC clustering (deterministic algorithm)...')
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                        self.LogWindow.append_log(f"Running TAAHC clustering (deterministic algorithm)...")
+                        self.LogWindow.append_log(f"⌛ Running TAAHC clustering (deterministic algorithm)...")
                 else:
-                    print(f'[CLUSTERING] Running {clustering_repeats} clustering repetitions...')
                     if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                        self.LogWindow.append_log(f"Running {clustering_repeats} clustering repetitions...")
+                        self.LogWindow.append_log(f"⌛ Running {clustering_repeats} clustering repetitions...")
 
                 # Run clustering repetitions with progress updates
                 for init in range(clustering_repeats):
@@ -1145,50 +1184,45 @@ class COMET:
                             return self._handle_stopped_clustering(f"Clustering repetition {init + 1}/{clustering_repeats}", 
                                                                  best_maps, best_gev, best_residual, completed_repetitions)
                     
-                    if is_taahc:
-                        progress_msg = "Running TAAHC clustering..."
-                        update_progress(1, progress_msg)
-                        print(f'[CLUSTERING] {progress_msg}')
-                        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                            self.LogWindow.append_log(progress_msg)
-                    else:
-                        progress_msg = f"Clustering repetition {init + 1}/{clustering_repeats}"
-                        update_progress(1, progress_msg)
-                        print(f'[CLUSTERING] {progress_msg}')
-                        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                            self.LogWindow.append_log(progress_msg)
-                    
+                    # Perform clustering without updating progress during internal processing
                     maps, gev, residual = self.cluster_eeg_microstates(init)
                     completed_repetitions += 1
+                    
+                    # Log detailed progress for each repetition
+                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+                        is_best = (gev > best_gev)
+                        if is_taahc:
+                            self.LogWindow.log_clustering_progress(init + 1, clustering_repeats, gev, is_best)
+                        else:
+                            self.LogWindow.log_clustering_progress(init + 1, clustering_repeats, gev, is_best)
+
+                    # Only update progress after each repetition is completed
+                    if is_taahc:
+                        progress_msg = f"TAAHC Iteration {init + 1} completed"
+                        update_progress(1, progress_msg)
+                    else:
+                        progress_msg = f"Clustering repetition {init + 1}/{clustering_repeats} completed"
+                        update_progress(1, progress_msg)
 
                     if gev > best_gev:
                         best_gev = gev
                         best_maps = maps.copy()
                         best_residual = residual
                         if is_taahc:
-                            print(f'[CLUSTERING] TAAHC clustering completed - GEV: {best_gev:.4f}')
-                            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                                self.LogWindow.append_log(f"TAAHC clustering completed - GEV: {best_gev:.4f}")
+                            self.logger.processing_info(
+                                "CLUSTERING", f"TAAHC clustering completed - GEV: {best_gev:.4f}")
                         else:
-                            print(f'[CLUSTERING] New best GEV: {best_gev:.4f}')
-                            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                                self.LogWindow.append_log(f"New best GEV: {best_gev:.4f}")
+                            self.logger.processing_info("CLUSTERING", f"New best GEV: {best_gev:.4f}")
 
                 # Step 8: Store best results
-                update_progress(1, "Saving clustering results...")
                 if best_maps is not None:
                     self.best_maps = best_maps
                     self.best_gev = best_gev
                     self.best_residual = best_residual
 
-                    print(f'[CLUSTERING] Clustering completed successfully!')
-                    print(f'[CLUSTERING] Best GEV: {best_gev:.4f}')
-                    print(f'[CLUSTERING] Best residual: {best_residual:.6f}')
-
-                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                        self.LogWindow.append_log("Clustering completed successfully!", log_type='success')
-                        self.LogWindow.append_log(f"Best GEV: {best_gev:.4f}")
-                        self.LogWindow.append_log(f"Best residual: {best_residual:.6f}")
+                    self.logger.processing_info(
+                        "CLUSTERING", f"Best GEV: {best_gev:.4f}, Best residual: {best_residual:.6f}")
+                    self.logger.processing_success("CLUSTERING", "Clustering completed successfully!")
 
                     # Save clustering results
                     self._save_clustering_results()
@@ -1200,24 +1234,15 @@ class COMET:
                     return True
 
                 else:
-                    error_msg = "[ERROR] Clustering failed - no valid results obtained"
-                    print(error_msg)
-                    if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                        self.LogWindow.append_log(error_msg, log_type='error')
+                    self.logger.error("CLUSTERING", "Clustering failed - no valid results obtained")
                     return False
 
             else:
-                error_msg = "[ERROR] Number of maps not determined"
-                print(error_msg)
-                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    self.LogWindow.append_log(error_msg, log_type='error')
+                self.logger.error("CLUSTERING", "Number of maps not determined")
                 return False
 
         except Exception as e:
-            error_msg = f"[ERROR] Clustering process failed: {str(e)}"
-            print(error_msg)
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(error_msg, log_type='error')
+            self.logger.error("CLUSTERING", f"Clustering process failed: {str(e)}")
             return False
 
     def _handle_stopped_clustering(self, stopped_at_step, best_maps=None, best_gev=0.0, best_residual=np.inf, completed_repetitions=0):
@@ -1284,12 +1309,9 @@ class COMET:
         # Create optimizer with progress callback
         def progress_callback(current, total, message):
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                # Emit progress signal from worker thread
-                if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
-                    self.LogWindow.worker_thread.progress_updated.emit(
-                        int((current / total) * 100),
-                        message
-                    )
+                # Only log internal optimization progress, don't update main progress bar
+                # The main progress will be updated when the entire optimization is completed
+                self.LogWindow.append_log(f"Optimization progress: {message}", log_type='process')
 
         # Initialize optimizer
         self.comet_clusterer_optimizer = ClustererOptimizer(
@@ -1316,7 +1338,7 @@ class COMET:
         # Initialize optimizer without progress callback
         # For auto-k selection, use only 1 repeat and force GFP peaks
         auto_k_n_inits = 1  # Force single repeat for auto-k selection
-        print(f"[CLUSTERING] Auto-k selection: Using single repeat (n_inits=1) for optimization")
+        self.logger.processing_info("CLUSTERING", f"Auto-k selection: Using single repeat (n_inits=1) for optimization")
         
         self.comet_clusterer_optimizer = ClustererOptimizer(
             maps2use=self.maps2use,
@@ -1339,24 +1361,23 @@ class COMET:
         Core automatic optimization logic using majority vote with progress updates.
         """
         try:
-            # Create optimizer with progress callback that updates the main progress
+            # Create optimizer with progress callback that uses the provided update function
             def progress_callback(current, total, message):
                 # This callback is called by the optimizer for each k value
-                # We need to update the main progress tracking
-                if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                    if hasattr(self.LogWindow, 'worker_thread') and self.LogWindow.worker_thread:
-                        # Calculate progress within the optimization phase
-                        optimization_progress = int((current / total) * 100)
-                        # Convert to overall progress (optimization starts after setup steps)
-                        setup_steps = 5
-                        optimization_steps = self.kmax - self.kmin + 1
-                        overall_progress = int(((setup_steps + (current / total) * optimization_steps) / (setup_steps + optimization_steps + self.number_of_repeats)) * 100)
-                        self.LogWindow.worker_thread.progress_updated.emit(overall_progress, message)
+                # Use the provided update_progress_func to maintain consistent progress tracking
+                if update_progress_func:
+                    # Calculate progress within the optimization phase
+                    setup_steps = 5
+                    optimization_steps = self.kmax - self.kmin + 1
+                    # Calculate the current step within the optimization phase
+                    optimization_current_step = setup_steps + int((current / total) * optimization_steps)
+                    # Pass the current step (not percentage)
+                    update_progress_func(optimization_current_step, message)
 
             # Initialize optimizer with progress callback
             # For auto-k selection, use only 1 repeat and force GFP peaks
             auto_k_n_inits = 1  # Force single repeat for auto-k selection
-            print(f"[CLUSTERING] Auto-k selection: Using single repeat (n_inits=1) for optimization")
+            self.logger.processing_info("CLUSTERING", f"Auto-k selection: Using single repeat (n_inits=1) for optimization")
             
             self.comet_clusterer_optimizer = ClustererOptimizer(
                 maps2use=self.maps2use,
@@ -1389,7 +1410,7 @@ class COMET:
                 # Save optimization results for later visualization
                 self.save_optimization_results(self.optimization_results)
                 
-                print(f'[CLUSTERING] Optimal number of maps determined by majority vote: {optimal_k}')
+                self.logger.processing_success("CLUSTERING", f"Optimal number of maps determined by majority vote: {optimal_k}")
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined by majority vote: {optimal_k}")
                     
@@ -1407,26 +1428,37 @@ class COMET:
                     self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")
 
             self.number_of_maps = optimal_k
+            
+            # Don't update progress here - only update when clustering repetitions are completed
+            # if update_progress_func:
+            #     update_progress_func(1, f"Automatic optimization completed - optimal k: {optimal_k}")
 
         except RuntimeError as e:
             if "stopped by user" in str(e):
                 # Handle user-initiated stop
+                self.logger.stop_requested("CLUSTERING")
                 stop_msg = "Auto-k optimization stopped by user"
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(stop_msg, log_type='warning')
                 # Fallback to default
                 self.number_of_maps = 4
-                print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
+                self.logger.warning("CLUSTERING", f"Using fallback number of maps: {self.number_of_maps}")
+                # Don't update progress here - only update when clustering repetitions are completed
+                # if update_progress_func:
+                #     update_progress_func(1, "Auto-k optimization stopped by user")
             else:
                 raise
         except Exception as e:
-            error_msg = f"[ERROR] Automatic optimization failed: {str(e)}"
-            print(error_msg)
+            error_msg = f"Automatic optimization failed: {str(e)}"
+            self.logger.error("CLUSTERING", error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
             # Fallback to default
             self.number_of_maps = 4
-            print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
+            self.logger.warning("CLUSTERING", f"Using fallback number of maps: {self.number_of_maps}")
+            # Don't update progress here - only update when clustering repetitions are completed
+            # if update_progress_func:
+            #     update_progress_func(1, f"Automatic optimization failed: {str(e)}")
 
     def _run_automatic_optimization_core(self):
         """
@@ -1441,7 +1473,7 @@ class COMET:
                 # Save optimization results for later visualization
                 self.save_optimization_results(self.optimization_results)
                 
-                print(f'[CLUSTERING] Optimal number of maps determined by majority vote: {optimal_k}')
+                self.logger.processing_success("CLUSTERING", f"Optimal number of maps determined by majority vote: {optimal_k}")
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined by majority vote: {optimal_k}")
                     
@@ -1461,13 +1493,13 @@ class COMET:
             self.number_of_maps = optimal_k
 
         except Exception as e:
-            error_msg = f"[ERROR] Automatic optimization failed: {str(e)}"
-            print(error_msg)
+            error_msg = f"Automatic optimization failed: {str(e)}"
+            self.logger.error("CLUSTERING", error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
             # Fallback to default
             self.number_of_maps = 4
-            print(f"[CLUSTERING] Using fallback number of maps: {self.number_of_maps}")
+            self.logger.warning("CLUSTERING", f"Using fallback number of maps: {self.number_of_maps}")
 
     def run_microstate_labeling(self):
         """
@@ -1475,7 +1507,7 @@ class COMET:
         """
         # Check if best maps are available
         if self.best_maps is None:
-            print("[ERROR] No microstate maps available for labeling")
+            self.logger.error("LABELING", "No microstate maps available for labeling")
             return
 
         # Initialize microstate labeler
@@ -1483,9 +1515,11 @@ class COMET:
             microstate_maps=self.best_maps, eeg_info=self.eeg_info, microstate_maps_path=self.microstate_maps_path
         )
 
+        # Log section header and start
+        self.logger.section_header("LABELING")
+        self.logger.processing_start("LABELING", "Starting microstate labeling")
+        
         # Perform labeling
-        print('\n' + '=' * 60)
-        print("[LABELING] Starting microstate labeling...")
         micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
 
         # Save updated microstate maps with labels
@@ -1500,11 +1534,10 @@ class COMET:
         # Set labeling flag
         self.done_microstate_labeling = True
 
-        # Always print completion to terminal for important steps
-        print("[LABELING] Microstate labeling completed successfully")
+        # Log completion
+        self.logger.processing_success("LABELING", "Microstate labeling completed successfully")
         
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.process_finished("Microstates have been successfully labeled!")
+
 
         # Save parameters
         if self.auto_save:
@@ -1514,12 +1547,23 @@ class COMET:
         """
         Backfit microstate maps to all EEG files
         """
-        print('\n' + '=' * 60)
-        print('[BACKFITTING] Starting microstate backfitting...')
+        # Log section header and start
+        self.logger.section_header("BACKFITTING")
+        self.logger.processing_start("BACKFITTING", "Starting microstate backfitting")
+
+        # Log key backfitting parameters
+        backfit_target = "GFP peaks" if self.backfit_to == 'peaks' else "all time points"
+        self.logger.processing_info("BACKFITTING", f"Backfitting Target: {backfit_target}")
+        
+        if self.filter_segments:
+            filter_info = f"Segment Filtering: {self.filter_segments_option} (< {self.filter_segments_less_than}ms)"
+        else:
+            filter_info = "Segment Filtering: disabled"
+        self.logger.processing_info("BACKFITTING", filter_info)
 
         # Check if best maps are available
         if self.best_maps is None:
-            print("[ERROR] No microstate maps available for backfitting")
+            self.logger.error("BACKFITTING", "No microstate maps available for backfitting")
             return
 
         # Create segmentation directory
@@ -1545,6 +1589,8 @@ class COMET:
 
         # Identify optimal window size if requested
         if self.identify_short_window:
+            self.logger.processing_start("BACKFITTING", "Identifying optimal smoothing window length")
+            
             # Create progress dialog
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.setup_progress_dialog(
@@ -1552,8 +1598,6 @@ class COMET:
                     label_text="Identifying the optimal length of the smoothing window ...",
                     max_value=len(self.list_eegs_path)
                 )
-            else:
-                print("[BACKFITTING] Identifying optimal smoothing window length...")
 
             rm_max_len = 50
             len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
@@ -1577,7 +1621,7 @@ class COMET:
             self.filter_segments_less_than_ms = self.comet_microstate_backfitter.identify_optimal_length_filter(
                 similarity_scores=similarity_scores
             )
-            print(f"[BACKFITTING] Optimal filter length determined: {self.filter_segments_less_than_ms} ms")
+            self.logger.processing_success("BACKFITTING", f"Optimal filter length determined: {self.filter_segments_less_than_ms} ms")
         else:
             if self.filter_segments:
                 self.filter_segments_less_than_ms = self.filter_segments_less_than
@@ -1612,9 +1656,9 @@ class COMET:
                 f"* {filter_segments_option_text}", log_type='settings'
             )
         else:
-            print(f"Microstates Backfitting Settings:")
-            print(f"* {backfit_to_text}")
-            print(f"* {filter_segments_option_text}")
+            self.logger.processing_info("BACKFITTING", f"Microstates Backfitting Settings:")
+            self.logger.processing_info("BACKFITTING", f"* {backfit_to_text}")
+            self.logger.processing_info("BACKFITTING", f"* {filter_segments_option_text}")
 
         self.load_clean()
         self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
@@ -1630,7 +1674,7 @@ class COMET:
             # Set callback to run when backfitting worker thread finishes
             self.LogWindow.process_finished_callback = self._on_backfitting_finished
         else:
-            print(f"[BACKFITTING] Processing {len(self.zipped_eeg_files)} EEG files...")
+            self.logger.processing_start("BACKFITTING", f"Processing {len(self.zipped_eeg_files)} EEG files")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Backfitting"):
                 self.backfit_eeg(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -1640,8 +1684,9 @@ class COMET:
         """
         Extract features from all segmentation files
         """
-        print('\n' + '=' * 60)
-        print('[FEATURE EXTRACTION] Starting feature extraction...')
+        # Log section header and start
+        self.logger.section_header("FEATURE_EXTRACTION")
+        self.logger.processing_start("FEATURE_EXTRACTION", "Starting Feature Extraction")
 
         # Create features output directory
         os.makedirs(self.extracted_features_path, exist_ok=True)
@@ -1652,32 +1697,24 @@ class COMET:
         )
 
         if not self.segmentation_list_path:
-            error_msg = f"[ERROR] No segmentation files found in {self.segmentation_path}"
-            print(error_msg)
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(error_msg, log_type='error')
+            self.logger.error("FEATURE_EXTRACTION", f"No segmentation files found in {self.segmentation_path}")
             return
 
-        # Log feature extraction start
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log("Feature Extraction", log_type='section')
-            
-            # Feature extraction settings
-            feature_info = (
-                f"Features to Extract: {', '.join(self.feature_list)}\n"
-                f"Feature Modes: {', '.join(self.feature_mode)}\n"
-                f"Feature Types: {', '.join(self.feature_types)}\n"
-                f"Segmentation Files: {len(self.segmentation_list_path)}"
-            )
-            
-            if 'sliding' in self.feature_mode:
-                feature_info += f"\nSliding Window Size: {self.sliding_window_size}"
-                if hasattr(self, 'pre_window_size'):
-                    feature_info += f"\nPre-Window Size: {self.pre_window_size}"
-                if hasattr(self, 'post_window_size'):
-                    feature_info += f"\nPost-Window Size: {self.post_window_size}"
-            
-            self.LogWindow.append_log(feature_info, log_type='settings')
+        # Log feature extraction settings
+        feature_settings = {
+            "Features to Extract": ', '.join(self.feature_list),
+            "Feature Modes": ', '.join(self.feature_mode),
+            "Feature Types": ', '.join(self.feature_types)
+        }
+        
+        if 'sliding' in self.feature_mode:
+            feature_settings["Sliding Window Size"] = self.sliding_window_size
+            if hasattr(self, 'pre_window_size'):
+                feature_settings["Pre-Window Size"] = self.pre_window_size
+            if hasattr(self, 'post_window_size'):
+                feature_settings["Post-Window Size"] = self.post_window_size
+        
+        self.logger.settings_info("FEATURE_EXTRACTION", feature_settings)
 
         # Initialize shared storage for thread-safe feature extraction
         COMET._shared_feature_results = {}
@@ -1688,9 +1725,7 @@ class COMET:
         # Start feature extraction
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Use the logging window with a progress dialog
-            self.LogWindow.append_log(
-                f"Starting feature extraction from {len(tasks)} segmentation files...", log_type='process'
-            )
+            self.logger.processing_start("FEATURE_EXTRACTION", "Extracting Features")
             self.LogWindow.setup_progress_dialog(
                 window_title="Extracting Features ...",
                 label_text="Extracting features ...",
@@ -1701,25 +1736,17 @@ class COMET:
             self.LogWindow.process_finished_callback = self.collect_feature_extraction_results
         else:
             # Fallback: run sequentially in the main thread
-            print(f"[FEATURE EXTRACTION] Processing {len(tasks)} segmentation files...")
+            self.logger.processing_start("FEATURE_EXTRACTION", "Extracting Features")
             for task in tqdm(tasks, desc="Feature Extraction"):
                 self.extract_features_for_file_threadsafe(*task)
             # Collect results immediately when done
             self.collect_feature_extraction_results()
 
-    def extract_features_for_file_threadsafe(self, segmentation_idx, segmentation_path, segmentation_name):
-        """
-        Extract features for a single file (thread-safe version).
-        
-        Parameters:
-        -----------
-        segmentation_idx : int
-            Index of the segmentation file
-        segmentation_path : str
-            Path to the segmentation file
-        segmentation_name : str
-            Name of the segmentation file
-        """
+    def extract_features_for_file_threadsafe(self, segmentation_idx, segmentation_path, segmentation_name, worker=None):
+        """Thread-safe feature extraction with stop check."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
+
         try:
             # Load segmentation
             segmentation_array = self.comet_segmentation_io.load_segmentation(
@@ -1855,7 +1882,7 @@ class COMET:
 
         except Exception as e:
             error_msg = f"Error extracting features from {segmentation_name}: {str(e)}"
-            print(error_msg)
+            self.logger.error("FEATURE_EXTRACTION", error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
 
@@ -1924,8 +1951,8 @@ class COMET:
                             self.LogWindow.append_log(f"Exported {mode} features for {feature_type} ({len(combined_df)} records)", log_type='success')
                             
                     except Exception as export_error:
-                        error_msg = f"[ERROR] Failed to export {mode} features for {feature_type}: {export_error}"
-                        print(error_msg)
+                        error_msg = f"Failed to export {mode} features for {feature_type}: {export_error}"
+                        self.logger.error("FEATURE_EXTRACTION", error_msg)
                         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                             self.LogWindow.append_log(error_msg, log_type='error')
         
@@ -1946,8 +1973,8 @@ class COMET:
                             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                                 self.LogWindow.append_log(f"Exported aggregated ROF time-series for {mode} mode ({len(rof_data)} files)", log_type='success')
                         except Exception as rof_export_error:
-                            error_msg = f"[ERROR] Failed to export ROF data for {mode} mode: {rof_export_error}"
-                            print(error_msg)
+                            error_msg = f"Failed to export ROF data for {mode} mode: {rof_export_error}"
+                            self.logger.error("FEATURE_EXTRACTION", error_msg)
                             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                                 self.LogWindow.append_log(error_msg, log_type='error')
 
@@ -1965,21 +1992,23 @@ class COMET:
                             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                                 self.LogWindow.append_log(f"Exported aggregated RTF averages for {mode} mode ({len(rtf_data)} files)", log_type='success')
                         except Exception as rtf_export_error:
-                            error_msg = f"[ERROR] Failed to export RTF data for {mode} mode: {rtf_export_error}"
-                            print(error_msg)
+                            error_msg = f"Failed to export RTF data for {mode} mode: {rtf_export_error}"
+                            self.logger.error("FEATURE_EXTRACTION", error_msg)
                             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                                 self.LogWindow.append_log(error_msg, log_type='error')
 
         # Set feature extraction flag
         self.done_extracting_features = True
 
-        # Always print completion to terminal for important steps
-        print("[FEATURE EXTRACTION] Feature extraction completed successfully")
+        # Log completion
+        self.logger.processing_success("FEATURE_EXTRACTION", "Feature Extraction Completed Successfully")
+        
+        # Log completion summary
+
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent infinite recursion
             self.LogWindow.process_finished_callback = None
-            self.LogWindow.process_finished("All features have been successfully extracted!")
 
         # Save parameters
         if self.auto_save:
@@ -1987,6 +2016,10 @@ class COMET:
 
         # Clear the shared storage to free memory
         COMET._shared_feature_results = {}
+        
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'feature_extraction_completed_callback') and self.feature_extraction_completed_callback is not None:
+            self.feature_extraction_completed_callback()
 
     def get_segmentation(self, subject_name):
         """
@@ -1998,17 +2031,11 @@ class COMET:
             import_format=self.export_format
         )
 
-    def source_localize_file(self, eeg_path, eeg_name):
-        """
-        Process source localization for a single file (worker-friendly version).
+    def source_localize_file(self, eeg_path, eeg_name, worker=None):
+        """Perform source localization for a single file. Terminates early if stop requested."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
 
-        Parameters:
-        -----------
-        eeg_path : str
-            Path to the EEG file
-        eeg_name : str
-            Name of the EEG file
-        """
         success = self.comet_source_localizer.localize_single_file(eeg_path, eeg_name)
 
         # Log the source localization progress
@@ -2018,17 +2045,11 @@ class COMET:
             else:
                 self.LogWindow.append_log(f"Error Source Localizing: {eeg_name}")
 
-    def source_identify_file(self, eeg_path, eeg_name):
-        """
-        Process microstate source identification for a single file (worker-friendly version).
+    def source_identify_file(self, eeg_path, eeg_name, worker=None):
+        """Identify microstate sources for a single file with stop support."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
 
-        Parameters:
-        -----------
-        eeg_path : str
-            Path to the EEG file
-        eeg_name : str
-            Name of the EEG file
-        """
         success = self.comet_source_localizer.identify_sources_single_file(
             eeg_path, eeg_name, self.source_localization_method
         )
@@ -2044,12 +2065,13 @@ class COMET:
         """
         Perform source localization for microstates
         """
-        print('\n' + '=' * 60)
-        print("[SOURCE LOCALIZATION] Starting source localization...")
+        # Log section header and start
+        self.logger.section_header("SOURCE_LOCALIZATION")
+        self.logger.processing_start("SOURCE_LOCALIZATION", "Starting Source Localization")
 
         # Check if backfitting has been done
         if not self.done_backfitting:
-            print("[ERROR] Backfitting must be completed before source localization")
+            self.logger.error("SOURCE_LOCALIZATION", "Backfitting must be completed before source localization")
             return
 
         # Determine the subjects directory
@@ -2057,7 +2079,7 @@ class COMET:
             if hasattr(self, 'individual_subjects_dir'):
                 self.anatomy_subjects_dir = self.individual_subjects_dir
             else:
-                print("[ERROR] individual_subjects_dir not set for individual anatomy")
+                self.logger.error("SOURCE_LOCALIZATION", "individual_subjects_dir not set for individual anatomy")
                 return
         else:  # use_anatomy == "fsaverage"
             fs_dir = mne.datasets.fetch_fsaverage(verbose=False)
@@ -2081,7 +2103,8 @@ class COMET:
             inverse_method=self.inverse_method,
             spacing=self.spacing,
             microstate_maps=self.best_maps,
-            nperm=self.nperm
+            nperm=self.nperm,
+            logger=self.logger
         )
 
         # Make sure the stc_path is set correctly in the source localizer
@@ -2093,15 +2116,8 @@ class COMET:
         )
         self.zipped_eeg_files = list(zip(list_eeg_path, list_eeg_name))
 
-        # Log source localization settings
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log(
-                f"Source Localization Settings:\n"
-                f"* Anatomy: {self.use_anatomy}\n"
-                f"* Boundary Element Method: {self.bem_solver}\n"
-                f"* Inverse Method: {self.inverse_method}\n"
-                f"* Spacing: {self.spacing}", log_type='settings'
-            )
+        # Log source localization settings once
+        self.comet_source_localizer.log_settings()
 
         # Perform source localization on all files
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
@@ -2114,7 +2130,7 @@ class COMET:
             # Set callback to run when source localization worker thread finishes
             self.LogWindow.process_finished_callback = self._on_source_localization_finished
         else:
-            print(f"[SOURCE LOCALIZATION] Processing {len(self.zipped_eeg_files)} EEG files...")
+            self.logger.processing_start("SOURCE_LOCALIZATION", f"Processing {len(self.zipped_eeg_files)} EEG files")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Source Localization"):
                 self.source_localize_file(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -2124,12 +2140,13 @@ class COMET:
         """
         Correlate sources and microstates
         """
-        print('\n' + '=' * 60)
-        print("[SOURCE LOCALIZATION] Starting source-microstate correlation...")
+        # Log section header and start
+        self.logger.section_header("SOURCE_LOCALIZATION")
+        self.logger.processing_start("SOURCE_LOCALIZATION", "Starting source-microstate correlation")
 
         # Check if source localization has been done
         if not self.done_source_localization:
-            print("[ERROR] Source localization must be completed before correlation")
+            self.logger.error("SOURCE_LOCALIZATION", "Source localization must be completed before correlation")
             return
 
         # Check if anatomy subjects directory is available
@@ -2154,7 +2171,8 @@ class COMET:
                 inverse_method=self.inverse_method,
                 spacing=self.spacing,
                 microstate_maps=self.best_maps,
-                nperm=self.nperm
+                nperm=self.nperm,
+                logger=self.logger
             )
 
         # Ensure directories are created and paths are set
@@ -2178,15 +2196,16 @@ class COMET:
         self.zipped_eeg_files = list(zip(list_eeg_path, list_eeg_name))
 
         # Log source identification settings
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log(
-                f"Source-Microstate Correlation Settings:\n"
-                f"* Method: {self.source_localization_method}\n"
-                f"* Number of permutations: {self.nperm}", log_type='settings'
-            )
+        source_settings = {
+            "Method": self.source_localization_method,
+            "Number of Permutations": self.nperm,
+            "Files to Process": len(self.zipped_eeg_files)
+        }
+        self.logger.settings_info("SOURCE_LOCALIZATION", source_settings)
 
         # Perform source identification on all files
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
+            self.logger.processing_start("SOURCE_LOCALIZATION", f"Processing {len(self.zipped_eeg_files)} EEG files")
             self.LogWindow.setup_progress_dialog(
                 window_title="Source Identification ...",
                 label_text=f"Identifying microstate sources using {self.source_localization_method} method ...",
@@ -2196,7 +2215,7 @@ class COMET:
             # Set callback to run when source identification worker thread finishes
             self.LogWindow.process_finished_callback = self._on_source_identification_finished
         else:
-            print(f"[SOURCE LOCALIZATION] Processing {len(self.zipped_eeg_files)} EEG files...")
+            self.logger.processing_start("SOURCE_LOCALIZATION", f"Processing {len(self.zipped_eeg_files)} EEG files")
             for eeg_path, eeg_name in tqdm(self.zipped_eeg_files, desc="Source Identification"):
                 self.source_identify_file(eeg_path, eeg_name)
             # For non-GUI mode, call completion directly
@@ -2300,7 +2319,7 @@ class COMET:
             with open(self.config_path, 'w+', encoding='utf-8') as configfile:
                 self.config.write(configfile)
         except Exception as e:
-            print(f"[WARNING] Failed to save configuration: {e}")
+            self.logger.warning("CONFIGURATION", f"Failed to save configuration: {e}")
 
     def _save_logs(self):
         """Save current log content to the log_text attribute and to the log file."""
@@ -2317,7 +2336,7 @@ class COMET:
                 with open(self.log_file_path, 'w', encoding='utf-8') as f:
                     f.write(self.log_text)
             except Exception as e:
-                print(f"[WARNING] Failed to save logs: {e}")
+                self.logger.warning("DATA_IO", f"Failed to save logs: {e}")
 
     def load_logs_from_file(self):
         """Load log content from the separate log file."""
@@ -2326,7 +2345,7 @@ class COMET:
                 with open(self.log_file_path, 'r', encoding='utf-8') as f:
                     return f.read()
             except Exception as e:
-                print(f"[WARNING] Failed to load logs: {e}")
+                self.logger.warning("DATA_IO", f"Failed to load logs: {e}")
                 return ""
         return ""
 
@@ -2348,7 +2367,7 @@ class COMET:
             
             # Check if we have a context available
             if not hasattr(self, 'context') or self.context is None:
-                print("[WARNING] Could not find context for microstate visualization window")
+                self.logger.warning("VISUALIZATION", "Could not find context for microstate visualization window")
                 if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                     self.LogWindow.append_log("Could not launch microstate labeling window - context not available", log_type='warning')
                 return
@@ -2373,8 +2392,8 @@ class COMET:
                 self.LogWindow.append_log("Microstate labeling window launched", log_type='info')
                 
         except Exception as e:
-            error_msg = f"[ERROR] Failed to launch microstate labeling window: {str(e)}"
-            print(error_msg)
+            error_msg = f"Failed to launch microstate labeling window: {str(e)}"
+            self.logger.error("VISUALIZATION", error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
 
@@ -2391,9 +2410,13 @@ class COMET:
             # Launch microstate labeling window
             self._launch_microstate_labeling()
             
+            # Notify any registered callbacks (e.g., GUI updates)
+            if hasattr(self, 'clustering_completed_callback') and self.clustering_completed_callback is not None:
+                self.clustering_completed_callback()
+            
         except Exception as e:
-            error_msg = f"[ERROR] Error in clustering completion handler: {str(e)}"
-            print(error_msg)
+            error_msg = f"Error in clustering completion handler: {str(e)}"
+            self.logger.error("CLUSTERING", error_msg)
             if hasattr(self, 'LogWindow') and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type='error')
 
@@ -2417,14 +2440,10 @@ class COMET:
             self.best_gev = best_gev
             self.best_residual = best_residual
 
-            print(f'[CLUSTERING] Clustering completed successfully!')
-            print(f'[CLUSTERING] Best GEV: {best_gev:.4f}')
-            print(f'[CLUSTERING] Best residual: {best_residual:.6f}')
+            # Log completion
+            self.logger.processing_success("CLUSTERING", "Clustering completed successfully")
+            
 
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log("Clustering completed successfully!", log_type='success')
-                self.LogWindow.append_log(f"Best GEV: {best_gev:.4f}")
-                self.LogWindow.append_log(f"Best residual: {best_residual:.6f}")
 
             # Save clustering results
             self._save_clustering_results()
@@ -2444,10 +2463,7 @@ class COMET:
             self._launch_microstate_labeling()
 
         else:
-            error_msg = "[ERROR] Clustering failed - no valid results obtained"
-            print(error_msg)
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(error_msg, log_type='error')
+            self.logger.error("CLUSTERING", "Clustering failed - no valid results obtained")
 
     def _on_clustering_iterations_finished(self, *args, **kwargs):
         """Finalize clustering once the worker thread has completed all iterations."""
@@ -2460,14 +2476,9 @@ class COMET:
         # Verify that clustering produced maps
         if self.best_maps is None:
             if worker_stopped:
-                error_msg = "Clustering stopped before any maps were generated"
+                self.logger.warning("CLUSTERING", "Clustering stopped before any maps were generated")
             else:
-                error_msg = "Clustering failed - no microstate maps were generated"
-
-            if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-                self.LogWindow.append_log(error_msg, log_type='error')
-            else:
-                print(error_msg)
+                self.logger.error("CLUSTERING", "Clustering failed - no microstate maps were generated")
             return
 
         # Compute final GEV across all data
@@ -2476,26 +2487,16 @@ class COMET:
         # Mark clustering as completed
         self.done_clustering = True
 
-        # Compose completion message
+        # Log completion
         if worker_stopped:
-            completion_message = (
-                f"⚠️ Clustering stopped early but maps were saved\n"
-                f"✓ Best maps: {self.number_of_maps} microstates (GEV: {100 * self.best_gev:.3f}%)"
-            )
+            self.logger.warning("CLUSTERING", "Clustering stopped early but maps were saved")
         else:
-            completion_message = (
-                f"[CLUSTERING] Clustering completed successfully: {self.number_of_maps} microstates "
-                f"(GEV: {100 * self.best_gev:.3f}%)"
-            )
+            self.logger.processing_success("CLUSTERING", "Clustering completed successfully")
+        
 
-        # Always print completion to terminal for important steps
-        print(completion_message)
 
-        # Log or print completion
+        # Clear the callback to prevent it from being triggered by other processes
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            log_type = 'warning' if worker_stopped else 'success'
-            self.LogWindow.append_log(completion_message, log_type=log_type)
-            # Clear the callback to prevent it from being triggered by other processes
             self.LogWindow.process_finished_callback = None
 
         # Persist configuration and logs
@@ -2513,13 +2514,14 @@ class COMET:
         self.save_eeg_info(self.eeg_info_path)
         self.done_preprocessing = True
 
-        # Always print completion to terminal for important steps
-        print("[PREPROCESSING] Preprocessing completed successfully")
+        # Log completion
+        self.logger.processing_success("PREPROCESSING", "Preprocessing completed successfully")
+        
+
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
             self.LogWindow.process_finished_callback = None
-            self.LogWindow.append_log(f"Preprocessing completed successfully! Data saved to: {self.preprocessed_data_path}", log_type='success')
 
         # Save configuration and parameters
         if self.auto_save:
@@ -2528,18 +2530,26 @@ class COMET:
         # Ensure logs are saved
         self._save_logs()
 
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'preprocessing_completed_callback') and self.preprocessing_completed_callback is not None:
+            try:
+                self.preprocessing_completed_callback()
+            except Exception as cb_err:
+                self.logger.warning("PREPROCESSING", f"Error in preprocessing completion callback: {cb_err}")
+
     def _on_backfitting_finished(self, message=None):
         """Handle backfitting completion when worker thread finishes."""
         # Set backfitting flag
         self.done_backfitting = True
 
-        # Always print completion to terminal for important steps
-        print("[BACKFITTING] Backfitting completed successfully")
+        # Log completion
+        self.logger.processing_success("BACKFITTING", "Backfitting completed successfully")
+        
+
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
             self.LogWindow.process_finished_callback = None
-            self.LogWindow.process_finished("Microstates have been successfully backfitted to the data!")
 
         # Save parameters
         if self.auto_save:
@@ -2547,19 +2557,24 @@ class COMET:
             
         # Ensure logs are saved
         self._save_logs()
+        
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'backfitting_completed_callback') and self.backfitting_completed_callback is not None:
+            self.backfitting_completed_callback()
 
     def _on_source_localization_finished(self, message=None):
         """Handle source localization completion when worker thread finishes."""
         # Set source localization flag
         self.done_source_localization = True
 
-        # Always print completion to terminal for important steps
-        print("[SOURCE LOCALIZATION] Source localization completed successfully")
+        # Log completion
+        self.logger.processing_success("SOURCE_LOCALIZATION", "Source localization completed successfully")
+        
+
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
             self.LogWindow.process_finished_callback = None
-            self.LogWindow.process_finished("✓ Source localization completed")
 
         # Save parameters
         if self.auto_save:
@@ -2567,19 +2582,24 @@ class COMET:
             
         # Ensure logs are saved
         self._save_logs()
+        
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'source_localization_completed_callback') and self.source_localization_completed_callback is not None:
+            self.source_localization_completed_callback()
 
     def _on_source_identification_finished(self, message=None):
         """Handle source identification completion when worker thread finishes."""
         # Set source-microstate correlation flag
         self.done_identifying_microstate_sources = True
 
-        # Always print completion to terminal for important steps
-        print("[SOURCE LOCALIZATION] Source-microstate correlation completed successfully")
+        # Log completion
+        self.logger.processing_success("SOURCE_LOCALIZATION", "Source-microstate correlation completed successfully")
+        
+
         
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
             self.LogWindow.process_finished_callback = None
-            self.LogWindow.process_finished(f"✓ Source-microstate correlation completed using {self.source_localization_method} method")
 
         # Save parameters
         if self.auto_save:
@@ -2587,3 +2607,7 @@ class COMET:
             
         # Ensure logs are saved
         self._save_logs()
+        
+        # Notify any registered callbacks (e.g., GUI updates)
+        if hasattr(self, 'source_microstate_correlation_completed_callback') and self.source_microstate_correlation_completed_callback is not None:
+            self.source_microstate_correlation_completed_callback()

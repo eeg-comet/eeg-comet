@@ -703,6 +703,47 @@ class FeatureVisualizationWindow(QMainWindow):
         self.figure.suptitle(f"{self.comet.feature_list_dictionary[feature]}",
                              fontsize=font_sizes['title'], fontfamily=font_family)
 
+    def set_labels_ticks_sliding(self, filter_cols, feature, ax, font_sizes, font_family, display_options):
+        """Set x/y labels, tick labels and apply display options for sliding window features"""
+
+        # Helper to convert numerical state indices to letters (1->A, 2->B, ...)
+        def _state_to_letter(state_str: str) -> str:
+            try:
+                state_idx = int(state_str)
+                # Ensure 1-based mapping; fall back gracefully
+                letter_idx = max(state_idx - 1, 0)
+                return chr(ord('A') + letter_idx)
+            except (ValueError, TypeError):
+                # If conversion fails, just return the original string
+                return state_str
+
+        # For sliding window features, x-axis represents time in seconds
+        ax.set_xlabel("Time (seconds)", fontsize=font_sizes['label'], fontfamily=font_family)
+        
+        # Set y-axis label based on feature type
+        if feature in ['TP', 'RTF']:
+            ax.set_ylabel("Transition Probability", fontsize=font_sizes['label'], fontfamily=font_family)
+        else:
+            ax.set_ylabel(self.comet.feature_list_dictionary[feature], fontsize=font_sizes['label'], fontfamily=font_family)
+        
+        ax.tick_params(axis='both', which='major', labelsize=font_sizes['tick'])
+
+        # Set font family for tick labels
+        for label in ax.get_xticklabels() + ax.get_yticklabels():
+            label.set_fontfamily(font_family)
+            label.set_fontsize(font_sizes['tick'])
+
+        # Apply display options
+        if not display_options.get('show_axes', True):
+            ax.axis('off')
+
+        if display_options.get('show_grid', False):
+            ax.grid(True, alpha=0.3)
+
+        # Set figure title
+        self.figure.suptitle(f"{self.comet.feature_list_dictionary[feature]} (Sliding Window)",
+                             fontsize=font_sizes['title'], fontfamily=font_family)
+
     def plot_violin(self, features_df, feature, font_sizes, colormap, font_family, display_options):
         """
         Plots a violin plot for the selected static feature.
@@ -750,12 +791,31 @@ class FeatureVisualizationWindow(QMainWindow):
         filter_cols = [col for col in features_df if col.startswith(feature)]
         filter_cols.sort()
 
-        plot_data = pd.melt(features_df.reset_index(), id_vars=['Window_index'], value_vars=filter_cols)
-        plot_data.columns = ['Window_index', 'Feature', feature]
+        # Convert window indices to time in seconds for sliding window features
+        if 'Window_index' in features_df.columns:
+            # Get sampling rate and window size from COMET object
+            sampling_rate = getattr(self.comet, 'sample_rate', 250)  # Default to 250 Hz
+            sliding_window_size = getattr(self.comet, 'sliding_window_size', 1)  # Default to 1 second
+            
+            # Convert window indices to time in seconds
+            # Each window represents sliding_window_size seconds
+            features_df = features_df.copy()
+            features_df['Time_seconds'] = features_df['Window_index'] * sliding_window_size
+            
+            plot_data = pd.melt(features_df.reset_index(), id_vars=['Time_seconds'], value_vars=filter_cols)
+            plot_data.columns = ['Time_seconds', 'Feature', feature]
 
-        self.clear_and_set_fonts(ax, font_family, font_sizes)
-        sns.lineplot(x='Window_index', y=feature, hue='Feature', data=plot_data, ax=ax)
-        self.set_labels_ticks(filter_cols, feature, ax, font_sizes, font_family, display_options)
+            self.clear_and_set_fonts(ax, font_family, font_sizes)
+            sns.lineplot(x='Time_seconds', y=feature, hue='Feature', data=plot_data, ax=ax)
+            self.set_labels_ticks_sliding(filter_cols, feature, ax, font_sizes, font_family, display_options)
+        else:
+            # Fallback to original behavior if no Window_index column
+            plot_data = pd.melt(features_df.reset_index(), id_vars=['Window_index'], value_vars=filter_cols)
+            plot_data.columns = ['Window_index', 'Feature', feature]
+
+            self.clear_and_set_fonts(ax, font_family, font_sizes)
+            sns.lineplot(x='Window_index', y=feature, hue='Feature', data=plot_data, ax=ax)
+            self.set_labels_ticks(filter_cols, feature, ax, font_sizes, font_family, display_options)
 
         # Handle legend display
         legend = ax.get_legend()

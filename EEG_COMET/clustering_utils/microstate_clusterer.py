@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cdist
+from gui_utils.logger import get_logger
 
 
 class MicrostateClusterer:
@@ -37,12 +38,13 @@ class MicrostateClusterer:
         self.max_iterations = max_iter
         self.clustering_tolerance = tolerance
         self.best_maps = None
+        self.logger = get_logger()
 
     # --------------------------------------------------------------------------
     # CORE CLUSTERING ALGORITHMS
     # --------------------------------------------------------------------------
 
-    def modified_kmeans(self, data, initial_maps, verbose=True, worker=None):
+    def modified_kmeans(self, data, initial_maps, verbose=True, worker=None, repetition_num=None):
         """Perform topographic clustering of EEG data to identify brain microstates.
 
         This implements the modified K-means clustering algorithm described by
@@ -79,7 +81,7 @@ class MicrostateClusterer:
         use_batches = self.batch_size is not None and self.batch_size > 0
 
         if use_batches and verbose:
-            print(f"[CLUSTERING] Using batch processing with batch size: {self.batch_size}")
+            self.logger.processing_info("CLUSTERING", f"Using batch processing with batch size: {self.batch_size}")
             batch_count = int(np.ceil(n_samples / self.batch_size))
 
         # Clustering iterations
@@ -87,7 +89,7 @@ class MicrostateClusterer:
             # Check if we should stop
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"\n[CLUSTERING] Clustering stopped at iteration {iteration}")
+                    self.logger.warning("CLUSTERING", f"Clustering stopped at iteration {iteration}")
                 return maps, prev_residual  # Return current best maps
 
             # Initialize arrays for segmentation and activations
@@ -104,7 +106,7 @@ class MicrostateClusterer:
                     batch_size_actual = batch_end - batch_start
 
                     if verbose and iteration == 0 and (b % 10 == 0 or b == batch_count - 1):
-                        print(f"[CLUSTERING] Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
+                        self.logger.processing_info("CLUSTERING", f"Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
 
                     # Assign each sample in the batch to the best matching microstate
                     batch_activation = maps.dot(batch_data)
@@ -112,7 +114,7 @@ class MicrostateClusterer:
                     
                     # Validate segmentation indices
                     if np.any(batch_segmentation >= self.n_states) or np.any(batch_segmentation < 0):
-                        print(f"[WARNING] Invalid batch segmentation indices. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
+                        self.logger.warning("CLUSTERING", f"Invalid batch segmentation indices. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
                         # Clip indices to valid range
                         batch_segmentation = np.clip(batch_segmentation, 0, self.n_states - 1)
 
@@ -142,7 +144,7 @@ class MicrostateClusterer:
                 
                 # Validate segmentation indices
                 if np.any(segmentation >= self.n_states) or np.any(segmentation < 0):
-                    print(f"[WARNING] Invalid segmentation indices in non-batch mode. Max: {np.max(segmentation)}, Min: {np.min(segmentation)}, n_states: {self.n_states}")
+                    self.logger.warning("CLUSTERING", f"Invalid segmentation indices in non-batch mode. Max: {np.max(segmentation)}, Min: {np.min(segmentation)}, n_states: {self.n_states}")
                     # Clip indices to valid range
                     segmentation = np.clip(segmentation, 0, self.n_states - 1)
 
@@ -162,14 +164,17 @@ class MicrostateClusterer:
             # Check for convergence
             if (prev_residual - residual) < (self.clustering_tolerance * residual):
                 if verbose:
-                    print(f'[CLUSTERING] Clustering converged at {iteration} iterations')
+                    if repetition_num is not None:
+                        self.logger.processing_info("CLUSTERING", f"Clustering {repetition_num} converged at {iteration} iterations")
+                    else:
+                        self.logger.processing_info("CLUSTERING", f"Clustering converged at {iteration} iterations")
                 break
 
             prev_residual = residual
 
         return maps, residual
 
-    def modified_kmeans_similarity(self, data, initial_maps, metric='Cosine Similarity', verbose=True, worker=None):
+    def modified_kmeans_similarity(self, data, initial_maps, metric='Cosine Similarity', verbose=True, worker=None, repetition_num=None):
         """Perform K-means clustering using spatial similarity metrics.
 
         This variant of the modified K-means algorithm uses either cosine similarity
@@ -209,8 +214,8 @@ class MicrostateClusterer:
         use_batches = self.batch_size is not None and self.batch_size > 0
 
         if use_batches and verbose:
-            print(f"[CLUSTERING] Using batch processing with batch size: {self.batch_size}")
-            print(f"[INFO] Similarity metric: {metric}")
+            self.logger.processing_info("CLUSTERING", f"Using batch processing with batch size: {self.batch_size}")
+            self.logger.processing_info("CLUSTERING", f"Similarity metric: {metric}")
             batch_count = int(np.ceil(n_samples / self.batch_size))
 
         # Clustering iterations
@@ -218,7 +223,7 @@ class MicrostateClusterer:
             # Check if we should stop
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"\n[CLUSTERING] Clustering stopped at iteration {iteration}")
+                    self.logger.processing_info("CLUSTERING", f"Clustering stopped at iteration {iteration}")
                 return maps, prev_residual  # Return current best maps
 
             # Initialize arrays for segmentation and best similarities
@@ -236,7 +241,7 @@ class MicrostateClusterer:
                     batch_size_actual = batch_end - batch_start
 
                     if verbose and iteration == 0 and (b % 10 == 0 or b == batch_count - 1):
-                        print(f"[CLUSTERING] Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
+                        self.logger.processing_info("CLUSTERING", f"Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
 
                     # Calculate similarities between maps and data samples
                     if metric == 'Cosine Similarity':
@@ -257,7 +262,7 @@ class MicrostateClusterer:
                     
                     # Validate segmentation indices
                     if np.any(batch_segmentation >= self.n_states) or np.any(batch_segmentation < 0):
-                        print(f"[WARNING] Invalid batch segmentation indices in similarity mode. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
+                        self.logger.warning("CLUSTERING", f"Invalid batch segmentation indices in similarity mode. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
                         # Clip indices to valid range
                         batch_segmentation = np.clip(batch_segmentation, 0, self.n_states - 1)
 
@@ -306,7 +311,10 @@ class MicrostateClusterer:
             # Check for convergence
             if (prev_residual - residual) < (self.clustering_tolerance * residual):
                 if verbose:
-                    print(f'[CLUSTERING] Clustering converged at {iteration} iterations')
+                    if repetition_num is not None:
+                        self.logger.processing_info("CLUSTERING", f"Clustering {repetition_num} converged at {iteration} iterations")
+                    else:
+                        self.logger.processing_info("CLUSTERING", f"Clustering converged at {iteration} iterations")
                 break
 
             prev_residual = residual
@@ -344,8 +352,8 @@ class MicrostateClusterer:
         import time
 
         if verbose:
-            print(f"[CLUSTERING] Starting TAAHC clustering")
-            print(f"[CLUSTERING] Using similarity metric: {metric}")
+            self.logger.processing_info("CLUSTERING", f"Starting TAAHC clustering")
+            self.logger.processing_info("CLUSTERING", f"Using similarity metric: {metric}")
             start_time = time.time()
 
         # Validate similarity metric
@@ -369,7 +377,7 @@ class MicrostateClusterer:
             batch_size = self.batch_size
 
         if verbose:
-            print(f"[CLUSTERING] Using batch size: {batch_size}")
+            self.logger.processing_info("CLUSTERING", f"Using batch size: {batch_size}")
 
         # Initialize progress tracking with better estimation
         def update_progress(message, step_increment=1):
@@ -397,20 +405,20 @@ class MicrostateClusterer:
                          (gfp_curve[1:-1] > gfp_curve[2:]))[0] + 1
 
         if verbose:
-            print(f"[CLUSTERING] Found {len(peaks)} GFP peaks")
+            self.logger.processing_info("CLUSTERING", f"Found {len(peaks)} GFP peaks")
 
         if len(peaks) < self.n_states:
             update_progress(f"Adding random samples (found only {len(peaks)} peaks)...")
             if verbose:
-                print(f"[WARNING] Only {len(peaks)} GFP peaks found, less than requested {self.n_states} states")
-                print("[INFO] Adding random samples to reach required number of initial states")
+                self.logger.warning("CLUSTERING", f"Only {len(peaks)} GFP peaks found, less than requested {self.n_states} states")
+                self.logger.processing_info("CLUSTERING", f"Adding random samples to reach required number of initial states")
             # Add random samples if needed
             additional = np.random.choice(np.arange(n_samples),
                                           size=max(self.n_states - len(peaks), 0),
                                           replace=False)
             peaks = np.concatenate([peaks, additional])
             if verbose:
-                print(f"[CLUSTERING] Added {len(additional)} random samples as initial states")
+                self.logger.processing_info("CLUSTERING", f"Added {len(additional)} random samples as initial states")
 
         # Step 3: Initialize with peak maps
         update_progress("Initializing with peak maps...")
@@ -438,8 +446,7 @@ class MicrostateClusterer:
         data_sum_sq = np.sum(gfp_curve ** 2)
 
         if verbose:
-            print(f"[CLUSTERING] Starting hierarchical clustering with {n_maps} maps")
-            print("=====================================================")
+            self.logger.processing_info("CLUSTERING", f"Starting hierarchical clustering with {n_maps} maps")
 
         update_progress(f"Starting hierarchical clustering: {n_maps} → {self.n_states} maps...")
 
@@ -451,8 +458,9 @@ class MicrostateClusterer:
             # Check if we should stop
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"\n[CLUSTERING] Clustering stopped by user with {n_maps} maps remaining")
-                    print(f"[CLUSTERING] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
+                    self.logger.warning("CLUSTERING", f"Stop requested - please wait ...")
+                    self.logger.warning("CLUSTERING", f"Clustering stopped by user with {n_maps} maps remaining")
+                    self.logger.warning("CLUSTERING", f"Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
                 # Return None for maps since we don't have the correct number of states
                 return None, np.inf
 
@@ -465,8 +473,9 @@ class MicrostateClusterer:
                 )
                 if not continue_processing:
                     if verbose:
-                        print(f"\n[CLUSTERING] Clustering stopped by progress callback")
-                        print(f"[CLUSTERING] Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
+                        self.logger.warning("CLUSTERING", f"Stop requested - please wait ...")
+                        self.logger.warning("CLUSTERING", f"Clustering stopped by progress callback")
+                        self.logger.warning("CLUSTERING", f"Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
                     # Return None for maps since we don't have the correct number of states
                     return None, np.inf
 
@@ -490,7 +499,7 @@ class MicrostateClusterer:
                     eta_minutes = eta_seconds / 60
                     eta_msg = f", ETA: {eta_minutes:.1f} min"
                 
-                print(f"[CLUSTERING] TAAHC Iteration {iteration}: {n_maps} maps remaining ({remaining_iterations} to go), "
+                self.logger.processing_info("CLUSTERING", f"TAAHC Iteration {iteration}: {n_maps} maps remaining ({remaining_iterations} to go), "
                       f"elapsed: {elapsed:.1f}s{eta_msg}")
 
             # Initialize arrays to store assignments and best correlations
@@ -507,7 +516,7 @@ class MicrostateClusterer:
 
             # Process data in batches
             if verbose and n_maps <= self.n_states + 10:
-                print(f"[CLUSTERING] Processing {n_samples} samples in batches of {batch_size}...")
+                self.logger.processing_info("CLUSTERING", f"Processing {n_samples} samples in batches of {batch_size}...")
                 batch_count = int(np.ceil(n_samples / batch_size))
 
             for b, batch_start in enumerate(range(0, n_samples, batch_size)):
@@ -534,7 +543,7 @@ class MicrostateClusterer:
                 best_corrs[batch_start:batch_end] = batch_best_corrs
 
             if verbose and n_maps <= self.n_states + 10:
-                print("[INFO] Calculating atomization values for each map...")
+                self.logger.processing_info("CLUSTERING", f"Calculating atomization values for each map...")
 
             # Calculate atomization criterion for each map
             atomisation_values = np.zeros(n_maps)
@@ -555,7 +564,7 @@ class MicrostateClusterer:
             worst_idx = np.argmin(atomisation_values)
 
             if verbose and n_maps <= self.n_states + 10:
-                print(f"[CLUSTERING] Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}")
+                self.logger.processing_info("CLUSTERING", f"Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}")
 
             # Update progress for map removal
             update_progress(f"Removing weakest map (#{worst_idx}), reassigning {cluster_sizes[worst_idx]} points...")
@@ -623,16 +632,16 @@ class MicrostateClusterer:
             iteration_times.append(iteration_time)
 
             if verbose and n_maps == self.n_states:
-                print("=====================================================")
-                print(f"[CLUSTERING] Reached target of {self.n_states} states after {iteration} iterations")
+                self.logger.processing_info("CLUSTERING", "=" * 70)
+                self.logger.processing_info("CLUSTERING", f"Reached target of {self.n_states} states after {iteration} iterations")
                 total_time = time.time() - start_time
                 avg_iter_time = np.mean(iteration_times) if iteration_times else 0
-                print(f"[CLUSTERING] Total time: {total_time:.1f}s, Average iteration time: {avg_iter_time:.3f}s")
+                self.logger.processing_info("CLUSTERING", f"Total time: {total_time:.1f}s, Average iteration time: {avg_iter_time:.3f}s")
 
         # Final processing
         update_progress("Calculating final assignments and residual...")
         if verbose:
-            print("[INFO] Calculating final assignments and residual...")
+            self.logger.processing_info("CLUSTERING", "Calculating final assignments and residual...")
 
         # Calculate final residual - using batches
         final_corrs = np.zeros(n_samples)
@@ -648,11 +657,11 @@ class MicrostateClusterer:
             # Check for stop during final processing
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"\n[CLUSTERING] TAAHC stopped during final processing")
+                    self.logger.warning("CLUSTERING", f"TAAHC stopped during final processing")
                 return None, np.inf
 
             if verbose and (b % 20 == 0 or b == batch_count - 1):
-                print(f"[CLUSTERING] Final processing batch {b + 1}/{batch_count}")
+                self.logger.processing_info("CLUSTERING", f"Final processing batch {b + 1}/{batch_count}")
 
             # Update progress for final batches
             if b % max(1, batch_count // 10) == 0:  # Update every 10%
@@ -682,7 +691,7 @@ class MicrostateClusterer:
                 # Check for stop during final statistics
                 if worker and hasattr(worker, 'stopped') and worker.stopped:
                     if verbose:
-                        print(f"\n[CLUSTERING] TAAHC stopped during final statistics")
+                        self.logger.warning("CLUSTERING", f"TAAHC stopped during final statistics")
                     # Return None for maps since we don't have the correct number of states
                     return None, np.inf
                     
@@ -699,13 +708,13 @@ class MicrostateClusterer:
                 final_assignments[batch_start:batch_end] = np.argmax(batch_corrs, axis=0)
 
             total_time = time.time() - start_time
-            print("=====================================================")
-            print(f"[CLUSTERING] TAAHC clustering completed successfully!")
-            print(f"[CLUSTERING] Total time: {total_time:.2f} seconds")
-            print(f"[CLUSTERING] Using similarity metric: {metric}")
-            print(f"[CLUSTERING] Residual: {residual:.6f}")
-            print(f"[CLUSTERING] Average iteration time: {np.mean(iteration_times):.3f}s")
-            print("=====================================================")
+            self.logger.processing_info("CLUSTERING", "=" * 70)
+            self.logger.processing_info("CLUSTERING", f"TAAHC clustering completed successfully!")
+            self.logger.processing_info("CLUSTERING", f"Total time: {total_time:.2f} seconds")
+            self.logger.processing_info("CLUSTERING", f"Using similarity metric: {metric}")
+            self.logger.processing_info("CLUSTERING", f"Residual: {residual:.6f}")
+            self.logger.processing_info("CLUSTERING", f"Average iteration time: {np.mean(iteration_times):.3f}s")
+            self.logger.processing_info("CLUSTERING", "=" * 70)
 
         # Final progress update
         update_progress("TAAHC clustering completed successfully!")
@@ -730,11 +739,11 @@ class MicrostateClusterer:
             # Check for stop during residual calculation
             if worker and hasattr(worker, 'stopped') and worker.stopped:
                 if verbose:
-                    print(f"[CLUSTERING] TAAHC stopped during residual calculation")
+                    self.logger.warning("CLUSTERING", f"TAAHC stopped during residual calculation")
                 return 1.0  # Return worst case residual
             
             if verbose and (b % 20 == 0 or b == batch_count - 1):
-                print(f"[CLUSTERING] Residual calculation batch {b + 1}/{batch_count}")
+                self.logger.processing_info("CLUSTERING", f"Residual calculation batch {b + 1}/{batch_count}")
 
             batch_end = min(batch_start + batch_size, n_samples)
             batch_data = data[:, batch_start:batch_end]
@@ -824,4 +833,7 @@ class MicrostateClusterer:
 
         # Calculate GEV
         return np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
+
+
+# wrapper removed
 
