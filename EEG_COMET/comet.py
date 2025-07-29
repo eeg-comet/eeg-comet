@@ -2067,7 +2067,7 @@ class COMET:
         """
         # Log section header and start
         self.logger.section_header("SOURCE_LOCALIZATION")
-        self.logger.processing_start("SOURCE_LOCALIZATION", "Starting source localization")
+        self.logger.processing_start("SOURCE_LOCALIZATION", "Starting Source Localization")
 
         # Check if backfitting has been done
         if not self.done_backfitting:
@@ -2103,7 +2103,8 @@ class COMET:
             inverse_method=self.inverse_method,
             spacing=self.spacing,
             microstate_maps=self.best_maps,
-            nperm=self.nperm
+            nperm=self.nperm,
+            logger=self.logger
         )
 
         # Make sure the stc_path is set correctly in the source localizer
@@ -2115,15 +2116,8 @@ class COMET:
         )
         self.zipped_eeg_files = list(zip(list_eeg_path, list_eeg_name))
 
-        # Log source localization settings
-        if hasattr(self, 'LogWindow') and self.LogWindow is not None:
-            self.LogWindow.append_log(
-                f"Source Localization Settings:\n"
-                f"* Anatomy: {self.use_anatomy}\n"
-                f"* Boundary Element Method: {self.bem_solver}\n"
-                f"* Inverse Method: {self.inverse_method}\n"
-                f"* Spacing: {self.spacing}", log_type='settings'
-            )
+        # Log source localization settings once
+        self.comet_source_localizer.log_settings()
 
         # Perform source localization on all files
         if hasattr(self, 'LogWindow') and self.LogWindow is not None:
@@ -2177,7 +2171,8 @@ class COMET:
                 inverse_method=self.inverse_method,
                 spacing=self.spacing,
                 microstate_maps=self.best_maps,
-                nperm=self.nperm
+                nperm=self.nperm,
+                logger=self.logger
             )
 
         # Ensure directories are created and paths are set

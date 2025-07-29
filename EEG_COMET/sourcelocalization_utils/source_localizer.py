@@ -3,9 +3,13 @@ import numpy as np
 import mne
 from scipy import stats
 from invert import Solver
+from contextlib import redirect_stdout, redirect_stderr
 from data_utils.data_io import DataIO
 from backfitting_utils.segmentation_io import SegmentationIO
 from sourcelocalization_utils.source_io import SourceIO
+
+# Suppress MNE verbose output globally
+mne.set_log_level('ERROR')
 
 
 class SourceLocalizer:
@@ -14,7 +18,7 @@ class SourceLocalizer:
     """
 
     def __init__(self, subjects_dir, localized_sources_path, preprocessed_data_path, segmentation_path,
-                 use_anatomy, extension, datatype, bem_solver, inverse_method, spacing, microstate_maps, nperm):
+                 use_anatomy, extension, datatype, bem_solver, inverse_method, spacing, microstate_maps, nperm, logger=None):
         """
         Initialize the SourceLocalizer
         """
@@ -38,6 +42,38 @@ class SourceLocalizer:
         self.nperm = nperm
         self.data_io = DataIO()
         self.source_io = SourceIO()  # Initialize SourceIO
+        self.logger = logger
+
+    def _log(self, message, level="info"):
+        """Helper method to log messages using the logger if available, otherwise print"""
+        if self.logger is not None:
+            if level == "info":
+                self.logger.processing_info("SOURCE_LOCALIZATION", message)
+            elif level == "warning":
+                self.logger.warning("SOURCE_LOCALIZATION", message)
+            elif level == "error":
+                self.logger.error("SOURCE_LOCALIZATION", message)
+            elif level == "success":
+                self.logger.processing_success("SOURCE_LOCALIZATION", message)
+            elif level == "process":
+                self.logger.processing_start("SOURCE_LOCALIZATION", message)
+        else:
+            # Fallback to print if no logger is available
+            print(f"[SOURCE_LOCALIZATION] {message}")
+
+    def log_settings(self):
+        """Log source localization settings once at the beginning"""
+        if self.use_anatomy == "individual":
+            self._log("Using individual MRI anatomies")
+            self._log("Warning: Individual MRI requires proper subject directory setup", "warning")
+        else:
+            self._log("Using standard template brain (fsaverage)")
+            self._log("Warning: Patient-specific MRI is more accurate", "warning")
+        
+        self._log(f"Boundary Element Method: {self.bem_solver}")
+        self._log(f"Inverse Method: {self.inverse_method}")
+        self._log(f"Source Space Spacing: {self.spacing}")
+        self._log("Performing Source Localization...", "process")
 
     def stc_write(self, stc_data_subject_path, stc_file):
         """
@@ -72,14 +108,9 @@ class SourceLocalizer:
             trans: The coregistration transformation data.
         """
 
-        # Print information about using the standard template MRI subject -fsaverage-
-        print('\nUsing the standard template MRI subject -fsaverage-')
-        print('\nWarning, patient-specific MRI is more accurate!')
-
         # Download fsaverage files if they don't exist
         fs_dir = mne.datasets.fetch_fsaverage(verbose=False)
         subjects_dir = os.path.dirname(fs_dir)
-        print(f"fsaverage subjects_dir path: {subjects_dir}")
 
         # The files live in:
         subject = "fsaverage"
@@ -87,38 +118,44 @@ class SourceLocalizer:
 
         # Check if a different spacing is provided, then create a new source space
         if self.spacing != 'ico5':
-            src = mne.setup_source_space(
-                subject,
-                spacing=self.spacing,
-                subjects_dir=subjects_dir,
-                add_dist=False,
-                n_jobs=-1
-            )
+            with mne.utils.use_log_level('ERROR'):
+                src = mne.setup_source_space(
+                    subject,
+                    spacing=self.spacing,
+                    subjects_dir=subjects_dir,
+                    add_dist=False,
+                    n_jobs=-1,
+                    verbose=False
+                )
         else:
             # Use the default 'ico5' source space
             src_path = os.path.join(fs_dir, 'bem', 'fsaverage-ico-5-src.fif')
-            src = mne.read_source_spaces(src_path)
+            with mne.utils.use_log_level('ERROR'):
+                src = mne.read_source_spaces(src_path, verbose=False)
 
         # Specify the path to the BEM file
         bem_model = os.path.join(fs_dir, "bem", "fsaverage-5120-5120-5120-bem-sol.fif")
-        bem = mne.make_bem_solution(bem_model, solver=self.bem_solver)
+        with mne.utils.use_log_level('ERROR'):
+            bem = mne.make_bem_solution(bem_model, solver=self.bem_solver, verbose=False)
 
         # Get MNI fiducials for the subject
-        fiducials = mne.coreg.get_mni_fiducials(
-            subject=subject, subjects_dir=subjects_dir)
+        with mne.utils.use_log_level('ERROR'):
+            fiducials = mne.coreg.get_mni_fiducials(
+                subject=subject, subjects_dir=subjects_dir, verbose=False)
 
         # Perform coregistration based on fiducials and measurement info
-        coreg = mne.coreg.Coregistration(
-            info=eeg_info,
-            subject=subject,
-            subjects_dir=subjects_dir,
-            fiducials=fiducials
-        )
-        coreg.fit_icp(n_iterations=20, nasion_weight=10.0, verbose=True)
+        with mne.utils.use_log_level('ERROR'):
+            coreg = mne.coreg.Coregistration(
+                info=eeg_info,
+                subject=subject,
+                subjects_dir=subjects_dir,
+                fiducials=fiducials
+            )
+            coreg.fit_icp(n_iterations=20, nasion_weight=10.0, verbose=False)
 
-        # Omit head shape points that are too close to the MRI surface
-        coreg.omit_head_shape_points(distance=5.0 / 1000)  # distance is in meters
-        trans = coreg.trans
+            # Omit head shape points that are too close to the MRI surface
+            coreg.omit_head_shape_points(distance=5.0 / 1000)  # distance is in meters
+            trans = coreg.trans
 
         return src, bem, trans
 
@@ -136,49 +173,49 @@ class SourceLocalizer:
             trans: The coregistration transformation data.
         """
 
-        print(f"\nUsing the individual MRI subject: {subject}")
-        print('\nThis may take some time to compute ...')
         # Get MNI fiducials for the subject
-        fiducials = mne.coreg.get_mni_fiducials(
-            subject=subject, subjects_dir=self.subjects_dir)
+        with mne.utils.use_log_level('ERROR'):
+            fiducials = mne.coreg.get_mni_fiducials(
+                subject=subject, subjects_dir=self.subjects_dir, verbose=False)
 
         # Perform coregistration based on fiducials and measurement info
-        coreg = mne.coreg.Coregistration(
-            info=raw_info,
-            subject=subject,
-            subjects_dir=self.subjects_dir,
-            fiducials=fiducials
-        )
-        coreg.fit_icp(n_iterations=20, nasion_weight=10.0, verbose=True)
+        with mne.utils.use_log_level('ERROR'):
+            coreg = mne.coreg.Coregistration(
+                info=raw_info,
+                subject=subject,
+                subjects_dir=self.subjects_dir,
+                fiducials=fiducials
+            )
+            coreg.fit_icp(n_iterations=20, nasion_weight=10.0, verbose=False)
 
-        # Omit head shape points that are too close to the MRI surface
-        coreg.omit_head_shape_points(distance=5.0 / 1000)  # distance is in meters
+            # Omit head shape points that are too close to the MRI surface
+            coreg.omit_head_shape_points(distance=5.0 / 1000)  # distance is in meters
 
-        # Compute distances between digitization points and MRI surface in millimeters
-        dists = coreg.compute_dig_mri_distances() * 1e3
-        print(
-            f"Distance between HSP and MRI (mean/min/max): "
-            f"{np.mean(dists):.2f} mm / {np.min(dists):.2f} mm / {np.max(dists):.2f} mm")
+            # Compute distances between digitization points and MRI surface in millimeters
+            dists = coreg.compute_dig_mri_distances() * 1e3
+            self._log(f"Distance between HSP and MRI (mean/min/max): {np.mean(dists):.2f} mm / {np.min(dists):.2f} mm / {np.max(dists):.2f} mm")
 
-        # Save the transformation matrix to a file
-        trans_file = os.path.join(self.subjects_dir, subject, 'mri', 'transforms', f'{subject}-trans.fif')
-        trans = coreg.trans
+            # Save the transformation matrix to a file
+            trans_file = os.path.join(self.subjects_dir, subject, 'mri', 'transforms', f'{subject}-trans.fif')
+            trans = coreg.trans
 
         # Set up the source space
-        src = mne.setup_volume_source_space(
-            subject,
-            subjects_dir=self.subjects_dir,
-            pos=10.0,
-            mri='T1.mgz',
-            mindist=5.0
-        )
+        with mne.utils.use_log_level('ERROR'):
+            src = mne.setup_volume_source_space(
+                subject,
+                subjects_dir=self.subjects_dir,
+                pos=10.0,
+                mri='T1.mgz',
+                mindist=5.0,
+                verbose=False
+            )
 
-        # Make BEM surfaces and save to a file
-        bem_surfaces = mne.make_bem_model(
-            subject=subject, subjects_dir=self.subjects_dir, ico=self.spacing[-1])
+            # Make BEM surfaces and save to a file
+            bem_surfaces = mne.make_bem_model(
+                subject=subject, subjects_dir=self.subjects_dir, ico=self.spacing[-1], verbose=False)
 
-        # Make BEM solution
-        bem = mne.make_bem_solution(bem_surfaces, solver=self.bem_solver)
+            # Make BEM solution
+            bem = mne.make_bem_solution(bem_surfaces, solver=self.bem_solver, verbose=False)
 
         return src, bem, trans
 
@@ -196,21 +233,32 @@ class SourceLocalizer:
         Returns:
             stc_file: The source time series data.
         """
-        print('\nPerforming source localization ...')
+        # Calculate the forward solution (free orientation)
+        with open(os.devnull, 'w') as devnull:
+            with redirect_stdout(devnull), redirect_stderr(devnull):
+                with mne.utils.use_log_level('ERROR'):
+                    fwd = mne.make_forward_solution(
+                        raw_info, trans, src, bem, eeg=True, mindist=5.0,
+                        n_jobs=-1, verbose=False
+                    )
 
-        # Calculate the forward solution using the specified parameters
-        fwd = mne.make_forward_solution(
-            raw_info, trans, src, bem, eeg=True, mindist=5.0, n_jobs=-1)
+                    # Explicitly convert to fixed orientation
+                    fwd = mne.convert_forward_solution(
+                        fwd, surf_ori=True, force_fixed=True, verbose=False
+                    )
 
-        print(f"Using Solver with {self.inverse_method} method")
         solver = Solver(self.inverse_method)
 
         try:
-            solver.make_inverse_operator(fwd, raw_eeg)
-            stc = solver.apply_inverse_operator(raw_eeg)
+            # Also suppress output during inverse operator creation
+            with open(os.devnull, 'w') as devnull:
+                with redirect_stdout(devnull), redirect_stderr(devnull):
+                    with mne.utils.use_log_level('ERROR'):
+                        solver.make_inverse_operator(fwd, raw_eeg)
+                        stc = solver.apply_inverse_operator(raw_eeg)
             return stc
         except Exception as e:
-            print(f"Error using Solver: {str(e)}")
+            self._log(f"Error using Solver: {str(e)}", "error")
 
     def localize_single_file(self, eeg_path, eeg_name):
         """
@@ -229,7 +277,7 @@ class SourceLocalizer:
             True if successful, False otherwise
         """
         try:
-            print(f"Source Localizing {eeg_name}")
+            self._log(f"Processing file: {eeg_name}")
 
             # Create directory for this subject's source time courses
             stc_subject_path = os.path.join(self.stc_path, eeg_name)
@@ -241,7 +289,7 @@ class SourceLocalizer:
 
             # Ensure we have valid EEG data
             if eeg is None:
-                print(f"Error: Could not load EEG data from {eeg_path}")
+                self._log(f"Could not load EEG data from {eeg_path}", "error")
                 return False
 
             # Extract EEG info
@@ -251,15 +299,15 @@ class SourceLocalizer:
             if self.datatype == 'raw':
                 # Convert RawEEGLAB to standard RawArray
                 if not isinstance(eeg, mne.io.fiff.raw.Raw):
-                    print(f"Converting {type(eeg).__name__} to standard RawArray")
                     eeg_data = eeg.get_data()
-                    standard_eeg = mne.io.RawArray(eeg_data, eeg_info)
+                    # Suppress MNE verbose output during RawArray creation
+                    with mne.utils.use_log_level('ERROR'):
+                        standard_eeg = mne.io.RawArray(eeg_data, eeg_info)
                 else:
                     standard_eeg = eeg
             else:  # 'epoched'
                 # Convert EpochsEEGLAB to standard EpochsArray
                 if not isinstance(eeg, mne.epochs.Epochs):
-                    print(f"Converting {type(eeg).__name__} to standard EpochsArray")
                     eeg_data = eeg.get_data()
 
                     # Get or create events if needed
@@ -286,50 +334,54 @@ class SourceLocalizer:
                     else:
                         tmin = 0.0
 
-                    # Create standard EpochsArray
-                    standard_eeg = mne.EpochsArray(eeg_data, eeg_info, events=events,
-                                                   event_id=event_id, tmin=tmin)
+                    # Create standard EpochsArray with suppressed verbose output
+                    with mne.utils.use_log_level('ERROR'):
+                        standard_eeg = mne.EpochsArray(eeg_data, eeg_info, events=events,
+                                                       event_id=event_id, tmin=tmin)
                 else:
                     standard_eeg = eeg
 
             # Choose appropriate method based on anatomy selection
             if self.use_anatomy == "individual":
-                print("\nUsing individual anatomies")
                 subject = eeg_name
                 src, bem, trans = self.individual_mri(subject, eeg_info)
-                self.export_src_bem_trans('fsaverage', src, bem, trans)
+                with mne.utils.use_log_level('ERROR'):
+                    self.export_src_bem_trans('fsaverage', src, bem, trans)
                 stc_file = self.compute_stc(src, bem, trans, standard_eeg, eeg_info)
                 # Morph to fsaverage
-                src_morph = mne.read_source_spaces(src)
-                morph = mne.compute_source_morph(
-                    src_morph,
-                    subject_from=subject,
-                    subject_to='fsaverage',
-                    subjects_dir=self.subjects_dir,
-                    spacing=self.spacing[-1]
-                )
-                morph.save(
-                    os.path.join(
-                        self.subjects_dir,
-                        subject,
-                        f'{subject}-morph.h5',
-                    ),
-                    overwrite=True,
-                )
+                with mne.utils.use_log_level('ERROR'):
+                    src_morph = mne.read_source_spaces(src, verbose=False)
+                    morph = mne.compute_source_morph(
+                        src_morph,
+                        subject_from=subject,
+                        subject_to='fsaverage',
+                        subjects_dir=self.subjects_dir,
+                        spacing=self.spacing[-1],
+                        verbose=False
+                    )
+                # Suppress verbose output during morph save
+                with mne.utils.use_log_level('ERROR'):
+                    morph.save(
+                        os.path.join(
+                            self.subjects_dir,
+                            subject,
+                            f'{subject}-morph.h5',
+                        ),
+                        overwrite=True,
+                    )
                 stc_file = morph.apply(stc_file)
             else:
-                print("\nUsing default template brain - fsaverage")
                 src, bem, trans = self.load_average_mri(eeg_info)
-                self.export_src_bem_trans('fsaverage', src, bem, trans)
+                with mne.utils.use_log_level('ERROR'):
+                    self.export_src_bem_trans('fsaverage', src, bem, trans)
                 stc_file = self.compute_stc(src, bem, trans, standard_eeg, eeg_info)
 
-            print(f"\nExporting Source Time Courses: {eeg_name}")
+            self._log(f"Exporting source time courses: {eeg_name}")
             self.stc_write(stc_subject_path, stc_file)
             return True
         except Exception as e:
             import traceback
-            print(f"Error processing {eeg_name}: {str(e)}")
-            print(traceback.format_exc())  # Print detailed error traceback
+            self._log(f"Error processing {eeg_name}: {str(e)}", "error")
             return False
 
     @staticmethod
@@ -390,7 +442,7 @@ class SourceLocalizer:
             np.random.shuffle(t_shuffle)
             beta_dist[:, :, ii] = self.second_regression(t_shuffle, stc_data)
             if (ii % 50) == 0:
-                print(ii)
+                self._log(f"TESS permutation progress: {ii}/{nperm}")
         for idx, x in np.ndenumerate(beta_coeff):
             z_scores[idx] = stats.zscore(np.insert(beta_dist[idx[0]][idx[1]][:], 0, x))[0]
         p_values = bonferroni * stats.norm.sf(abs(z_scores))

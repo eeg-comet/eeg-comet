@@ -30,10 +30,14 @@ class SourceIO:
             for idx, stc in enumerate(stc_data):
                 filename = f'{filename_prefix}_{idx}'
                 filepath = os.path.join(output_path, filename)
-                stc.save(filepath, ftype='h5', overwrite=True)
+                # Suppress verbose output during STC save
+                with mne.utils.use_log_level('ERROR'):
+                    stc.save(filepath, ftype='h5', overwrite=True)
         else:
             filepath = os.path.join(output_path, f"{filename_prefix}_file")
-            stc_data.save(filepath, ftype='h5', overwrite=True)
+            # Suppress verbose output during STC save
+            with mne.utils.use_log_level('ERROR'):
+                stc_data.save(filepath, ftype='h5', overwrite=True)
 
     def read_stc(self, stc_path, pattern='*'):
         """
@@ -316,20 +320,22 @@ class SourceIO:
             os.makedirs(subject_dir)
 
         try:
-            mne.write_source_spaces(
-                os.path.join(subject_dir, f'{subject}-{spacing}-src.fif'),
-                src, overwrite=True
-            )
+            # Suppress verbose output during file writing
+            with mne.utils.use_log_level('ERROR'):
+                mne.write_source_spaces(
+                    os.path.join(subject_dir, f'{subject}-{spacing}-src.fif'),
+                    src, overwrite=True
+                )
 
-            mne.write_bem_solution(
-                os.path.join(subject_dir, f'{subject}-bem.fif'),
-                bem, overwrite=True
-            )
+                mne.write_bem_solution(
+                    os.path.join(subject_dir, f'{subject}-bem.fif'),
+                    bem, overwrite=True
+                )
 
-            mne.write_trans(
-                os.path.join(subject_dir, f'{subject}-trans.fif'),
-                trans, overwrite=True
-            )
+                mne.write_trans(
+                    os.path.join(subject_dir, f'{subject}-trans.fif'),
+                    trans, overwrite=True
+                )
         except Exception:
             pass
 
