@@ -251,17 +251,18 @@ class FeatureExtractor:
                 for element, count in total_element_counts.items()
             }
         elif self.feature_mode == 'sliding':
-            # Ensure integer division for number of seconds
-            num_seconds = len(self._get_flat_sequence()) // int(samples_per_second)
+            # Use custom sliding window size
+            window_size_samples = int(self.sliding_window_size * samples_per_second)
+            num_windows = len(self._get_flat_sequence()) // window_size_samples
             window_change_counts = []
-            for second in range(num_seconds):
-                window_start = second * int(samples_per_second)
-                window_end = (second + 1) * int(samples_per_second)
+            for window_idx in range(num_windows):
+                window_start = window_idx * window_size_samples
+                window_end = (window_idx + 1) * window_size_samples
                 window_input_sequence = self._get_flat_sequence()[window_start:window_end]
                 window_input_sequence = FeatureHelper().remove_repetition_sequence(window_input_sequence)
                 element_counts = Counter(window_input_sequence)
                 window_change_counts.append({
-                    element: count / 1.0
+                    element: count / self.sliding_window_size  # Divide by window size in seconds
                     for element, count in element_counts.items()
                 })
             return window_change_counts
@@ -1113,7 +1114,7 @@ class FeatureExtractionCoordinator:
                         pre_extractor = FeatureExtractor(
                             input_sequence=pre_input_sequence,
                             sampling_rate=sampling_rate,
-                            sliding_window_size=1,  # Use 1 second window
+                            sliding_window_size=sliding_window_size,  # Use custom window size
                             feature_mode='averaged'  # Use averaged mode for each window
                         )
                         
@@ -1158,7 +1159,7 @@ class FeatureExtractionCoordinator:
                         post_extractor = FeatureExtractor(
                             input_sequence=post_input_sequence,
                             sampling_rate=sampling_rate,
-                            sliding_window_size=1,  # Use 1 second window
+                            sliding_window_size=sliding_window_size,  # Use custom window size
                             feature_mode='averaged'  # Use averaged mode for each window
                         )
                         

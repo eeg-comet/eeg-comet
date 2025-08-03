@@ -265,7 +265,10 @@ class WidgetGroups:
             self.ui.step4_features_epoched_label
         ]
 
-        return base_widgets + feature_widgets
+        # Add sliding window options
+        sliding_widgets = self._get_sliding_window_widgets()
+
+        return base_widgets + feature_widgets + sliding_widgets
 
     def _get_feature_checkboxes(self):
         """Get feature checkboxes"""
@@ -276,6 +279,15 @@ class WidgetGroups:
             self.ui.step4_feature_lzc_checkbox, self.ui.step4_feature_he_checkbox,
             self.ui.step4_feature_err_checkbox, self.ui.step4_feature_rof_checkbox,
             self.ui.step4_feature_rtf_checkbox
+        ]
+
+    def _get_sliding_window_widgets(self):
+        """Get sliding window option widgets"""
+        return [
+            self.ui.sliding_fix_radio,
+            self.ui.sliding_fix_input,
+            self.ui.sliding_event_radio,
+            self.ui.sliding_event_combobox
         ]
 
     def _get_source_localization_widgets(self):
@@ -1216,6 +1228,9 @@ class MainMicrostateWindow(QMainWindow):
 
         self.ui.step4_extractfeatures_button.setEnabled(feature_checks and mode_checks)
 
+        # Handle sliding window options based on sliding features checkbox
+        self._handle_sliding_window_options()
+
         # Update button styles based on processing state
         if self.comet.done_extracting_features:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
@@ -1223,6 +1238,27 @@ class MainMicrostateWindow(QMainWindow):
         else:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
             self.ui.view_features_action.setDisabled(True)
+
+    def _handle_sliding_window_options(self):
+        """Handle sliding window option widgets based on sliding features checkbox"""
+        from gui_utils.set_widgets_status import set_widgets_status
+        
+        sliding_widgets = self._get_sliding_window_widgets()
+        
+        if self.ui.step4_sliding_features_checkbox.isChecked():
+            # Enable sliding window option widgets
+            set_widgets_status(sliding_widgets, mode='enable')
+            
+            # Set default values if needed
+            if not self.ui.sliding_fix_radio.isChecked() and not self.ui.sliding_event_radio.isChecked():
+                self.ui.sliding_fix_radio.setChecked(True)
+            
+            # Set default window size if empty
+            if not self.ui.sliding_fix_input.text():
+                self.ui.sliding_fix_input.setText("1")
+        else:
+            # Disable sliding window option widgets
+            set_widgets_status(sliding_widgets, mode='disable')
 
     def _handle_source_localization_settings(self):
         """Handle source localization UI settings"""
@@ -2077,6 +2113,24 @@ class MainMicrostateWindow(QMainWindow):
 
         # Word size for ER
         self.comet.word_size = 2
+
+        # Sliding window parameters
+        if self.ui.step4_sliding_features_checkbox.isChecked():
+            if self.ui.sliding_fix_radio.isChecked():
+                # Get custom window size from input (in seconds)
+                try:
+                    window_size = int(self.ui.sliding_fix_input.text())
+                    if window_size <= 0:
+                        window_size = 1  # Default to 1 second if invalid
+                    self.comet.sliding_window_size = window_size
+                except (ValueError, AttributeError):
+                    self.comet.sliding_window_size = 1  # Default to 1 second
+            else:
+                # For event-based (when implemented later), use default for now
+                self.comet.sliding_window_size = 1
+        else:
+            # Default window size when sliding features are not used
+            self.comet.sliding_window_size = 1
 
         # Data type specific parameters
         if self.comet.datatype == 'epoched':
