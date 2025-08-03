@@ -3639,7 +3639,7 @@ background-color: rgb(0, 0, 0);</string>
                 <item row="21" column="2" rowspan="2">
                  <layout class="QGridLayout" name="sliding_GLayout">
                   <item row="1" column="0">
-                   <widget class="QRadioButton" name="sliding_event_radio">
+                   <widget class="QRadioButton" name="step4_sliding_event_radio">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3670,7 +3670,7 @@ background-color: rgb(0, 0, 0);</string>
                    </widget>
                   </item>
                   <item row="0" column="0">
-                   <widget class="QRadioButton" name="sliding_fix_radio">
+                   <widget class="QRadioButton" name="step4_sliding_fix_radio">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3704,7 +3704,7 @@ background-color: rgb(0, 0, 0);</string>
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QLineEdit" name="sliding_fix_input">
+                   <widget class="QLineEdit" name="step4_sliding_fix_input">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3738,7 +3738,7 @@ background-color: rgb(0, 0, 0);</string>
                    </widget>
                   </item>
                   <item row="1" column="1">
-                   <widget class="QComboBox" name="sliding_event_combobox">
+                   <widget class="QComboBox" name="step4_sliding_event_combobox">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
