@@ -1242,23 +1242,32 @@ class MainMicrostateWindow(QMainWindow):
     def _handle_sliding_window_options(self):
         """Handle sliding window option widgets based on sliding features checkbox"""
         from gui_utils.set_widgets_status import set_widgets_status
-        
+
         sliding_widgets = self._get_sliding_window_widgets()
-        
+
         if self.ui.step4_sliding_features_checkbox.isChecked():
             # Enable sliding window option widgets
             set_widgets_status(sliding_widgets, mode='enable')
-            
+
             # Set default values if needed
             if not self.ui.step4_sliding_fix_radio.isChecked() and not self.ui.step4_sliding_event_radio.isChecked():
                 self.ui.step4_sliding_fix_radio.setChecked(True)
-            
+
             # Set default window size if empty
             if not self.ui.step4_sliding_fix_input.text():
                 self.ui.step4_sliding_fix_input.setText("1")
         else:
             # Disable sliding window option widgets
             set_widgets_status(sliding_widgets, mode='disable')
+
+    def _get_sliding_window_widgets(self):
+        """Return the sliding-window option widgets in the main window"""
+        return [
+            self.ui.step4_sliding_fix_radio,
+            self.ui.step4_sliding_fix_input,
+            self.ui.step4_sliding_event_radio,
+            self.ui.step4_sliding_event_combobox
+        ]
 
     def _handle_source_localization_settings(self):
         """Handle source localization UI settings"""
