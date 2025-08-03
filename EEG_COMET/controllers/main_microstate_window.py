@@ -284,10 +284,10 @@ class WidgetGroups:
     def _get_sliding_window_widgets(self):
         """Get sliding window option widgets"""
         return [
-            self.ui.sliding_fix_radio,
-            self.ui.sliding_fix_input,
-            self.ui.sliding_event_radio,
-            self.ui.sliding_event_combobox
+            self.ui.step4_sliding_fix_radio,
+            self.ui.step4_sliding_fix_input,
+            self.ui.step4_sliding_event_radio,
+            self.ui.step4_sliding_event_combobox
         ]
 
     def _get_source_localization_widgets(self):
@@ -1250,12 +1250,12 @@ class MainMicrostateWindow(QMainWindow):
             set_widgets_status(sliding_widgets, mode='enable')
             
             # Set default values if needed
-            if not self.ui.sliding_fix_radio.isChecked() and not self.ui.sliding_event_radio.isChecked():
-                self.ui.sliding_fix_radio.setChecked(True)
+            if not self.ui.step4_sliding_fix_radio.isChecked() and not self.ui.step4_sliding_event_radio.isChecked():
+                self.ui.step4_sliding_fix_radio.setChecked(True)
             
             # Set default window size if empty
-            if not self.ui.sliding_fix_input.text():
-                self.ui.sliding_fix_input.setText("1")
+            if not self.ui.step4_sliding_fix_input.text():
+                self.ui.step4_sliding_fix_input.setText("1")
         else:
             # Disable sliding window option widgets
             set_widgets_status(sliding_widgets, mode='disable')
@@ -2116,10 +2116,10 @@ class MainMicrostateWindow(QMainWindow):
 
         # Sliding window parameters
         if self.ui.step4_sliding_features_checkbox.isChecked():
-            if self.ui.sliding_fix_radio.isChecked():
+            if self.ui.step4_sliding_fix_radio.isChecked():
                 # Get custom window size from input (in seconds)
                 try:
-                    window_size = int(self.ui.sliding_fix_input.text())
+                    window_size = int(self.ui.step4_sliding_fix_input.text())
                     if window_size <= 0:
                         window_size = 1  # Default to 1 second if invalid
                     self.comet.sliding_window_size = window_size
