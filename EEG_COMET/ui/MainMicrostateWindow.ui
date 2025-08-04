@@ -437,7 +437,7 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-240</y>
+               <y>0</y>
                <width>1153</width>
                <height>1630</height>
               </rect>
@@ -2734,7 +2734,7 @@ background-color: rgb(0, 0, 0);</string>
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-878</y>
+               <y>-780</y>
                <width>1153</width>
                <height>1312</height>
               </rect>
@@ -2774,7 +2774,7 @@ background-color: rgb(0, 0, 0);</string>
                    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Windowed characteristics over sliding windows across the EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                   </property>
                   <property name="text">
-                   <string>Extract Features Using Sliding Windows per Subject</string>
+                   <string>Extract Windowed Features (Multiple per File)</string>
                   </property>
                  </widget>
                 </item>
@@ -3495,7 +3495,7 @@ background-color: rgb(0, 0, 0);</string>
                    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Averaged characteristics over the full span of EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                   </property>
                   <property name="text">
-                   <string>Extract Features Averaged Across Entire Dataset per Subject</string>
+                   <string>Extract Global Features (One per File)</string>
                   </property>
                   <property name="checked">
                    <bool>true</bool>
@@ -5138,8 +5138,8 @@ background-color: rgb(0, 0, 0);</string>
   <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_8"/>
   <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_8"/>
  </buttongroups>
 </ui>
