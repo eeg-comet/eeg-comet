@@ -367,6 +367,18 @@ class FeatureVisualizationWindow(QMainWindow):
         if hasattr(self.ui, 'dynamic_radio'):
             self.ui.dynamic_radio.toggled.connect(self.feature_visualization_controller)
 
+        # Bind selection helper widgets if they exist
+        if hasattr(self.ui, 'select_all_checkbox'):
+            self.ui.select_all_checkbox.stateChanged.connect(self.handle_select_all_checkbox)
+        if hasattr(self.ui, 'select_pattern_checkbox'):
+            self.ui.select_pattern_checkbox.stateChanged.connect(self.apply_pattern_selection)
+        if hasattr(self.ui, 'select_pattern_input'):
+            self.ui.select_pattern_input.textChanged.connect(self.apply_pattern_selection)
+
+        # Update selected file lineedit initially
+        if hasattr(self.ui, 'selected_file_lineedit'):
+            self.update_selected_file_lineedit()
+
     def export_feature_image(self):
         """Export feature visualization images to file"""
         # Get study name for default filename
@@ -431,6 +443,21 @@ class FeatureVisualizationWindow(QMainWindow):
             # Allow multiple selections for global (averaged) features
             self.ui.all_files_list.setSelectionMode(QAbstractItemView.MultiSelection)
 
+        # Enable/disable selection helper widgets based on mode
+        if hasattr(self.ui, 'select_all_checkbox'):
+            self.ui.select_all_checkbox.setEnabled(static_mode)
+        if hasattr(self.ui, 'select_pattern_checkbox'):
+            self.ui.select_pattern_checkbox.setEnabled(static_mode)
+        if hasattr(self.ui, 'select_pattern_input'):
+            self.ui.select_pattern_input.setEnabled(static_mode)
+            # If switching to dynamic mode, clear pattern selection and unchecked boxes
+            if not static_mode:
+                self.ui.select_pattern_input.clear()
+                if hasattr(self.ui, 'select_all_checkbox'):
+                    self.ui.select_all_checkbox.setChecked(False)
+                if hasattr(self.ui, 'select_pattern_checkbox'):
+                    self.ui.select_pattern_checkbox.setChecked(False)
+
         # Helper variables for currently selected items
         num_selected = len(self.ui.all_files_list.selectedItems())
         has_selection = num_selected > 0
@@ -492,6 +519,60 @@ class FeatureVisualizationWindow(QMainWindow):
 
         # Refresh ROF plot if relevant
         self._maybe_refresh_rof_plot()
+
+        # Update selected file display
+        self.update_selected_file_lineedit()
+
+        # Ensure any pattern / select all logic stays in sync
+        if getattr(self.ui, 'select_pattern_checkbox', None) and self.ui.select_pattern_checkbox.isChecked():
+            self.apply_pattern_selection(run_controller=False)
+
+    # ------------------------- Selection helper methods -------------------------
+    def update_selected_file_lineedit(self):
+        """Display selected file(s) name or count in the read-only line-edit."""
+        if not hasattr(self.ui, 'selected_file_lineedit'):
+            return
+        selected_items = self.ui.all_files_list.selectedItems()
+        if len(selected_items) == 1:
+            self.ui.selected_file_lineedit.setText(selected_items[0].text())
+        elif len(selected_items) > 1:
+            self.ui.selected_file_lineedit.setText(f"{len(selected_items)} files selected")
+        else:
+            self.ui.selected_file_lineedit.clear()
+
+    def handle_select_all_checkbox(self, state):
+        """Select or deselect all files when the checkbox state changes."""
+        if state == Qt.Checked:
+            # Select all items
+            self.ui.all_files_list.selectAll()
+            # Ensure pattern checkbox is unchecked to avoid conflicts
+            if hasattr(self.ui, 'select_pattern_checkbox'):
+                self.ui.select_pattern_checkbox.setChecked(False)
+        self.update_selected_file_lineedit()
+        # Re-run controller to update button states
+        self.feature_visualization_controller()
+
+    def apply_pattern_selection(self, *_, run_controller: bool = True):
+        """Select files matching pattern when the pattern checkbox is active."""
+        if not (hasattr(self.ui, 'select_pattern_checkbox') and hasattr(self.ui, 'select_pattern_input')):
+            return
+        if not self.ui.select_pattern_checkbox.isChecked():
+            return
+        pattern = self.ui.select_pattern_input.text().strip().lower()
+        if not pattern:
+            return
+        list_widget = self.ui.all_files_list
+        list_widget.clearSelection()
+        for i in range(list_widget.count()):
+            item = list_widget.item(i)
+            if pattern in item.text().lower():
+                item.setSelected(True)
+        # Uncheck select all checkbox to avoid ambiguity
+        if hasattr(self.ui, 'select_all_checkbox'):
+            self.ui.select_all_checkbox.setChecked(False)
+        self.update_selected_file_lineedit()
+        if run_controller:
+            self.feature_visualization_controller()
 
     def auto_plot_selected_feature(self):
         """Automatically plot the currently selected feature without extra clicks."""
