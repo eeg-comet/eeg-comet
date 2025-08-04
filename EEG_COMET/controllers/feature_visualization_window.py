@@ -5,7 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow, QSizePolicy, QActionGroup, QFileDialog
+from PyQt5.QtWidgets import QMainWindow, QSizePolicy, QActionGroup, QFileDialog, QAbstractItemView
 from PyQt5.QtGui import QKeySequence
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -361,6 +361,12 @@ class FeatureVisualizationWindow(QMainWindow):
         if hasattr(self.ui, 'feature_combo'):
             self.ui.feature_combo.currentIndexChanged.connect(self.feature_visualization_controller)
 
+        # Trigger controller when static/dynamic radio toggled
+        if hasattr(self.ui, 'static_radio'):
+            self.ui.static_radio.toggled.connect(self.feature_visualization_controller)
+        if hasattr(self.ui, 'dynamic_radio'):
+            self.ui.dynamic_radio.toggled.connect(self.feature_visualization_controller)
+
     def export_feature_image(self):
         """Export feature visualization images to file"""
         # Get study name for default filename
@@ -413,17 +419,38 @@ class FeatureVisualizationWindow(QMainWindow):
         Control the behavior of the Feature Visualization window based on user selections.
         """
 
-        self.ui.plot_static_violin_plot_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
-        self.ui.plot_static_box_plot_button.setEnabled(not len(self.ui.all_files_list.selectedItems()) == 0)
-        self.ui.plot_all_dynamic_button.setEnabled(
-            len(self.ui.all_files_list.selectedItems()) == 1 and "sliding" in self.feature_mode)
+        # Determine current visualization mode based on radio buttons
+        static_mode = hasattr(self.ui, 'static_radio') and self.ui.static_radio.isChecked()
+        dynamic_mode = hasattr(self.ui, 'dynamic_radio') and self.ui.dynamic_radio.isChecked()
 
-        if self.get_selected_feature_code() == 'TP':
+        # Adjust list selection behavior
+        if dynamic_mode:
+            # Only a single file can be selected for dynamic (windowed) features
+            self.ui.all_files_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        else:
+            # Allow multiple selections for global (averaged) features
+            self.ui.all_files_list.setSelectionMode(QAbstractItemView.MultiSelection)
+
+        # Helper variables for currently selected items
+        num_selected = len(self.ui.all_files_list.selectedItems())
+        has_selection = num_selected > 0
+        single_selection = num_selected == 1
+
+        # --- Static buttons ---
+        self.ui.plot_static_violin_plot_button.setEnabled(static_mode and has_selection)
+        self.ui.plot_static_box_plot_button.setEnabled(static_mode and has_selection)
+
+        # Heatmap (only for Transition Probability feature in static mode)
+        if static_mode and self.get_selected_feature_code() == 'TP':
             set_widgets_status(self.ui.plot_heatmap_button, mode='enable')
             set_widgets_status(self.ui.plot_heatmap_button, mode='show')
         else:
             set_widgets_status(self.ui.plot_heatmap_button, mode='disable')
             set_widgets_status(self.ui.plot_heatmap_button, mode='show')
+
+        # --- Dynamic button ---
+        dynamic_available = "sliding" in self.feature_mode
+        self.ui.plot_all_dynamic_button.setEnabled(dynamic_mode and single_selection and dynamic_available)
 
         # Enable/disable ROF time-series plot button
         if hasattr(self.ui, 'plot_rof_button'):
@@ -477,11 +504,14 @@ class FeatureVisualizationWindow(QMainWindow):
             if self.ui.all_files_list.selectedItems():
                 self.show_tp_heatmap()
         else:
-            # Static or dynamic depending on mode
-            if 'sliding' in self.feature_mode:
+            # Determine which visualization mode is active
+            static_mode = hasattr(self.ui, 'static_radio') and self.ui.static_radio.isChecked()
+            dynamic_mode = hasattr(self.ui, 'dynamic_radio') and self.ui.dynamic_radio.isChecked()
+
+            if dynamic_mode and 'sliding' in self.feature_mode:
                 if self.ui.all_files_list.currentItem():
                     self.show_dynamic_line_all()
-            else:
+            elif static_mode:
                 if self.ui.all_files_list.selectedItems():
                     self.show_static_box_plot()
 
