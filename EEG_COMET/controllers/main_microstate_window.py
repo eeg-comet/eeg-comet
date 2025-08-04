@@ -546,21 +546,26 @@ class MainMicrostateWindow(QMainWindow):
         # Set fixed layout properties to prevent resizing issues
         self._setup_layout_properties()
 
-        # --- NEW: Replace sliding event combobox with a checkable version ---
-        try:
+        # --- NEW: Ensure sliding event combobox exists as CheckableComboBox ---
+        if hasattr(self.ui, 'step4_sliding_event_combobox'):
             orig_combo = self.ui.step4_sliding_event_combobox
-            parent_layout = orig_combo.parent().layout()
-            index_in_layout = parent_layout.indexOf(orig_combo) if parent_layout else -1
+            if not isinstance(orig_combo, CheckableComboBox):
+                new_combo = CheckableComboBox()
+                new_combo.setEnabled(orig_combo.isEnabled())
+                parent_layout = orig_combo.parent().layout() if orig_combo.parent() else None
+                index_in_layout = parent_layout.indexOf(orig_combo) if parent_layout else -1
+                if parent_layout is not None and index_in_layout != -1:
+                    parent_layout.insertWidget(index_in_layout, new_combo)
+                    parent_layout.removeWidget(orig_combo)
+                orig_combo.deleteLater()
+                self.ui.step4_sliding_event_combobox = new_combo
+        else:
+            # Widget removed from UI file; create anew inside the provided layout
             new_combo = CheckableComboBox()
-            new_combo.setEnabled(orig_combo.isEnabled())
-            if parent_layout is not None and index_in_layout != -1:
-                parent_layout.insertWidget(index_in_layout, new_combo)
-                parent_layout.removeWidget(orig_combo)
-            orig_combo.deleteLater()
+            new_combo.setEnabled(False)
+            if hasattr(self.ui, 'sliding_event_HLayout'):
+                self.ui.sliding_event_HLayout.addWidget(new_combo)
             self.ui.step4_sliding_event_combobox = new_combo
-        except Exception:
-            # Fallback: retain original combobox if replacement fails
-            pass
         # --- END NEW ---
 
     def _setup_logo(self):
