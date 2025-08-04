@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import matplotlib.pyplot as plt
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QSizePolicy, QActionGroup, QFileDialog
@@ -797,17 +798,55 @@ class FeatureVisualizationWindow(QMainWindow):
             sampling_rate = getattr(self.comet, 'sample_rate', 250)  # Default to 250 Hz
             sliding_window_size = getattr(self.comet, 'sliding_window_size', 1)  # Default to 1 second
             
-            # Convert window indices to time in seconds
-            # Each window represents sliding_window_size seconds
-            features_df = features_df.copy()
-            features_df['Time_seconds'] = features_df['Window_index'] * sliding_window_size
-            
-            plot_data = pd.melt(features_df.reset_index(), id_vars=['Time_seconds'], value_vars=filter_cols)
-            plot_data.columns = ['Time_seconds', 'Feature', feature]
-
             self.clear_and_set_fonts(ax, font_family, font_sizes)
-            sns.lineplot(x='Time_seconds', y=feature, hue='Feature', data=plot_data, ax=ax)
+            
+            # Plot horizontal lines for each window instead of connected points
+            # Get unique features for coloring
+            unique_features = [col for col in filter_cols]
+            colors = sns.color_palette(n_colors=len(unique_features))
+            
+            for i, col in enumerate(unique_features):
+                # Get the feature values for this column
+                feature_values = features_df[col].values
+                
+                # Create horizontal lines for each window
+                for window_idx, value in enumerate(feature_values):
+                    if not pd.isna(value):  # Skip NaN values
+                        # Calculate window start and end times
+                        window_start = window_idx * sliding_window_size
+                        window_end = (window_idx + 1) * sliding_window_size
+                        
+                        # Draw horizontal line for this window
+                        ax.plot([window_start, window_end], [value, value], 
+                               color=colors[i], linewidth=2, label=col if window_idx == 0 else "")
+                        
+                        # Add vertical connectors between windows (optional, for continuity)
+                        if window_idx > 0 and not pd.isna(feature_values[window_idx-1]):
+                            prev_value = feature_values[window_idx-1]
+                            ax.plot([window_start, window_start], [prev_value, value], 
+                                   color=colors[i], linewidth=1, alpha=0.7)
+            
+            # Set x-axis label
+            ax.set_xlabel('Time (seconds)', fontsize=font_sizes['xlabel'], fontfamily=font_family)
             self.set_labels_ticks_sliding(filter_cols, feature, ax, font_sizes, font_family, display_options)
+            
+            # Create legend manually for the sliding window plot
+            if display_options.get('show_legend', True):
+                # Get handles and labels, removing duplicates
+                handles, labels = ax.get_legend_handles_labels()
+                # Remove empty labels from the vertical connectors
+                filtered_handles = []
+                filtered_labels = []
+                for h, l in zip(handles, labels):
+                    if l and l not in filtered_labels:  # Only add non-empty, unique labels
+                        filtered_handles.append(h)
+                        filtered_labels.append(l)
+                
+                if filtered_handles:
+                    legend = ax.legend(filtered_handles, filtered_labels)
+                    for text in legend.get_texts():
+                        text.set_fontsize(font_sizes['legend'])
+                        text.set_fontfamily(font_family)
         else:
             # Fallback to original behavior if no Window_index column
             plot_data = pd.melt(features_df.reset_index(), id_vars=['Window_index'], value_vars=filter_cols)
@@ -816,18 +855,18 @@ class FeatureVisualizationWindow(QMainWindow):
             self.clear_and_set_fonts(ax, font_family, font_sizes)
             sns.lineplot(x='Window_index', y=feature, hue='Feature', data=plot_data, ax=ax)
             self.set_labels_ticks(filter_cols, feature, ax, font_sizes, font_family, display_options)
-
-        # Handle legend display
-        legend = ax.get_legend()
-        if legend:
-            if display_options.get('show_legend', True):
-                legend.set_visible(True)
-                # Update legend font
-                for text in legend.get_texts():
-                    text.set_fontsize(font_sizes['legend'])
-                    text.set_fontfamily(font_family)
-            else:
-                legend.remove()
+            
+            # Handle legend display for non-sliding plots
+            legend = ax.get_legend()
+            if legend:
+                if display_options.get('show_legend', True):
+                    legend.set_visible(True)
+                    # Update legend font
+                    for text in legend.get_texts():
+                        text.set_fontsize(font_sizes['legend'])
+                        text.set_fontfamily(font_family)
+                else:
+                    legend.remove()
 
         self.canvas.draw()
 
