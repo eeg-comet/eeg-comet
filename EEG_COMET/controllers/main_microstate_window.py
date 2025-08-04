@@ -24,6 +24,7 @@ from .feature_visualization_window import FeatureVisualizationWindow
 from .coregistration_window import CoregistrationWindow
 from .source_visualization_window import SourceVisualizationWindow
 from gui_utils.set_widgets_status import set_widgets_status
+from gui_utils.CheckableComboBox import CheckableComboBox
 from comet import COMET
 from gui_utils.logger import get_logger
 
@@ -545,6 +546,23 @@ class MainMicrostateWindow(QMainWindow):
         # Set fixed layout properties to prevent resizing issues
         self._setup_layout_properties()
 
+        # --- NEW: Replace sliding event combobox with a checkable version ---
+        try:
+            orig_combo = self.ui.step4_sliding_event_combobox
+            parent_layout = orig_combo.parent().layout()
+            index_in_layout = parent_layout.indexOf(orig_combo) if parent_layout else -1
+            new_combo = CheckableComboBox()
+            new_combo.setEnabled(orig_combo.isEnabled())
+            if parent_layout is not None and index_in_layout != -1:
+                parent_layout.insertWidget(index_in_layout, new_combo)
+                parent_layout.removeWidget(orig_combo)
+            orig_combo.deleteLater()
+            self.ui.step4_sliding_event_combobox = new_combo
+        except Exception:
+            # Fallback: retain original combobox if replacement fails
+            pass
+        # --- END NEW ---
+
     def _setup_logo(self):
         """Setup logo with effects"""
         icon_path = self.context.get_resource("eeg_comet_logo.png")
@@ -1007,6 +1025,12 @@ class MainMicrostateWindow(QMainWindow):
 
         # Handle visibility of advanced clustering options
         self._handle_advanced_options()
+
+        # --- NEW: Populate sliding event combobox with common events ---
+        if hasattr(self.comet, 'common_events') and self.comet.common_events:
+            self.ui.step4_sliding_event_combobox.clear()
+            self.ui.step4_sliding_event_combobox.addItems(self.comet.common_events)
+        # --- END NEW ---
 
         # Handle post-clustering state
         if self.comet.done_clustering:

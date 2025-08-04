@@ -338,6 +338,14 @@ class COMET:
         if self.use_percentages is None:
             self.use_percentages = 100
 
+        # --- NEW: Load common events if present ---
+        if "events_config" in self.config:
+            common_events_str = self.config["events_config"].get("common_events", "")
+            self.common_events = [e.strip() for e in common_events_str.split(',') if e.strip()]
+        else:
+            self.common_events = []
+        # --- END NEW ---
+
         # Backfitting Configs
         backfitting_config = self.config["backfitting_config"]
         self.backfit_to = backfitting_config.get("backfit_to", "all")
@@ -628,6 +636,26 @@ class COMET:
             channels_to_remove = [ch.strip() for ch in self.chan2rm.split(',') if ch.strip()]
             if channels_to_remove:
                 eeg.drop_channels(channels_to_remove, on_missing='ignore')
+
+        # --- NEW: Extract event information and store for later use ---
+        try:
+            events, event_id = mne.events_from_annotations(eeg)
+        except Exception:
+            events, event_id = None, {}
+        if events is not None and len(events) > 0:
+            # Build a dictionary {event_name: [onset_times_in_sec, ...]}
+            event_info = {}
+            sfreq = eeg.info['sfreq']
+            for desc, code in event_id.items():
+                onsets = (events[events[:, 2] == code][:, 0] / sfreq).tolist()
+                # round to milliseconds precision to keep file size small
+                onsets = [round(t, 3) for t in onsets]
+                event_info[desc] = onsets
+            # Initialize container on first use
+            if not hasattr(self, 'events_per_file'):
+                self.events_per_file = {}
+            self.events_per_file[eeg_name] = event_info
+        # --- END NEW ---
 
         # Apply automatic bad channel detection and interpolation if requested
         if hasattr(self, 'prep_data') and self.prep_data:
@@ -2287,6 +2315,13 @@ class COMET:
         self.config["source_config"]["source_localization_method"] = self.source_localization_method
         self.config["source_config"]["anatomy_subjects_dir"] = self.anatomy_subjects_dir
 
+        # --- NEW: Save common events information ---
+        if hasattr(self, 'common_events'):
+            if "events_config" not in self.config:
+                self.config.add_section("events_config")
+            self.config["events_config"]["common_events"] = ', '.join(self.common_events)
+        # --- END NEW ---
+
         # Add a new section for state flags
         if "state_flags" not in self.config:
             self.config.add_section("state_flags")
@@ -2513,6 +2548,24 @@ class COMET:
         # Set preprocessing flag
         self.save_eeg_info(self.eeg_info_path)
         self.done_preprocessing = True
+
+        # --- NEW: Determine common events across all files and persist ---
+        if hasattr(self, 'events_per_file') and self.events_per_file:
+            event_sets = [set(ev.keys()) for ev in self.events_per_file.values() if ev]
+            if event_sets:
+                self.common_events = sorted(list(set.intersection(*event_sets)))
+            else:
+                self.common_events = []
+        else:
+            self.common_events = []
+
+        # Store into config for later retrieval
+        if not hasattr(self, 'config'):
+            self.config = self.create_default_config()
+        if "events_config" not in self.config:
+            self.config.add_section("events_config")
+        self.config["events_config"]["common_events"] = ', '.join(self.common_events)
+        # --- END NEW ---
 
         # Log completion
         self.logger.processing_success("PREPROCESSING", "Preprocessing completed successfully")
