@@ -542,12 +542,16 @@ class FeatureVisualizationWindow(QMainWindow):
 
     def handle_select_all_checkbox(self, state):
         """Select or deselect all files when the checkbox state changes."""
+        list_widget = self.ui.all_files_list
         if state == Qt.Checked:
             # Select all items
-            self.ui.all_files_list.selectAll()
-            # Ensure pattern checkbox is unchecked to avoid conflicts
+            list_widget.selectAll()
+            # Prevent conflicts with pattern-selection
             if hasattr(self.ui, 'select_pattern_checkbox'):
                 self.ui.select_pattern_checkbox.setChecked(False)
+        else:
+            # Unchecked: clear all selections
+            list_widget.clearSelection()
         self.update_selected_file_lineedit()
         # Re-run controller to update button states
         self.feature_visualization_controller()
