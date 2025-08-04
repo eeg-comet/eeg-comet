@@ -827,7 +827,7 @@ class FeatureVisualizationWindow(QMainWindow):
                                    color=colors[i], linewidth=1, alpha=0.7)
             
             # Set x-axis label
-            ax.set_xlabel('Time (seconds)', fontsize=font_sizes['xlabel'], fontfamily=font_family)
+            ax.set_xlabel('Time (seconds)', fontsize=font_sizes['label'], fontfamily=font_family)
             self.set_labels_ticks_sliding(filter_cols, feature, ax, font_sizes, font_family, display_options)
             
             # Create legend manually for the sliding window plot
