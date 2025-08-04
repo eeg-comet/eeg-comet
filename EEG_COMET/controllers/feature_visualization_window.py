@@ -566,14 +566,25 @@ class FeatureVisualizationWindow(QMainWindow):
         if not pattern:
             return
         list_widget = self.ui.all_files_list
-        list_widget.clearSelection()
-        for i in range(list_widget.count()):
-            item = list_widget.item(i)
-            if pattern in item.text().lower():
-                item.setSelected(True)
+
+        # Temporarily block signals to prevent recursive triggers while selecting
+        list_widget.blockSignals(True)
+        try:
+            list_widget.clearSelection()
+            for i in range(list_widget.count()):
+                item = list_widget.item(i)
+                if pattern in item.text().lower():
+                    item.setSelected(True)
+        finally:
+            list_widget.blockSignals(False)
+
         # Uncheck select all checkbox to avoid ambiguity
         if hasattr(self.ui, 'select_all_checkbox'):
+            # Block its signals briefly to avoid unintended slot calls
+            self.ui.select_all_checkbox.blockSignals(True)
             self.ui.select_all_checkbox.setChecked(False)
+            self.ui.select_all_checkbox.blockSignals(False)
+
         self.update_selected_file_lineedit()
         if run_controller:
             self.feature_visualization_controller()
