@@ -2174,7 +2174,18 @@ class MainMicrostateWindow(QMainWindow):
                 except (ValueError, AttributeError):
                     self.comet.sliding_window_size = 1  # Default to 1 second
             else:
-                # For event-based (when implemented later), use default for now
+                # Event-based sliding using selected events
+                self.comet.event_based_sliding = True
+                # Retrieve selected events from the checkable combobox
+                selected_events = []
+                try:
+                    for i in range(self.ui.step4_sliding_event_combobox.count()):
+                        if self.ui.step4_sliding_event_combobox.itemData(i, Qt.CheckStateRole) == Qt.Checked:  # type: ignore[arg-type]
+                            selected_events.append(self.ui.step4_sliding_event_combobox.itemText(i))
+                except Exception:
+                    pass
+                self.comet.selected_events = selected_events
+                # Use placeholder window size (not used in event mode)
                 self.comet.sliding_window_size = 1
         else:
             # Default window size when sliding features are not used

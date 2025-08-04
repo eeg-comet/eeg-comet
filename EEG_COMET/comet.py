@@ -1784,6 +1784,70 @@ class COMET:
 
             # Convert to expected format for feature extraction
             if segmentation_array is not None:
+                # Handle event-based sliding windows first
+                if getattr(self, 'event_based_sliding', False) and 'sliding' in self.feature_mode and hasattr(self, 'selected_events') and self.selected_events:
+                    try:
+                        # Load preprocessed EEG to fetch accurate annotation timings
+                        subject_name = os.path.splitext(segmentation_name)[0]
+                        preproc_eeg = self.get_preprocessed_eeg(subject_name)
+                        sfreq = preproc_eeg.info['sfreq']
+                        ann = preproc_eeg.annotations
+                        # Build windows for selected events
+                        event_windows = []  # list of (start_idx,end_idx,label)
+                        for desc, onset, duration in zip(ann.description, ann.onset, ann.duration):
+                            if desc in self.selected_events:
+                                start_idx = int(round(onset * sfreq))
+                                end_idx = int(round((onset + duration) * sfreq))
+                                if end_idx > start_idx:
+                                    event_windows.append((start_idx, end_idx, desc))
+                        # For each window compute features in averaged mode
+                        aggregated = {'sliding': {ftype: [] for ftype in self.feature_types}}
+                        for start_idx, end_idx, ev_label in event_windows:
+                            window_labels = segmentation_array[start_idx:end_idx].tolist() if len(segmentation_array.shape)==1 else segmentation_array[0, start_idx:end_idx].tolist()
+                            if not window_labels:
+                                continue
+                            fe = FeatureExtractor(
+                                input_sequence=window_labels,
+                                sampling_rate=sfreq,
+                                sliding_window_size=None,
+                                feature_mode='averaged'
+                            )
+                            # Build minimal segmentation dict to reuse coordinator
+                            seg_stub = {
+                                'filename': segmentation_name,
+                                'microstate_labels': window_labels,
+                                'time': list(range(len(window_labels)))
+                            }
+                            coordinator = FeatureExtractionCoordinator()
+                            feat_res = coordinator.extract_features(
+                                segmentation=seg_stub,
+                                feature_list=self.feature_list,
+                                feature_mode=['averaged'],
+                                feature_types=self.feature_types,
+                                sliding_window_size=1,
+                                min_samples=None
+                            )
+                            # Map averaged results to 'sliding' to integrate with downstream collector
+                            # Add event label column to each DataFrame
+                            averaged_dict = feat_res.get('averaged', {})
+                            for ftype, df_list in averaged_dict.items():
+                                for df in df_list:
+                                    try:
+                                        df['event'] = ev_label
+                                    except Exception:
+                                        pass
+                            for ftype, df_list in averaged_dict.items():
+                                    aggregated['sliding'][ftype].extend(df_list)
+                        # Store results
+                        COMET._shared_feature_results[segmentation_idx] = {
+                            'segmentation_name': segmentation_name,
+                            'extracted_features': aggregated
+                        }
+                        return  # Skip standard sliding processing
+                    except Exception as _eb_err:
+                        # Fallback to standard path if any error occurs
+                        pass
+
                 # Check if we have epoched data with sliding features enabled OR ROF feature requested
                 is_epoched_sliding = (self.datatype == 'epoched' and 'sliding' in self.feature_mode)
                 needs_epoched_structure = (self.datatype == 'epoched' and 'ROF' in self.feature_list)
