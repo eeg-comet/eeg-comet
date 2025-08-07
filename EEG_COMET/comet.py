@@ -1353,7 +1353,8 @@ class COMET:
             datatype=self.datatype,
             tolerance=self.clustering_tolerance,
             max_iter=self.max_iterations,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            logger=self.logger
         )
 
         # Run automatic optimization
@@ -1378,7 +1379,8 @@ class COMET:
             extension=self.extension,
             datatype=self.datatype,
             tolerance=self.clustering_tolerance,
-            max_iter=self.max_iterations
+            max_iter=self.max_iterations,
+            logger=self.logger
         )
 
         # Run automatic optimization
@@ -1418,7 +1420,8 @@ class COMET:
                 datatype=self.datatype,
                 tolerance=self.clustering_tolerance,
                 max_iter=self.max_iterations,
-                progress_callback=progress_callback
+                progress_callback=progress_callback,
+                logger=self.logger
             )
 
             # Connect LogWindow stop functionality to the optimizer

@@ -233,9 +233,10 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
     def __init__(self, maps2use, min_dist=None, n_inits=10, kmin=2, kmax=10,
                  preprocessed_data_path=None, extension=None, datatype=None,
-                 tolerance=1e-6, max_iter=500, batch_size=None):
+                 tolerance=1e-6, max_iter=500, batch_size=None, logger=None):
         super().__init__(maps2use, min_dist, n_inits, kmin, kmax,
-                         preprocessed_data_path, extension, datatype, tolerance, max_iter)
+                         preprocessed_data_path, extension, datatype, tolerance, max_iter, 
+                         batch_size, progress_callback=None, logger=logger)
 
         # Prepare data in the correct format for modified K-means (n_channels, n_samples)
         if self.maps2use.shape[0] > self.maps2use.shape[1]:

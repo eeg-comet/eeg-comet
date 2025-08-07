@@ -39,7 +39,8 @@ class ClustererOptimizer:
                  tolerance: float = 1e-6,
                  max_iter: int = 500,
                  batch_size: Optional[int] = None,
-                 progress_callback: Optional[Callable[[int, int, str], None]] = None):
+                 progress_callback: Optional[Callable[[int, int, str], None]] = None,
+                 logger=None):
         """
         Initialize the clusterer optimizer.
 
@@ -69,6 +70,8 @@ class ClustererOptimizer:
             Batch size for clustering (default: None)
         progress_callback : callable, optional
             Callback for progress updates: callback(current, total, message)
+        logger : object, optional
+            Logger instance for consistent formatting
         """
         # Validate and ensure correct data format
         if maps2use.ndim != 2:
@@ -108,6 +111,7 @@ class ClustererOptimizer:
         self.max_iter = max_iter
         self.batch_size = batch_size
         self.progress_callback = progress_callback
+        self.logger = logger
 
         # Results storage
         self.results: Dict[str, OptimizationResult] = {}
@@ -156,13 +160,22 @@ class ClustererOptimizer:
         level : str
             Log level ('info', 'warning', 'error')
         """
-        # Terminal output with consistent formatting
-        if level == "error":
-            print(f"[ERROR] {message}")
-        elif level == "warning":
-            print(f"[WARNING] {message}")
+        # Use the logger instance if available for consistent emoji formatting
+        if self.logger is not None:
+            if level == "error":
+                self.logger.error("CLUSTERING", message)
+            elif level == "warning":
+                self.logger.warning("CLUSTERING", message)
+            else:
+                self.logger.processing_info("CLUSTERING", message)
         else:
-            print(f"[INFO] {message}")
+            # Fallback to terminal output with consistent formatting
+            if level == "error":
+                print(f"[ERROR] {message}")
+            elif level == "warning":
+                print(f"[WARNING] {message}")
+            else:
+                print(f"[INFO] {message}")
 
         # If progress callback is available, it might be connected to a log window
         # The progress callback can handle additional logging if needed
