@@ -456,14 +456,16 @@ class NewStudyWindow(QDialog):
         # Set preprocessing parameters
         self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
         if self.temporal_filter_data:
-            if self.ui.step2_lowcut_freq_input.text() >= self.ui.step2_highcut_freq_input.text():
+            lowcut_freq = float(self.ui.step2_lowcut_freq_input.text())
+            highcut_freq = float(self.ui.step2_highcut_freq_input.text())
+            if lowcut_freq >= highcut_freq:
                 QMessageBox.information(self, "Temporal Filter Error",
                                         "Please modify the filter range!",
                                         QMessageBox.Ok)
                 return
             self.filter_method = 'fir' if self.ui.step2_fir_filtermethod_radio.isChecked() else 'iir'
-            self.lowcut_freq = int(self.ui.step2_lowcut_freq_input.text())
-            self.highcut_freq = int(self.ui.step2_highcut_freq_input.text())
+            self.lowcut_freq = int(lowcut_freq)
+            self.highcut_freq = int(highcut_freq)
         else:
             self.filter_method = ''
             self.lowcut_freq = ''
