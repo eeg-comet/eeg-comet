@@ -2,7 +2,6 @@ import numpy as np
 import time
 from typing import Dict, List, Tuple, Optional, Callable
 from dataclasses import dataclass
-from sklearn.model_selection import KFold
 from collections import Counter
 import warnings
 from clustering_utils.microstate_clusterer import MicrostateClusterer
@@ -530,81 +529,27 @@ class ClustererOptimizer:
             higher_is_better=False
         )
 
-    def compute_cross_validation(self, n_folds: int = 5) -> OptimizationResult:
-        """Compute cross-validation scores using vectorized CV criterion"""
-        self._log_message(f"Starting cross-validation with n_folds={n_folds}, data shape={self.maps2use.shape}")
+    def compute_cross_validation(self) -> OptimizationResult:
+        """Compute the classical microstate cross-validation (CV) criterion exactly as defined in
+        Pascual-Marqui et al. (1995) without data splitting.
 
-        # Validate data
-        if self.maps2use.shape[1] < n_folds:
-            self._log_message(
-                f"Warning: Not enough samples ({self.maps2use.shape[1]}) for {n_folds} folds, reducing to {self.maps2use.shape[1]}",
-                level="warning")
-            n_folds = max(2, self.maps2use.shape[1] // 2)
-
+        CV = σ̂²_μ · ((n_ch − 1)/(n_ch − 1 − k))² ,
+        σ̂²_μ = Σ_t (‖u(t)‖² − (T_t·u(t))²) / (T · (n_ch − 1))
+        Lower values indicate a better clustering.
+        """
         scores = []
-        total_steps = len(self.k_range) * n_folds
-        current_step = 0
+        total_steps = len(self.k_range)
 
-        for k in self.k_range:
-            # Check if process should stop
+        for idx, k in enumerate(self.k_range):
+            # Check stop flag
             self._check_stop()
-            
-            self._log_message(f"Processing cross-validation for k={k}")
-            fold_scores = []
-            kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
+            self._update_progress(idx + 1, total_steps, f"Computing CV for k={k}")
 
-            for fold_idx, (train_idx, test_idx) in enumerate(kf.split(self.maps2use.T)):
-                # Check if process should stop
-                self._check_stop()
-                
-                current_step += 1
-                self._update_progress(current_step, total_steps,
-                                      f"Cross-validation k={k}, fold {fold_idx + 1}/{n_folds}")
+            # Retrieve (or compute) clustering result – this already contains the CV score
+            result = self._get_clustering_result(k)
+            scores.append(result.get('cv_score', np.nan))
 
-                train_data = self.maps2use[:, train_idx]
-                test_data = self.maps2use[:, test_idx]
-
-                # Initialize and run clustering on training data
-                # For auto-k selection, always use single repeat
-                clusterer = MicrostateClusterer(
-                    n_states=k,
-                    batch_size=self.batch_size,
-                    n_inits=1,  # Force single repeat for auto-k selection
-                    max_iter=self.max_iter,
-                    tolerance=self.tolerance
-                )
-
-                try:
-                    # Random initialization of maps
-                    n_channels = train_data.shape[0]
-                    initial_maps = np.random.randn(k, n_channels)
-                    for i in range(k):
-                        initial_maps[i] /= np.linalg.norm(initial_maps[i])
-
-                    # Run clustering on training data
-                    maps, _ = clusterer.modified_kmeans(train_data, initial_maps, verbose=False)
-
-                    # Calculate segmentation for test data
-                    activation = maps.dot(test_data)
-                    test_segmentation = np.argmax(np.abs(activation), axis=0)
-
-                    # Compute cross-validation criterion
-                    cv_score = self._compute_cross_validation_criterion_vectorized(
-                        test_data, maps, test_segmentation)
-                    fold_scores.append(cv_score)
-
-                except Exception as e:
-                    self._log_message(f"Error in fold {fold_idx + 1} for k={k}: {str(e)}", level="error")
-                    fold_scores.append(np.nan)
-
-            # Average CV scores across folds
-            if fold_scores and not all(np.isnan(fold_scores)):
-                avg_cv_score = np.nanmean(fold_scores)
-                scores.append(avg_cv_score)
-            else:
-                scores.append(np.nan)
-
-        # Find optimal k (lower CV score is better)
+        # Optimal k = argmin CV
         valid_scores = [(k, s) for k, s in zip(self.k_range, scores) if not np.isnan(s)]
         optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
 
@@ -612,7 +557,7 @@ class ClustererOptimizer:
             k_values=self.k_range.copy(),
             scores=scores,
             optimal_k=optimal_k,
-            method_name="Cross Validation Criterion",
+            method_name="Cross-Validation Criterion",
             higher_is_better=False
         )
 
@@ -728,6 +673,150 @@ class ClustererOptimizer:
             higher_is_better=True
         )
     
+    def compute_methods_batch(self, methods: List[str], parameters: Optional[Dict[str, float]] = None) -> Dict[str, OptimizationResult]:
+        """
+        Compute multiple optimisation methods in a single pass over k to avoid
+        recomputing clustering for each method separately. This preserves the
+        exact metric definitions while improving runtime efficiency on large data.
+
+        Parameters
+        ----------
+        methods : List[str]
+            List of method codes to compute. Supported: ['gev', 'db', 'cv', 'kl']
+        parameters : Dict[str, float], optional
+            Optional parameters for methods (e.g., {'gev': 5.0} threshold)
+
+        Returns
+        -------
+        Dict[str, OptimizationResult]
+            Mapping from method code to its `OptimizationResult`.
+        """
+        parameters = parameters or {}
+
+        # Storage for per-k scores
+        gev_scores: List[float] = []
+        db_scores: List[float] = []
+        cv_scores: List[float] = []
+
+        # For KL we need M_q values across adjacent k
+        M_values: Dict[int, float] = {}
+
+        total_steps = len(self.k_range)
+        for step_index, k in enumerate(self.k_range):
+            self._check_stop()
+            self._update_progress(step_index + 1, total_steps, f"Computing metrics for k={k}")
+
+            result = self._get_clustering_result(k)
+
+            # Extract scores from cached result
+            gev_scores.append(result.get('gev', np.nan))
+
+            if k < 2:
+                db_scores.append(float('inf'))
+            else:
+                try:
+                    db_val = self.compute_custom_davies_bouldin(
+                        data=self.maps2use,
+                        labels=result['segmentation'],
+                        maps=result['maps']
+                    )
+                except Exception:
+                    db_val = np.nan
+                db_scores.append(db_val)
+
+            cv_scores.append(result.get('cv_score', np.nan))
+
+            # Prepare M_q for KL using the same formulation as in compute_krzanowski_lai
+            try:
+                maps = result['maps']
+                segmentation = result['segmentation']
+                W_q = self._compute_W_q(self.maps2use, segmentation, maps)
+                n_channels = self.maps2use.shape[0]
+                M_q = W_q * (k ** (2.0 / n_channels))
+                M_values[k] = M_q
+            except Exception:
+                M_values[k] = np.nan
+
+        # Build KL scores from M_values
+        kl_scores: List[float] = []
+        for i, k in enumerate(self.k_range):
+            if i == 0 or i == len(self.k_range) - 1:
+                kl_scores.append(np.nan)
+                continue
+            k_prev = self.k_range[i - 1]
+            k_next = self.k_range[i + 1]
+            M_prev = M_values.get(k_prev, np.nan)
+            M_curr = M_values.get(k, np.nan)
+            M_next = M_values.get(k_next, np.nan)
+            if np.isnan(M_prev) or np.isnan(M_curr) or np.isnan(M_next):
+                kl_scores.append(np.nan)
+                continue
+            d_prev = M_prev - M_curr
+            d_curr = M_curr - M_next
+            if d_prev < 0 or d_prev < d_curr:
+                kl_scores.append(0.0)
+            elif M_prev > 0:
+                kl_scores.append(d_prev / M_prev)
+            else:
+                kl_scores.append(0.0)
+
+        # Helper to construct OptimizationResult per metric
+        def build_result(method: str) -> OptimizationResult:
+            if method == 'gev':
+                threshold = float(parameters.get('gev', 5.0))
+                optimal_k = self._find_elbow_point(self.k_range, gev_scores, threshold, higher_is_better=True)
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=gev_scores,
+                    optimal_k=optimal_k,
+                    method_name="Global Explained Variance Criterion",
+                    higher_is_better=True
+                )
+            if method == 'db':
+                valid_scores = [(k, s) for k, s in zip(self.k_range, db_scores) if s != float('inf') and not np.isnan(s)]
+                optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=db_scores,
+                    optimal_k=optimal_k,
+                    method_name="Davies-Bouldin Criterion",
+                    higher_is_better=False
+                )
+            if method == 'cv':
+                valid_scores = [(k, s) for k, s in zip(self.k_range, cv_scores) if not np.isnan(s)]
+                optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=cv_scores,
+                    optimal_k=optimal_k,
+                    method_name="Cross-Validation Criterion",
+                    higher_is_better=False
+                )
+            if method == 'kl':
+                valid_scores = [(k, s) for k, s in zip(self.k_range, kl_scores) if not np.isnan(s) and s > 0]
+                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=kl_scores,
+                    optimal_k=optimal_k,
+                    method_name="Krzanowski-Lai Criterion",
+                    higher_is_better=True
+                )
+            # Fallback (should not occur with validated inputs)
+            return OptimizationResult(
+                k_values=self.k_range.copy(),
+                scores=[np.nan] * len(self.k_range),
+                optimal_k=self.kmin,
+                method_name=method,
+                higher_is_better=True
+            )
+
+        results: Dict[str, OptimizationResult] = {}
+        for m in methods:
+            results[m] = build_result(m)
+
+        return results
+    
     def _compute_W_q(self, data: np.ndarray, segmentation: np.ndarray, maps: np.ndarray) -> float:
         """
         Compute W_q (measure of dispersion) for KL criterion.
@@ -753,37 +842,31 @@ class ClustererOptimizer:
         """
         n_clusters = maps.shape[0]
         W_q = 0.0
-        
+
         for r in range(n_clusters):
-            # Get samples in cluster r
+            # Samples in cluster r
             cluster_mask = segmentation == r
-            cluster_data = data[:, cluster_mask]
-            n_r = np.sum(cluster_mask)
-            
+            n_r = int(np.sum(cluster_mask))
             if n_r <= 1:
-                # Skip clusters with 0 or 1 samples
                 continue
-            
-            # Compute D_r = sum_{u,v in cluster r} distance(u, v)^2
-            # Use correlation-based distance for polarity-invariant microstates
-            # Normalize data for correlation computation
-            cluster_data_norm = cluster_data / np.linalg.norm(cluster_data, axis=0, keepdims=True)
-            
-            D_r = 0.0
-            n_samples = cluster_data_norm.shape[1]
-            
-            # Compute pairwise correlation-based distances
-            for i in range(n_samples):
-                for j in range(i + 1, n_samples):  # Avoid double counting
-                    # Compute correlation between samples i and j
-                    correlation = np.abs(np.dot(cluster_data_norm[:, i], cluster_data_norm[:, j]))
-                    # Convert to distance: distance = 1 - correlation
-                    distance = 1.0 - correlation
-                    D_r += distance ** 2
-            
-            # Add to W_q: (1/(2*n_r)) * D_r
+
+            cluster_data = data[:, cluster_mask]
+
+            # Normalize columns (timepoints) for correlation computation
+            norms = np.linalg.norm(cluster_data, axis=0, keepdims=True) + 1e-10
+            cluster_data_norm = cluster_data / norms
+
+            # Pairwise absolute correlations between all samples in cluster r
+            corr = np.abs(cluster_data_norm.T @ cluster_data_norm)  # (n_r, n_r)
+            # Convert to distances and square
+            dist_sq = (1.0 - corr) ** 2
+
+            # Sum over upper triangle (i < j) to avoid double counting and exclude diagonal
+            D_r = np.sum(np.triu(dist_sq, k=1))
+
+            # Accumulate contribution
             W_q += (1.0 / (2.0 * n_r)) * D_r
-        
+
         return W_q
 
     # ============================================================================
@@ -810,7 +893,7 @@ class ClustererOptimizer:
         method_mapping = {
             'gev': ('compute_elbow_gev', None),
             'db': ('compute_davies_bouldin', None),
-            'cv': ('compute_cross_validation', 'n_folds'),
+            'cv': ('compute_cross_validation', None),
             'kl': ('compute_krzanowski_lai', None),
             'majority_vote': ('find_optimal_k_majority_vote', None)
         }
