@@ -1,7 +1,9 @@
+"""Microstate clustering algorithms and utilities (modified K-means, similarity, TAAHC)."""
+
 import numpy as np
-import pandas as pd
 from scipy.spatial.distance import cdist
-from gui_utils.logger import get_logger
+
+from gui_utils.terminal_logger import get_logger
 
 
 class MicrostateClusterer:
@@ -60,6 +62,8 @@ class MicrostateClusterer:
             data (ndarray): Input EEG data with shape (n_channels, n_samples).
             initial_maps (ndarray): Initial microstate maps with shape (n_states, n_channels).
             verbose (bool, optional): Whether to print iteration information. Default is True.
+            worker (QThread, optional): Worker providing a `stopped` flag for cooperative cancel.
+            repetition_num (str | None): Label for this repetition (e.g., "1/5") for logs.
 
         Returns:
             tuple:
@@ -74,22 +78,32 @@ class MicrostateClusterer:
         # Initial setup
         n_channels, n_samples = data.shape
         maps = initial_maps.copy()
-        data_sum_sq = np.sum(data ** 2)
-        prev_residual = np.inf
+        data_sum_sq = np.sum(data**2)
+        # Compute an initial residual so that returning before loop still has a value
+        activation_init = maps.dot(data)
+        segmentation_init = np.argmax(np.abs(activation_init), axis=0)
+        act_sum_sq_init = np.sum(np.sum(maps[segmentation_init].T * data, axis=0) ** 2)
+        residual = abs(data_sum_sq - act_sum_sq_init) / float(n_samples * (n_channels - 1))
+        prev_residual = residual
 
         # Determine if we use batch processing
         use_batches = self.batch_size is not None and self.batch_size > 0
-
-        if use_batches and verbose:
-            self.logger.processing_info("CLUSTERING", f"Using batch processing with batch size: {self.batch_size}")
+        batch_count = 0
+        if use_batches:
             batch_count = int(np.ceil(n_samples / self.batch_size))
+            if verbose:
+                self.logger.processing_info(
+                    "CLUSTERING", f"Using batch processing with batch size: {self.batch_size}"
+                )
 
         # Clustering iterations
         for iteration in range(self.max_iterations):
             # Check if we should stop
-            if worker and hasattr(worker, 'stopped') and worker.stopped:
+            if worker and hasattr(worker, "stopped") and worker.stopped:
                 if verbose:
-                    self.logger.warning("CLUSTERING", f"Clustering stopped at iteration {iteration}")
+                    self.logger.warning(
+                        "CLUSTERING", f"Clustering stopped at iteration {iteration}"
+                    )
                 return maps, prev_residual  # Return current best maps
 
             # Initialize arrays for segmentation and activations
@@ -100,35 +114,42 @@ class MicrostateClusterer:
                 map_sums = np.zeros((self.n_states, n_channels))
                 act_sum_sq = 0
 
-                for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
+                for _b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
                     batch_end = min(batch_start + self.batch_size, n_samples)
                     batch_data = data[:, batch_start:batch_end]
-                    batch_size_actual = batch_end - batch_start
 
-                    if verbose and iteration == 0 and (b % 10 == 0 or b == batch_count - 1):
-                        self.logger.processing_info("CLUSTERING", f"Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
+                    if verbose and iteration == 0 and (_b % 10 == 0 or _b == batch_count - 1):
+                        self.logger.processing_info(
+                            "CLUSTERING",
+                            f"Processing batch {_b + 1}/{batch_count} (samples {batch_start}-{batch_end})",
+                        )
 
                     # Assign each sample in the batch to the best matching microstate
                     batch_activation = maps.dot(batch_data)
                     batch_segmentation = np.argmax(np.abs(batch_activation), axis=0)
-                    
+
                     # Validate segmentation indices
-                    if np.any(batch_segmentation >= self.n_states) or np.any(batch_segmentation < 0):
-                        self.logger.warning("CLUSTERING", f"Invalid batch segmentation indices. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
-                        # Clip indices to valid range
-                        batch_segmentation = np.clip(batch_segmentation, 0, self.n_states - 1)
+                    batch_segmentation = self._validate_and_clip_indices(
+                        indices=batch_segmentation,
+                        n_states=self.n_states,
+                        context="batch segmentation",
+                    )
 
                     # Store segmentation for this batch
                     segmentation[batch_start:batch_end] = batch_segmentation
 
                     # Accumulate map sums for later updates
                     for state in range(self.n_states):
-                        idx = (batch_segmentation == state)
+                        idx = batch_segmentation == state
                         if np.sum(idx) > 0:
-                            map_sums[state] += np.dot(batch_data[:, idx], batch_activation[state, idx])
+                            map_sums[state] += np.dot(
+                                batch_data[:, idx], batch_activation[state, idx]
+                            )
 
                     # Accumulate activation sum squared for residual calculation
-                    batch_act_sum_sq = np.sum(np.sum(maps[batch_segmentation].T * batch_data, axis=0) ** 2)
+                    batch_act_sum_sq = np.sum(
+                        np.sum(maps[batch_segmentation].T * batch_data, axis=0) ** 2
+                    )
                     act_sum_sq += batch_act_sum_sq
 
                 # Update maps after processing all batches
@@ -141,19 +162,18 @@ class MicrostateClusterer:
                 # Process all data at once (original implementation)
                 activation = maps.dot(data)
                 segmentation = np.argmax(np.abs(activation), axis=0)
-                
+
                 # Validate segmentation indices
-                if np.any(segmentation >= self.n_states) or np.any(segmentation < 0):
-                    self.logger.warning("CLUSTERING", f"Invalid segmentation indices in non-batch mode. Max: {np.max(segmentation)}, Min: {np.min(segmentation)}, n_states: {self.n_states}")
-                    # Clip indices to valid range
-                    segmentation = np.clip(segmentation, 0, self.n_states - 1)
+                segmentation = self._validate_and_clip_indices(
+                    indices=segmentation, n_states=self.n_states, context="segmentation"
+                )
 
                 # Update maps
                 for state in range(self.n_states):
-                    idx = (segmentation == state)
+                    idx = segmentation == state
                     if np.sum(idx) > 0:
                         maps[state] = np.dot(data[:, idx], activation[state, idx])
-                        maps[state] /= np.linalg.norm(maps[state])
+                        self._normalize_row_inplace(maps, state)
 
                 # Calculate activation sum squared
                 act_sum_sq = np.sum(np.sum(maps[segmentation].T * data, axis=0) ** 2)
@@ -165,16 +185,29 @@ class MicrostateClusterer:
             if (prev_residual - residual) < (self.clustering_tolerance * residual):
                 if verbose:
                     if repetition_num is not None:
-                        self.logger.processing_info("CLUSTERING", f"Clustering {repetition_num} converged at {iteration} iterations")
+                        self.logger.processing_info(
+                            "CLUSTERING",
+                            f"Clustering {repetition_num} converged at {iteration} iterations",
+                        )
                     else:
-                        self.logger.processing_info("CLUSTERING", f"Clustering converged at {iteration} iterations")
+                        self.logger.processing_info(
+                            "CLUSTERING", f"Clustering converged at {iteration} iterations"
+                        )
                 break
 
             prev_residual = residual
 
         return maps, residual
 
-    def modified_kmeans_similarity(self, data, initial_maps, metric='Cosine Similarity', verbose=True, worker=None, repetition_num=None):
+    def modified_kmeans_similarity(
+        self,
+        data,
+        initial_maps,
+        metric="Cosine Similarity",
+        verbose=True,
+        worker=None,
+        repetition_num=None,
+    ):
         """Perform K-means clustering using spatial similarity metrics.
 
         This variant of the modified K-means algorithm uses either cosine similarity
@@ -187,6 +220,8 @@ class MicrostateClusterer:
             metric (str, optional): Similarity metric to use ('Cosine Similarity' or
                 'Spatial Correlation'). Default is 'Cosine Similarity'.
             verbose (bool, optional): Whether to print iteration information. Default is True.
+            worker (QThread, optional): Worker providing a `stopped` flag for cooperative cancel.
+            repetition_num (str | None): Label for this repetition for logs.
 
         Returns:
             tuple:
@@ -203,27 +238,41 @@ class MicrostateClusterer:
         # Initial setup
         n_channels, n_samples = data.shape
         maps = initial_maps.copy()
-        prev_residual = np.inf
+        # Compute an initial residual so that returning before loop still has a value
+        if metric == "Cosine Similarity":
+            distances_init = cdist(maps, data.T, "cosine")
+        else:
+            distances_init = cdist(maps, data.T, "correlation")
+        similarities_init = 1 - np.abs(distances_init)
+        residual = 1 - np.mean(np.max(similarities_init, axis=0))
+        prev_residual = residual
 
         # Validate similarity metric
-        if metric not in ['Cosine Similarity', 'Spatial Correlation']:
+        if metric not in ["Cosine Similarity", "Spatial Correlation"]:
             raise ValueError(
-                "Invalid similarity metric. Valid options are 'Cosine Similarity' and 'Spatial Correlation'.")
+                "Invalid similarity metric. Valid options are 'Cosine Similarity' and 'Spatial Correlation'."
+            )
 
         # Determine if we use batch processing
         use_batches = self.batch_size is not None and self.batch_size > 0
 
-        if use_batches and verbose:
-            self.logger.processing_info("CLUSTERING", f"Using batch processing with batch size: {self.batch_size}")
-            self.logger.processing_info("CLUSTERING", f"Similarity metric: {metric}")
+        batch_count = 0
+        if use_batches:
             batch_count = int(np.ceil(n_samples / self.batch_size))
+            if verbose:
+                self.logger.processing_info(
+                    "CLUSTERING", f"Using batch processing with batch size: {self.batch_size}"
+                )
+                self.logger.processing_info("CLUSTERING", f"Similarity metric: {metric}")
 
         # Clustering iterations
         for iteration in range(self.max_iterations):
             # Check if we should stop
-            if worker and hasattr(worker, 'stopped') and worker.stopped:
+            if worker and hasattr(worker, "stopped") and worker.stopped:
                 if verbose:
-                    self.logger.processing_info("CLUSTERING", f"Clustering stopped at iteration {iteration}")
+                    self.logger.processing_info(
+                        "CLUSTERING", f"Clustering stopped at iteration {iteration}"
+                    )
                 return maps, prev_residual  # Return current best maps
 
             # Initialize arrays for segmentation and best similarities
@@ -238,33 +287,32 @@ class MicrostateClusterer:
                 for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
                     batch_end = min(batch_start + self.batch_size, n_samples)
                     batch_data = data[:, batch_start:batch_end]
-                    batch_size_actual = batch_end - batch_start
 
                     if verbose and iteration == 0 and (b % 10 == 0 or b == batch_count - 1):
-                        self.logger.processing_info("CLUSTERING", f"Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})")
+                        self.logger.processing_info(
+                            "CLUSTERING",
+                            f"Processing batch {b + 1}/{batch_count} (samples {batch_start}-{batch_end})",
+                        )
 
                     # Calculate similarities between maps and data samples
-                    if metric == 'Cosine Similarity':
-                        # Normalize maps and data for cosine similarity
-                        maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
-                        batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
-                        similarities = np.abs(np.dot(maps_norm, batch_norm))
+                    if metric == "Cosine Similarity":
+                        maps_norm = self._normalize_for_metric(maps, axis=1, metric="Cosine")
+                        batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Cosine")
                     else:  # Spatial Correlation
-                        # Normalize maps for correlation
-                        maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (
-                                    maps.std(axis=1, keepdims=True) + 1e-10)
-                        batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
-                        similarities = np.abs(np.dot(maps_norm, batch_norm))
+                        maps_norm = self._normalize_for_metric(maps, axis=1, metric="Correlation")
+                        batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Correlation", ddof=1)
+                    similarities = np.abs(np.dot(maps_norm, batch_norm))
 
                     # Assign each sample to the best matching microstate
                     batch_segmentation = np.argmax(similarities, axis=0)
                     batch_best_similarities = np.max(similarities, axis=0)
-                    
+
                     # Validate segmentation indices
-                    if np.any(batch_segmentation >= self.n_states) or np.any(batch_segmentation < 0):
-                        self.logger.warning("CLUSTERING", f"Invalid batch segmentation indices in similarity mode. Max: {np.max(batch_segmentation)}, Min: {np.min(batch_segmentation)}, n_states: {self.n_states}")
-                        # Clip indices to valid range
-                        batch_segmentation = np.clip(batch_segmentation, 0, self.n_states - 1)
+                    batch_segmentation = self._validate_and_clip_indices(
+                        indices=batch_segmentation,
+                        n_states=self.n_states,
+                        context="similarity batch segmentation",
+                    )
 
                     # Store segmentation and best similarities for this batch
                     segmentation[batch_start:batch_end] = batch_segmentation
@@ -272,24 +320,26 @@ class MicrostateClusterer:
 
                     # Accumulate weighted data for map updates
                     for state in range(self.n_states):
-                        idx = (batch_segmentation == state)
+                        idx = batch_segmentation == state
                         if np.sum(idx) > 0:
-                            map_updates[state] += np.dot(batch_data[:, idx], similarities[state, idx])
+                            map_updates[state] += np.dot(
+                                batch_data[:, idx], similarities[state, idx]
+                            )
                             map_weights[state] += np.sum(similarities[state, idx])
 
                 # Update maps after processing all batches
                 for state in range(self.n_states):
                     if map_weights[state] > 0:
                         maps[state] = map_updates[state] / map_weights[state]
-                        maps[state] /= np.linalg.norm(maps[state])
+                        self._normalize_row_inplace(maps, state)
 
             else:
                 # Process all data at once (original implementation)
                 # Calculate distances/similarities between maps and data
-                if metric == 'Cosine Similarity':
-                    distances = cdist(maps, data.T, 'cosine')
+                if metric == "Cosine Similarity":
+                    distances = cdist(maps, data.T, "cosine")
                 else:  # Spatial Correlation
-                    distances = cdist(maps, data.T, 'correlation')
+                    distances = cdist(maps, data.T, "correlation")
 
                 # Convert distances to similarities (1 - distance)
                 similarities = 1 - np.abs(distances)
@@ -300,10 +350,10 @@ class MicrostateClusterer:
 
                 # Update maps
                 for state in range(self.n_states):
-                    idx = (segmentation == state)
+                    idx = segmentation == state
                     if np.sum(idx) > 0:
                         maps[state] = np.dot(data[:, idx], similarities[state, idx])
-                        maps[state] /= np.linalg.norm(maps[state])
+                        self._normalize_row_inplace(maps, state)
 
             # Calculate residual (1 - average of best similarities)
             residual = 1 - np.mean(best_similarities)
@@ -312,16 +362,58 @@ class MicrostateClusterer:
             if (prev_residual - residual) < (self.clustering_tolerance * residual):
                 if verbose:
                     if repetition_num is not None:
-                        self.logger.processing_info("CLUSTERING", f"Clustering {repetition_num} converged at {iteration} iterations")
+                        self.logger.processing_info(
+                            "CLUSTERING",
+                            f"Clustering {repetition_num} converged at {iteration} iterations",
+                        )
                     else:
-                        self.logger.processing_info("CLUSTERING", f"Clustering converged at {iteration} iterations")
+                        self.logger.processing_info(
+                            "CLUSTERING", f"Clustering converged at {iteration} iterations"
+                        )
                 break
 
             prev_residual = residual
 
         return maps, residual
 
-    def taahc(self, data, metric='Spatial Correlation', verbose=True, progress_callback=None, worker=None):
+    @staticmethod
+    def _normalize_row_inplace(matrix: np.ndarray, row_index: int) -> None:
+        """Normalize a single row of a matrix in-place to unit L2 norm."""
+        norm = np.linalg.norm(matrix[row_index])
+        if norm > 0:
+            matrix[row_index] /= norm
+
+    @staticmethod
+    def _normalize_for_metric(arr: np.ndarray, axis: int, metric: str, ddof: int = 0) -> np.ndarray:
+        """Normalize array for similarity/correlation computations.
+
+        Args:
+            arr: Input array.
+            axis: Axis along which to normalize.
+            metric: 'Cosine' or 'Correlation'.
+            ddof: Delta degrees of freedom for std (used in correlation mode).
+
+        Returns:
+            Normalized array.
+        """
+        if metric == "Cosine":
+            return arr / (np.linalg.norm(arr, axis=axis, keepdims=True) + 1e-10)
+        # Correlation
+        mean_centered = arr - arr.mean(axis=axis, keepdims=True)
+        return mean_centered / (mean_centered.std(axis=axis, keepdims=True, ddof=ddof) + 1e-10)
+
+    def _validate_and_clip_indices(self, indices: np.ndarray, n_states: int, context: str) -> np.ndarray:
+        """Validate segmentation indices and clip to valid range, logging if needed."""
+        if np.any(indices >= n_states) or np.any(indices < 0):
+            self.logger.warning(
+                "CLUSTERING",
+                f"Invalid {context} indices. Max: {np.max(indices)}, Min: {np.min(indices)}, n_states: {n_states}",
+            )
+            return np.clip(indices, 0, n_states - 1)
+        return indices
+    def taahc(
+        self, data, metric="Spatial Correlation", verbose=True, progress_callback=None, worker=None
+    ):
         """Perform Topographic Atomize and Agglomerate Hierarchical Clustering (TAAHC) for EEG microstates.
 
         This memory-optimized implementation of the TAAHC algorithm clusters EEG data
@@ -332,8 +424,9 @@ class MicrostateClusterer:
             metric (str, optional): Similarity metric to use ('Cosine Similarity' or
                 'Spatial Correlation'). Default is 'Spatial Correlation'.
             verbose (bool, optional): Whether to print progress information. Default is True.
-            progress_callback (callable, optional): Callback function for progress updates.
-                Should accept (current, total, message). Added for GUI integration.
+            progress_callback (callable, optional): Callback for progress updates, signature
+                (current, total, message).
+            worker (QThread, optional): Worker providing a `stopped` flag for cooperative cancel.
 
         Returns:
             tuple:
@@ -351,15 +444,18 @@ class MicrostateClusterer:
         """
         import time
 
+        # Initialize timing reference
+        start_time = time.time()
+
         if verbose:
-            self.logger.processing_info("CLUSTERING", f"Starting TAAHC clustering")
+            self.logger.processing_info("CLUSTERING", "Starting TAAHC clustering")
             self.logger.processing_info("CLUSTERING", f"Using similarity metric: {metric}")
-            start_time = time.time()
 
         # Validate similarity metric
-        if metric not in ['Cosine Similarity', 'Spatial Correlation']:
+        if metric not in ["Cosine Similarity", "Spatial Correlation"]:
             raise ValueError(
-                "Invalid similarity metric. Valid options are 'Cosine Similarity' and 'Spatial Correlation'.")
+                "Invalid similarity metric. Valid options are 'Cosine Similarity' and 'Spatial Correlation'."
+            )
 
         n_channels, n_samples = data.shape
 
@@ -389,11 +485,9 @@ class MicrostateClusterer:
         # Initialize progress tracking variables
         current_step = 0
         total_estimated_steps = 100  # Initial placeholder, will be updated after peaks are found
-        total_iterations_needed = 0  # Will be updated after peaks are found
-        
+
         # Progress tracking variables
         iteration_times = []  # Track time per iteration for ETA calculation
-        last_eta_update = 0  # Track when we last updated ETA
 
         # Step 1: Calculate GFP (Global Field Power)
         update_progress("Calculating GFP curve...")
@@ -401,8 +495,9 @@ class MicrostateClusterer:
 
         # Step 2: Find GFP peaks (local maxima)
         update_progress("Detecting GFP peaks...")
-        peaks = np.where((gfp_curve[:-2] < gfp_curve[1:-1]) &
-                         (gfp_curve[1:-1] > gfp_curve[2:]))[0] + 1
+        peaks = (
+            np.where((gfp_curve[:-2] < gfp_curve[1:-1]) & (gfp_curve[1:-1] > gfp_curve[2:]))[0] + 1
+        )
 
         if verbose:
             self.logger.processing_info("CLUSTERING", f"Found {len(peaks)} GFP peaks")
@@ -410,15 +505,22 @@ class MicrostateClusterer:
         if len(peaks) < self.n_states:
             update_progress(f"Adding random samples (found only {len(peaks)} peaks)...")
             if verbose:
-                self.logger.warning("CLUSTERING", f"Only {len(peaks)} GFP peaks found, less than requested {self.n_states} states")
-                self.logger.processing_info("CLUSTERING", f"Adding random samples to reach required number of initial states")
+                self.logger.warning(
+                    "CLUSTERING",
+                    f"Only {len(peaks)} GFP peaks found, less than requested {self.n_states} states",
+                )
+                self.logger.processing_info(
+                    "CLUSTERING", "Adding random samples to reach required number of initial states"
+                )
             # Add random samples if needed
-            additional = np.random.choice(np.arange(n_samples),
-                                          size=max(self.n_states - len(peaks), 0),
-                                          replace=False)
+            additional = np.random.choice(
+                np.arange(n_samples), size=max(self.n_states - len(peaks), 0), replace=False
+            )
             peaks = np.concatenate([peaks, additional])
             if verbose:
-                self.logger.processing_info("CLUSTERING", f"Added {len(additional)} random samples as initial states")
+                self.logger.processing_info(
+                    "CLUSTERING", f"Added {len(additional)} random samples as initial states"
+                )
 
         # Step 3: Initialize with peak maps
         update_progress("Initializing with peak maps...")
@@ -426,13 +528,14 @@ class MicrostateClusterer:
         maps = peak_data.T.copy()  # Shape: (n_peaks, n_channels)
         n_maps = maps.shape[0]
         n_peaks = len(peaks)  # Define n_peaks for use in progress tracking
-        
+
         # Update progress estimation with actual number of peaks
         total_iterations_needed = max(n_peaks - self.n_states, 0)
         total_estimated_steps = (
-                15 +  # Initial setup steps (GFP, peaks, initialization)
-                total_iterations_needed * 8 +  # Each iteration: batch processing + atomization + reassignment + recalculation
-                25  # Final processing steps (residual calculation)
+            15  # Initial setup steps (GFP, peaks, initialization)
+            + total_iterations_needed
+            * 8  # Each iteration: batch processing + atomization + reassignment + recalculation
+            + 25  # Final processing steps (residual calculation)
         )
 
         # Normalize maps
@@ -443,24 +546,36 @@ class MicrostateClusterer:
         cluster_indices = [[k] for k in range(n_maps)]
 
         # For GEV calculation
-        data_sum_sq = np.sum(gfp_curve ** 2)
+        np.sum(gfp_curve**2)
 
         if verbose:
-            self.logger.processing_info("CLUSTERING", f"Starting hierarchical clustering with {n_maps} maps")
+            self.logger.processing_info(
+                "CLUSTERING", f"Starting hierarchical clustering with {n_maps} maps"
+            )
 
         update_progress(f"Starting hierarchical clustering: {n_maps} → {self.n_states} maps...")
 
         iteration = 0
-        iteration_start_time = time.time()
-        
+        time.time()
+        # Pre-allocate arrays used within iterations to avoid any uninitialized use
+        assignments = np.zeros(n_samples, dtype=int)
+        best_corrs = np.zeros(n_samples, dtype=float)
+
         # Main TAAHC loop
         while n_maps > self.n_states:
+            # Start iteration timer at the very beginning to avoid uninitialized reference
+            iteration_iter_start = time.time()
             # Check if we should stop
-            if worker and hasattr(worker, 'stopped') and worker.stopped:
+            if worker and hasattr(worker, "stopped") and worker.stopped:
                 if verbose:
-                    self.logger.warning("CLUSTERING", f"Stop requested - please wait ...")
-                    self.logger.warning("CLUSTERING", f"Clustering stopped by user with {n_maps} maps remaining")
-                    self.logger.warning("CLUSTERING", f"Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
+                    self.logger.warning("CLUSTERING", "Stop requested - please wait ...")
+                    self.logger.warning(
+                        "CLUSTERING", f"Clustering stopped by user with {n_maps} maps remaining"
+                    )
+                    self.logger.warning(
+                        "CLUSTERING",
+                        f"Cannot save maps: target {self.n_states} states not reached (current: {n_maps})",
+                    )
                 # Return None for maps since we don't have the correct number of states
                 return None, np.inf
 
@@ -469,18 +584,20 @@ class MicrostateClusterer:
                 continue_processing = progress_callback(
                     current_step,
                     total_estimated_steps,
-                    f"TAAHC: {n_maps} → {self.n_states} maps (iteration {iteration + 1})"
+                    f"TAAHC: {n_maps} → {self.n_states} maps (iteration {iteration + 1})",
                 )
                 if not continue_processing:
                     if verbose:
-                        self.logger.warning("CLUSTERING", f"Stop requested - please wait ...")
-                        self.logger.warning("CLUSTERING", f"Clustering stopped by progress callback")
-                        self.logger.warning("CLUSTERING", f"Cannot save maps: target {self.n_states} states not reached (current: {n_maps})")
+                        self.logger.warning("CLUSTERING", "Stop requested - please wait ...")
+                        self.logger.warning("CLUSTERING", "Clustering stopped by progress callback")
+                        self.logger.warning(
+                            "CLUSTERING",
+                            f"Cannot save maps: target {self.n_states} states not reached (current: {n_maps})",
+                        )
                     # Return None for maps since we don't have the correct number of states
                     return None, np.inf
 
             iteration += 1
-            iteration_iter_start = time.time()
 
             # Update progress with current iteration info
             remaining_iterations = n_maps - self.n_states
@@ -490,7 +607,7 @@ class MicrostateClusterer:
             # Enhanced logging with ETA every 10th iteration
             if verbose and (iteration % 10 == 0 or n_maps <= self.n_states + 5 or iteration == 1):
                 elapsed = time.time() - start_time
-                
+
                 # Calculate ETA if we have enough data
                 eta_msg = ""
                 if len(iteration_times) >= 3:
@@ -498,39 +615,39 @@ class MicrostateClusterer:
                     eta_seconds = avg_iter_time * remaining_iterations
                     eta_minutes = eta_seconds / 60
                     eta_msg = f", ETA: {eta_minutes:.1f} min"
-                
-                self.logger.processing_info("CLUSTERING", f"TAAHC Iteration {iteration}: {n_maps} maps remaining ({remaining_iterations} to go), "
-                      f"elapsed: {elapsed:.1f}s{eta_msg}")
 
-            # Initialize arrays to store assignments and best correlations
-            assignments = np.zeros(n_samples, dtype=int)
-            best_corrs = np.zeros(n_samples)
+                self.logger.processing_info(
+                    "CLUSTERING",
+                    f"TAAHC Iteration {iteration}: {n_maps} maps remaining ({remaining_iterations} to go), "
+                    f"elapsed: {elapsed:.1f}s{eta_msg}",
+                )
+
+            # Reset arrays to store assignments and best correlations for this iteration
+            assignments.fill(0)
+            best_corrs.fill(0.0)
 
             # Normalize maps based on the chosen metric
-            if metric == 'Spatial Correlation':
-                # Normalize for correlation (subtract mean, divide by std)
-                maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (maps.std(axis=1, keepdims=True) + 1e-10)
-            else:  # Cosine Similarity
-                # Normalize for cosine similarity (just divide by norm)
-                maps_norm = maps / np.linalg.norm(maps, axis=1, keepdims=True)
+        if metric == "Spatial Correlation":
+            maps_norm = self._normalize_for_metric(maps, axis=1, metric="Correlation")
+        else:  # Cosine Similarity
+            maps_norm = self._normalize_for_metric(maps, axis=1, metric="Cosine")
 
             # Process data in batches
             if verbose and n_maps <= self.n_states + 10:
-                self.logger.processing_info("CLUSTERING", f"Processing {n_samples} samples in batches of {batch_size}...")
-                batch_count = int(np.ceil(n_samples / batch_size))
+                self.logger.processing_info(
+                    "CLUSTERING", f"Processing {n_samples} samples in batches of {batch_size}..."
+                )
 
-            for b, batch_start in enumerate(range(0, n_samples, batch_size)):
+            for _b, batch_start in enumerate(range(0, n_samples, batch_size)):
                 batch_end = min(batch_start + batch_size, n_samples)
 
                 batch_data = data[:, batch_start:batch_end]
 
                 # Normalize batch data based on the chosen metric
-                if metric == 'Spatial Correlation':
-                    # Normalize for correlation (subtract mean, divide by std)
-                    batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
+                if metric == "Spatial Correlation":
+                    batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Correlation", ddof=1)
                 else:  # Cosine Similarity
-                    # Normalize for cosine similarity (just divide by norm)
-                    batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
+                    batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Cosine")
 
                 # Calculate similarities for this batch
                 batch_corrs = np.abs(np.dot(maps_norm, batch_norm))
@@ -543,7 +660,9 @@ class MicrostateClusterer:
                 best_corrs[batch_start:batch_end] = batch_best_corrs
 
             if verbose and n_maps <= self.n_states + 10:
-                self.logger.processing_info("CLUSTERING", f"Calculating atomization values for each map...")
+                self.logger.processing_info(
+                    "CLUSTERING", "Calculating atomization values for each map..."
+                )
 
             # Calculate atomization criterion for each map
             atomisation_values = np.zeros(n_maps)
@@ -564,10 +683,15 @@ class MicrostateClusterer:
             worst_idx = np.argmin(atomisation_values)
 
             if verbose and n_maps <= self.n_states + 10:
-                self.logger.processing_info("CLUSTERING", f"Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}")
+                self.logger.processing_info(
+                    "CLUSTERING",
+                    f"Removing map #{worst_idx} with TAAHC value: {atomisation_values[worst_idx]:.6f}",
+                )
 
             # Update progress for map removal
-            update_progress(f"Removing weakest map (#{worst_idx}), reassigning {cluster_sizes[worst_idx]} points...")
+            update_progress(
+                f"Removing weakest map (#{worst_idx}), reassigning {cluster_sizes[worst_idx]} points..."
+            )
 
             # Remove the worst map
             maps = np.delete(maps, worst_idx, axis=0)
@@ -579,14 +703,19 @@ class MicrostateClusterer:
             removed_data = peak_data[:, removed_indices].T
 
             # Normalize based on the chosen metric
-            if metric == 'Spatial Correlation':
+            if metric == "Spatial Correlation":
                 # Normalize for correlation
                 removed_norm = (removed_data - removed_data.mean(axis=1, keepdims=True)) / (
-                        removed_data.std(axis=1, keepdims=True) + 1e-10)
-                maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (maps.std(axis=1, keepdims=True) + 1e-10)
+                    removed_data.std(axis=1, keepdims=True) + 1e-10
+                )
+                maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (
+                    maps.std(axis=1, keepdims=True) + 1e-10
+                )
             else:  # Cosine Similarity
                 # Normalize for cosine similarity
-                removed_norm = removed_data / (np.linalg.norm(removed_data, axis=1, keepdims=True) + 1e-10)
+                removed_norm = removed_data / (
+                    np.linalg.norm(removed_data, axis=1, keepdims=True) + 1e-10
+                )
                 maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
 
             # Calculate similarity with remaining maps
@@ -626,42 +755,52 @@ class MicrostateClusterer:
                     maps[idx] = cluster_data[0] / np.linalg.norm(cluster_data[0])
 
             n_maps = len(cluster_indices)
-            
+
             # Track iteration time for ETA calculation
             iteration_time = time.time() - iteration_iter_start
             iteration_times.append(iteration_time)
 
             if verbose and n_maps == self.n_states:
                 self.logger.processing_info("CLUSTERING", "=" * 70)
-                self.logger.processing_info("CLUSTERING", f"Reached target of {self.n_states} states after {iteration} iterations")
+                self.logger.processing_info(
+                    "CLUSTERING",
+                    f"Reached target of {self.n_states} states after {iteration} iterations",
+                )
                 total_time = time.time() - start_time
                 avg_iter_time = np.mean(iteration_times) if iteration_times else 0
-                self.logger.processing_info("CLUSTERING", f"Total time: {total_time:.1f}s, Average iteration time: {avg_iter_time:.3f}s")
+                self.logger.processing_info(
+                    "CLUSTERING",
+                    f"Total time: {total_time:.1f}s, Average iteration time: {avg_iter_time:.3f}s",
+                )
 
         # Final processing
         update_progress("Calculating final assignments and residual...")
         if verbose:
-            self.logger.processing_info("CLUSTERING", "Calculating final assignments and residual...")
+            self.logger.processing_info(
+                "CLUSTERING", "Calculating final assignments and residual..."
+            )
 
         # Calculate final residual - using batches
         final_corrs = np.zeros(n_samples)
 
         # Final normalization based on the chosen metric
-        if metric == 'Spatial Correlation':
-            maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (maps.std(axis=1, keepdims=True) + 1e-10)
+        if metric == "Spatial Correlation":
+            maps_norm = self._normalize_for_metric(maps, axis=1, metric="Correlation")
         else:  # Cosine Similarity
-            maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
+            maps_norm = self._normalize_for_metric(maps, axis=1, metric="Cosine")
 
         batch_count = int(np.ceil(n_samples / batch_size))
         for b, batch_start in enumerate(range(0, n_samples, batch_size)):
             # Check for stop during final processing
-            if worker and hasattr(worker, 'stopped') and worker.stopped:
+            if worker and hasattr(worker, "stopped") and worker.stopped:
                 if verbose:
-                    self.logger.warning("CLUSTERING", f"TAAHC stopped during final processing")
+                    self.logger.warning("CLUSTERING", "TAAHC stopped during final processing")
                 return None, np.inf
 
             if verbose and (b % 20 == 0 or b == batch_count - 1):
-                self.logger.processing_info("CLUSTERING", f"Final processing batch {b + 1}/{batch_count}")
+                self.logger.processing_info(
+                    "CLUSTERING", f"Final processing batch {b + 1}/{batch_count}"
+                )
 
             # Update progress for final batches
             if b % max(1, batch_count // 10) == 0:  # Update every 10%
@@ -672,10 +811,10 @@ class MicrostateClusterer:
             batch_data = data[:, batch_start:batch_end]
 
             # Normalize based on the chosen metric
-            if metric == 'Spatial Correlation':
-                batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
+            if metric == "Spatial Correlation":
+                batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Correlation", ddof=1)
             else:  # Cosine Similarity
-                batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
+                batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Cosine")
 
             batch_corrs = np.abs(np.dot(maps_norm, batch_norm))
             final_corrs[batch_start:batch_end] = np.max(batch_corrs, axis=0)
@@ -689,31 +828,37 @@ class MicrostateClusterer:
             final_assignments = np.zeros(n_samples, dtype=int)
             for batch_start in range(0, n_samples, batch_size):
                 # Check for stop during final statistics
-                if worker and hasattr(worker, 'stopped') and worker.stopped:
+                if worker and hasattr(worker, "stopped") and worker.stopped:
                     if verbose:
-                        self.logger.warning("CLUSTERING", f"TAAHC stopped during final statistics")
+                        self.logger.warning("CLUSTERING", "TAAHC stopped during final statistics")
                     # Return None for maps since we don't have the correct number of states
                     return None, np.inf
-                    
+
                 batch_end = min(batch_start + batch_size, n_samples)
                 batch_data = data[:, batch_start:batch_end]
 
                 # Final batch normalization for assignments
-                if metric == 'Spatial Correlation':
-                    batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
+                if metric == "Spatial Correlation":
+                    batch_norm = (batch_data - batch_data.mean(axis=0)) / (
+                        batch_data.std(axis=0, ddof=1) + 1e-10
+                    )
                 else:  # Cosine Similarity
-                    batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
+                    batch_norm = batch_data / (
+                        np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10
+                    )
 
                 batch_corrs = np.abs(np.dot(maps_norm, batch_norm))
                 final_assignments[batch_start:batch_end] = np.argmax(batch_corrs, axis=0)
 
             total_time = time.time() - start_time
             self.logger.processing_info("CLUSTERING", "=" * 70)
-            self.logger.processing_info("CLUSTERING", f"TAAHC clustering completed successfully!")
+            self.logger.processing_info("CLUSTERING", "TAAHC clustering completed successfully!")
             self.logger.processing_info("CLUSTERING", f"Total time: {total_time:.2f} seconds")
             self.logger.processing_info("CLUSTERING", f"Using similarity metric: {metric}")
             self.logger.processing_info("CLUSTERING", f"Residual: {residual:.6f}")
-            self.logger.processing_info("CLUSTERING", f"Average iteration time: {np.mean(iteration_times):.3f}s")
+            self.logger.processing_info(
+                "CLUSTERING", f"Average iteration time: {np.mean(iteration_times):.3f}s"
+            )
             self.logger.processing_info("CLUSTERING", "=" * 70)
 
         # Final progress update
@@ -724,35 +869,39 @@ class MicrostateClusterer:
     def _calculate_taahc_residual(self, data, maps, metric, batch_size, verbose=False, worker=None):
         """Helper method to calculate residual for TAAHC clustering."""
         n_samples = data.shape[1]
-        
+
         # Final normalization based on the chosen metric
-        if metric == 'Spatial Correlation':
-            maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (maps.std(axis=1, keepdims=True) + 1e-10)
+        if metric == "Spatial Correlation":
+            maps_norm = (maps - maps.mean(axis=1, keepdims=True)) / (
+                maps.std(axis=1, keepdims=True) + 1e-10
+            )
         else:  # Cosine Similarity
             maps_norm = maps / (np.linalg.norm(maps, axis=1, keepdims=True) + 1e-10)
 
         # Calculate final residual - using batches
         final_corrs = np.zeros(n_samples)
         batch_count = int(np.ceil(n_samples / batch_size))
-        
+
         for b, batch_start in enumerate(range(0, n_samples, batch_size)):
             # Check for stop during residual calculation
-            if worker and hasattr(worker, 'stopped') and worker.stopped:
+            if worker and hasattr(worker, "stopped") and worker.stopped:
                 if verbose:
-                    self.logger.warning("CLUSTERING", f"TAAHC stopped during residual calculation")
+                    self.logger.warning("CLUSTERING", "TAAHC stopped during residual calculation")
                 return 1.0  # Return worst case residual
-            
+
             if verbose and (b % 20 == 0 or b == batch_count - 1):
-                self.logger.processing_info("CLUSTERING", f"Residual calculation batch {b + 1}/{batch_count}")
+                self.logger.processing_info(
+                    "CLUSTERING", f"Residual calculation batch {b + 1}/{batch_count}"
+                )
 
             batch_end = min(batch_start + batch_size, n_samples)
             batch_data = data[:, batch_start:batch_end]
 
             # Normalize based on the chosen metric
-            if metric == 'Spatial Correlation':
-                batch_norm = (batch_data - batch_data.mean(axis=0)) / (batch_data.std(axis=0, ddof=1) + 1e-10)
+            if metric == "Spatial Correlation":
+                batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Correlation", ddof=1)
             else:  # Cosine Similarity
-                batch_norm = batch_data / (np.linalg.norm(batch_data, axis=0, keepdims=True) + 1e-10)
+                batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Cosine")
 
             batch_corrs = np.abs(np.dot(maps_norm, batch_norm))
             final_corrs[batch_start:batch_end] = np.max(batch_corrs, axis=0)
@@ -765,8 +914,7 @@ class MicrostateClusterer:
 
     @staticmethod
     def corr_vectors(array1, array2, axis=0):
-        """
-        Compute the Pearson correlation between two matrices along a specified axis.
+        """Compute the Pearson correlation between two matrices along a specified axis.
 
         Args:
             array1 (ndarray): First matrix.
@@ -789,8 +937,7 @@ class MicrostateClusterer:
         return np.sum(array1n * array2n, axis=axis)
 
     def compute_gev(self, data, maps):
-        """
-        Calculate the global explained variance (GEV) of microstate maps.
+        """Calculate the global explained variance (GEV) of microstate maps.
 
         GEV measures how well a set of microstate maps explains the variance
         in the EEG data, with values ranging from 0 to 1 (higher is better).
@@ -832,8 +979,7 @@ class MicrostateClusterer:
         map_corr = self.corr_vectors(data, selected_maps.T)
 
         # Calculate GEV
-        return np.sum((gfp * map_corr) ** 2) / np.sum(gfp ** 2)
+        return np.sum((gfp * map_corr) ** 2) / np.sum(gfp**2)
 
 
 # wrapper removed
-

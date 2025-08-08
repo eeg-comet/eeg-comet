@@ -1,29 +1,25 @@
-import os.path
+"""Data I/O helpers for EEG files, montages, and related utilities."""
+
 import collections
-from fnmatch import fnmatch
-import numpy as np
-import mne
-from scipy.io import loadmat
+import os.path
 import warnings
+from fnmatch import fnmatch
+
+import mne
+import numpy as np
+from scipy.io import loadmat
 
 
 class DataIO:
-    """Provides methods for loading, saving, and manipulating EEG data files.
-
-    This class handles various EEG file formats and provides utilities for
-    working with channel locations, montages, and data extraction. It supports
-    reading and writing different EEG formats and provides helper methods for
-    file discovery and data transformation.
-    """
+    """Data I/O utilities for EEG files, montages, and helper transforms."""
 
     def __init__(self):
         """Initialize the DataIO class."""
         pass
 
     @staticmethod
-    def find_data(input_folder, extension, pattern='*'):
-        """
-        Recursively search for data files within a folder based on extension and pattern.
+    def find_data(input_folder, extension, pattern="*"):
+        """Recursively search for data files within a folder based on extension and pattern.
 
         Args:
             input_folder (str): The folder to search for data files.
@@ -37,22 +33,29 @@ class DataIO:
         list_filename = []
         if extension == ".auto":
             valid_eeg_formats = [
-                ".vhdr", ".edf", ".bdf", ".gdf",
-                ".cnt", ".egi", ".mff", ".set",
-                ".data", ".nxe", ".lay"
+                ".vhdr",
+                ".edf",
+                ".bdf",
+                ".gdf",
+                ".cnt",
+                ".egi",
+                ".mff",
+                ".set",
+                ".data",
+                ".nxe",
+                ".lay",
             ]
-            for path, subdirs, files in os.walk(input_folder):
+            for path, _subdirs, files in os.walk(input_folder):
                 for name in files:
-                    if os.path.splitext(name)[1] in valid_eeg_formats:
-                        if fnmatch(name, pattern):
+                    if os.path.splitext(name)[1] in valid_eeg_formats and fnmatch(name, pattern):
                             list_path.append(os.path.join(path, name))
                             list_filename.append(os.path.splitext(name)[0])
         else:
-            for path, subdirs, files in os.walk(input_folder):
+            for path, _subdirs, files in os.walk(input_folder):
                 for name in files:
                     if fnmatch(name, pattern + extension):
                         list_path.append(os.path.join(path, name))
-                        list_filename.append(name.split('.')[0])
+                        list_filename.append(name.split(".")[0])
         return list_path, list_filename
 
     @staticmethod
@@ -74,13 +77,13 @@ class DataIO:
             IOError: If the file cannot be read
         """
         mat = loadmat(fname)
-        if 'Channel' not in mat:
+        if "Channel" not in mat:
             raise ValueError('MAT file does not contain "Channel" key.')
-        channel_data = mat['Channel'][0]
+        channel_data = mat["Channel"][0]
         ch_pos = {}
         for ch in channel_data:
-            name = ch['Name'][0]
-            loc = ch['Loc'].flatten() if ch['Loc'].shape == (3, 1) else ch['Loc']
+            name = ch["Name"][0]
+            loc = ch["Loc"].flatten() if ch["Loc"].shape == (3, 1) else ch["Loc"]
             if abs(loc[0]) > 0.5 or abs(loc[1]) > 0.5 or abs(loc[2]) > 0.5:
                 loc[0] = loc[0] / 1000.0
                 loc[1] = loc[1] / 1000.0
@@ -109,30 +112,30 @@ class DataIO:
         ch_pos = {}
         if not os.path.isfile(fname):
             raise FileNotFoundError(f"The file {fname} does not exist.")
-        with open(fname, 'r') as f:
+        with open(fname) as f:
             lines = f.readlines()
         if not lines:
             raise ValueError("The .ced file is empty.")
         header_line = lines[0].strip()
         if not header_line:
             raise ValueError("The .ced file does not contain a header line.")
-        parts = header_line.split('\t')
+        parts = header_line.split("\t")
         if len(parts) < 4:
             parts = header_line.split()
         col_map = {col.strip().lower(): idx for idx, col in enumerate(parts)}
-        required_columns = ['labels', 'x', 'y', 'z']
+        required_columns = ["labels", "x", "y", "z"]
         missing_cols = [col for col in required_columns if col not in col_map]
         if missing_cols:
             raise ValueError(f"Missing required columns in header: {missing_cols}")
-        label_idx = col_map['labels']
-        x_idx = col_map['x']
-        y_idx = col_map['y']
-        z_idx = col_map['z']
+        label_idx = col_map["labels"]
+        x_idx = col_map["x"]
+        y_idx = col_map["y"]
+        z_idx = col_map["z"]
         for line_num, line in enumerate(lines[1:], start=2):
             line = line.strip()
             if not line:
                 continue
-            parts = line.split('\t')
+            parts = line.split("\t")
             if len(parts) < len(parts):
                 parts = line.split()
             if len(parts) <= max(label_idx, x_idx, y_idx, z_idx):
@@ -142,8 +145,10 @@ class DataIO:
                 x = float(parts[x_idx])
                 y = float(parts[y_idx])
                 z = float(parts[z_idx])
-            except ValueError:
-                raise ValueError(f"Invalid numerical values in line {line_num}: {line}")
+            except ValueError as err:
+                raise ValueError(
+                    f"Invalid numerical values in line {line_num}: {line}"
+                ) from err
             if abs(x) > 0.5 or abs(y) > 0.5 or abs(z) > 0.5:
                 x = x / 1000.0
                 y = y / 1000.0
@@ -173,26 +178,28 @@ class DataIO:
         try:
             if os.path.isfile(montage):
                 file_ext = os.path.splitext(montage)[1].lower()
-                if file_ext == '.mat':
+                if file_ext == ".mat":
                     ch_pos = self._read_mat_locations(montage)
-                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
-                elif file_ext == '.ced':
+                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame="head")
+                elif file_ext == ".ced":
                     ch_pos = self._read_ced_locations(montage)
-                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
+                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame="head")
                 else:
                     montage = mne.channels.read_custom_montage(montage)
             elif montage in mne.channels.get_builtin_montages():
                 montage = mne.channels.make_standard_montage(montage)
             else:
-                raise ValueError(f'Unknown montage: {montage}')
-        except FileNotFoundError:
-            raise FileNotFoundError(f'File not found: {montage}')
+                raise ValueError(f"Unknown montage: {montage}")
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"File not found: {montage}") from err
         except ValueError as ve:
             raise ve
-        except Exception as e:
-            raise ValueError(f'An error occurred while loading the montage: {e}')
+        except Exception as err:
+            raise ValueError(f"An error occurred while loading the montage: {err}") from err
         if montage is None:
-            raise ValueError(f'Could not create a montage from the provided directory or name: {montage}')
+            raise ValueError(
+                f"Could not create a montage from the provided directory or name: {montage}"
+            )
         return montage
 
     def check_chan2rm(self, list_eegs_path, datatype, montage):
@@ -212,8 +219,6 @@ class DataIO:
                 - consistent_channels (list of str): Names of channels present in all files
                 - missing_channels (list of str): Names of channels missing in at least one file
         """
-        import collections
-
         # Dictionary to map canonical lowercase names to original name formats
         channel_name_map = {}
 
@@ -226,7 +231,7 @@ class DataIO:
 
             # Create normalized version of channel names for this file
             normalized_channels = []
-            for chan in eeg.info['ch_names']:
+            for chan in eeg.info["ch_names"]:
                 chan_lower = chan.lower()
 
                 # Store the first encountered version of each channel as canonical
@@ -254,7 +259,9 @@ class DataIO:
 
         return consistent_channels, missing_channels
 
-    def load_eeg(self, eeg_path, datatype, montage='', chan2rm=None, preload=True, verbose='CRITICAL'):
+    def load_eeg(
+        self, eeg_path, datatype, montage="", chan2rm=None, preload=True, verbose="CRITICAL"
+    ):
         """Load EEG data from various file formats with optional preprocessing.
 
         Loads raw or epoched EEG data, applies channel locations, removes specified
@@ -280,26 +287,22 @@ class DataIO:
             ValueError: If the datatype is not supported or montage cannot be loaded
         """
         with mne.use_log_level(verbose):
-            warnings.filterwarnings('ignore')
-            if datatype == 'raw':
+            warnings.filterwarnings("ignore")
+            if datatype == "raw":
                 eeg = mne.io.read_raw(eeg_path, preload=preload, verbose=verbose)
-            elif datatype == 'epoched':
+            elif datatype == "epoched":
                 eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=verbose)
                 # eeg = mne.io.read_epochs(eeg_path, verbose=False)
             montage = self.load_montage(montage)
-            eeg.set_montage(montage, match_case=False, on_missing='warn')
-            ch_names = eeg.info['ch_names']
+            eeg.set_montage(montage, match_case=False, on_missing="warn")
+            ch_names = eeg.info["ch_names"]
             if chan2rm is None:
                 chan2rm = []
-            if (
-                    any(chan2rm)
-                    and any(elem != '' for elem in chan2rm)
-                    and chan2rm in ch_names
-            ):
+            if any(chan2rm) and any(elem != "" for elem in chan2rm) and chan2rm in ch_names:
                 eeg = eeg.drop_channels(chan2rm)
-            if 'TRIGGER' in ch_names:
-                eeg = eeg.drop_channels('TRIGGER')
-            eeg.set_eeg_reference('average', projection=True)
+            if "TRIGGER" in ch_names:
+                eeg = eeg.drop_channels("TRIGGER")
+            eeg.set_eeg_reference("average", projection=True)
             eeg.apply_proj()
         return eeg
 
@@ -320,13 +323,13 @@ class DataIO:
         Notes:
             Automatically overwrites existing files with the same name.
         """
-        available_extensions = ['.vhdr', '.set', '.edf']
+        available_extensions = [".vhdr", ".set", ".edf"]
         if extension not in available_extensions:
-            extension = '.set'
-        if datatype == 'raw':
-            mne.export.export_raw(save_path + extension, eeg, fmt='auto', overwrite=True)
-        elif datatype == 'epoched':
-            mne.export.export_epochs(save_path + extension, eeg, fmt='auto', overwrite=True)
+            extension = ".set"
+        if datatype == "raw":
+            mne.export.export_raw(save_path + extension, eeg, fmt="auto", overwrite=True)
+        elif datatype == "epoched":
+            mne.export.export_epochs(save_path + extension, eeg, fmt="auto", overwrite=True)
 
     @staticmethod
     def get_eeg_data(eeg, datatype):

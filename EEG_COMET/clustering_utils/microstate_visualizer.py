@@ -1,3 +1,5 @@
+"""Visualization helpers for microstate topographies (EEG-COMET)."""
+
 import mne
 
 

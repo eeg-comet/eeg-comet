@@ -1,20 +1,47 @@
+"""Wizard to create a new study and run preprocessing for EEG-COMET."""
+
 import os.path
 import re
+
 import numpy as np
-from mne.channels import get_builtin_montages, read_custom_montage, make_standard_montage
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+from mne.channels import get_builtin_montages, make_standard_montage, read_custom_montage
 from mne.viz import plot_topomap
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QFileDialog, QDialog, QMessageBox, QSizePolicy
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
+from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox, QSizePolicy
+
+from data_utils.data_io import DataIO
 from gui_utils.CheckableComboBox import CheckableComboBox
 from gui_utils.set_widgets_status import set_widgets_status
-from data_utils.data_io import DataIO
 
 
 class NewStudyWindow(QDialog):
+    """Wizard to create a new EEG-COMET study and perform preprocessing.
+
+    Provides a two-step interface to select input data, configure preprocessing
+    (montage, filtering, downsampling, channel removal, and PREP), preview
+    montages/plots/PSDs, and launch preprocessing.
+
+    Attributes:
+      main_window: Optional reference to the main window for callbacks.
+      comet: COMET toolbox instance for processing and state persistence.
+      ui: Loaded Qt UI instance for the wizard.
+      figure (matplotlib.figure.Figure): Figure used for preview plots.
+      canvas (FigureCanvasQTAgg): Canvas hosting the matplotlib figure.
+      save_dir (str): Target directory for the study.
+    """
+
     def __init__(self, context, parent=None, main_window=None, comet_tbx=None):
+        """Initialize the wizard and connect UI actions.
+
+        Args:
+          context: Resource/context provider to resolve UI resources.
+          parent: Optional parent widget.
+          main_window: Optional main window for post-processing callbacks.
+          comet_tbx: COMET toolbox instance to run processing steps.
+        """
         super().__init__(parent)
         self.main_window = main_window
         self.comet = comet_tbx
@@ -32,9 +59,7 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def clean_figure_layout(self):
-        """
-        Clear and delete all widgets from the figure layout to reset it.
-        """
+        """Clear and delete all widgets from the figure layout to reset it."""
         while self.ui.Figure_Layout.count() > 0:
             item = self.ui.Figure_Layout.takeAt(0)
             widget = item.widget()
@@ -42,8 +67,9 @@ class NewStudyWindow(QDialog):
                 widget.deleteLater()
 
     def init_canvas(self):
-        """
-        Initialize Canvas, replacing the existing one if it already exists.
+        """Initialize the matplotlib canvas.
+
+        Replaces the existing canvas if present and attaches a new figure.
         """
         self.clean_figure_layout()
         self.figure = Figure(tight_layout=True)
@@ -52,8 +78,9 @@ class NewStudyWindow(QDialog):
         self.ui.Figure_Layout.addWidget(self.canvas)
 
     def init_ui_components(self):
-        """
-        Initialize UI components.
+        """Initialize UI components.
+
+        Sets up custom widgets, default template montage, and initializes canvas.
         """
         self.ui.step2_ch2rm_combobox = CheckableComboBox()
         self.CheckableComboBox_Layout.addWidget(self.ui.step2_ch2rm_combobox)
@@ -63,15 +90,16 @@ class NewStudyWindow(QDialog):
         self.init_canvas()
 
     def setup_connections(self):
-        """
-        Set up signal-slot connections.
+        """Set up signal-slot connections.
+
+        Groups connections by target handler for clarity and maintainability.
         """
         # Group connections by target function
 
         # 1. Items that trigger newstudy_controller
         controller_widgets = {
             # Radio buttons and checkboxes (clicked signal)
-            'clicked': [
+            "clicked": [
                 self.ui.step1_import_epoched_radio,
                 self.ui.step1_import_raw_radio,
                 self.ui.step1_load_all_radio,
@@ -82,53 +110,43 @@ class NewStudyWindow(QDialog):
                 self.ui.step2_temporal_filter_option_checkbox,
                 self.ui.step2_downsamp_option_checkbox,
                 self.ui.step2_spatial_filter_option_checkbox,
-                self.ui.step2_ch2rm_radio
+                self.ui.step2_ch2rm_radio,
             ],
             # Text inputs (textChanged signal)
-            'textChanged': [
+            "textChanged": [
                 self.ui.step1_study_name_lineedit,
-                self.ui.step1_import_pattern_lineedit
+                self.ui.step1_import_pattern_lineedit,
             ],
             # List widgets (itemClicked signal)
-            'itemClicked': [
-                self.ui.loaded_selected_files_list
-            ]
+            "itemClicked": [self.ui.loaded_selected_files_list],
         }
 
         # 2. Items that trigger plot_montage
         montage_widgets = {
-            'clicked': [
+            "clicked": [
                 self.ui.vis_montage_button,
                 self.ui.step2_default_montage_radio,
                 self.ui.step2_load_montage_radio,
                 self.ui.step2_use_template_montage_radio,
             ],
-            'itemClicked': [
-                self.ui.loaded_selected_files_list
-            ],
-            'itemCheckedStateChanged': [
-                self.ui.step2_ch2rm_combobox
-            ],
-            'textChanged': [
-                self.ui.step2_chanloc_path_lineedit
-            ],
-            'currentTextChanged': [
-                self.ui.step2_template_montage_combobox
-            ]
+            "itemClicked": [self.ui.loaded_selected_files_list],
+            "itemCheckedStateChanged": [self.ui.step2_ch2rm_combobox],
+            "textChanged": [self.ui.step2_chanloc_path_lineedit],
+            "currentTextChanged": [self.ui.step2_template_montage_combobox],
         }
 
         # 3. Specific button actions
         action_widgets = [
-            (self.ui.step1_input_path_button, 'clicked', self.choose_input),
-            (self.ui.step1_import_raw_button, 'clicked', self.load_raw),
-            (self.ui.step2_load_montage_radio, 'clicked', self.load_custom_montage),
-            (self.ui.step2_template_montage_combobox, 'activated', self.load_template_montage),
-            (self.ui.step2_save_path_button, 'clicked', self.new_study_save_path),
-            (self.ui.step2_preprocess_data_button, 'clicked', self.preprocess_data),
-            (self.ui.loaded_remove_file_button, 'clicked', self.remove_file),
-            (self.ui.loaded_clear_files_button, 'clicked', self.clear_files),
-            (self.ui.vis_psd_button, 'clicked', self.plot_psd),
-            (self.ui.vis_plot_button, 'clicked', self.plot_eeg),
+            (self.ui.step1_input_path_button, "clicked", self.choose_input),
+            (self.ui.step1_import_raw_button, "clicked", self.load_raw),
+            (self.ui.step2_load_montage_radio, "clicked", self.load_custom_montage),
+            (self.ui.step2_template_montage_combobox, "activated", self.load_template_montage),
+            (self.ui.step2_save_path_button, "clicked", self.new_study_save_path),
+            (self.ui.step2_preprocess_data_button, "clicked", self.preprocess_data),
+            (self.ui.loaded_remove_file_button, "clicked", self.remove_file),
+            (self.ui.loaded_clear_files_button, "clicked", self.clear_files),
+            (self.ui.vis_psd_button, "clicked", self.plot_psd),
+            (self.ui.vis_plot_button, "clicked", self.plot_eeg),
         ]
 
         # Connect widgets that trigger newstudy_controller
@@ -149,22 +167,27 @@ class NewStudyWindow(QDialog):
             getattr(widget, signal_name).connect(action)
 
     def newstudy_controller(self):
+        """Control the behavior of the New Study window based on selections.
+
+        Updates visibility, enabled states, and helper texts in response to UI
+        changes across tabs and options.
         """
-        Control the behavior of the New Study window based on user selections.
-        """
-        common_message = f"Load {self.get_data_type()} EEG data with {self.get_extension()} extension"
+        common_message = (
+            f"Load {self.get_data_type()} EEG data with {self.get_extension()} extension"
+        )
         if self.ui.step1_load_all_radio.isChecked():
             self.ui.step1_import_log_lineedit.setText(f"{common_message} all.")
             self.ui.step1_import_pattern_lineedit.clear()
-        elif self.ui.step1_load_pattern_radio.isChecked() and self.ui.step1_import_pattern_lineedit.text().strip():
+        elif (
+            self.ui.step1_load_pattern_radio.isChecked()
+            and self.ui.step1_import_pattern_lineedit.text().strip()
+        ):
             pattern = self.ui.step1_import_pattern_lineedit.text()
-            self.ui.step1_import_log_lineedit.setText(f"{common_message} that contain '{pattern}' in their filenames.")
+            self.ui.step1_import_log_lineedit.setText(
+                f"{common_message} that contain '{pattern}' in their filenames."
+            )
 
-        plot_widgets = [
-            self.ui.vis_plot_button,
-            self.ui.vis_montage_button,
-            self.ui.vis_psd_button
-        ]
+        plot_widgets = [self.ui.vis_plot_button, self.ui.vis_montage_button, self.ui.vis_psd_button]
 
         import_data_widgets = [
             self.ui.step1_input_path_label,
@@ -180,7 +203,7 @@ class NewStudyWindow(QDialog):
             self.ui.step1_import_epoched_radio,
             self.ui.step1_load_all_radio,
             self.ui.step1_load_pattern_radio,
-            self.ui.step1_import_log_lineedit
+            self.ui.step1_import_log_lineedit,
         ]
 
         preprocessing_widgets = [
@@ -200,7 +223,7 @@ class NewStudyWindow(QDialog):
             self.ui.step2_prep_option_checkbox,
             self.ui.step2_save_path_button,
             self.ui.step2_save_path_lineedit,
-            self.ui.step2_preprocess_data_button
+            self.ui.step2_preprocess_data_button,
         ]
 
         temporal_filter_sub_widgets = [
@@ -212,81 +235,96 @@ class NewStudyWindow(QDialog):
             self.ui.step2_filt_hz1,
             self.ui.step2_highcut_freq_label,
             self.ui.step2_highcut_freq_input,
-            self.ui.step2_filt_hz2
+            self.ui.step2_filt_hz2,
         ]
 
         downsample_sub_widgets = [
             self.ui.step2_downsamp_freq_label,
             self.ui.step2_downsamp_freq_input,
-            self.ui.step2_downsamp_hz
+            self.ui.step2_downsamp_hz,
         ]
 
         if self.ui.new_study_tab_widget.currentIndex() == 0:
             widgets_to_rm = (
-                    preprocessing_widgets +
-                    temporal_filter_sub_widgets +
-                    downsample_sub_widgets
+                preprocessing_widgets + temporal_filter_sub_widgets + downsample_sub_widgets
             )
-            set_widgets_status(import_data_widgets, mode='show')
-            set_widgets_status(import_data_widgets, mode='enable')
-            set_widgets_status(self.ui.step1_import_raw_button, mode='show')
-            set_widgets_status(widgets_to_rm, mode='disable')
+            set_widgets_status(import_data_widgets, mode="show")
+            set_widgets_status(import_data_widgets, mode="enable")
+            set_widgets_status(self.ui.step1_import_raw_button, mode="show")
+            set_widgets_status(widgets_to_rm, mode="disable")
             set_widgets_status(
                 self.ui.step1_import_pattern_lineedit,
-                'enable' if self.ui.step1_load_pattern_radio.isChecked()
-                else 'disable')
-            if (self.ui.step1_study_name_lineedit.text()
-                    and self.ui.step1_input_path_lineedit):
-                widgets_to_enable = [self.ui.step1_import_raw_button,
-                                     self.ui.loaded_remove_file_button,
-                                     self.ui.loaded_clear_files_button] + preprocessing_widgets
-                set_widgets_status(widgets_to_enable, mode='enable')
+                "enable" if self.ui.step1_load_pattern_radio.isChecked() else "disable",
+            )
+            if self.ui.step1_study_name_lineedit.text() and self.ui.step1_input_path_lineedit:
+                widgets_to_enable = [
+                    self.ui.step1_import_raw_button,
+                    self.ui.loaded_remove_file_button,
+                    self.ui.loaded_clear_files_button,
+                ] + preprocessing_widgets
+                set_widgets_status(widgets_to_enable, mode="enable")
             else:
-                widgets_to_disable = [self.ui.loaded_remove_file_button,
-                                      self.ui.loaded_clear_files_button] + plot_widgets + preprocessing_widgets
-                set_widgets_status(widgets_to_disable, mode='disable')
+                widgets_to_disable = (
+                    [self.ui.loaded_remove_file_button, self.ui.loaded_clear_files_button]
+                    + plot_widgets
+                    + preprocessing_widgets
+                )
+                set_widgets_status(widgets_to_disable, mode="disable")
 
         if self.ui.loaded_selected_files_list.count() != 0:
             self.ui.new_study_tab_widget.setTabEnabled(1, True)
             if self.ui.loaded_selected_files_list.currentItem():
-                set_widgets_status(plot_widgets, mode='enable')
+                set_widgets_status(plot_widgets, mode="enable")
         else:
             self.ui.new_study_tab_widget.setTabEnabled(1, False)
 
         if self.ui.new_study_tab_widget.currentIndex() == 1:
-            widgets_to_show = preprocessing_widgets + temporal_filter_sub_widgets + downsample_sub_widgets
+            widgets_to_show = (
+                preprocessing_widgets + temporal_filter_sub_widgets + downsample_sub_widgets
+            )
             widgets_to_hide_or_disable = [self.ui.step1_import_raw_button] + import_data_widgets
-            set_widgets_status(widgets_to_show, mode='show')
-            set_widgets_status(widgets_to_hide_or_disable, mode='disable')
+            set_widgets_status(widgets_to_show, mode="show")
+            set_widgets_status(widgets_to_hide_or_disable, mode="disable")
             widget_conditions = [
-                (self.ui.step2_template_montage_combobox, self.ui.step2_use_template_montage_radio.isChecked()),
+                (
+                    self.ui.step2_template_montage_combobox,
+                    self.ui.step2_use_template_montage_radio.isChecked(),
+                ),
                 (self.ui.step2_chanloc_path_lineedit, self.ui.step2_load_montage_radio.isChecked()),
-                (self.ui.step2_ch2rm_combobox, self.ui.step2_ch2rm_radio.isChecked())
+                (self.ui.step2_ch2rm_combobox, self.ui.step2_ch2rm_radio.isChecked()),
             ]
             for widget, condition in widget_conditions:
-                set_widgets_status(widget, 'enable' if condition else 'disable')
+                set_widgets_status(widget, "enable" if condition else "disable")
             self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
-            set_widgets_status(temporal_filter_sub_widgets, mode='enable' if self.temporal_filter_data else 'disable')
+            set_widgets_status(
+                temporal_filter_sub_widgets,
+                mode="enable" if self.temporal_filter_data else "disable",
+            )
             if not self.temporal_filter_data:
-                self.lowcut_freq = ''
-                self.highcut_freq = ''
+                self.lowcut_freq = ""
+                self.highcut_freq = ""
             self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
-            set_widgets_status(downsample_sub_widgets, mode='enable' if self.downsample_data else 'disable')
+            set_widgets_status(
+                downsample_sub_widgets, mode="enable" if self.downsample_data else "disable"
+            )
             self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
-            set_widgets_status(self.ui.step2_preprocess_data_button,
-                               'enable' if self.ui.step2_save_path_lineedit.text() else 'disable')
+            set_widgets_status(
+                self.ui.step2_preprocess_data_button,
+                "enable" if self.ui.step2_save_path_lineedit.text() else "disable",
+            )
 
     def choose_input(self):
-        """
-        Open a file dialog to select the folder containing raw data
-        """
-        self.input_folder = QFileDialog.getExistingDirectory(self, "Select the folder containing raw data")
+        """Select the folder containing raw data via a dialog."""
+        self.input_folder = QFileDialog.getExistingDirectory(
+            self, "Select the folder containing raw data"
+        )
         self.ui.step1_input_path_lineedit.setText(self.input_folder)
         self.newstudy_controller()
 
     def load_custom_montage(self):
-        """
-        Load a custom montage file and set the channel location directory.
+        """Load custom montage file(s) and set the channel location path.
+
+        Raises an information dialog if an unsupported file extension is chosen.
         """
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.ExistingFiles)
@@ -294,66 +332,82 @@ class NewStudyWindow(QDialog):
         if file_dialog.exec_():
             file_names = file_dialog.selectedFiles()
             for fname in file_names:
-                chan_loc_extension = os.path.basename(fname).split('.')[-1]
-                valid_chan_loc_extensions = ['loc', 'locs', 'eloc', 'sfp', 'csd', 'elc', 'txt',
-                                             'csd', 'elp', 'bvef', 'csv', 'tsv', 'xyz', 'mat', 'ced']
+                chan_loc_extension = os.path.basename(fname).split(".")[-1]
+                valid_chan_loc_extensions = [
+                    "loc",
+                    "locs",
+                    "eloc",
+                    "sfp",
+                    "csd",
+                    "elc",
+                    "txt",
+                    "csd",
+                    "elp",
+                    "bvef",
+                    "csv",
+                    "tsv",
+                    "xyz",
+                    "mat",
+                    "ced",
+                ]
                 if chan_loc_extension not in valid_chan_loc_extensions:
                     QMessageBox.information(
-                        self, "Load error",
+                        self,
+                        "Load error",
                         "File extension is expected to be:"
                         "'.loc' or '.locs' or '.eloc' or '.ced (for EEGLAB files),"
                         "'.sfp' (BESA/EGI files), '.csd', '.elc', '.txt', '.csd', '.elp' (BESA spherical),"
                         "'.bvef' (BrainVision files), '.csv', '.tsv', '.xyz' (XYZ coordinates),"
                         "'.mat' (for Brainstorm files)'",
-                        QMessageBox.Ok
+                        QMessageBox.Ok,
                     )
-                    self.comet.montage = ''
+                    self.comet.montage = ""
                     return
-                else:
-                    self.comet.montage = fname
-                    self.ui.step2_chanloc_path_lineedit.setText(fname)
+                self.comet.montage = fname
+                self.ui.step2_chanloc_path_lineedit.setText(fname)
 
     def load_template_montage(self):
-        """
-        Set the channel location using the selected template montage.
-        """
+        """Set the channel location using the selected template montage."""
         self.comet.montage = self.ui.step2_template_montage_combobox.currentText()
 
     def get_extension(self):
-        """
-        Get the selected extension from the data extension combo box.
+        """Return the selected data extension from the combo box.
+
+        Returns:
+          str: File extension (e.g., 'fif', 'set', 'edf').
         """
         selected_extension = self.ui.step1_import_format_combobox.currentText()
-        extension = selected_extension.split('(')[1]
-        extension = re.split(', | .', extension)[0]
-        if extension.endswith(')'):
+        extension = selected_extension.split("(")[1]
+        extension = re.split(", | .", extension)[0]
+        if extension.endswith(")"):
             extension = extension[:-1]
         return extension
 
     def get_data_type(self):
-        """
-        Get the selected data type based on the radio button.
+        """Return the selected data type.
+
+        Returns:
+          str: 'epoched' if the epoched radio is checked; otherwise 'raw'.
         """
         return "epoched" if self.ui.step1_import_epoched_radio.isChecked() else "raw"
 
     def update_channel_names(self):
-        """
-        Update the channel names based on the selected EEG file.
-        """
+        """Update the channel names list based on the selected EEG file."""
         filename = self.ui.loaded_selected_files_list.currentItem().text()
         eeg = DataIO().load_eeg(filename, self.comet.datatype, montage=None)  # Don't force montage
-        data_channel_names = eeg.info['ch_names']
+        data_channel_names = eeg.info["ch_names"]
         self.ui.step2_ch2rm_combobox.addItems(data_channel_names)
-        
+
         # Check user's montage choice
         user_wants_default = self.ui.step2_default_montage_radio.isChecked()
-        user_wants_custom_montage = (self.ui.step2_load_montage_radio.isChecked() and 
-                                    os.path.isfile(self.ui.step2_chanloc_path_lineedit.text()))
+        user_wants_custom_montage = self.ui.step2_load_montage_radio.isChecked() and os.path.isfile(
+            self.ui.step2_chanloc_path_lineedit.text()
+        )
         user_wants_template_montage = self.ui.step2_use_template_montage_radio.isChecked()
-        
+
         # Check if data has existing channel locations
-        data_has_montage = (eeg.info['chs'] and not np.isnan(eeg.info['chs'][0]['loc'][0]))
-        
+        data_has_montage = eeg.info["chs"] and not np.isnan(eeg.info["chs"][0]["loc"][0])
+
         if user_wants_default:
             # Default option: use data's existing montage if available
             if data_has_montage:
@@ -375,13 +429,15 @@ class NewStudyWindow(QDialog):
                     template_name = "standard_1020"
                 self.comet.montage = template_name
                 montage = make_standard_montage(template_name)
-            
+
             if montage:
-                eeg.set_montage(montage, match_case=False, on_missing='warn')
+                eeg.set_montage(montage, match_case=False, on_missing="warn")
 
     def load_raw(self):
-        """
-        Load raw EEG data and update the selected files list.
+        """Load EEG file list and update the selection view.
+
+        Populates the selected files list from the chosen input folder and
+        pattern, switches to preprocessing tab when files are available.
         """
         self.ui.loaded_selected_files_list.clear()
         self.comet.load_all_files = self.ui.step1_load_all_radio.isChecked()
@@ -400,11 +456,14 @@ class NewStudyWindow(QDialog):
         self.newstudy_controller()
 
     def new_study_save_path(self):
-        """
-        Choose and set the save directory for the new study.
+        """Choose and set the save directory for the new study.
+
+        Opens a folder dialog and writes the chosen path into the UI; warns if a
+        study folder already exists.
         """
         save_parent_directory = QFileDialog.getExistingDirectory(
-            self, "Select a parent folder to create a new study folder within.")
+            self, "Select a parent folder to create a new study folder within."
+        )
         self.study_name = self.ui.step1_study_name_lineedit.text()
         if not os.path.exists(save_parent_directory):
             print("Unable to find selected directory")
@@ -414,35 +473,39 @@ class NewStudyWindow(QDialog):
             self.ui.step1_study_name_lineedit.setText(self.study_name)
         save_directory = os.path.join(save_parent_directory, self.study_name)
         if os.path.exists(save_directory):
-            QMessageBox.information(self, "A folder with the same study name already exists!",
-                                    "Please choose another directory or rename your study.",
-                                    QMessageBox.Ok)
+            QMessageBox.information(
+                self,
+                "A folder with the same study name already exists!",
+                "Please choose another directory or rename your study.",
+                QMessageBox.Ok,
+            )
         else:
             self.save_dir = save_directory
             self.ui.step2_save_path_lineedit.setText(self.save_dir)
         self.newstudy_controller()
 
     def remove_file(self):
-        """
-        Remove the selected files from the selected files list.
-        """
+        """Remove the selected files from the selected files list."""
         selected_items = self.loaded_selected_files_list.selectedItems()
         if not selected_items:
             return
-        [self.loaded_selected_files_list.takeItem(self.loaded_selected_files_list.row(item)) for item in selected_items]
+        [
+            self.loaded_selected_files_list.takeItem(self.loaded_selected_files_list.row(item))
+            for item in selected_items
+        ]
         self.newstudy_controller()
 
     def clear_files(self):
-        """
-        Clear all files from the selected files list.
-        """
+        """Clear all files from the selected files list and reset the canvas."""
         self.ui.loaded_selected_files_list.clear()
         self.canvas.figure.clear()
         self.newstudy_controller()
 
     def preprocess_data(self):
-        """
-        Perform data preprocessing based on user-selected options.
+        """Perform data preprocessing based on user-selected options.
+
+        Validates filter parameters, collects settings into the COMET instance,
+        logs study creation details, and launches preprocessing in the background.
         """
         # Set critical path parameters first
         self.study_name = self.ui.step1_study_name_lineedit.text()
@@ -459,17 +522,19 @@ class NewStudyWindow(QDialog):
             lowcut_freq = float(self.ui.step2_lowcut_freq_input.text())
             highcut_freq = float(self.ui.step2_highcut_freq_input.text())
             if lowcut_freq >= highcut_freq:
-                QMessageBox.information(self, "Temporal Filter Error",
-                                        "Please modify the filter range!",
-                                        QMessageBox.Ok)
+                QMessageBox.information(
+                    self, "Temporal Filter Error", "Please modify the filter range!", QMessageBox.Ok
+                )
                 return
-            self.filter_method = 'fir' if self.ui.step2_fir_filtermethod_radio.isChecked() else 'iir'
+            self.filter_method = (
+                "fir" if self.ui.step2_fir_filtermethod_radio.isChecked() else "iir"
+            )
             self.lowcut_freq = int(lowcut_freq)
             self.highcut_freq = int(highcut_freq)
         else:
-            self.filter_method = ''
-            self.lowcut_freq = ''
-            self.highcut_freq = ''
+            self.filter_method = ""
+            self.lowcut_freq = ""
+            self.highcut_freq = ""
 
         self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
         if self.downsample_data:
@@ -480,12 +545,15 @@ class NewStudyWindow(QDialog):
                 # Load the first EEG file to get its sampling frequency
                 first_eeg_path = self.comet.list_eegs_path[0]
                 temp_eeg = DataIO().load_eeg(first_eeg_path, self.comet.datatype, montage=None)
-                self.sample_rate = temp_eeg.info['sfreq']
+                self.sample_rate = temp_eeg.info["sfreq"]
             else:
-                self.sample_rate = ''
+                self.sample_rate = ""
         self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
-        self.chan2rm = (self.ui.step2_ch2rm_combobox.currentData() if self.ui.step2_ch2rm_radio.isChecked()
-                        else 'missing')
+        self.chan2rm = (
+            self.ui.step2_ch2rm_combobox.currentData()
+            if self.ui.step2_ch2rm_radio.isChecked()
+            else "missing"
+        )
         self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
 
         # The save_dir should match the one that COMET will compute based on study_name and output_folder
@@ -493,17 +561,24 @@ class NewStudyWindow(QDialog):
 
         # Set all processing attributes in COMET
         attributes = [
-            'temporal_filter_data', 'filter_method', 'lowcut_freq', 'highcut_freq',
-            'downsample_data', 'sample_rate', 'spatial_filter_data', 'chan2rm', 'prep_data'
+            "temporal_filter_data",
+            "filter_method",
+            "lowcut_freq",
+            "highcut_freq",
+            "downsample_data",
+            "sample_rate",
+            "spatial_filter_data",
+            "chan2rm",
+            "prep_data",
         ]
         for attr in attributes:
             setattr(self.comet, attr, getattr(self, attr))
 
         # Initialize log window and log study creation
-        if not hasattr(self.comet, 'LogWindow') or self.comet.LogWindow is None:
+        if not hasattr(self.comet, "LogWindow") or self.comet.LogWindow is None:
             self.comet.initialize_log_window()
-        
-        self.comet.LogWindow.append_log("Study Creation", log_type='section')
+
+        self.comet.LogWindow.append_log("Study Creation", log_type="section")
         study_creation_info = (
             f"Study Name: {self.study_name}\n"
             f"Input Directory: {self.comet.input_folder}\n"
@@ -511,8 +586,10 @@ class NewStudyWindow(QDialog):
             f"Data Type: {self.comet.datatype}\n"
             f"File Extension: {self.comet.extension}"
         )
-        self.comet.LogWindow.append_log(study_creation_info, log_type='info')
-        self.comet.LogWindow.append_log(f"New study '{self.study_name}' has been created successfully", log_type='success')
+        self.comet.LogWindow.append_log(study_creation_info, log_type="info")
+        self.comet.LogWindow.append_log(
+            f"New study '{self.study_name}' has been created successfully", log_type="success"
+        )
 
         # Now let COMET handle directory creation and processing
         self.comet.run_preprocessing()
@@ -536,8 +613,10 @@ class NewStudyWindow(QDialog):
         self.close()
 
     def item_selected(self):
-        """
-        Retrieve the full file path and name from the selected item.
+        """Return the full file path and base name for the selected item.
+
+        Returns:
+          tuple[str, str]: (filepath, filename_without_extension).
         """
         filepath = self.ui.loaded_selected_files_list.currentItem().text()
         filename = os.path.splitext(os.path.basename(filepath))[0]
@@ -545,8 +624,10 @@ class NewStudyWindow(QDialog):
         return filepath, filename
 
     def plot_montage(self):
-        """
-        Plot EEG montage and display channel names if selected.
+        """Plot EEG montage and display channel names if selected.
+
+        Handles multiple montage scenarios (existing, custom, template) and
+        provides informative dialogs when positions are missing.
         """
         self.init_canvas()
         filepath, filename = self.item_selected()
@@ -554,25 +635,30 @@ class NewStudyWindow(QDialog):
         try:
             # Load EEG without forcing montage to preserve existing channel locations
             eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
-            
+
             # Check user's montage choice
             user_wants_default = self.ui.step2_default_montage_radio.isChecked()
-            user_wants_custom_montage = (self.ui.step2_load_montage_radio.isChecked() and 
-                                        os.path.isfile(self.ui.step2_chanloc_path_lineedit.text()))
+            user_wants_custom_montage = (
+                self.ui.step2_load_montage_radio.isChecked()
+                and os.path.isfile(self.ui.step2_chanloc_path_lineedit.text())
+            )
             user_wants_template_montage = self.ui.step2_use_template_montage_radio.isChecked()
-            
+
             # Check if data has existing channel locations
-            data_has_montage = (eeg.info['chs'] and not np.isnan(eeg.info['chs'][0]['loc'][0]))
-            
+            data_has_montage = eeg.info["chs"] and not np.isnan(eeg.info["chs"][0]["loc"][0])
+
             if user_wants_default:
                 # Default option: use data's existing montage if available
                 if not data_has_montage:
                     # Data doesn't have channel locations - inform user
-                    QMessageBox.information(self, "No Channel Locations",
-                                            "The selected EEG data does not contain channel location information.\n"
-                                            "Please select 'Load montage from file' or 'Use template montage' "
-                                            "to specify channel locations for plotting.",
-                                            QMessageBox.Ok)
+                    QMessageBox.information(
+                        self,
+                        "No Channel Locations",
+                        "The selected EEG data does not contain channel location information.\n"
+                        "Please select 'Load montage from file' or 'Use template montage' "
+                        "to specify channel locations for plotting.",
+                        QMessageBox.Ok,
+                    )
                     return
                 # If data has montage, it will be used automatically (no set_montage needed)
             elif user_wants_custom_montage or user_wants_template_montage:
@@ -586,24 +672,30 @@ class NewStudyWindow(QDialog):
                     if not template_name:
                         template_name = "standard_1020"
                     montage = make_standard_montage(template_name)
-                
+
                 if montage:
-                    eeg.set_montage(montage, match_case=False, on_missing='warn')
+                    eeg.set_montage(montage, match_case=False, on_missing="warn")
 
             # Check if digital points exist after applying montage
-            if eeg.info['dig'] is None:
-                QMessageBox.information(self, "Load error",
-                                        "Unable to retrieve channel locations. "
-                                        "Please ensure they are imported before proceeding.",
-                                        QMessageBox.Ok)
+            if eeg.info["dig"] is None:
+                QMessageBox.information(
+                    self,
+                    "Load error",
+                    "Unable to retrieve channel locations. "
+                    "Please ensure they are imported before proceeding.",
+                    QMessageBox.Ok,
+                )
                 return
 
             # Check if channels actually have positions
-            if not any(ch.get('loc', None) is not None for ch in eeg.info['chs']):
-                QMessageBox.information(self, "Position error",
-                                        "Channel information exists but no valid positions found. "
-                                        "Please check your montage file.",
-                                        QMessageBox.Ok)
+            if not any(ch.get("loc", None) is not None for ch in eeg.info["chs"]):
+                QMessageBox.information(
+                    self,
+                    "Position error",
+                    "Channel information exists but no valid positions found. "
+                    "Please check your montage file.",
+                    QMessageBox.Ok,
+                )
                 return
 
             # Proceed with plotting if we have channel positions
@@ -612,40 +704,45 @@ class NewStudyWindow(QDialog):
                 eeg.info["bads"].extend(self.chan2rm)
 
             try:
-                fig, _ = eeg.plot_sensors(kind='select', show_names=True, show=False)
+                fig, _ = eeg.plot_sensors(kind="select", show_names=True, show=False)
                 self.ui.vis_figure_title_lineedit.setText("EEG Montage")
                 self.canvas.figure = fig
                 self.canvas.draw()
             except RuntimeError as e:
                 error_msg = str(e)
-                QMessageBox.warning(self, "Plotting Error",
-                                    f"Could not plot montage: {error_msg}\n"
-                                    "Please ensure your data has valid channel positions.",
-                                    QMessageBox.Ok)
+                QMessageBox.warning(
+                    self,
+                    "Plotting Error",
+                    f"Could not plot montage: {error_msg}\n"
+                    "Please ensure your data has valid channel positions.",
+                    QMessageBox.Ok,
+                )
         except Exception as e:
-            QMessageBox.critical(self, "Error",
-                                 f"An unexpected error occurred: {str(e)}",
-                                 QMessageBox.Ok)
+            QMessageBox.critical(
+                self, "Error", f"An unexpected error occurred: {str(e)}", QMessageBox.Ok
+            )
 
     def plot_eeg(self):
-        """
-        Plot the EEG data using the PyQt application canvas.
-        Automatically detects whether data is epoched (evoked) or raw.
+        """Plot EEG data on the canvas.
+
+        Automatically detects whether data is epoched (evoked) or raw and
+        selects an appropriate visualization (topomaps + evoked trace or raw view).
         """
         filepath, filename = self.item_selected()
-        
+
         # Load EEG without forcing montage to preserve existing channel locations
         eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
-        
+
         # Check user's montage choice
         user_wants_default = self.ui.step2_default_montage_radio.isChecked()
-        user_wants_custom_montage = (self.ui.step2_load_montage_radio.isChecked() and 
-                                    os.path.isfile(self.ui.step2_chanloc_path_lineedit.text()))
+        user_wants_custom_montage = self.ui.step2_load_montage_radio.isChecked() and os.path.isfile(
+            self.ui.step2_chanloc_path_lineedit.text()
+        )
         user_wants_template_montage = self.ui.step2_use_template_montage_radio.isChecked()
-        
+
         # Check if data has existing channel locations
-        data_has_montage = (eeg.info['chs'] and not np.isnan(eeg.info['chs'][0]['loc'][0]))
-        
+        (eeg.info["chs"] and not np.isnan(eeg.info["chs"][0]["loc"][0]))
+
         if user_wants_default:
             # Default option: use data's existing montage if available
             # For EEG plotting, we can proceed even without channel locations
@@ -661,9 +758,9 @@ class NewStudyWindow(QDialog):
                 if not template_name:
                     template_name = "standard_1020"
                 montage = make_standard_montage(template_name)
-            
+
             if montage:
-                eeg.set_montage(montage, match_case=False, on_missing='warn')
+                eeg.set_montage(montage, match_case=False, on_missing="warn")
 
         # Automatically determine plot type based on data type
         if self.comet.datatype == "epoched":
@@ -682,26 +779,29 @@ class NewStudyWindow(QDialog):
             gs = fig.add_gridspec(2, len(time_points), height_ratios=[1, 2])
             for i, time_point in enumerate(time_points_sec):
                 ax_topo = fig.add_subplot(gs[0, i])
-                plot_topomap(avg_data[:, np.searchsorted(times, time_point)], eeg.info,
-                             axes=ax_topo, show=False)
-                ax_topo.set_title(f'{time_point * 1000:.0f} ms', fontsize=16)
+                plot_topomap(
+                    avg_data[:, np.searchsorted(times, time_point)],
+                    eeg.info,
+                    axes=ax_topo,
+                    show=False,
+                )
+                ax_topo.set_title(f"{time_point * 1000:.0f} ms", fontsize=16)
             ax_main = fig.add_subplot(gs[1, :])
-            for i, channel_data in enumerate(avg_data):
-                ax_main.plot(times[tmin_idx:tmax_idx] * 1000,
-                             channel_data[tmin_idx:tmax_idx] * 1e6)
-            ax_main.axvline(0, color='k', linestyle='--', label='Event Onset')
+            for _i, channel_data in enumerate(avg_data):
+                ax_main.plot(times[tmin_idx:tmax_idx] * 1000, channel_data[tmin_idx:tmax_idx] * 1e6)
+            ax_main.axvline(0, color="k", linestyle="--", label="Event Onset")
             for tp in time_points:
-                ax_main.axvline(tp, color='r', linestyle='--', alpha=0.7)
+                ax_main.axvline(tp, color="r", linestyle="--", alpha=0.7)
             ax_main.set_axisbelow(True)  # draw grid behind the lines
-            ax_main.grid(True, axis='y', which='major', linestyle='--', alpha=0.5)
+            ax_main.grid(True, axis="y", which="major", linestyle="--", alpha=0.5)
             xticks = np.arange(int(tmin * 1000), int(tmax * 1000) + 1, 50)
             xticks = np.unique(np.concatenate((xticks, time_points)))
             ax_main.set_xticks(xticks)
-            ax_main.set_xticklabels([f'{int(x)}' for x in xticks])
-            ax_main.set_xlabel('Time (ms)', fontsize=18)
-            ax_main.set_ylabel('Amplitude (μV)', fontsize=18)
-            ax_main.set_title(f'{filename} - Evoked Response', fontsize=20)
-            ax_main.tick_params(axis='both', which='major', labelsize=16)
+            ax_main.set_xticklabels([f"{int(x)}" for x in xticks])
+            ax_main.set_xlabel("Time (ms)", fontsize=18)
+            ax_main.set_ylabel("Amplitude (μV)", fontsize=18)
+            ax_main.set_title(f"{filename} - Evoked Response", fontsize=20)
+            ax_main.tick_params(axis="both", which="major", labelsize=16)
             self.canvas.draw()
         else:
             # Plot raw continuous data
@@ -714,30 +814,29 @@ class NewStudyWindow(QDialog):
                 block=False,
                 title=f"{filename} - Raw EEG",
                 overview_mode="hidden",
-                verbose="ERROR"
+                verbose="ERROR",
             )
             self.ui.Figure_Layout.addWidget(fig)
             self.ui.vis_figure_title_lineedit.setText("Raw EEG Time Series")
 
     def plot_psd(self):
-        """
-        Plot the Power Spectral Density (PSD) of EEG data.
-        """
+        """Plot the Power Spectral Density (PSD) of EEG data."""
         self.init_canvas()
         filepath, filename = self.item_selected()
-        
+
         # Load EEG without forcing montage to preserve existing channel locations
         eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None, preload=False)
-        
+
         # Check user's montage choice
         user_wants_default = self.ui.step2_default_montage_radio.isChecked()
-        user_wants_custom_montage = (self.ui.step2_load_montage_radio.isChecked() and 
-                                    os.path.isfile(self.ui.step2_chanloc_path_lineedit.text()))
+        user_wants_custom_montage = self.ui.step2_load_montage_radio.isChecked() and os.path.isfile(
+            self.ui.step2_chanloc_path_lineedit.text()
+        )
         user_wants_template_montage = self.ui.step2_use_template_montage_radio.isChecked()
-        
+
         # Check if data has existing channel locations
-        data_has_montage = (eeg.info['chs'] and not np.isnan(eeg.info['chs'][0]['loc'][0]))
-        
+        (eeg.info["chs"] and not np.isnan(eeg.info["chs"][0]["loc"][0]))
+
         if user_wants_default:
             # Default option: use data's existing montage if available
             # For PSD plotting, we can proceed even without channel locations
@@ -753,11 +852,11 @@ class NewStudyWindow(QDialog):
                 if not template_name:
                     template_name = "standard_1020"
                 montage = make_standard_montage(template_name)
-            
+
             if montage:
-                eeg.set_montage(montage, match_case=False, on_missing='warn')
-        
-        fig = eeg.compute_psd(fmin=1, fmax=50, verbose='ERROR').plot(show=False)
+                eeg.set_montage(montage, match_case=False, on_missing="warn")
+
+        fig = eeg.compute_psd(fmin=1, fmax=50, verbose="ERROR").plot(show=False)
         self.canvas.figure = fig
         self.canvas.draw()
         self.ui.vis_figure_title_lineedit.setText("Power Spectral Density (PSD)")

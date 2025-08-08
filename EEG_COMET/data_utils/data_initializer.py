@@ -1,6 +1,8 @@
+"""Data initialization helpers for microstate analysis (EEG-COMET)."""
+
 import numpy as np
-from scipy.signal import find_peaks
-from scipy.signal import correlate
+from scipy.signal import correlate, find_peaks
+
 from data_utils.data_io import DataIO
 
 
@@ -41,12 +43,15 @@ class DataInitializer:
             This implementation follows the standard k-means++ algorithm but adapted
             for EEG topographies.
         """
-        if initializer == 'K-Means++':
+        if initializer == "K-Means++":
             initial_idx = np.random.choice(np.size(maps2use, 1))
             initial_centers = [maps2use[:, initial_idx]]
             for _ in range(1, n_states):
                 dists = np.array(
-                    [min(float(abs(correlate(d, c, mode='valid')[0])) for c in initial_centers) for d in maps2use.T]
+                    [
+                        min(float(abs(correlate(d, c, mode="valid")[0])) for c in initial_centers)
+                        for d in maps2use.T
+                    ]
                 )
                 probs = dists / dists.sum()
                 next_idx = np.random.choice(np.size(maps2use, 1), p=probs)
@@ -110,7 +115,14 @@ class DataInitializer:
         return maps, peaks
 
     @staticmethod
-    def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percentages=None, min_dist=None, random_seed=None):
+    def generate_maps_and_peaks(
+        preprocessed_folder,
+        extension,
+        datatype,
+        use_percentages=None,
+        min_dist=None,
+        random_seed=None,
+    ):
         """Generate GFP maps and peak indices from multiple preprocessed EEG files.
 
         Loads all EEG files from the specified folder that match the extension,
@@ -141,23 +153,27 @@ class DataInitializer:
         all_preprocessed_paths, _ = data_io.find_data(preprocessed_folder, extension)
         maps2use, peaks2use = [], []
         counter = 0
-        
+
         # If using random sampling with a seed, we need to ensure consistent sampling across files
         if use_percentages is not None and random_seed is not None:
             # Create a random state for consistent sampling
-            rng = np.random.RandomState(random_seed)
-        
+            np.random.RandomState(random_seed)
+
         for eeg_path in all_preprocessed_paths:
             eeg = data_io.load_eeg(eeg_path, datatype)
             eeg_data = data_io.get_eeg_data(eeg, datatype)
-            
+
             # For random sampling with seed, we need to pass a different seed for each file
             # to ensure different samples but reproducible results
             if use_percentages is not None and random_seed is not None:
                 file_seed = random_seed + counter  # Different seed for each file
-                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist, file_seed)
+                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(
+                    eeg_data, use_percentages, min_dist, file_seed
+                )
             else:
-                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist)
+                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(
+                    eeg_data, use_percentages, min_dist
+                )
 
             if counter == 0:
                 maps2use = maps

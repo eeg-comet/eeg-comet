@@ -1,13 +1,13 @@
+"""Backfitting algorithms for EEG microstates used by EEG-COMET."""
+
+from collections import Counter
 
 import numpy as np
 from scipy.signal import find_peaks
-from collections import Counter
-from itertools import groupby
 
 
 class MicrostateBackfitter:
-    """
-    The MicrostateBackfitter class provides methods for backfitting microstates to EEG data.
+    """The MicrostateBackfitter class provides methods for backfitting microstates to EEG data.
     It includes functions for filling segments, smoothing segmentations, labeling segments,
     and calculating similarity scores.
 
@@ -27,13 +27,25 @@ class MicrostateBackfitter:
         smoothing_parameters (list, optional): Smoothing parameters. Defaults to None.
         export_format (str): Export format.
     """
-    def __init__(self, study_name, preprocessed_data_path, microstate_maps, backfit_to, filter_segments,
-                 filter_segments_option, identify_short_window, micro_labels,
-                 segmentation_path, extension, datatype, sample_rate, smoothing_parameters, export_format):
-        """
-        Initializes a new instance of the MicrostateBackfitter class.
-        """
 
+    def __init__(
+        self,
+        study_name,
+        preprocessed_data_path,
+        microstate_maps,
+        backfit_to,
+        filter_segments,
+        filter_segments_option,
+        identify_short_window,
+        micro_labels,
+        segmentation_path,
+        extension,
+        datatype,
+        sample_rate,
+        smoothing_parameters,
+        export_format,
+    ):
+        """Initializes a new instance of the MicrostateBackfitter class."""
         self.study_name = study_name
         self.preprocessed_data_path = preprocessed_data_path
         self.microstate_maps = microstate_maps
@@ -51,9 +63,7 @@ class MicrostateBackfitter:
 
     @staticmethod
     def fill_with_neighbors_with_higher_count(segmentation):
-        """
-        Fill the groups of -1 values in the array with the neighbor that has a higher count.
-        """
+        """Fill the groups of -1 values in the array with the neighbor that has a higher count."""
         filled_segmentation = segmentation.copy()
         n = len(segmentation)
         i = 0
@@ -73,12 +83,12 @@ class MicrostateBackfitter:
                 # Count the occurrences of the previous and next values in the windows
                 prev_count = 0
                 if start > 0:
-                    window_before = segmentation[max(start - 2, 0):start]
+                    window_before = segmentation[max(start - 2, 0) : start]
                     prev_count = Counter(window_before).most_common(1)[0][1]
 
                 next_count = 0
                 if end < n - 1:
-                    window_after = segmentation[end + 2:min(end + 3, n)]
+                    window_after = segmentation[end + 2 : min(end + 3, n)]
                     next_count = Counter(window_after).most_common(1)[0][1]
 
                 # Fill the group of -1 values with the neighbor with the higher count
@@ -99,9 +109,7 @@ class MicrostateBackfitter:
 
     @staticmethod
     def fill_with_neighbors_half(segmentation):
-        """
-        Fill the groups of -1 values in the array by evenly distributing the neighboring values.
-        """
+        """Fill the groups of -1 values in the array by evenly distributing the neighboring values."""
         filled_segmentation = segmentation.copy()
         n = len(segmentation)
         i = 0
@@ -138,8 +146,7 @@ class MicrostateBackfitter:
 
     @staticmethod
     def segmentation_smooth(data, microstate_maps, n_states, epsilon=1e-6, b=3, lamb=5):
-        """
-        Smooth the segmentation based on the given parameters.
+        """Smooth the segmentation based on the given parameters.
 
         Args:
             data (numpy.ndarray): Array containing the data.
@@ -152,9 +159,8 @@ class MicrostateBackfitter:
         Returns:
             numpy.ndarray: Smoothed segmentation array.
         """
-
         n_channels, n_samples = data.shape
-        data_sum_sq = np.sum(data ** 2)
+        data_sum_sq = np.sum(data**2)
         iteration = 0
         prev_residual = 0
         residual = np.inf
@@ -181,10 +187,15 @@ class MicrostateBackfitter:
             for i, window in enumerate(windows):
                 cnt = Counter(window)
                 n_bkt[i] = [cnt[x] for x in range(n_states)]
-            raw_segmentation[b:n_samples - b] = np.argmin(
-                (np.sum(data ** 2, axis=0) -
-                 (np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2))[b:n_samples - b] / (
-                            2 * e2 * (n_channels - 1)) - (lamb * n_bkt).T, axis=0)
+            raw_segmentation[b : n_samples - b] = np.argmin(
+                (
+                    np.sum(data**2, axis=0)
+                    - (np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2)
+                )[b : n_samples - b]
+                / (2 * e2 * (n_channels - 1))
+                - (lamb * n_bkt).T,
+                axis=0,
+            )
 
             # STEP 6 in TABLE 2
             segmentation = raw_segmentation  # .copy()
@@ -192,7 +203,7 @@ class MicrostateBackfitter:
             # STEP 7 in TABLE 2
             act_sum_sq = np.sum(np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2)
             e1 = abs(data_sum_sq - act_sum_sq)
-            sigma_mu = (e1 / float(n_samples * (n_channels - 1)))
+            sigma_mu = e1 / float(n_samples * (n_channels - 1))
             residual = abs(prev_residual - sigma_mu)
 
             # STEP 8 in TABLE 2
@@ -202,10 +213,17 @@ class MicrostateBackfitter:
 
         return segmentation
 
-    def substitude_maps_with_duration(self, segmentation, segments_less_than, option, data, microstate_maps, n_states,
-                                      smoothing_parameters=None):
-        """
-        Substitute short segments in the segmentation array with neighboring elements based on the chosen option.
+    def substitude_maps_with_duration(
+        self,
+        segmentation,
+        segments_less_than,
+        option,
+        data,
+        microstate_maps,
+        n_states,
+        smoothing_parameters=None,
+    ):
+        """Substitute short segments in the segmentation array with neighboring elements based on the chosen option.
 
         Args:
             self: The MicrostateBackfitter instance.
@@ -220,30 +238,30 @@ class MicrostateBackfitter:
         Returns:
             numpy.ndarray: Substituted segmentation array.
         """
-
         if smoothing_parameters is None:
             smoothing_parameters = [1e-6, 3, 5]
 
-        if option == 'smooth':
-            filled_segmentation = self.segmentation_smooth(data, microstate_maps, n_states, *smoothing_parameters)
+        if option == "smooth":
+            filled_segmentation = self.segmentation_smooth(
+                data, microstate_maps, n_states, *smoothing_parameters
+            )
             filled_segmentation = self.mark_short_segments(filled_segmentation, segments_less_than)
             filled_segmentation = self.fill_with_neighbors_with_higher_count(filled_segmentation)
         else:
             filled_segmentation = self.mark_short_segments(segmentation, segments_less_than)
 
-        if option == 'replace_high':
+        if option == "replace_high":
             filled_segmentation = self.mark_short_segments(segmentation, segments_less_than)
             filled_segmentation = self.fill_with_neighbors_with_higher_count(filled_segmentation)
 
-        if option == 'replace_half':
+        if option == "replace_half":
             filled_segmentation = self.mark_short_segments(segmentation, segments_less_than)
             filled_segmentation = self.fill_with_neighbors_half(filled_segmentation)
 
         return filled_segmentation
 
     def label_segments(self, segmentation):
-        """
-        Label the segments in the segmentation array.
+        """Label the segments in the segmentation array.
 
         Args:
             segmentation (list or numpy.ndarray): Array containing the segmentation.
@@ -251,18 +269,35 @@ class MicrostateBackfitter:
         Returns:
             numpy.ndarray: Array containing the labeled segmentation.
         """
-
         segmentation = segmentation + 1
         segmentation = list(map(int, segmentation))
         labeled_segmentation = list(map(str, segmentation))
         labeled_segmentation = np.char.replace(labeled_segmentation, str(0), "NaN")
         for m in range(1, len(self.microstate_labels) + 1):
-            labeled_segmentation = np.char.replace(labeled_segmentation, str(m), self.microstate_labels[m - 1])
+            labeled_segmentation = np.char.replace(
+                labeled_segmentation, str(m), self.microstate_labels[m - 1]
+            )
         return labeled_segmentation
 
-    def goodness_fit_segmentation(self, eeg_data, labeled_segmentation):
+    def compute_correlation_matrix(self, data_2d):
+        """Compute correlation matrix between `self.microstate_maps` and data.
+
+        Shapes:
+        - microstate_maps: (n_states, n_channels)
+        - data_2d: (n_channels, n_samples)
+        Returns:
+        - correlation_matrix: (n_states, n_samples)
         """
-        Calculate the goodness of fit for the labeled segmentation compared to the EEG data.
+        denominator = np.sqrt(
+            np.sum(self.microstate_maps**2, axis=1)[:, np.newaxis]
+            * np.sum(data_2d**2, axis=0)
+        )
+        with np.errstate(divide="ignore", invalid="ignore"):
+            correlation_matrix = np.dot(self.microstate_maps, data_2d) / denominator
+        return np.nan_to_num(correlation_matrix, nan=0.0, posinf=0.0, neginf=0.0)
+
+    def goodness_fit_segmentation(self, eeg_data, labeled_segmentation):
+        """Calculate the goodness of fit for the labeled segmentation compared to the EEG data.
 
         Args:
             self: The MicrostateBackfitter instance.
@@ -272,12 +307,13 @@ class MicrostateBackfitter:
         Returns:
             float: The mean similarity score between the microstate maps and the EEG data.
         """
-
         similarity_mean = 0
         for m in range(len(self.microstate_labels)):
             microstate_map = self.microstate_maps[m, :]
             microstate_map_norm = np.linalg.norm(microstate_map)
-            data_indices = [i for i, x in enumerate(labeled_segmentation) if x == self.microstate_labels[m]]
+            data_indices = [
+                i for i, x in enumerate(labeled_segmentation) if x == self.microstate_labels[m]
+            ]
             eeg_data_segment = eeg_data[:, data_indices]
             eeg_data_segment_norm = np.linalg.norm(eeg_data_segment, axis=0)
             # Compute the dot product
@@ -289,8 +325,7 @@ class MicrostateBackfitter:
 
     @staticmethod
     def mark_short_segments(segmentation, min_occurrence):
-        """
-        Mark short segments in the segmentation array with -1.
+        """Mark short segments in the segmentation array with -1.
 
         Args:
             segmentation (list or numpy.ndarray): Array containing the segmentation.
@@ -299,7 +334,6 @@ class MicrostateBackfitter:
         Returns:
             numpy.ndarray: Array with short segments marked as -1.
         """
-
         if len(segmentation) == 0:
             return segmentation
 
@@ -329,8 +363,7 @@ class MicrostateBackfitter:
 
     @staticmethod
     def find_optimal_index(values, threshold=0.001):
-        """
-        Find the index of the last value in the list where the rate of change is below the given threshold.
+        """Find the index of the last value in the list where the rate of change is below the given threshold.
 
         Args:
             values (list or numpy.ndarray): List of values.
@@ -339,7 +372,6 @@ class MicrostateBackfitter:
         Returns:
             int: Index of the last value where the rate of change is below the threshold.
         """
-
         for i in range(1, len(values)):
             rate_of_change = values[i] - values[i - 1]
             if rate_of_change < threshold:
@@ -347,8 +379,7 @@ class MicrostateBackfitter:
         return len(values) - 1
 
     def get_similarity_score(self, eeg, rm_max_len=50):
-        """
-        Calculate the similarity score between the microstate maps and the EEG data.
+        """Calculate the similarity score between the microstate maps and the EEG data.
 
         Args:
             eeg (numpy.ndarray): Array containing the EEG data.
@@ -357,43 +388,44 @@ class MicrostateBackfitter:
         Returns:
             float: The similarity score between the microstate maps and the EEG data.
         """
-
-        # Generate a list of window lengths to test for segment removal
-        len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
-
         # Load EEG data
         eeg_data = eeg.get_data()
 
-        # Iterate over each trial in the EEG data (if epoched)
-        for idx in range(len(eeg)) if self.datatype == 'epoched' else [None]:
-            # Extract trial data
-            trial_data = eeg[idx].get_data() if self.datatype == 'epoched' else eeg_data
-            # Calculate correlation matrix between microstate maps and trial data
-            correlation_matrix = np.dot(self.microstate_maps, trial_data) / np.sqrt(
-                np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(trial_data ** 2, axis=0))
+        # Ensure data is 2D: (n_channels, n_samples). If epoched, concatenate across epochs.
+        if eeg_data.ndim == 3:
+            # Concatenate epochs along the time axis: (n_epochs, n_channels, n_times) -> (n_channels, n_epochs*n_times)
+            data_2d = np.concatenate([eeg_data[i] for i in range(eeg_data.shape[0])], axis=1)
+        else:
+            data_2d = eeg_data
 
-            # Identify the segmentation based on the maximum correlation coefficient
-            segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+        # Handle empty data defensively
+        if data_2d.size == 0 or data_2d.shape[1] == 0:
+            return 0.0
 
-        # Calculate similarity scores for different segment removal lengths
-        for len_win2rm in len_win2rm_list:
-            idx_win2rm = len_win2rm_list.index(len_win2rm)
+        # Compute base segmentation once on the full (possibly concatenated) data
+        correlation_matrix = self.compute_correlation_matrix(data_2d)
+        segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
 
-            # Mark short segments for removal
-            segmentation = self.mark_short_segments(segmentation, idx_win2rm)
+        # Convert rm_max_len (ms) to a number of samples threshold
+        ms_per_sample = 1000.0 / float(self.sample_rate)
+        samples_threshold = int(round(rm_max_len / ms_per_sample))
+        if samples_threshold < 0:
+            samples_threshold = 0
 
-            # Label segments
-            labeled_segmentation = self.label_segments(np.array(segmentation))
+        # Mark short segments for removal
+        segmentation_marked = self.mark_short_segments(segmentation, samples_threshold)
 
-            # Calculate similarity score
-            similarity_score = self.goodness_fit_segmentation(eeg_data, labeled_segmentation)
+        # Label segments
+        labeled_segmentation = self.label_segments(np.array(segmentation_marked))
+
+        # Calculate similarity score
+        similarity_score = self.goodness_fit_segmentation(data_2d, labeled_segmentation)
 
         return similarity_score
 
     @staticmethod
     def identify_optimal_length_filter(similarity_scores):
-        """
-        Identify the optimal length filter based on the similarity scores.
+        """Identify the optimal length filter based on the similarity scores.
 
         Args:
             similarity_scores (list or numpy.ndarray): List of similarity scores.
@@ -401,7 +433,6 @@ class MicrostateBackfitter:
         Returns:
             int: The optimal length filter.
         """
-
         # Convert similarity scores to numpy array
         similarity_scores = np.array(similarity_scores)
 
@@ -424,18 +455,16 @@ class MicrostateBackfitter:
         return int(np.median(optimal_indices))
 
     def backfit2all(self, data, filter_segments_less_than):
-        """
-            Perform segmentation by backfitting microstate maps to all time points in the data.
+        """Perform segmentation by backfitting microstate maps to all time points in the data.
 
-            Args:
-                data (ndarray): The EEG data (can be from a single trial or continuous data).
-                filter_segments_less_than (int): The threshold for filtering segments shorter than this value.
+        Args:
+            data (ndarray): The EEG data (can be from a single trial or continuous data).
+            filter_segments_less_than (int): The threshold for filtering segments shorter than this value.
 
-            Returns:
-                ndarray: The segmentation array where each time point is labeled with a microstate index.
+        Returns:
+            ndarray: The segmentation array where each time point is labeled with a microstate index.
         """
-        correlation_matrix = np.dot(self.microstate_maps, data) / np.sqrt(
-            np.sum(self.microstate_maps ** 2, axis=1)[:, np.newaxis] * np.sum(data ** 2, axis=0))
+        correlation_matrix = self.compute_correlation_matrix(data)
         segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
         if self.filter_segments:
             segmentation = self.substitude_maps_with_duration(
@@ -446,38 +475,36 @@ class MicrostateBackfitter:
                 microstate_maps=self.microstate_maps,
                 n_states=len(self.microstate_labels),
                 smoothing_parameters=[
-                    self.smoothing_parameters[0], filter_segments_less_than, self.smoothing_parameters[2]
-                ]
+                    self.smoothing_parameters[0],
+                    filter_segments_less_than,
+                    self.smoothing_parameters[2],
+                ],
             )
         return segmentation
 
     def backfit2peaks(self, data):
-        """
-            Perform segmentation by backfitting microstate maps only to the peaks in global field power (GFP).
+        """Perform segmentation by backfitting microstate maps only to the peaks in global field power (GFP).
 
-            Args:
-                data (ndarray): The EEG data (can be from a single trial or continuous data).
+        Args:
+            data (ndarray): The EEG data (can be from a single trial or continuous data).
 
-            Returns:
-                ndarray: The segmentation array where each time point is labeled with a microstate index.
+        Returns:
+            ndarray: The segmentation array where each time point is labeled with a microstate index.
         """
         gfp = np.std(data, axis=0)
         peaks, _ = find_peaks(gfp)
         troughs = [0]
         for p in range(len(peaks) - 1):
-            min_arg = np.argmin(gfp[peaks[p]:peaks[p + 1]])
+            min_arg = np.argmin(gfp[peaks[p] : peaks[p + 1]])
             troughs.append(peaks[p] + min_arg)
         troughs.append(len(gfp))
         diff_troughs = np.diff(troughs)
         activation = np.dot(self.microstate_maps, data[:, peaks])
         segmentation_peaks = np.argmax(np.abs(activation), axis=0)
-        segmentation = np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
-
-        return segmentation
+        return np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
 
     def perform_segmentation(self, eeg, filter_segments_less_than):
-        """
-        Perform segmentation on the EEG data based on the specified backfitting method.
+        """Perform segmentation on the EEG data based on the specified backfitting method.
 
         Args:
             eeg (mne.io.Raw | mne.Epochs): An instance of an MNE object, either Raw or Epochs, containing the EEG data.
@@ -488,18 +515,24 @@ class MicrostateBackfitter:
         """
         segmentation_fit = 0
         eeg_data = eeg.get_data()
-        if self.datatype == 'epoched':
+        if self.datatype == "epoched":
             segmentation_list = []
             for trial in range(eeg_data.shape[0]):
                 trial_data = eeg_data[trial, :, :]
-                segmentation = self.backfit2peaks(trial_data) if self.backfit_to == 'peaks' else \
-                    self.backfit2all(trial_data, filter_segments_less_than)
+                segmentation = (
+                    self.backfit2peaks(trial_data)
+                    if self.backfit_to == "peaks"
+                    else self.backfit2all(trial_data, filter_segments_less_than)
+                )
                 labeled_segmentation = self.label_segments(segmentation)
                 segmentation_list.append(labeled_segmentation)
             labeled_segmentation_array = np.vstack(segmentation_list)
         else:
-            segmentation = self.backfit2peaks(eeg_data) if self.backfit_to == 'peaks' else \
-                self.backfit2all(eeg_data, filter_segments_less_than)
+            segmentation = (
+                self.backfit2peaks(eeg_data)
+                if self.backfit_to == "peaks"
+                else self.backfit2all(eeg_data, filter_segments_less_than)
+            )
             labeled_segmentation_array = self.label_segments(segmentation)
 
         # TODO update this

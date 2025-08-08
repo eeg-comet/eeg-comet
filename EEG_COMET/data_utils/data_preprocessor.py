@@ -1,11 +1,13 @@
+"""Data preprocessing utilities for EEG-COMET."""
+
 import warnings
+
 import numpy as np
-from scipy.spatial.distance import pdist, squareform
-from mne import use_log_level, pick_types, pick_info
-from mne.io import RawArray
+from mne import pick_info, pick_types, use_log_level
 from mne.epochs import EpochsArray
-from mne.time_frequency import psd_array_welch
+from mne.io import RawArray
 from pyprep.find_noisy_channels import NoisyChannels
+from scipy.spatial.distance import pdist, squareform
 
 
 class DataPreprocessor:
@@ -21,7 +23,7 @@ class DataPreprocessor:
         pass
 
     @staticmethod
-    def identify_bad_channels(eeg, verbose='ERROR'):
+    def identify_bad_channels(eeg, verbose="ERROR"):
         """Identify and mark bad (noisy) channels in the EEG data.
 
         Uses the pyprep NoisyChannels algorithm to automatically detect channels
@@ -35,15 +37,15 @@ class DataPreprocessor:
             Raw or Epochs: EEG data with identified bad channels marked in info['bads']
         """
         with use_log_level(verbose):
-            warnings.filterwarnings('ignore')
+            warnings.filterwarnings("ignore")
             nd = NoisyChannels(eeg, random_state=1337).find_all_bads()
             if nd:
                 bad_channels = nd.get_bads()
-                eeg.info['bads'] = bad_channels
+                eeg.info["bads"] = bad_channels
         return eeg
 
     @staticmethod
-    def spatial_smooth_eeg(eeg, min_neighbors=3, max_neighbors=8, verbose='ERROR'):
+    def spatial_smooth_eeg(eeg, min_neighbors=3, max_neighbors=8, verbose="ERROR"):
         """Apply spatial smoothing to EEG data by averaging signals with neighboring electrodes.
 
         For each electrode, finds neighbors based on:
@@ -61,7 +63,7 @@ class DataPreprocessor:
             Raw or Epochs: New MNE Raw or Epochs object with spatially smoothed data
         """
         picks_eeg = pick_types(info=eeg.info, meg=False, eeg=True, exclude=[])
-        pos = np.array([eeg.info['chs'][i]['loc'][:3] for i in picks_eeg])
+        pos = np.array([eeg.info["chs"][i]["loc"][:3] for i in picks_eeg])
         distances = squareform(pdist(pos))
         n_channels = distances.shape[0]
         neighbors = {}
@@ -72,7 +74,7 @@ class DataPreprocessor:
             dist_to_others[i] = np.inf
             sorted_indices = np.argsort(dist_to_others)
             sorted_distances = dist_to_others[sorted_indices]
-            distance_diffs = np.diff(sorted_distances[:max_neighbors + 1])
+            distance_diffs = np.diff(sorted_distances[: max_neighbors + 1])
             if len(distance_diffs) > 1 and np.max(distance_diffs) > 0:
                 norm_diffs = distance_diffs / np.mean(distance_diffs[:3])
                 jump_indices = np.where(norm_diffs > 2.0)[0]
@@ -86,7 +88,7 @@ class DataPreprocessor:
             n_neighbors = max(n_neighbors, min_neighbors)
             neighbors[i] = sorted_indices[:n_neighbors].tolist()
 
-        is_epochs = hasattr(eeg, 'events')
+        is_epochs = hasattr(eeg, "events")
         if is_epochs:
             eeg_data = eeg.get_data(picks=picks_eeg)
             eeg_data = np.transpose(eeg_data, (1, 2, 0))
@@ -98,9 +100,14 @@ class DataPreprocessor:
             smoothed_data = np.transpose(smoothed_data, (2, 0, 1))
 
             info_eeg = pick_info(info=eeg.info, sel=picks_eeg)
-            smoothed_eeg = EpochsArray(data=smoothed_data, info=info_eeg,
-                                       events=eeg.events, event_id=eeg.event_id,
-                                       tmin=eeg.tmin, verbose=verbose)
+            smoothed_eeg = EpochsArray(
+                data=smoothed_data,
+                info=info_eeg,
+                events=eeg.events,
+                event_id=eeg.event_id,
+                tmin=eeg.tmin,
+                verbose=verbose,
+            )
         else:
             eeg_data = eeg.get_data(picks=picks_eeg)
             n_channels, n_times = eeg_data.shape
@@ -113,8 +120,18 @@ class DataPreprocessor:
 
         return smoothed_eeg
 
-    def preprocess_eeg(self, eeg, filter_bool, filtermethod, lowcut, highcut, downsample_bool, sampling_rate,
-                       spatial_smooth_bool, verbose='ERROR'):
+    def preprocess_eeg(
+        self,
+        eeg,
+        filter_bool,
+        filtermethod,
+        lowcut,
+        highcut,
+        downsample_bool,
+        sampling_rate,
+        spatial_smooth_bool,
+        verbose="ERROR",
+    ):
         """Preprocess EEG data with configurable pipeline options.
 
         Applies a combination of temporal filtering, downsampling, spatial smoothing,
@@ -136,13 +153,14 @@ class DataPreprocessor:
         """
         if filter_bool:
             eeg = eeg.filter(
-                l_freq=lowcut, h_freq=highcut, method=filtermethod, phase='zero', verbose=verbose)
+                l_freq=lowcut, h_freq=highcut, method=filtermethod, phase="zero", verbose=verbose
+            )
         if downsample_bool:
-            sfreq = eeg.info['sfreq']
+            sfreq = eeg.info["sfreq"]
             if sfreq != sampling_rate:
                 eeg = eeg.resample(sampling_rate, verbose=verbose)
         if spatial_smooth_bool:
             eeg = self.spatial_smooth_eeg(eeg=eeg, verbose=verbose)
-        eeg.set_eeg_reference('average', projection=True, verbose=verbose)
+        eeg.set_eeg_reference("average", projection=True, verbose=verbose)
         eeg.apply_proj(verbose=verbose)
         return eeg

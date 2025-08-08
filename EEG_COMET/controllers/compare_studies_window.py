@@ -1,26 +1,42 @@
+"""UI to compare two EEG-COMET studies across features and maps."""
+
 import os.path
+
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from scipy.stats import pearsonr, ttest_ind, ttest_rel
-from statsmodels.stats.multitest import multipletests
-from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog, QMessageBox, QFileDialog, QSizePolicy
-from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from gui_utils.set_widgets_status import set_widgets_status
+from PyQt5 import uic
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox, QSizePolicy
+from scipy.stats import pearsonr, ttest_ind, ttest_rel
+from statsmodels.stats.multitest import multipletests
+
 from clustering_utils.microstate_visualizer import show_microstate
-from features_utils.feature_io import FeatureIO
 from comet import COMET
+from features_utils.feature_io import FeatureIO
+from gui_utils.set_widgets_status import set_widgets_status
 
 
 class CompareStudiesWindow(QDialog):
+    """Dialog window to compare two EEG-COMET studies.
+
+    Provides tools to load two studies, visualize their microstate maps, and
+    compare static/dynamic features including statistical summaries.
+
+    Attributes:
+      study1_loaded (bool): Whether the first study has been loaded.
+      study2_loaded (bool): Whether the second study has been loaded.
+    """
     def __init__(self, context, parent=None):
+        """Initialize the dialog and wire up the UI.
+
+        Args:
+          context: Resource/context provider to resolve UI resources.
+          parent: Optional parent widget.
         """
-        Initialize the CompareStudiesWindow.
-        """
-        super(CompareStudiesWindow, self).__init__(parent)
+        super().__init__(parent)
 
         # Flags to check if studies are loaded
         self.study1_loaded = False
@@ -33,15 +49,24 @@ class CompareStudiesWindow(QDialog):
         self.update_ui()
 
     def setup_ui(self, context):
-        """Setup UI components."""
+        """Set up static UI components from the Qt Designer file.
+
+        Args:
+          context: Resource/context provider to resolve the `.ui` path.
+
+        Returns:
+          None
+        """
         self.ui = uic.loadUi(context.get_resource("CompareStudiesWindow.ui"), self)
         self.ui.setWindowTitle("Comparison of two EEG-COMET studies")
         # Include the maximize button in window flags
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
 
     def connect_ui(self):
-        """
-        Connect UI signals to corresponding slots for event handling.
+        """Connect UI signals to their handlers.
+
+        Returns:
+          None
         """
         self.ui.load_study1_button.clicked.connect(self.load_study1)
         self.ui.load_study2_button.clicked.connect(self.load_study2)
@@ -50,7 +75,7 @@ class CompareStudiesWindow(QDialog):
         compare_widgets = [
             self.ui.compare_study2_radio,
             self.ui.compare_surrogate_radio,
-            self.ui.compare_random_radio
+            self.ui.compare_random_radio,
         ]
         for item in compare_widgets:
             item.clicked.connect(self.update_ui)
@@ -67,31 +92,43 @@ class CompareStudiesWindow(QDialog):
         self.ui.plot_testretest_button.clicked.connect(self.perform_test_retest_analysis)
 
     def create_figure_and_canvas(self):
-        """Creates matplotlib figures and canvases for visualization."""
+        """Create matplotlib figures and canvases for visualization.
+
+        Returns:
+          None
+        """
         # Microstates Study 1
         self.figure_microstates_study1 = Figure(tight_layout=True)
         self.canvas_microstates_study1 = FigureCanvasQTAgg(self.figure_microstates_study1)
-        self.canvas_microstates_study1.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.canvas_microstates_study1.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding
+        )
         self.canvas_microstates_study1.setMinimumHeight(100)
         self.ui.Figure_Microstates_Study1_Layout.addWidget(self.canvas_microstates_study1)
 
         # Microstates Study 2
         self.figure_microstates_study2 = Figure(tight_layout=True)
         self.canvas_microstates_study2 = FigureCanvasQTAgg(self.figure_microstates_study2)
-        self.canvas_microstates_study2.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.canvas_microstates_study2.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding
+        )
         self.canvas_microstates_study2.setMinimumHeight(100)
         self.ui.Figure_Microstates_Study2_Layout.addWidget(self.canvas_microstates_study2)
 
         # Features Plot
         self.figure_features = Figure(tight_layout=True)
         self.canvas_features = FigureCanvasQTAgg(self.figure_features)
-        self.canvas_features.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.canvas_features.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding
+        )
         self.canvas_features.setMinimumHeight(100)
         self.ui.Figure_Features_Layout.addWidget(self.canvas_features)
 
     def update_ui(self):
-        """
-        Updates the user interface elements based on the loaded studies and their information.
+        """Update UI element states based on loaded studies and options.
+
+        Returns:
+          None
         """
         # Clear previous selections and texts
         self.ui.feature_combo.clear()
@@ -110,13 +147,13 @@ class CompareStudiesWindow(QDialog):
                 self.ui.study2_name_label,
                 self.ui.study2_file_list,
                 self.ui.correlations_textedit,
-                self.canvas_microstates_study2
+                self.canvas_microstates_study2,
             ]
 
             if self.ui.compare_study2_radio.isChecked():
                 # Enable and show Study 2 widgets
-                set_widgets_status(study2_widgets, mode='enable')
-                set_widgets_status(study2_widgets, mode='show')
+                set_widgets_status(study2_widgets, mode="enable")
+                set_widgets_status(study2_widgets, mode="show")
 
                 if self.study2_loaded:
                     self.study2_name = self.comet_tbx_study2.study_name
@@ -126,19 +163,20 @@ class CompareStudiesWindow(QDialog):
 
                 if self.study1_loaded and self.study2_loaded:
                     # Enable plot features button if both studies are loaded
-                    set_widgets_status(self.ui.plot_features_button, mode='enable')
+                    set_widgets_status(self.ui.plot_features_button, mode="enable")
 
                     # Check if both studies have the same number of samples for test-retest
                     if len(self.comet_tbx_study1.list_eegs) == len(self.comet_tbx_study2.list_eegs):
-                        set_widgets_status(self.ui.plot_testretest_button, mode='enable')
+                        set_widgets_status(self.ui.plot_testretest_button, mode="enable")
                     else:
-                        set_widgets_status(self.ui.plot_testretest_button, mode='disable')
+                        set_widgets_status(self.ui.plot_testretest_button, mode="disable")
 
                     # Populate common features using robust discovery
                     feature_type, feature_mode = self.get_compatible_features()
                     if feature_type and feature_mode:
                         common_features = [
-                            feat for feat in self.comet_tbx_study1.feature_list
+                            feat
+                            for feat in self.comet_tbx_study1.feature_list
                             if feat in self.comet_tbx_study2.feature_list
                         ]
                         self.ui.feature_combo.clear()
@@ -151,31 +189,31 @@ class CompareStudiesWindow(QDialog):
                     else:
                         self.ui.feature_combo.clear()
                         self.ui.feature_combo.addItem("No compatible features found")
-                        set_widgets_status(self.ui.plot_features_button, mode='disable')
+                        set_widgets_status(self.ui.plot_features_button, mode="disable")
                 else:
-                    set_widgets_status(self.ui.plot_features_button, mode='disable')
-                    set_widgets_status(self.ui.plot_testretest_button, mode='disable')
+                    set_widgets_status(self.ui.plot_features_button, mode="disable")
+                    set_widgets_status(self.ui.plot_testretest_button, mode="disable")
 
             else:
                 # Disable and hide Study 2 widgets
-                set_widgets_status(study2_widgets, mode='disable')
-                set_widgets_status(study2_widgets, mode='hide')
-                set_widgets_status(self.ui.plot_testretest_button, mode='disable')
+                set_widgets_status(study2_widgets, mode="disable")
+                set_widgets_status(study2_widgets, mode="hide")
+                set_widgets_status(self.ui.plot_testretest_button, mode="disable")
 
                 # Set Study 2 name based on selected comparison type
                 if self.ui.compare_surrogate_radio.isChecked():
                     self.ui.study2_name_label.setText("Surrogate Study")
-                    self.synthetic_type = 'surrogate'
+                    self.synthetic_type = "surrogate"
                 elif self.ui.compare_random_radio.isChecked():
                     self.ui.study2_name_label.setText("Random Study")
-                    self.synthetic_type = 'random'
+                    self.synthetic_type = "random"
                 self.study2_name = self.synthetic_type
 
                 # Check if synthetic features are available
                 feature_type, feature_mode = self.get_compatible_features()
                 if feature_type and feature_mode:
                     # Enable plot features button and populate all features from Study 1
-                    set_widgets_status(self.ui.plot_features_button, mode='enable')
+                    set_widgets_status(self.ui.plot_features_button, mode="enable")
                     features = self.comet_tbx_study1.feature_list
                     self.ui.feature_combo.clear()
                     # Use full feature names from dictionary instead of short codes
@@ -187,18 +225,20 @@ class CompareStudiesWindow(QDialog):
                     # Disable if no compatible synthetic features
                     self.ui.feature_combo.clear()
                     self.ui.feature_combo.addItem("No synthetic features available")
-                    set_widgets_status(self.ui.plot_features_button, mode='disable')
+                    set_widgets_status(self.ui.plot_features_button, mode="disable")
 
     def update_plot_label(self):
-        """
-        Updates the plot label based on the selected feature.
+        """Update the plot label based on the currently selected feature.
+
+        Returns:
+          None
         """
         selected_feature_full_name = self.ui.feature_combo.currentText()
 
         # Check if this is a placeholder/error message rather than an actual feature
         if not selected_feature_full_name or selected_feature_full_name in [
             "No compatible features found",
-            "No synthetic features available"
+            "No synthetic features available",
         ]:
             self.ui.plot_label.clear()
             return
@@ -207,39 +247,45 @@ class CompareStudiesWindow(QDialog):
         self.ui.plot_label.setText(selected_feature_full_name)
 
     def get_selected_feature_code(self):
-        """
-        Get the feature short code corresponding to the selected full name in the combo box.
+        """Return the feature short code for the selected full name.
 
         Returns:
-            str: Feature short code (e.g., 'COV', 'OCC') or the full name if not found
+          str: Feature short code (e.g., "COV", "OCC"), or the full name if not found.
         """
         selected_full_name = self.ui.feature_combo.currentText()
 
         # Create reverse mapping from full names to short codes
-        if hasattr(self, 'feature_list_dictionary'):
+        if hasattr(self, "feature_list_dictionary"):
             reverse_dict = {v: k for k, v in self.feature_list_dictionary.items()}
             return reverse_dict.get(selected_full_name, selected_full_name)
 
         return selected_full_name
 
     def load_study1(self):
-        """
-        Loads the first EEG-COMET study using the new configuration-based approach.
+        """Load the first EEG-COMET study via configuration discovery.
+
+        Opens a directory chooser, validates the presence of `eeg_comet_config.ini`,
+        and initializes the first study instance.
+
+        Returns:
+          None
         """
         self.study1_path = QFileDialog.getExistingDirectory(
-            self, "Select the folder containing an EEG-COMET study.")
+            self, "Select the folder containing an EEG-COMET study."
+        )
 
         if not self.study1_path:
             return
 
         # Check for the new configuration file
-        config_path = os.path.join(self.study1_path, 'eeg_comet_config.ini')
+        config_path = os.path.join(self.study1_path, "eeg_comet_config.ini")
         if not os.path.exists(config_path):
             QMessageBox.information(
-                self, "Load error",
+                self,
+                "Load error",
                 "The selected folder does not contain a valid EEG-COMET study!\n"
                 "Please select a folder containing 'eeg_comet_config.ini' file.",
-                QMessageBox.Ok
+                QMessageBox.Ok,
             )
             return
 
@@ -252,15 +298,13 @@ class CompareStudiesWindow(QDialog):
 
             # Load study data
             self.comet_tbx_study1.load_eeg_info()
-            
+
             # Only load maps if clustering has been completed
             if self.comet_tbx_study1.done_clustering:
-                try:
+                from contextlib import suppress
+                with suppress(FileNotFoundError):
                     self.comet_tbx_study1.load_maps()
-                except FileNotFoundError:
-                    # Maps file doesn't exist, which is expected if clustering hasn't been done
-                    pass
-            
+
             self.comet_tbx_study1.load_clean()
 
             self.study1_loaded = True
@@ -270,7 +314,7 @@ class CompareStudiesWindow(QDialog):
             self.plot_maps(
                 self.comet_tbx_study1,
                 self.figure_microstates_study1,
-                self.canvas_microstates_study1
+                self.canvas_microstates_study1,
             )
             self.update_ui()
 
@@ -279,29 +323,34 @@ class CompareStudiesWindow(QDialog):
 
         except Exception as e:
             QMessageBox.critical(
-                self, "Load Error",
-                f"Failed to load study: {str(e)}",
-                QMessageBox.Ok
+                self, "Load Error", f"Failed to load study: {str(e)}", QMessageBox.Ok
             )
 
     def load_study2(self):
-        """
-        Loads the second EEG-COMET study using the new configuration-based approach.
+        """Load the second EEG-COMET study via configuration discovery.
+
+        Opens a directory chooser, validates `eeg_comet_config.ini`, and
+        initializes the second study instance.
+
+        Returns:
+          None
         """
         self.study2_path = QFileDialog.getExistingDirectory(
-            self, "Select the folder containing an EEG-COMET study.")
+            self, "Select the folder containing an EEG-COMET study."
+        )
 
         if not self.study2_path:
             return
 
         # Check for the new configuration file
-        config_path = os.path.join(self.study2_path, 'eeg_comet_config.ini')
+        config_path = os.path.join(self.study2_path, "eeg_comet_config.ini")
         if not os.path.exists(config_path):
             QMessageBox.information(
-                self, "Load error",
+                self,
+                "Load error",
                 "The selected folder does not contain a valid EEG-COMET study!\n"
                 "Please select a folder containing 'eeg_comet_config.ini' file.",
-                QMessageBox.Ok
+                QMessageBox.Ok,
             )
             return
 
@@ -314,15 +363,13 @@ class CompareStudiesWindow(QDialog):
 
             # Load study data
             self.comet_tbx_study2.load_eeg_info()
-            
+
             # Only load maps if clustering has been completed
             if self.comet_tbx_study2.done_clustering:
-                try:
+                from contextlib import suppress
+                with suppress(FileNotFoundError):
                     self.comet_tbx_study2.load_maps()
-                except FileNotFoundError:
-                    # Maps file doesn't exist, which is expected if clustering hasn't been done
-                    pass
-            
+
             self.comet_tbx_study2.load_clean()
 
             self.study2_loaded = True
@@ -332,7 +379,7 @@ class CompareStudiesWindow(QDialog):
             self.plot_maps(
                 self.comet_tbx_study2,
                 self.figure_microstates_study2,
-                self.canvas_microstates_study2
+                self.canvas_microstates_study2,
             )
             self.update_ui()
 
@@ -341,38 +388,61 @@ class CompareStudiesWindow(QDialog):
 
         except Exception as e:
             QMessageBox.critical(
-                self, "Load Error",
-                f"Failed to load study: {str(e)}",
-                QMessageBox.Ok
+                self, "Load Error", f"Failed to load study: {str(e)}", QMessageBox.Ok
             )
 
     @staticmethod
     def update_study_info(tbx, listwidget):
-        """
-        Updates the study information in a list widget.
+        """Populate a list widget with study file names.
+
+        Args:
+          tbx: COMET study instance.
+          listwidget: Target QListWidget to receive entries.
+
+        Returns:
+          None
         """
         for eeg in tbx.list_eegs:
             listwidget.addItem(str(eeg))
 
     def plot_maps(self, tbx, figure, canvas):
-        """
-        Plots microstate maps on the canvas.
+        """Plot microstate maps for a study on the provided canvas.
+
+        Args:
+          tbx: COMET study instance providing maps, labels and EEG info.
+          figure (matplotlib.figure.Figure): Target figure.
+          canvas (matplotlib.backends.backend_qt5agg.FigureCanvasQTAgg): Target canvas.
+
+        Returns:
+          None
         """
         # Clear existing axes
         for ax in figure.get_axes():
             ax.clear()
             ax.set_xticks([])
             ax.set_yticks([])
-            ax.set_xlabel('')
-            ax.set_ylabel('')
+            ax.set_xlabel("")
+            ax.set_ylabel("")
 
         # Check if microstate maps are available
-        if not hasattr(tbx, 'best_maps') or tbx.best_maps is None or not hasattr(tbx, 'micro_labels') or not tbx.micro_labels:
+        if (
+            not hasattr(tbx, "best_maps")
+            or tbx.best_maps is None
+            or not hasattr(tbx, "micro_labels")
+            or not tbx.micro_labels
+        ):
             # No maps available - show message
             ax = figure.add_subplot(1, 1, 1)
-            ax.text(0.5, 0.5, 'No microstate maps available\nClustering not completed yet', 
-                   transform=ax.transAxes, ha='center', va='center', fontsize=14)
-            ax.axis('off')
+            ax.text(
+                0.5,
+                0.5,
+                "No microstate maps available\nClustering not completed yet",
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+                fontsize=14,
+            )
+            ax.axis("off")
             figure.tight_layout()
             canvas.draw()
             return
@@ -386,10 +456,7 @@ class CompareStudiesWindow(QDialog):
         # Plot each microstate with its label
         for idx, ax in enumerate(axs):
             self.plot_microstates_with_labels(
-                tbx.best_maps[idx, :],
-                tbx.micro_labels[idx],
-                tbx.eeg_info,
-                ax
+                tbx.best_maps[idx, :], tbx.micro_labels[idx], tbx.eeg_info, ax
             )
 
         # Adjust layout and render
@@ -398,66 +465,92 @@ class CompareStudiesWindow(QDialog):
 
     @staticmethod
     def plot_microstates_with_labels(microstate, micro_label, eeg_info, ax):
-        """Plots microstates with corresponding labels on a given axis."""
+        """Plot a microstate topomap and its label on the provided axis.
+
+        Args:
+          microstate (np.ndarray): Map values.
+          micro_label (str): Label to display below the map.
+          eeg_info: EEG info structure (e.g., MNE info) for plotting.
+          ax (matplotlib.axes.Axes): Target axes.
+
+        Returns:
+          None
+        """
         show_microstate(microstate, eeg_info, ax)
-        ax.axis('off')
+        ax.axis("off")
         ax.text(
-            0.5, -0.2, micro_label.upper(),
+            0.5,
+            -0.2,
+            micro_label.upper(),
             transform=ax.transAxes,
             fontsize=16,
-            ha='center',
-            va='center'
+            ha="center",
+            va="center",
         )
-        ax.text(0, 0, '', transform=ax.transAxes)  # Placeholder or additional text
+        ax.text(0, 0, "", transform=ax.transAxes)  # Placeholder or additional text
 
     @staticmethod
     def organize_data2plot(common_features_df, selected_feature):
+        """Organize a combined DataFrame for plotting a specific feature.
+
+        Args:
+          common_features_df (pandas.DataFrame): Combined features from both studies.
+          selected_feature (str): Short code of the selected feature (e.g., "COV").
+
+        Returns:
+          tuple[pandas.DataFrame, list[str]]: (melted plot data, feature column list).
         """
-        Organizes data for plotting based on the selected feature.
-        """
-        columns_to_keep = ['Filename', 'Study'] + [
+        columns_to_keep = ["Filename", "Study"] + [
             col for col in common_features_df.columns if col.startswith(selected_feature)
         ]
         common_features_df = common_features_df[columns_to_keep]
         feature_list = [
-            col for col in common_features_df.columns
-            if col not in ['Study', 'Filename']
+            col for col in common_features_df.columns if col not in ["Study", "Filename"]
         ]
 
         plot_data = pd.melt(
-            common_features_df.reset_index(),
-            id_vars=['Filename', 'Study'],
-            value_vars=feature_list
+            common_features_df.reset_index(), id_vars=["Filename", "Study"], value_vars=feature_list
         )
-        plot_data.columns = ['Filename', 'Study', 'Feature', selected_feature]
+        plot_data.columns = ["Filename", "Study", "Feature", selected_feature]
         return plot_data, feature_list
 
     @staticmethod
     def clear_and_set_fonts(ax):
-        """
-        Clears the plot and sets the font sizes.
+        """Clear axes and apply default font sizes.
+
+        Args:
+          ax (matplotlib.axes.Axes): Target axes.
+
+        Returns:
+          None
         """
         ax.clear()
         for item in (
-                [ax.title, ax.xaxis.label, ax.yaxis.label] +
-                ax.get_xticklabels() + ax.get_yticklabels()
+            [ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()
         ):
             item.set_fontsize(18)
 
     def set_labels_ticks(self, ax, filter_cols, feature):
-        """
-        Sets labels and ticks for the plot based on selected features.
+        """Set labels and tick marks for the current feature plot.
+
+        Args:
+          ax (matplotlib.axes.Axes): Target axes.
+          filter_cols (list[str]): Columns included in the plot.
+          feature (str): Feature short code.
+
+        Returns:
+          None
         """
         ax.set_xlabel("Microstate")
-        xticklabels = ['_'.join(col.split('_')[1:]) for col in filter_cols]
+        xticklabels = ["_".join(col.split("_")[1:]) for col in filter_cols]
         ax.set_xticks(range(len(xticklabels)))
         ax.set_xticklabels(xticklabels)
         ax.set_ylabel(self.feature_list_dictionary[feature])
         self.ui.plot_label.setText(f"{self.feature_list_dictionary[feature]}")
 
-    def discover_available_features(self, tbx):
-        """
-        Discover what feature files are actually available in a study.
+    @staticmethod
+    def discover_available_features(tbx):
+        """Discover what feature files are actually available in a study.
 
         Args:
             tbx: The COMET toolbox object for the study
@@ -467,13 +560,15 @@ class CompareStudiesWindow(QDialog):
         """
         available_features = {}
 
-        if not hasattr(tbx, 'extracted_features_path') or not os.path.exists(tbx.extracted_features_path):
+        if not hasattr(tbx, "extracted_features_path") or not os.path.exists(
+            tbx.extracted_features_path
+        ):
             return available_features
 
         # Check for all possible feature files
-        feature_types = ['real', 'surrogate', 'random']
-        feature_modes = ['static', 'dynamic', 'averaged', 'sliding']
-        export_formats = ['.csv', '.pkl', '.hdf', '.json']
+        feature_types = ["real", "surrogate", "random"]
+        feature_modes = ["static", "dynamic", "averaged", "sliding"]
+        export_formats = [".csv", ".pkl", ".hdf", ".json"]
 
         for feature_type in feature_types:
             available_modes = []
@@ -481,10 +576,8 @@ class CompareStudiesWindow(QDialog):
                 for export_format in export_formats:
                     feature_filename = f"{feature_type}_{feature_mode}_features{export_format}"
                     feature_path = os.path.join(tbx.extracted_features_path, feature_filename)
-
-                    if os.path.exists(feature_path):
-                        if feature_mode not in available_modes:
-                            available_modes.append(feature_mode)
+                    if os.path.exists(feature_path) and feature_mode not in available_modes:
+                        available_modes.append(feature_mode)
 
             if available_modes:
                 available_features[feature_type] = available_modes
@@ -492,11 +585,13 @@ class CompareStudiesWindow(QDialog):
         return available_features
 
     def get_compatible_features(self):
-        """
-        Get features that are compatible between studies.
+        """Return features that are compatible between the selected studies.
+
+        Prefers real/static features when multiple choices exist.
 
         Returns:
-            tuple: (feature_type, feature_mode) that can be used for comparison
+          tuple[str | None, str | None]: (feature_type, feature_mode) suitable for comparison,
+          or (None, None) if not available.
         """
         if not self.study1_loaded:
             return None, None
@@ -515,10 +610,7 @@ class CompareStudiesWindow(QDialog):
                 return None, None
 
             # Prefer 'real' features if available
-            if 'real' in common_types:
-                feature_type = 'real'
-            else:
-                feature_type = list(common_types)[0]
+            feature_type = "real" if "real" in common_types else list(common_types)[0]
 
             # Find common modes for the selected type
             common_modes = set(study1_features[feature_type]) & set(study2_features[feature_type])
@@ -526,17 +618,14 @@ class CompareStudiesWindow(QDialog):
                 return None, None
 
             # Prefer 'static' mode if available, otherwise use first available
-            if 'static' in common_modes:
-                feature_mode = 'static'
-            else:
-                feature_mode = list(common_modes)[0]
+            feature_mode = "static" if "static" in common_modes else list(common_modes)[0]
 
         else:
             # Comparing with synthetic data from study 1
-            if 'real' not in study1_features:
+            if "real" not in study1_features:
                 return None, None
 
-            feature_type = 'real'
+            feature_type = "real"
             synthetic_type = self.synthetic_type  # 'surrogate' or 'random'
 
             # Check if synthetic features exist
@@ -544,35 +633,34 @@ class CompareStudiesWindow(QDialog):
                 return None, None
 
             # Find common modes between real and synthetic
-            common_modes = set(study1_features['real']) & set(study1_features[synthetic_type])
+            common_modes = set(study1_features["real"]) & set(study1_features[synthetic_type])
             if not common_modes:
                 return None, None
 
             # Prefer 'static' mode if available
-            if 'static' in common_modes:
-                feature_mode = 'static'
-            else:
-                feature_mode = list(common_modes)[0]
+            feature_mode = "static" if "static" in common_modes else list(common_modes)[0]
 
         return feature_type, feature_mode
 
-    def load_features_safely(self, tbx, feature_type, feature_mode):
-        """
-        Safely load features with proper error handling.
+    @staticmethod
+    def load_features_safely(tbx, feature_type, feature_mode):
+        """Safely load features with proper error handling.
 
         Args:
-            tbx: The COMET toolbox object
-            feature_type: Type of features to load ('real', 'surrogate', 'random')
-            feature_mode: Mode of features to load ('static', 'dynamic', etc.)
+          tbx: COMET toolbox object.
+          feature_type (str): Type of features ('real', 'surrogate', 'random').
+          feature_mode (str): Mode ('static', 'dynamic', 'averaged', 'sliding').
 
         Returns:
-            pandas.DataFrame or None: The loaded features or None if loading fails
+          pandas.DataFrame | None: Loaded features or None if loading fails.
         """
-        if not hasattr(tbx, 'extracted_features_path') or not os.path.exists(tbx.extracted_features_path):
+        if not hasattr(tbx, "extracted_features_path") or not os.path.exists(
+            tbx.extracted_features_path
+        ):
             return None
 
         # Try different export formats
-        export_formats = ['.csv', '.pkl', '.hdf', '.json']
+        export_formats = [".csv", ".pkl", ".hdf", ".json"]
 
         for export_format in export_formats:
             feature_filename = f"{feature_type}_{feature_mode}_features{export_format}"
@@ -589,19 +677,29 @@ class CompareStudiesWindow(QDialog):
 
     @staticmethod
     def load_features(tbx, feature_type):
-        """
-        Legacy method for backward compatibility.
-        Loads features from a file and returns them as a DataFrame.
+        """Legacy helper: load static features for a study.
+
+        Args:
+          tbx: COMET toolbox instance with `extracted_features_path`/`export_format`.
+          feature_type (str): Feature type ('real', 'surrogate', 'random').
+
+        Returns:
+          pandas.DataFrame: Loaded static features for the given type.
         """
         feature_path = os.path.join(
-            tbx.extracted_features_path,
-            f"{feature_type}_static_features{tbx.export_format}"
+            tbx.extracted_features_path, f"{feature_type}_static_features{tbx.export_format}"
         )
         return FeatureIO().import_features(feature_path, tbx.export_format)
 
     def get_common_features(self):
-        """
-        Retrieves common features between the two loaded studies using robust discovery.
+        """Return a DataFrame of common features and their columns.
+
+        Uses robust discovery to find compatible feature type/mode and loads
+        corresponding features from both studies (or synthetic from study 1).
+
+        Returns:
+          tuple[pandas.DataFrame | None, list[str] | None]: (combined DataFrame, common columns)
+          or (None, None) on failure with a user-facing message.
         """
         # Get compatible feature type and mode
         feature_type, feature_mode = self.get_compatible_features()
@@ -617,63 +715,73 @@ class CompareStudiesWindow(QDialog):
                 error_msg += f"Study 2 available features: {study2_features}\n"
 
             QMessageBox.warning(
-                self, "Feature Loading Error",
+                self,
+                "Feature Loading Error",
                 error_msg + "\nPlease ensure both studies have completed feature extraction.",
-                QMessageBox.Ok
+                QMessageBox.Ok,
             )
             return None, None
 
         # Load features using the robust method
-        features_df_study1 = self.load_features_safely(self.comet_tbx_study1, feature_type, feature_mode)
+        features_df_study1 = self.load_features_safely(
+            self.comet_tbx_study1, feature_type, feature_mode
+        )
 
         if features_df_study1 is None:
             QMessageBox.warning(
-                self, "Feature Loading Error",
+                self,
+                "Feature Loading Error",
                 f"Could not load {feature_type} {feature_mode} features from Study 1.",
-                QMessageBox.Ok
+                QMessageBox.Ok,
             )
             return None, None
 
         if self.ui.compare_study2_radio.isChecked():
-            features_df_study2 = self.load_features_safely(self.comet_tbx_study2, feature_type, feature_mode)
+            features_df_study2 = self.load_features_safely(
+                self.comet_tbx_study2, feature_type, feature_mode
+            )
             if features_df_study2 is None:
                 QMessageBox.warning(
-                    self, "Feature Loading Error",
+                    self,
+                    "Feature Loading Error",
                     f"Could not load {feature_type} {feature_mode} features from Study 2.",
-                    QMessageBox.Ok
+                    QMessageBox.Ok,
                 )
                 return None, None
         else:
             # Load synthetic features from study 1
-            features_df_study2 = self.load_features_safely(self.comet_tbx_study1, self.synthetic_type, feature_mode)
+            features_df_study2 = self.load_features_safely(
+                self.comet_tbx_study1, self.synthetic_type, feature_mode
+            )
             if features_df_study2 is None:
                 QMessageBox.warning(
-                    self, "Feature Loading Error",
+                    self,
+                    "Feature Loading Error",
                     f"Could not load {self.synthetic_type} {feature_mode} features from Study 1.",
-                    QMessageBox.Ok
+                    QMessageBox.Ok,
                 )
                 return None, None
 
         # Identify common columns
-        common_columns = sorted([
-            col for col in features_df_study1.columns
-            if col in features_df_study2.columns
-        ])
+        common_columns = sorted(
+            [col for col in features_df_study1.columns if col in features_df_study2.columns]
+        )
 
         if not common_columns:
             QMessageBox.warning(
-                self, "Feature Comparison Error",
+                self,
+                "Feature Comparison Error",
                 "No common feature columns found between the datasets.",
-                QMessageBox.Ok
+                QMessageBox.Ok,
             )
             return None, None
 
         # Prepare DataFrames with Study information
         study1_df = features_df_study1[common_columns].copy()
-        study1_df['Study'] = self.comet_tbx_study1.study_name
+        study1_df["Study"] = self.comet_tbx_study1.study_name
 
         study2_df = features_df_study2[common_columns].copy()
-        study2_df['Study'] = self.study2_name
+        study2_df["Study"] = self.study2_name
 
         # Concatenate DataFrames
         common_features_df = pd.concat([study1_df, study2_df], ignore_index=True)
@@ -681,8 +789,10 @@ class CompareStudiesWindow(QDialog):
         return common_features_df, common_columns
 
     def plot_features(self):
-        """
-        Plots a violin plot for the selected static feature.
+        """Plot a violin plot (with swarm overlay) for the selected feature.
+
+        Returns:
+          None
         """
         selected_feature = self.get_selected_feature_code()
 
@@ -699,26 +809,26 @@ class CompareStudiesWindow(QDialog):
 
             # Create violin plot
             sns.violinplot(
-                x='Feature',
+                x="Feature",
                 y=selected_feature,
-                hue='Study',
+                hue="Study",
                 data=plot_data,
                 ax=ax,
-                hue_order=[self.comet_tbx_study1.study_name, self.study2_name]
+                hue_order=[self.comet_tbx_study1.study_name, self.study2_name],
             )
 
             # Overlay swarm plot for individual data points
             sns.swarmplot(
-                x='Feature',
+                x="Feature",
                 y=selected_feature,
-                hue='Study',
+                hue="Study",
                 data=plot_data,
                 ax=ax,
                 color="white",
                 size=10,
-                marker='o',
+                marker="o",
                 dodge=True,
-                legend=False
+                legend=False,
             )
 
             # Set labels and ticks
@@ -727,16 +837,20 @@ class CompareStudiesWindow(QDialog):
 
         except Exception as e:
             QMessageBox.critical(
-                self, "Plotting Error",
-                f"Failed to plot features: {str(e)}",
-                QMessageBox.Ok
+                self, "Plotting Error", f"Failed to plot features: {str(e)}", QMessageBox.Ok
             )
 
     def update_corr_stats(self):
-        """Updates the correlation statistics in the UI based on microstate analysis."""
+        """Update spatial correlation statistics between study microstates.
+
+        Returns:
+          None
+        """
         self.ui.correlations_textedit.clear()
         # Perform spatial correlation analysis
-        microlabels, correlation_coefficients, p_values, adjusted_p_values = self.spatial_correlation_analysis()
+        microlabels, correlation_coefficients, p_values, adjusted_p_values = (
+            self.spatial_correlation_analysis()
+        )
 
         # Check if we have valid results
         if not microlabels or not correlation_coefficients:
@@ -755,10 +869,12 @@ class CompareStudiesWindow(QDialog):
         correlations_text = "Correlation of Microstates Between Studies:\n"
         for i, val in enumerate(correlation_coefficients):
             correlations_text += f"Microstate {microlabels[i]}: {100 * abs(val):.3f} %\n"
-        correlations_text += f"\nP-values:\n"
+        correlations_text += "\nP-values:\n"
         for i, val in enumerate(p_values):
             correlations_text += f"Microstate {microlabels[i]}: {val}\n"
-        correlations_text += f"\n{self.ui.multiple_test_method_combo.currentText()} Adjusted P-values:\n"
+        correlations_text += (
+            f"\n{self.ui.multiple_test_method_combo.currentText()} Adjusted P-values:\n"
+        )
         for i, val in enumerate(adjusted_p_values):
             correlations_text += f"Microstate {microlabels[i]}: {val}\n"
 
@@ -766,16 +882,22 @@ class CompareStudiesWindow(QDialog):
         self.ui.correlations_textedit.appendPlainText(correlations_text)
 
     def update_feature_stats(self):
-        """
-        Updates the feature statistics in the UI based on feature comparison.
+        """Update feature comparison t-test statistics in the UI.
+
+        Returns:
+          None
         """
         self.ui.stats_textedit.clear()
         # Perform feature comparison analysis
-        feature_list, t_test_results, p_values, adjusted_p_values = self.feature_comparison_analysis()
+        feature_list, t_test_results, p_values, adjusted_p_values = (
+            self.feature_comparison_analysis()
+        )
 
         # Check if we have valid results
         if not feature_list:
-            self.ui.stats_textedit.appendPlainText("No features available for statistical comparison.")
+            self.ui.stats_textedit.appendPlainText(
+                "No features available for statistical comparison."
+            )
             return
 
         # Display t-test results
@@ -791,15 +913,23 @@ class CompareStudiesWindow(QDialog):
             self.ui.stats_textedit.appendPlainText(result_text)
 
     def spatial_correlation_analysis(self):
-        """
-        Performs spatial correlation analysis between microstates of two studies.
+        """Compute spatial correlations between study microstate maps.
+
+        Returns:
+          tuple[list, list, list, list]: (labels, correlations, p_values, adjusted_p_values)
         """
         # Check if both studies have microstate maps
-        if not hasattr(self.comet_tbx_study1, 'best_maps') or self.comet_tbx_study1.best_maps is None:
+        if (
+            not hasattr(self.comet_tbx_study1, "best_maps")
+            or self.comet_tbx_study1.best_maps is None
+        ):
             return [], [], [], []
 
         if self.ui.compare_study2_radio.isChecked():
-            if not hasattr(self.comet_tbx_study2, 'best_maps') or self.comet_tbx_study2.best_maps is None:
+            if (
+                not hasattr(self.comet_tbx_study2, "best_maps")
+                or self.comet_tbx_study2.best_maps is None
+            ):
                 return [], [], [], []
 
             # Extract microstates from both studies
@@ -830,15 +960,16 @@ class CompareStudiesWindow(QDialog):
 
         # Adjust p-values for multiple testing
         adjusted_p_values = multipletests(
-            p_values,
-            method=self.ui.multiple_test_method_combo.currentText().lower()
+            p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
         )[1]
 
         return microlabels[:min_states], correlation_coefficients, p_values, adjusted_p_values
 
     def feature_comparison_analysis(self):
-        """
-        Performs feature comparison analysis between two studies using t-tests.
+        """Perform t-test-based feature comparison between two studies.
+
+        Returns:
+          tuple[list, dict, list, list]: (feature_list, t_test_results, p_values, adjusted_p_values)
         """
         result = self.get_common_features()
         if result is None or result[0] is None:
@@ -848,24 +979,23 @@ class CompareStudiesWindow(QDialog):
         selected_feature = self.get_selected_feature_code()
 
         # Organize data for the selected feature
-        columns_to_keep = ['Filename', 'Study'] + [
+        columns_to_keep = ["Filename", "Study"] + [
             col for col in common_features_df.columns if col.startswith(selected_feature)
         ]
         common_features_df = common_features_df[columns_to_keep]
 
         # Separate data by study
         selected_feature_study1_df = common_features_df[
-            common_features_df['Study'] == self.comet_tbx_study1.study_name
-            ].sort_values(by='Filename')
+            common_features_df["Study"] == self.comet_tbx_study1.study_name
+        ].sort_values(by="Filename")
 
         selected_feature_study2_df = common_features_df[
-            common_features_df['Study'] == self.study2_name
-            ].sort_values(by='Filename')
+            common_features_df["Study"] == self.study2_name
+        ].sort_values(by="Filename")
 
         # Perform t-tests for each feature
         feature_list = [
-            col for col in selected_feature_study1_df.columns
-            if col not in ['Study', 'Filename']
+            col for col in selected_feature_study1_df.columns if col not in ["Study", "Filename"]
         ]
         t_test_results = {}
         p_values = []
@@ -884,26 +1014,37 @@ class CompareStudiesWindow(QDialog):
 
         # Adjust p-values for multiple testing
         adjusted_p_values = multipletests(
-            p_values,
-            method=self.ui.multiple_test_method_combo.currentText().lower()
+            p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
         )[1]
 
         return feature_list, t_test_results, p_values, adjusted_p_values
 
-    def _log_study_completion_status(self, comet_instance, study_name):
-        """Log the completion status of all processing steps for a study"""
-        from gui_utils.logger import get_logger
+    @staticmethod
+    def _log_study_completion_status(comet_instance, study_name):
+        """Log the completion status of all processing steps for a study.
+
+        Args:
+          comet_instance: COMET instance to inspect.
+          study_name (str): Label used in logging output.
+
+        Returns:
+          None
+        """
+        from gui_utils.terminal_logger import get_logger
+
         logger = get_logger()
-        
+
         # Log section header for study loading
         logger.section_header("STUDY_LOADING")
-        
+
         # Log that the study was loaded successfully
-        logger.processing_success("STUDY_LOADING", f"Study '{comet_instance.study_name}' loaded successfully")
-        
+        logger.processing_success(
+            "STUDY_LOADING", f"Study '{comet_instance.study_name}' loaded successfully"
+        )
+
         # Log section header for completion status
         logger.section_header("STUDY_STATUS")
-        
+
         # Check each processing step and log with consistent emojis
         steps_status = []
 
@@ -919,10 +1060,17 @@ class CompareStudiesWindow(QDialog):
         if comet_instance.done_clustering:
             steps_status.append("✅ Microstate Clustering")
             logger.processing_success("STUDY_STATUS", "Microstate Clustering - COMPLETED")
-            if hasattr(comet_instance, 'best_gev') and comet_instance.best_gev is not None:
-                logger.processing_info("STUDY_STATUS", f"Best GEV: {100 * comet_instance.best_gev:.3f}%")
-            if hasattr(comet_instance, 'number_of_maps') and comet_instance.number_of_maps is not None:
-                logger.processing_info("STUDY_STATUS", f"Number of Maps: {comet_instance.number_of_maps}")
+            if hasattr(comet_instance, "best_gev") and comet_instance.best_gev is not None:
+                logger.processing_info(
+                    "STUDY_STATUS", f"Best GEV: {100 * comet_instance.best_gev:.3f}%"
+                )
+            if (
+                hasattr(comet_instance, "number_of_maps")
+                and comet_instance.number_of_maps is not None
+            ):
+                logger.processing_info(
+                    "STUDY_STATUS", f"Number of Maps: {comet_instance.number_of_maps}"
+                )
         else:
             steps_status.append("❌ Microstate Clustering")
             logger.warning("STUDY_STATUS", "Microstate Clustering - NOT COMPLETED")
@@ -969,20 +1117,16 @@ class CompareStudiesWindow(QDialog):
 
         # Summary section removed - no longer needed
 
-    def calculate_icc(self, ratings, icc_type='ICC(2,1)'):
-        """
-        Calculate Intraclass Correlation Coefficient.
+    @staticmethod
+    def calculate_icc(ratings, icc_type="ICC(2,1)"):
+        """Calculate the Intraclass Correlation Coefficient (ICC).
 
         Args:
-            ratings: numpy array of shape (n_subjects, n_raters)
-                     where n_raters = 2 for test-retest
-            icc_type: Type of ICC to calculate
-                     'ICC(2,1)' - Two-way random effects, single measurement, absolute agreement
+          ratings (np.ndarray): Array of shape (n_subjects, n_raters); raters=2 for test-retest.
+          icc_type (str): ICC type (e.g., 'ICC(2,1)') used for description only.
 
         Returns:
-            icc_value: The ICC value
-            ci_low: Lower bound of 95% confidence interval
-            ci_high: Upper bound of 95% confidence interval
+          tuple[float, float, float]: (icc_value, ci_low, ci_high) for 95% CI.
         """
         n_subjects, n_raters = ratings.shape
 
@@ -1011,11 +1155,13 @@ class CompareStudiesWindow(QDialog):
         if ms_error == 0:
             icc_value = 1.0 if ms_rows == ms_error else 0.0
         else:
-            icc_value = (ms_rows - ms_error) / (ms_rows + (n_raters - 1) * ms_error +
-                                                n_raters * (ms_cols - ms_error) / n_subjects)
+            icc_value = (ms_rows - ms_error) / (
+                ms_rows + (n_raters - 1) * ms_error + n_raters * (ms_cols - ms_error) / n_subjects
+            )
 
         # Approximate 95% confidence interval using F-distribution
         from scipy.stats import f
+
         alpha = 0.05
 
         # F-statistic
@@ -1040,31 +1186,36 @@ class CompareStudiesWindow(QDialog):
 
         return icc_value, ci_low, ci_high
 
-    def extract_subject_id(self, filename):
-        """
-        Extract subject ID from filename.
-        Handles various naming conventions.
+    @staticmethod
+    def extract_subject_id(filename):
+        """Extract a subject identifier from a filename using common patterns.
+
+        Args:
+          filename (str): Source filename.
+
+        Returns:
+          str: Extracted subject identifier (best effort), or the filename if no match.
         """
         # Try to extract subject ID from common patterns
         import re
 
         # Pattern 1: sub-XX format
-        match = re.search(r'sub-(\d+)', filename)
+        match = re.search(r"sub-(\d+)", filename)
         if match:
             return f"sub-{match.group(1)}"
 
         # Pattern 2: subjectXX or subjXX format
-        match = re.search(r'subj(?:ect)?(\d+)', filename, re.IGNORECASE)
+        match = re.search(r"subj(?:ect)?(\d+)", filename, re.IGNORECASE)
         if match:
             return f"subject{match.group(1)}"
 
         # Pattern 3: SXX format
-        match = re.search(r'S(\d+)', filename)
+        match = re.search(r"S(\d+)", filename)
         if match:
             return f"S{match.group(1)}"
 
         # Pattern 4: Just numbers at the beginning
-        match = re.search(r'^(\d+)', filename)
+        match = re.search(r"^(\d+)", filename)
         if match:
             return match.group(1)
 
@@ -1072,8 +1223,13 @@ class CompareStudiesWindow(QDialog):
         return filename
 
     def perform_test_retest_analysis(self):
-        """
-        Perform test-retest reliability analysis using ICC for the selected feature only.
+        """Perform test-retest ICC analysis for the selected feature.
+
+        Matches subjects across studies by ID, computes ICC with 95% CI per
+        sub-feature, and prints a concise summary.
+
+        Returns:
+          None
         """
         try:
             # Clear previous stats
@@ -1108,12 +1264,12 @@ class CompareStudiesWindow(QDialog):
             study2_subjects = {}
 
             for idx, row in features_study1.iterrows():
-                filename = row['Filename']
+                filename = row["Filename"]
                 subject_id = self.extract_subject_id(filename)
                 study1_subjects[subject_id] = idx
 
             for idx, row in features_study2.iterrows():
-                filename = row['Filename']
+                filename = row["Filename"]
                 subject_id = self.extract_subject_id(filename)
                 study2_subjects[subject_id] = idx
 
@@ -1146,8 +1302,9 @@ class CompareStudiesWindow(QDialog):
 
             # Get feature columns (exclude Filename and Study columns), filter for selected feature
             feature_columns = [
-                col for col in features_study1.columns
-                if col not in ['Filename', 'Study'] and col.startswith(selected_feature)
+                col
+                for col in features_study1.columns
+                if col not in ["Filename", "Study"] and col.startswith(selected_feature)
             ]
 
             if not feature_columns:
@@ -1178,7 +1335,7 @@ class CompareStudiesWindow(QDialog):
                     icc_value, ci_low, ci_high = self.calculate_icc(ratings)
 
                 # Get full feature name
-                feature_parts = feature.split('_')
+                feature_parts = feature.split("_")
                 if feature_parts[0] in self.feature_list_dictionary:
                     feature_full_name = self.feature_list_dictionary[feature_parts[0]]
                     if len(feature_parts) > 1:
@@ -1186,26 +1343,27 @@ class CompareStudiesWindow(QDialog):
                 else:
                     feature_full_name = feature
 
-                icc_results.append({
-                    'Feature': feature,
-                    'Feature_Full': feature_full_name,
-                    'ICC': icc_value,
-                    'CI_Low': ci_low,
-                    'CI_High': ci_high
-                })
+                icc_results.append(
+                    {
+                        "Feature": feature,
+                        "Feature_Full": feature_full_name,
+                        "ICC": icc_value,
+                        "CI_Low": ci_low,
+                        "CI_High": ci_high,
+                    }
+                )
 
             # Sort results by ICC value (descending)
-            icc_results.sort(key=lambda x: x['ICC'] if not np.isnan(x['ICC']) else -1, reverse=True)
+            icc_results.sort(key=lambda x: x["ICC"] if not np.isnan(x["ICC"]) else -1, reverse=True)
 
             # Display results
             self.ui.stats_textedit.appendPlainText(
-                f"{'Feature':<40} {'ICC':>8} {'95% CI':>20}\n"
-                f"{'-' * 70}"
+                f"{'Feature':<40} {'ICC':>8} {'95% CI':>20}\n" f"{'-' * 70}"
             )
 
             for result in icc_results:
-                if not np.isnan(result['ICC']):
-                    reliability = self.interpret_icc(result['ICC'])
+                if not np.isnan(result["ICC"]):
+                    reliability = self.interpret_icc(result["ICC"])
                     ci_str = f"[{result['CI_Low']:.3f}, {result['CI_High']:.3f}]"
                     self.ui.stats_textedit.appendPlainText(
                         f"{result['Feature_Full']:<40} {result['ICC']:>8.3f} {ci_str:>20} {reliability}"
@@ -1216,7 +1374,7 @@ class CompareStudiesWindow(QDialog):
                     )
 
             # Summary statistics for selected feature
-            valid_iccs = [r['ICC'] for r in icc_results if not np.isnan(r['ICC'])]
+            valid_iccs = [r["ICC"] for r in icc_results if not np.isnan(r["ICC"])]
             if valid_iccs:
                 self.ui.stats_textedit.appendPlainText(
                     f"\n{'=' * 60}\n"
@@ -1233,22 +1391,29 @@ class CompareStudiesWindow(QDialog):
 
         except Exception as e:
             QMessageBox.critical(
-                self, "Test-Retest Analysis Error",
+                self,
+                "Test-Retest Analysis Error",
                 f"Failed to perform test-retest analysis: {str(e)}",
-                QMessageBox.Ok
+                QMessageBox.Ok,
             )
             import traceback
+
             traceback.print_exc()
 
-    def interpret_icc(self, icc_value):
-        """
-        Interpret ICC value according to Koo & Li (2016) guidelines.
+    @staticmethod
+    def interpret_icc(icc_value):
+        """Return a qualitative interpretation of ICC per Koo & Li (2016).
+
+        Args:
+          icc_value (float): ICC value in [0, 1].
+
+        Returns:
+          str: One of '(Poor)', '(Moderate)', '(Good)', '(Excellent)'.
         """
         if icc_value < 0.50:
             return "(Poor)"
-        elif icc_value < 0.75:
+        if icc_value < 0.75:
             return "(Moderate)"
-        elif icc_value < 0.90:
+        if icc_value < 0.90:
             return "(Good)"
-        else:
-            return "(Excellent)"
+        return "(Excellent)"

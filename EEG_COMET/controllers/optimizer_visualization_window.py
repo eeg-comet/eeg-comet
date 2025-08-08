@@ -1,33 +1,65 @@
-import time
-import numpy as np
-from typing import Dict, List, Optional, Any
+"""Optimizer visualization GUI using modified K-means clustering outputs.
 
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5 import uic
-from PyQt5.QtWidgets import (
-    QMainWindow, QSizePolicy, QApplication, QFileDialog,
-    QActionGroup, QMessageBox
-)
+Provides windows to run optimization metrics over microstate clustering
+results, visualize method curves, and export figures. Uses a polarity-
+independent modified K-means and consolidated metrics implementations.
+"""
+
+import time
+from typing import Any, Optional
+
+import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from PyQt5 import uic
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtWidgets import (
+    QActionGroup,
+    QApplication,
+    QMainWindow,
+    QMessageBox,
+    QSizePolicy,
+)
 
-from data_utils.data_initializer import DataInitializer
-from clustering_utils.clusterer_optimizer import ClustererOptimizer, OptimizationResult
+from clustering_utils.clusterer_optimizer import ClustererOptimizer
 from clustering_utils.microstate_clusterer import MicrostateClusterer
-from gui_utils.logger import get_logger
+from data_utils.data_initializer import DataInitializer
+from gui_utils.terminal_logger import get_logger
+from gui_utils.export_utils import get_save_file_path, save_matplotlib_figure
 
+ 
 
 # ============================================================================
 # Worker Thread Classes
 # ============================================================================
 
+
 class OptimizedOptimizerWorker(QThread):
-    """Optimized worker thread that computes all metrics for each K using modified K-means"""
+    """Optimized worker thread for computing metrics across K values.
+
+    Args:
+      optimizer: Instance providing batch metric computation APIs.
+      methods_to_run (list[str]): Method codes to compute (e.g., ["gev", "db"]).
+      parameters (dict | None): Optional per-method parameters (e.g., thresholds).
+
+    Signals:
+      progress (pyqtSignal): Emits (current:int, total:int, message:str).
+      finished (pyqtSignal): Emits results dict when all methods complete.
+      error (pyqtSignal): Emits error message when an exception occurs.
+    """
+
     progress = pyqtSignal(int, int, str)  # current, total, message
     finished = pyqtSignal(dict)  # results
     error = pyqtSignal(str)
 
     def __init__(self, optimizer, methods_to_run, parameters=None):
+        """Create worker with optimizer, methods list, and optional parameters.
+
+        Args:
+          optimizer: Optimizer instance used to compute metrics.
+          methods_to_run (list[str]): Method codes to compute.
+          parameters (dict | None): Optional per-method parameters.
+        """
         super().__init__()
         self.optimizer = optimizer
         self.methods_to_run = methods_to_run
@@ -35,25 +67,27 @@ class OptimizedOptimizerWorker(QThread):
         self.results = {}
 
     def run(self):
-        """
-        Execute requested optimisation methods by delegating to the
-        underlying `ClustererOptimizer` instance. Uses a batch API to avoid
-        redundant recomputation across methods.
+        """Execute the requested optimization methods.
+
+        Delegates to the underlying optimizer batch API to avoid redundant
+        recomputation across methods.
         """
         try:
             # Use the optimised batch computation to minimise repeated work
-            batch_results = self.optimizer.compute_methods_batch(self.methods_to_run, self.parameters)
+            batch_results = self.optimizer.compute_methods_batch(
+                self.methods_to_run, self.parameters
+            )
 
             # Convert to the expected window cache structure
             for method, result_obj in batch_results.items():
                 self.results[method] = {
-                    'method': method,
-                    'result': result_obj,
-                    'optimal_k': result_obj.optimal_k,
-                    'original_optimal_k': result_obj.optimal_k,
-                    'k_values': result_obj.k_values,
-                    'scores': result_obj.scores,
-                    'threshold': self.parameters.get(method, None)
+                    "method": method,
+                    "result": result_obj,
+                    "optimal_k": result_obj.optimal_k,
+                    "original_optimal_k": result_obj.optimal_k,
+                    "k_values": result_obj.k_values,
+                    "scores": result_obj.scores,
+                    "threshold": self.parameters.get(method, None),
                 }
 
             self.progress.emit(100, 100, "All optimisations complete")
@@ -61,59 +95,82 @@ class OptimizedOptimizerWorker(QThread):
 
         except Exception as e:
             import traceback
+
             error_msg = f"Error in optimization: {str(e)}\n{traceback.format_exc()}"
             print(f"[ERROR] {error_msg}")
             self.error.emit(error_msg)
 
-        except Exception as e:
-            import traceback
-            error_msg = f"Error in optimization: {str(e)}\n{traceback.format_exc()}"
-            print(f"[ERROR] {error_msg}")
-            self.error.emit(error_msg)
+    @staticmethod
+    def _compute_metric(method, clustering_result, k):
+        """Compute a specific metric on the clustering result.
 
-    def _compute_metric(self, method, clustering_result, k):
-        """Compute a specific metric on the clustering result"""
+        Args:
+          method (str): Method code.
+          clustering_result (dict): Result object with metric entries.
+          k (int): Number of clusters.
+
+        Returns:
+          float: Metric score.
+        """
         metric_map = {
-            'gev': 'gev',
-            'db': 'davies_bouldin',
-            'cv': 'cross_validation_criterion',
-            'kl': 'krzanowski_lai_criterion'
+            "gev": "gev",
+            "db": "davies_bouldin",
+            "cv": "cross_validation_criterion",
+            "kl": "krzanowski_lai_criterion",
         }
 
         metric_key = metric_map.get(method)
         if metric_key and metric_key in clustering_result:
             return clustering_result[metric_key]
-        else:
-            raise ValueError(f"Metric {method} not found in clustering result")
+        raise ValueError(f"Metric {method} not found in clustering result")
 
     def _find_optimal_k(self, method, k_values, scores):
-        """Find optimal K based on method and scores"""
+        """Find optimal K based on method and scores.
+
+        Args:
+          method (str): Method code.
+          k_values (list[int]): Candidate K values.
+          scores (list[float]): Scores for each K.
+
+        Returns:
+          int: Optimal K value.
+        """
         if not scores or not k_values:
             return k_values[0] if k_values else 2
 
         # Handle methods based on optimization direction
-        if method == 'db':
+        if method == "db":
             # Lower is better - find minimum
             min_idx = np.argmin(scores)
             return k_values[min_idx]
-        elif method == 'gev':
+        if method == "gev":
             # Global Explained Variance - use elbow method
             threshold = self.parameters.get(method, 5.0)
             return self._find_elbow_point(k_values, scores, threshold, higher_is_better=True)
-        elif method == 'cv':
+        if method == "cv":
             # Cross validation - typically lower is better
             min_idx = np.argmin(scores)
             return k_values[min_idx]
-        elif method == 'kl':
+        if method == "kl":
             # Krzanowski-Lai - higher is better
             max_idx = np.argmax(scores)
             return k_values[max_idx]
-        else:
-            # Default to first k value
-            return k_values[0]
+        # Default to first k value
+        return k_values[0]
 
-    def _find_elbow_point(self, k_values, scores, threshold, higher_is_better=True):
-        """Find elbow point using threshold for percentage change"""
+    @staticmethod
+    def _find_elbow_point(k_values, scores, threshold, higher_is_better=True):
+        """Find elbow point using threshold for percentage change.
+
+        Args:
+          k_values (list[int]): Candidate K values.
+          scores (list[float]): Metric scores for each K.
+          threshold (float): Percent change threshold.
+          higher_is_better (bool): Unused here; retained for API consistency.
+
+        Returns:
+          int: Selected K value at the elbow.
+        """
         if len(scores) < 2:
             return k_values[0]
 
@@ -131,20 +188,33 @@ class OptimizedOptimizerWorker(QThread):
         # If no elbow found, return the last K
         return k_values[-1]
 
-    def _is_higher_better(self, method):
-        """Determine if higher scores are better for the method"""
-        return method in ['gev', 'kl']
+    @staticmethod
+    def _is_higher_better(method):
+        """Return whether higher scores are better for a method.
 
-    def _get_method_display_name(self, method):
-        """Get display name for method"""
+        Args:
+          method (str): Method code.
+
+        Returns:
+          bool: True if higher scores are better.
+        """
+        return method in ["gev", "kl"]
+
+    @staticmethod
+    def _get_method_display_name(method):
+        """Get display name for a method code.
+
+        Args:
+          method (str): Method code.
+
+        Returns:
+          str: Human-readable method name.
+        """
         name_map = {
-            'gev': 'Global Explained Variance Criterion',
-            
-            
-            
-            'db': 'Davies-Bouldin Criterion',
-            'cv': 'Cross Validation Criterion',
-            'kl': 'Krzanowski-Lai Criterion'
+            "gev": "Global Explained Variance Criterion",
+            "db": "Davies-Bouldin Criterion",
+            "cv": "Cross Validation Criterion",
+            "kl": "Krzanowski-Lai Criterion",
         }
         return name_map.get(method, method)
 
@@ -153,48 +223,99 @@ class OptimizedOptimizerWorker(QThread):
 # Extended Optimizer Class - Uses ClustererOptimizer metrics
 # ============================================================================
 
+
 class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
-    """
-    Extended optimizer that uses modified K-means for microstate clustering.
-    All metric computations are inherited from ClustererOptimizer (single source of truth).
+    """Optimizer using modified K-means for microstate clustering.
+
+    All metric computations are inherited from ClustererOptimizer (single source
+    of truth), with polarity-invariant behavior.
     """
 
-    def __init__(self, maps2use, min_dist=None, n_inits=10, kmin=2, kmax=10,
-                 preprocessed_data_path=None, extension=None, datatype=None,
-                 tolerance=1e-6, max_iter=500, batch_size=None, logger=None):
-        super().__init__(maps2use, min_dist, n_inits, kmin, kmax,
-                          preprocessed_data_path, extension, datatype, tolerance, max_iter,
-                          batch_size, progress_callback=None, logger=logger)
+    def __init__(
+        self,
+        maps2use,
+        min_dist=None,
+        n_inits=10,
+        kmin=2,
+        kmax=10,
+        preprocessed_data_path=None,
+        extension=None,
+        datatype=None,
+        tolerance=1e-6,
+        max_iter=500,
+        batch_size=None,
+        logger=None,
+    ):
+        """Initialize the optimizer with data and hyperparameters.
+
+        Args:
+          maps2use (np.ndarray): Input maps matrix.
+          min_dist (int | None): Minimum distance between GFP peaks.
+          n_inits (int): Number of random initializations.
+          kmin (int): Minimum K.
+          kmax (int): Maximum K.
+          preprocessed_data_path (str | None): Path to preprocessed data.
+          extension (str | None): Data extension.
+          datatype (str | None): Data type (raw/epoched).
+          tolerance (float): Convergence tolerance.
+          max_iter (int): Maximum iterations.
+          batch_size (int | None): Batch size for modified K-means.
+          logger: Logger instance.
+        """
+        super().__init__(
+            maps2use,
+            min_dist,
+            n_inits,
+            kmin,
+            kmax,
+            preprocessed_data_path,
+            extension,
+            datatype,
+            tolerance,
+            max_iter,
+            batch_size,
+            progress_callback=None,
+            logger=logger,
+        )
 
         # Ensure we have a logger instance
         if logger is None:
-            from gui_utils.logger import get_logger
+            from gui_utils.terminal_logger import get_logger
+
             logger = get_logger()
         self.logger = logger
 
         # Prepare data in the correct format for modified K-means (n_channels, n_samples)
         if self.maps2use.shape[0] > self.maps2use.shape[1]:
             self.eeg_data = self.maps2use.T
-            self.logger.processing_info("CLUSTERING", "Data matrix transposed to channels × samples")
+            self.logger.processing_info(
+                "CLUSTERING", "Data matrix transposed to channels × samples"
+            )
         else:
             self.eeg_data = self.maps2use
-
 
         # Validate data size and provide memory warnings
         n_channels, n_samples = self.eeg_data.shape
 
         self.batch_size = batch_size
 
-
-
         if self.logger is None:
-            from gui_utils.logger import get_logger
-            self.logger = get_logger()
-        self.logger.processing_info("CLUSTERING", f"Visualization optimizer ready (k={kmin}-{kmax})")
+            from gui_utils.terminal_logger import get_logger
 
+            self.logger = get_logger()
+        self.logger.processing_info(
+            "CLUSTERING", f"Visualization optimizer ready (k={kmin}-{kmax})"
+        )
 
     def _perform_single_clustering(self, k):
-        """Perform modified K-means clustering for a single K value"""
+        """Perform modified K-means clustering for a single K value.
+
+        Args:
+          k (int): Number of clusters.
+
+        Returns:
+          dict: Clustering result with maps, labels, and metrics.
+        """
         self.logger.processing_info("CLUSTERING", f"Clustering k={k} (modified K-means)")
         start_time = time.time()
 
@@ -204,7 +325,7 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             batch_size=self.batch_size,
             n_inits=1,
             max_iter=self.max_iter,
-            tolerance=self.tolerance
+            tolerance=self.tolerance,
         )
 
         n_channels, n_samples = self.eeg_data.shape
@@ -226,9 +347,7 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
                 # Run modified K-means
                 maps, residual = clusterer.modified_kmeans(
-                    self.eeg_data,
-                    initial_maps,
-                    verbose=False
+                    self.eeg_data, initial_maps, verbose=False
                 )
 
                 # Calculate GEV for this result
@@ -245,7 +364,9 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
                     best_labels = np.argmax(np.abs(activation), axis=0)
 
             except Exception as e:
-                self.logger.warning("CLUSTERING", f"Init {init_attempt+1} failed for k={k}: {str(e)}")
+                self.logger.warning(
+                    "CLUSTERING", f"Init {init_attempt+1} failed for k={k}: {str(e)}"
+                )
                 continue
 
         if best_maps is None:
@@ -253,13 +374,13 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
         # Create comprehensive clustering result
         clustering_result = {
-            'k': k,
-            'labels': best_labels,
-            'centers': best_maps,
-            'data': self.maps2use,
-            'eeg_data': self.eeg_data,
-            'residual': best_residual,
-            'n_iter': None,
+            "k": k,
+            "labels": best_labels,
+            "centers": best_maps,
+            "data": self.maps2use,
+            "eeg_data": self.eeg_data,
+            "residual": best_residual,
+            "n_iter": None,
         }
 
         # Compute all metrics efficiently using CONSOLIDATED METHODS from ClustererOptimizer
@@ -270,21 +391,27 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
         # Show cluster distribution
         unique_labels, counts = np.unique(best_labels, return_counts=True)
-        total_samples = len(best_labels)
-
+        len(best_labels)
 
         return clustering_result
 
     def _compute_all_metrics(self, clustering_result, k, best_labels, best_gev, best_residual):
-        """
-        Compute all metrics for the clustering result using CONSOLIDATED METHODS
-        from ClustererOptimizer (single source of truth).
+        """Compute all metrics for a clustering result.
+
+        Uses consolidated methods from ClustererOptimizer (single source of truth).
+
+        Args:
+          clustering_result (dict): Result container to write metrics into.
+          k (int): Number of clusters.
+          best_labels (np.ndarray): Segmentation labels.
+          best_gev (float): Global explained variance of the best solution.
+          best_residual (float): Residual variance of the best solution.
         """
         # 1. Global Explained Variance (PRIMARY metric for microstates)
-        clustering_result['gev'] = best_gev
+        clustering_result["gev"] = best_gev
 
         # 2. Residual Variance
-        clustering_result['residual_variance'] = best_residual
+        clustering_result["residual_variance"] = best_residual
 
         # 3. Prepare data matrix for metrics: shape (n_samples, n_features)
         #    self.eeg_data is (n_channels × n_samples), so transpose to (n_samples × n_channels)
@@ -292,17 +419,15 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
         # 4. Silhouette Score (if k > 1) - USING CONSOLIDATED METHOD
         if k > 1:
-            clustering_result['silhouette'] = self.compute_custom_silhouette(
-                data=sample_features,
-                labels=best_labels,
-                maps=clustering_result.get('centers')
+            clustering_result["silhouette"] = self.compute_custom_silhouette(
+                data=sample_features, labels=best_labels, maps=clustering_result.get("centers")
             )
         else:
-            clustering_result['silhouette'] = 0.0
+            clustering_result["silhouette"] = 0.0
 
         # 5. Calinski-Harabasz Index - USING CONSOLIDATED METHOD
         try:
-            maps = clustering_result.get('centers')  # shape: (k, n_channels)
+            maps = clustering_result.get("centers")  # shape: (k, n_channels)
 
             # Ensure that required data are present
             if maps is not None and maps.shape[0] == k:
@@ -310,65 +435,88 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
                     data=self.eeg_data,  # (n_channels × n_samples)
                     maps=maps,  # (k × n_channels)
                     segmentation=best_labels,  # (n_samples,)
-                    k=k
+                    k=k,
                 )
             else:
-                raise ValueError("Cluster centers missing or have unexpected shape for CH computation")
+                raise ValueError(
+                    "Cluster centers missing or have unexpected shape for CH computation"
+                )
 
-            clustering_result['calinski_harabasz'] = ch_score
+            clustering_result["calinski_harabasz"] = ch_score
         except Exception as e:
             print(f"        Warning: CH computation failed for k={k}: {str(e)}")
-            clustering_result['calinski_harabasz'] = 0.0
+            clustering_result["calinski_harabasz"] = 0.0
 
         # 6. Davies-Bouldin Index (if k > 1) - USING CONSOLIDATED METHOD
         if k > 1:
-            clustering_result['davies_bouldin'] = self.compute_custom_davies_bouldin(
+            clustering_result["davies_bouldin"] = self.compute_custom_davies_bouldin(
                 data=self.eeg_data,  # (n_channels × n_samples)
                 labels=best_labels,  # (n_samples,)
-                maps=clustering_result.get('centers')  # (k × n_channels)
+                maps=clustering_result.get("centers"),  # (k × n_channels)
             )
         else:
-            clustering_result['davies_bouldin'] = 0.0
+            clustering_result["davies_bouldin"] = 0.0
 
         # 7. Cross Validation Score (classical microstate CV criterion)
         try:
             cv_score = self._compute_cross_validation_criterion_vectorized(
                 self.eeg_data,  # (n_channels × n_samples)
-                clustering_result.get('centers'),  # (k × n_channels)
-                best_labels  # (n_samples,)
+                clustering_result.get("centers"),  # (k × n_channels)
+                best_labels,  # (n_samples,)
             )
-            clustering_result['cross_validation_criterion'] = cv_score
+            clustering_result["cross_validation_criterion"] = cv_score
         except Exception as e:
             print(f"        Warning: CV computation failed for k={k}: {str(e)}")
-            clustering_result['cross_validation_criterion'] = np.nan
+            clustering_result["cross_validation_criterion"] = np.nan
 
     def get_microstate_maps(self, k):
-        """Get the final microstate maps for a specific k value"""
+        """Get the final microstate maps for a specific k value.
+
+        Args:
+          k (int): Number of clusters.
+
+        Returns:
+          np.ndarray: Microstate maps (k × n_channels).
+        """
         result = self._perform_single_clustering(k)
-        return result['centers']
+        return result["centers"]
 
     def compute_microstate_metrics(self, k, verbose=True):
-        """Compute comprehensive microstate-specific metrics for a given k"""
+        """Compute comprehensive microstate-specific metrics for a given k.
+
+        Args:
+          k (int): Number of clusters.
+          verbose (bool): If True, prints a summary to stdout.
+
+        Returns:
+          dict: Dictionary of computed metrics and outputs.
+        """
         result = self._perform_single_clustering(k)
 
         metrics = {
-            'k': k,
-            'gev': result['gev'],
-            'residual_variance': result['residual_variance'],
-            'silhouette': result['silhouette'],
-            'calinski_harabasz': result['calinski_harabasz'],
-            'davies_bouldin': result['davies_bouldin'],
-            'microstate_maps': result['centers'],
-            'segmentation': result['labels']
+            "k": k,
+            "gev": result["gev"],
+            "residual_variance": result["residual_variance"],
+            "silhouette": result["silhouette"],
+            "calinski_harabasz": result["calinski_harabasz"],
+            "davies_bouldin": result["davies_bouldin"],
+            "microstate_maps": result["centers"],
+            "segmentation": result["labels"],
         }
 
         if verbose:
             print(f"\nMicrostate Metrics for k={k}:")
             print(f"  Global Explained Variance: {metrics['gev']:.4f}")
             print(f"  Residual Variance: {metrics['residual_variance']:.6f}")
-            print(f"  Silhouette Score: {metrics['silhouette']:.4f} (consolidated polarity-invariant)")
-            print(f"  Calinski-Harabasz: {metrics['calinski_harabasz']:.2f} (consolidated polarity-invariant)")
-            print(f"  Davies-Bouldin: {metrics['davies_bouldin']:.4f} (consolidated polarity-invariant)")
+            print(
+                f"  Silhouette Score: {metrics['silhouette']:.4f} (consolidated polarity-invariant)"
+            )
+            print(
+                f"  Calinski-Harabasz: {metrics['calinski_harabasz']:.2f} (consolidated polarity-invariant)"
+            )
+            print(
+                f"  Davies-Bouldin: {metrics['davies_bouldin']:.4f} (consolidated polarity-invariant)"
+            )
 
         return metrics
 
@@ -377,16 +525,29 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 # Main Window Class
 # ============================================================================
 
+
 class OptimizerVisualizationWindow(QMainWindow):
-    """
-    Window for manual inspection of microstate clustering optimization results.
-    Uses modified K-means algorithm that ignores polarity shifts with persistent results.
-    All clustering metrics are computed via ClustererOptimizer (single source of truth).
+    """Window to inspect microstate clustering optimization results.
+
+    Uses a polarity-invariant modified K-means algorithm and consolidated
+    metrics from ClustererOptimizer to compute GEV, DB, CV, and KL criteria.
+
+    Attributes:
+      context: Resource provider used to load UI assets.
+      comet: COMET toolbox instance for parameters and persistence.
+      optimizer: Optimizer instance (initialized on demand).
+      results_cache (dict[str, Any]): Cached results keyed by method code.
     """
 
     def __init__(self, context, comet_instance, parent=None):
-        """Initialize the OptimizerVisualizationWindow with enhanced persistence support."""
-        super(OptimizerVisualizationWindow, self).__init__(parent)
+        """Initialize the window with persistence and UI setup.
+
+        Args:
+          context: Resource/context provider used to resolve UI resources.
+          comet_instance: COMET toolbox instance.
+          parent: Optional parent widget.
+        """
+        super().__init__(parent)
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
 
         # Store references
@@ -413,19 +574,19 @@ class OptimizerVisualizationWindow(QMainWindow):
     # ========================================================================
 
     def _init_data_structures(self):
-        """Initialize core data structures"""
+        """Initialize core data structures."""
         self.optimizer = None
         self.results_cache = {}
         self.worker = None
         self.all_methods_complete = False
         self.last_used_parameters = {}
-        self.current_font_family = 'Arial'
-        self.current_font_size = 'Large'
+        self.current_font_family = "Arial"
+        self.current_font_size = "Large"
         # Logger
         self.logger = get_logger()
 
     def _setup_ui(self):
-        """Setup the UI components"""
+        """Set up the UI components."""
         # Load the UI
         self.ui = uic.loadUi(self.context.get_resource("OptimizerVisualizationWindow.ui"), self)
         self.ui.setWindowTitle("Exploring the number of microstate maps (Modified K-means)")
@@ -437,7 +598,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.ui.Figure_Layout.addWidget(self.canvas)
 
     def _setup_font_system(self):
-        """Setup font menu action groups"""
+        """Set up font menu action groups."""
         # Font family action group
         self.font_family_group = QActionGroup(self)
         self.font_family_group.addAction(self.ui.actionArial)
@@ -452,7 +613,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.font_size_group.addAction(self.ui.actionX_Large)
 
     def _setup_connections(self):
-        """Setup all signal-slot connections"""
+        """Set up all signal-slot connections."""
         # Main controls
         self.ui.optimizer_combobox.activated.connect(self.optimizer_visualization_controller)
         self.ui.optimizer_button.clicked.connect(self.run_all_analyses)
@@ -463,17 +624,19 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.ui.optimizer_stopping_threshold_input.returnPressed.connect(self._on_threshold_changed)
 
         # Font actions
-        self.ui.actionArial.triggered.connect(lambda: self._set_font_family('Arial'))
-        self.ui.actionCalibri.triggered.connect(lambda: self._set_font_family('Calibri'))
-        self.ui.actionTimes_New_Roman.triggered.connect(lambda: self._set_font_family('Times New Roman'))
+        self.ui.actionArial.triggered.connect(lambda: self._set_font_family("Arial"))
+        self.ui.actionCalibri.triggered.connect(lambda: self._set_font_family("Calibri"))
+        self.ui.actionTimes_New_Roman.triggered.connect(
+            lambda: self._set_font_family("Times New Roman")
+        )
 
-        self.ui.actionSmall.triggered.connect(lambda: self._set_font_size('Small'))
-        self.ui.actionMedium.triggered.connect(lambda: self._set_font_size('Medium'))
-        self.ui.actionLarge.triggered.connect(lambda: self._set_font_size('Large'))
-        self.ui.actionX_Large.triggered.connect(lambda: self._set_font_size('X-Large'))
+        self.ui.actionSmall.triggered.connect(lambda: self._set_font_size("Small"))
+        self.ui.actionMedium.triggered.connect(lambda: self._set_font_size("Medium"))
+        self.ui.actionLarge.triggered.connect(lambda: self._set_font_size("Large"))
+        self.ui.actionX_Large.triggered.connect(lambda: self._set_font_size("X-Large"))
 
     def _initialize_state(self):
-        """Initialize the window state, loading parameters and previous results"""
+        """Initialize window state, loading parameters and previous results."""
         # Get parameters from COMET instance
         self._load_comet_parameters()
 
@@ -490,7 +653,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.verify_and_fix_ui_state()
 
     def _setup_with_results(self):
-        """Setup UI when we have previous results"""
+        """Set up UI when previous results are available."""
         # Enable visualization UI
         self._enable_visualization_ui()
 
@@ -507,20 +670,22 @@ class OptimizerVisualizationWindow(QMainWindow):
         print("Visualization UI enabled - ready to display results")
 
     def _setup_without_results(self):
-        """Setup UI when we don't have previous results"""
+        """Set up UI when no previous results are available."""
         # Disable visualization initially
         self._disable_visualization_ui()
 
         # Add status message
-        self.ui.statusbar.showMessage("Ready - Using polarity-independent modified K-means algorithm")
+        self.ui.statusbar.showMessage(
+            "Ready - Using polarity-independent modified K-means algorithm"
+        )
 
     def _get_k_range_text(self) -> str:
-        """Get K range text from results"""
+        """Return K range text from results."""
         if not self.results_cache:
             return ""
 
         first_result = next(iter(self.results_cache.values()))
-        k_values = first_result.get('k_values', [])
+        k_values = first_result.get("k_values", [])
         if k_values:
             return f" (K: {min(k_values)}-{max(k_values)})"
         return ""
@@ -530,28 +695,30 @@ class OptimizerVisualizationWindow(QMainWindow):
     # ========================================================================
 
     def _load_comet_parameters(self):
-        """Load parameters from COMET instance"""
+        """Load parameters from COMET instance."""
         self.preprocessed_data_path = self.comet.preprocessed_data_path
         self.extension = self.comet.extension
         self.datatype = self.comet.datatype
         self.use_percentages = self.comet.use_percentages
-        self.min_distance_size = getattr(self.comet, 'min_distance_size', None)
-        self.number_of_repeats = getattr(self.comet, 'number_of_repeats', 10)
+        self.min_distance_size = getattr(self.comet, "min_distance_size", None)
+        self.number_of_repeats = getattr(self.comet, "number_of_repeats", 10)
         self.clustering_tolerance = self.comet.clustering_tolerance
         self.max_iterations = self.comet.max_iterations
-        self.batch_size = getattr(self.comet, 'batch_size', None)
+        self.batch_size = getattr(self.comet, "batch_size", None)
 
     # ========================================================================
     # Results Loading and Saving Methods
     # ========================================================================
 
     def _load_previous_results(self):
-        """Load previous optimization results from COMET configuration and update GUI."""
+        """Load previous optimization results and update the GUI."""
         try:
             previous_results = self.comet.load_optimization_results()
             if previous_results:
                 self.results_cache = previous_results
-                print(f"Successfully loaded previous optimization results for {len(previous_results)} methods")
+                print(
+                    f"Successfully loaded previous optimization results for {len(previous_results)} methods"
+                )
 
                 # Log the loaded results
                 self._log_loaded_results(previous_results)
@@ -565,14 +732,20 @@ class OptimizerVisualizationWindow(QMainWindow):
             print(f"Error loading previous optimization results: {str(e)}")
             self.results_cache = {}
 
-    def _log_loaded_results(self, results: Dict[str, Any]):
-        """Log loaded optimization results"""
+    def _log_loaded_results(self, results: dict[str, Any]):
+        """Log loaded optimization results.
+
+        Args:
+          results (dict[str, Any]): Cached results keyed by method code.
+        """
         print("Loaded optimization results:")
-        for method_code, results in results.items():
+        for method_code, method_results in results.items():
             method_name = self._get_method_name(method_code)
-            optimal_k = results['optimal_k']
-            k_range = f"{min(results['k_values'])}-{max(results['k_values'])}"
-            threshold_info = f" (threshold: {results['threshold']}%)" if results.get('threshold') else ""
+            optimal_k = method_results["optimal_k"]
+            k_range = f"{min(method_results['k_values'])}-{max(method_results['k_values'])}"
+            threshold_info = (
+                f" (threshold: {method_results['threshold']}%)" if method_results.get("threshold") else ""
+            )
             print(f"  {method_name}: k={optimal_k}, range={k_range}{threshold_info}")
 
     def _update_gui_for_loaded_results(self):
@@ -613,7 +786,7 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         # Get K range from the first available result
         first_result = next(iter(self.results_cache.values()))
-        k_values = first_result.get('k_values', [])
+        k_values = first_result.get("k_values", [])
 
         if k_values:
             kmin = min(k_values)
@@ -634,7 +807,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         available_methods = []
         method_display_names = self._get_method_display_names()
 
-        for method_code in self.results_cache.keys():
+        for method_code in self.results_cache:
             if method_code in method_display_names:
                 available_methods.append(method_display_names[method_code])
 
@@ -650,7 +823,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             return
 
         # Try to select GEV as default, or the first available method
-        preferred_order = ['gev', 'db', 'cv', 'kl']
+        preferred_order = ["gev", "db", "cv", "kl"]
 
         for method_code in preferred_order:
             if method_code in self.results_cache:
@@ -671,7 +844,7 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         # Restore last used parameters for all methods
         for method_code, results in self.results_cache.items():
-            threshold = results.get('threshold')
+            threshold = results.get("threshold")
             if threshold is not None:
                 self.last_used_parameters[method_code] = threshold
 
@@ -747,7 +920,9 @@ class OptimizerVisualizationWindow(QMainWindow):
 
             # Update status
             method_count = len(self.results_cache)
-            self.ui.statusbar.showMessage(f"{method_count} optimization results available - Ready to visualize!")
+            self.ui.statusbar.showMessage(
+                f"{method_count} optimization results available - Ready to visualize!"
+            )
 
         else:
             # No results, ensure UI is disabled
@@ -762,7 +937,10 @@ class OptimizerVisualizationWindow(QMainWindow):
     # ========================================================================
 
     def optimizer_visualization_controller(self):
-        """Update UI based on selected optimization method - enhanced for loaded results."""
+        """Update UI based on selected optimization method.
+
+        Enhanced to support previously loaded results.
+        """
         optimizer_method = self.ui.optimizer_combobox.currentText()
 
         if not optimizer_method:
@@ -770,17 +948,17 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         # Define parameter labels for each method
         param_labels = {
-            'Cross Validation Criterion': '',
-            'Global Explained Variance Criterion': 'Threshold (%):',
-            'Davies-Bouldin Criterion': '',
-            'Krzanowski-Lai Criterion': ''
+            "Cross Validation Criterion": "",
+            "Global Explained Variance Criterion": "Threshold (%):",
+            "Davies-Bouldin Criterion": "",
+            "Krzanowski-Lai Criterion": "",
         }
 
-        label = param_labels.get(optimizer_method, '')
+        label = param_labels.get(optimizer_method, "")
         self.ui.optimizer_stop_condition_label.setText(label)
 
         # Show/hide parameter input based on method
-        self.ui.optimizer_stopping_threshold_input.setVisible(label != '')
+        self.ui.optimizer_stopping_threshold_input.setVisible(label != "")
 
         # Set values based on loaded results or defaults
         method_code = self._get_method_code(optimizer_method)
@@ -788,7 +966,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         # First, try to get value from loaded results
         if method_code in self.results_cache:
             cached_result = self.results_cache[method_code]
-            threshold = cached_result.get('threshold')
+            threshold = cached_result.get("threshold")
 
             if threshold is not None:
                 self.ui.optimizer_stopping_threshold_input.setText(str(threshold))
@@ -800,7 +978,9 @@ class OptimizerVisualizationWindow(QMainWindow):
         # Second, try last used parameters
         elif method_code in self.last_used_parameters:
             # Restore last used value
-            self.ui.optimizer_stopping_threshold_input.setText(str(self.last_used_parameters[method_code]))
+            self.ui.optimizer_stopping_threshold_input.setText(
+                str(self.last_used_parameters[method_code])
+            )
             print(f"Set threshold from last used: {self.last_used_parameters[method_code]}")
 
         else:
@@ -809,18 +989,18 @@ class OptimizerVisualizationWindow(QMainWindow):
 
     def _set_default_threshold(self, optimizer_method: str):
         """Set default threshold values for threshold-based methods."""
-        if optimizer_method in ['Global Explained Variance Criterion', 'Elbow - Residual Variance']:
-            self.ui.optimizer_stopping_threshold_input.setText('5')
+        if optimizer_method in ["Global Explained Variance Criterion", "Elbow - Residual Variance"]:
+            self.ui.optimizer_stopping_threshold_input.setText("5")
         else:
             # No threshold needed
             self.ui.optimizer_stopping_threshold_input.clear()
 
     def _on_threshold_changed(self):
-        """Handle threshold change by automatically updating visualization"""
+        """Handle threshold change by automatically updating visualization."""
         if self.all_methods_complete and self.ui.visualize_button.isEnabled():
             # Only update if we have results and the current method uses thresholds
             method_code = self._get_method_code(self.ui.optimizer_combobox.currentText())
-            if method_code in ['gev']:
+            if method_code in ["gev"]:
                 self.visualize_selected_method()
 
     # ========================================================================
@@ -828,25 +1008,32 @@ class OptimizerVisualizationWindow(QMainWindow):
     # ========================================================================
 
     def _set_font_family(self, family: str):
-        """Update font family"""
+        """Update font family.
+
+        Args:
+          family (str): Font family name.
+        """
         self.current_font_family = family
-        if hasattr(self, 'current_plot_method'):
+        if hasattr(self, "current_plot_method"):
             self.visualize_selected_method()
 
     def _set_font_size(self, size: str):
-        """Update font size"""
+        """Update font size.
+
+        Args:
+          size (str): One of {"Small","Medium","Large","X-Large"}.
+        """
         self.current_font_size = size
-        if hasattr(self, 'current_plot_method'):
+        if hasattr(self, "current_plot_method"):
             self.visualize_selected_method()
 
     def _get_font_size(self) -> int:
-        """Get numerical font size based on current setting"""
-        sizes = {
-            'Small': 10,
-            'Medium': 12,
-            'Large': 14,
-            'X-Large': 16
-        }
+        """Get numerical font size based on current setting.
+
+        Returns:
+          int: Point size for labels/ticks.
+        """
+        sizes = {"Small": 10, "Medium": 12, "Large": 14, "X-Large": 16}
         return sizes.get(self.current_font_size, 14)
 
     # ========================================================================
@@ -859,10 +1046,10 @@ class OptimizerVisualizationWindow(QMainWindow):
         if self.results_cache:
             reply = QMessageBox.question(
                 self,
-                'Overwrite Previous Results?',
-                'Previous optimization results exist. Do you want to re-run the analysis and overwrite them?',
+                "Overwrite Previous Results?",
+                "Previous optimization results exist. Do you want to re-run the analysis and overwrite them?",
                 QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                QMessageBox.No,
             )
 
             if reply == QMessageBox.No:
@@ -893,10 +1080,13 @@ class OptimizerVisualizationWindow(QMainWindow):
             self.ui.statusbar.showMessage("Error: Invalid K range")
             return
 
-        self.logger.processing_info("CLUSTERING", f"Running visualization analyses (modified K-means), k range {kmin}-{kmax}, total {kmax-kmin+1}")
+        self.logger.processing_info(
+            "CLUSTERING",
+            f"Running visualization analyses (modified K-means), k range {kmin}-{kmax}, total {kmax-kmin+1}",
+        )
 
         # Get all methods to run
-        all_methods = ['gev', 'db', 'cv', 'kl']
+        all_methods = ["gev", "db", "cv", "kl"]
 
         # Get parameters from UI for methods that need them
         parameters = self._get_method_parameters()
@@ -912,17 +1102,15 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.worker.start()
 
     def _initialize_optimizer(self):
-        """Initialize the optimizer with data using modified K-means"""
+        """Initialize the optimizer with data using modified K-means."""
         # Generate maps and peaks
         self.maps2use, self.peaks2use = DataInitializer().generate_maps_and_peaks(
             self.preprocessed_data_path,
             self.extension,
             self.datatype,
             self.use_percentages,
-            self.min_distance_size
+            self.min_distance_size,
         )
-
-
 
         # Create optimized optimizer
         kmin = int(self.ui.optimizer_min_input.text())
@@ -951,13 +1139,15 @@ class OptimizerVisualizationWindow(QMainWindow):
             datatype=self.datatype,
             tolerance=self.clustering_tolerance,
             max_iter=self.max_iterations,
-            batch_size=self.batch_size
+            batch_size=self.batch_size,
         )
 
+    def _get_method_parameters(self) -> Optional[dict[str, float]]:
+        """Get parameters from UI for methods that need them.
 
-
-    def _get_method_parameters(self) -> Optional[Dict[str, float]]:
-        """Get parameters from UI for methods that need them"""
+        Returns:
+          dict[str, float] | None: Parameters or None if invalid.
+        """
         parameters = {}
 
         # Read threshold values from UI for all methods
@@ -975,23 +1165,31 @@ class OptimizerVisualizationWindow(QMainWindow):
             return None
 
         # Apply threshold to methods that use it
-        parameters['gev'] = threshold_value
-        
+        parameters["gev"] = threshold_value
+
         # Store the parameters used
         self.last_used_parameters = parameters.copy()
-
-        
 
         return parameters
 
     def _update_progress(self, current: int, total: int, message: str):
-        """Update progress bar"""
+        """Update progress bar.
+
+        Args:
+          current (int): Current progress value.
+          total (int): Total progress range upper bound.
+          message (str): Status message to show.
+        """
         self.ui.optimizer_progressbar.setValue(current)
         self.ui.statusbar.showMessage(message)
         QApplication.processEvents()  # Keep UI responsive
 
-    def _on_all_analyses_finished(self, all_results: Dict[str, Any]):
-        """Handle completion of all analyses and save results."""
+    def _on_all_analyses_finished(self, all_results: dict[str, Any]):
+        """Handle completion of all analyses and save results.
+
+        Args:
+          all_results (dict[str, Any]): Results keyed by method code.
+        """
         self.all_methods_complete = True
         self.results_cache = all_results
 
@@ -1005,7 +1203,9 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.ui.optimizer_button.setEnabled(True)
         self.ui.optimizer_button.setText("Re-run All Analyses")
         self.ui.optimizer_progressbar.setValue(100)
-        self.ui.statusbar.showMessage("All modified K-means optimization methods completed and saved!")
+        self.ui.statusbar.showMessage(
+            "All modified K-means optimization methods completed and saved!"
+        )
 
         # Update visualization controller for first method
         self.optimizer_visualization_controller()
@@ -1019,23 +1219,35 @@ class OptimizerVisualizationWindow(QMainWindow):
         # Display detailed results
         self._display_optimization_summary(all_results)
 
-    def _display_optimization_summary(self, results: Dict[str, Any]):
-        """Display summary of optimization results"""
-        print(f"\n[CLUSTERING] Optimization results summary:")
-        
-        for method_code, results in results.items():
-            method_name = self._get_method_name(method_code)
-            optimal_k = results['optimal_k']
-            threshold = results.get('threshold', None)
+    def _display_optimization_summary(self, results: dict[str, Any]):
+        """Display summary of optimization results.
 
-            threshold_info = f" (threshold: {threshold}%)" if threshold is not None and method_code in ['gev'] else ""
+        Args:
+          results (dict[str, Any]): Results keyed by method code.
+        """
+        print("\n[CLUSTERING] Optimization results summary:")
+
+        for method_code, method_results in results.items():
+            method_name = self._get_method_name(method_code)
+            optimal_k = method_results["optimal_k"]
+            threshold = method_results.get("threshold", None)
+
+            threshold_info = (
+                f" (threshold: {threshold}%)"
+                if threshold is not None and method_code in ["gev"]
+                else ""
+            )
             print(f"[CLUSTERING] {method_name}: Optimal k = {optimal_k}{threshold_info}")
 
-        print(f"[CLUSTERING] All results computed using modified K-means algorithm")
-        print(f"[CLUSTERING] Results saved and available for visualization")
+        print("[CLUSTERING] All results computed using modified K-means algorithm")
+        print("[CLUSTERING] Results saved and available for visualization")
 
     def _on_optimization_error(self, error_msg: str):
-        """Handle optimization error"""
+        """Handle optimization error.
+
+        Args:
+          error_msg (str): Error message.
+        """
         print(f"[ERROR] Optimization error: {error_msg}")
         self.ui.optimizer_button.setEnabled(True)
         self.ui.optimizer_progressbar.setValue(0)
@@ -1046,7 +1258,10 @@ class OptimizerVisualizationWindow(QMainWindow):
     # ========================================================================
 
     def visualize_selected_method(self):
-        """Visualize the currently selected optimization method - enhanced for loaded results."""
+        """Visualize the currently selected optimization method.
+
+        Enhanced to support previously loaded results and threshold updates.
+        """
         if not self.all_methods_complete and not self.results_cache:
             print("Cannot visualize: analysis not complete and no loaded results")
             return
@@ -1062,7 +1277,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             self.current_plot_method = method_code
 
             # Check if this is a threshold-based method and if threshold has changed
-            if method_code in ['gev']:
+            if method_code in ["gev"]:
                 self._handle_threshold_visualization(method_code)
             else:
                 self.ui.statusbar.showMessage(f"Displaying {method_name} (Modified K-means)")
@@ -1073,21 +1288,27 @@ class OptimizerVisualizationWindow(QMainWindow):
             self.ui.statusbar.showMessage(f"No results available for {method_name}")
 
     def _handle_threshold_visualization(self, method_code: str):
-        """Handle visualization for threshold-based methods"""
+        """Handle visualization for threshold-based methods.
+
+        Args:
+          method_code (str): Method code (e.g., 'gev').
+        """
         try:
             current_threshold = float(self.ui.optimizer_stopping_threshold_input.text())
             if current_threshold <= 0:
                 self.ui.statusbar.showMessage("Error: Threshold must be positive")
                 return
 
-            cached_threshold = self.results_cache[method_code].get('threshold', None)
+            cached_threshold = self.results_cache[method_code].get("threshold", None)
 
             if cached_threshold is not None and current_threshold != cached_threshold:
                 # Recalculate optimal K with new threshold
                 self._recalculate_optimal_k_with_new_threshold(method_code, current_threshold)
                 # Save the updated results
                 self._save_results_to_comet()
-                self.ui.statusbar.showMessage(f"Optimal K recalculated with threshold {current_threshold}%")
+                self.ui.statusbar.showMessage(
+                    f"Optimal K recalculated with threshold {current_threshold}%"
+                )
             else:
                 method_name = self._get_method_name(method_code)
                 self.ui.statusbar.showMessage(f"Displaying {method_name} (Modified K-means)")
@@ -1096,14 +1317,20 @@ class OptimizerVisualizationWindow(QMainWindow):
             return
 
     def _recalculate_optimal_k_with_new_threshold(self, method_code: str, new_threshold: float):
-        """Recalculate optimal K for a method with a new threshold without re-running the analysis"""
+        """Recalculate optimal K using a new threshold without re-running analysis.
+
+        Args:
+          method_code (str): Method code (e.g., 'gev').
+          new_threshold (float): New threshold percentage.
+        """
         print(
-            f"\nRecalculating optimal K for {self._get_method_name(method_code)} with new threshold: {new_threshold}%")
+            f"\nRecalculating optimal K for {self._get_method_name(method_code)} with new threshold: {new_threshold}%"
+        )
 
         # Get the existing results
         cached_results = self.results_cache[method_code]
-        k_values = cached_results['k_values']
-        scores = cached_results['scores']
+        k_values = cached_results["k_values"]
+        scores = cached_results["scores"]
 
         # Filter out NaN values for optimal K finding
         valid_scores = [(k, s) for k, s in zip(k_values, scores) if not np.isnan(s)]
@@ -1118,24 +1345,41 @@ class OptimizerVisualizationWindow(QMainWindow):
                 list(valid_k_values),
                 list(valid_scores_list),
                 threshold=new_threshold,
-                higher_is_better=(method_code == 'gev')
+                higher_is_better=(method_code == "gev"),
             )
         else:
             optimal_k = k_values[0] if k_values else 2
 
         # Update the cached results with new optimal K and threshold
-        cached_results['optimal_k'] = optimal_k
-        cached_results['threshold'] = new_threshold
-        cached_results['result'].optimal_k = optimal_k
+        cached_results["optimal_k"] = optimal_k
+        cached_results["threshold"] = new_threshold
+        cached_results["result"].optimal_k = optimal_k
 
         # Update the last used parameters
         self.last_used_parameters[method_code] = new_threshold
 
-        print(f"New optimal K: {optimal_k} (was: {cached_results.get('original_optimal_k', 'unknown')})")
+        print(
+            f"New optimal K: {optimal_k} (was: {cached_results.get('original_optimal_k', 'unknown')})"
+        )
 
-    def _find_elbow_point_for_visualization(self, k_values: List[int], scores: List[float],
-                                            threshold: float, higher_is_better: bool = True) -> int:
-        """Find elbow point using threshold for percentage change (for visualization updates)"""
+    @staticmethod
+    def _find_elbow_point_for_visualization(
+        k_values: list[int],
+        scores: list[float],
+        threshold: float,
+        higher_is_better: bool = True,
+    ) -> int:
+        """Find elbow point using threshold for percentage change (visualization updates).
+
+        Args:
+          k_values (list[int]): Candidate K values.
+          scores (list[float]): Metric scores.
+          threshold (float): Percentage change threshold.
+          higher_is_better (bool): If True, higher scores are better.
+
+        Returns:
+          int: Selected K value.
+        """
         if len(scores) < 2:
             return k_values[0]
 
@@ -1152,21 +1396,27 @@ class OptimizerVisualizationWindow(QMainWindow):
 
             # Check if improvement is below threshold
             if change_percent < threshold:
-                print(f"    Elbow detected at K={k_values[i]} (change {change_percent:.2f}% < threshold {threshold}%)")
+                print(
+                    f"    Elbow detected at K={k_values[i]} (change {change_percent:.2f}% < threshold {threshold}%)"
+                )
                 return k_values[i]
 
         print(f"    No elbow found with threshold {threshold}%, returning last K={k_values[-1]}")
         return k_values[-1]
 
-    def _display_results(self, results: Dict[str, Any]):
-        """Display optimization results"""
+    def _display_results(self, results: dict[str, Any]):
+        """Display optimization results.
+
+        Args:
+          results (dict[str, Any]): Result structure for a method code.
+        """
         # Clear previous plot
         self.figure.clear()
         ax = self.figure.add_subplot(111)
 
-        result = results['result']
-        threshold = results.get('threshold', None)
-        method_code = results['method']
+        result = results["result"]
+        threshold = results.get("threshold")
+        method_code = results["method"]
 
         # Get font settings early
         font_size = self._get_font_size()
@@ -1174,40 +1424,50 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         # Plot based on method type
         if result.higher_is_better:
-            marker_color = 'green'
-            line_color = 'darkgreen'
+            marker_color = "green"
+            line_color = "darkgreen"
         else:
-            marker_color = 'red'
-            line_color = 'darkred'
+            marker_color = "red"
+            line_color = "darkred"
 
         # Main plot
-        ax.plot(result.k_values, result.scores, 'o-',
-                color=line_color, linewidth=2, markersize=8,
-                markerfacecolor=marker_color, markeredgewidth=2,
-                markeredgecolor='white')
+        ax.plot(
+            result.k_values,
+            result.scores,
+            "o-",
+            color=line_color,
+            linewidth=2,
+            markersize=8,
+            markerfacecolor=marker_color,
+            markeredgewidth=2,
+            markeredgecolor="white",
+        )
 
         # For elbow methods, show the threshold region and percentage changes
-        if method_code in ['gev'] and threshold is not None:
+        if method_code in ["gev"] and threshold is not None:
             self._add_elbow_annotations(ax, result, threshold)
 
         # Highlight optimal k
-        optimal_label = f'Optimal k = {result.optimal_k}'
-        if threshold is not None and method_code in ['gev']:
-            optimal_label += f' (threshold: {threshold}%)'
+        optimal_label = f"Optimal k = {result.optimal_k}"
+        if threshold is not None and method_code in ["gev"]:
+            optimal_label += f" (threshold: {threshold}%)"
 
-        ax.axvline(x=result.optimal_k, color='red', linestyle='--',
-                   linewidth=2, label=optimal_label)
+        ax.axvline(
+            x=result.optimal_k, color="red", linestyle="--", linewidth=2, label=optimal_label
+        )
 
         # Styling with custom font
-        ax.set_xlabel('Number of Clusters (k)', fontsize=font_size, fontfamily=font_family)
-        ax.set_ylabel(self._get_ylabel(result.method_name), fontsize=font_size, fontfamily=font_family)
+        ax.set_xlabel("Number of Clusters (k)", fontsize=font_size, fontfamily=font_family)
+        ax.set_ylabel(
+            self._get_ylabel(result.method_name), fontsize=font_size, fontfamily=font_family
+        )
 
         # Update title to show algorithm and parameters
         title = self._create_plot_title(result, results, threshold, method_code)
-        ax.set_title(title, fontsize=font_size + 2, fontweight='bold', fontfamily=font_family)
+        ax.set_title(title, fontsize=font_size + 2, fontweight="bold", fontfamily=font_family)
 
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=font_size - 2, prop={'family': font_family})
+        ax.legend(fontsize=font_size - 2, prop={"family": font_family})
 
         # Set integer ticks for k values
         ax.set_xticks(result.k_values)
@@ -1224,7 +1484,13 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.canvas.draw()
 
     def _add_elbow_annotations(self, ax, result: Any, threshold: float):
-        """Add elbow method annotations to the plot"""
+        """Add elbow method annotations to the plot.
+
+        Args:
+          ax (matplotlib.axes.Axes): Axis to annotate.
+          result: Result object with k_values and scores.
+          threshold (float): Percentage threshold for elbow detection.
+        """
         # Find where the elbow detection happens
         valid_indices = [i for i, score in enumerate(result.scores) if not np.isnan(score)]
         if len(valid_indices) > 1:
@@ -1234,8 +1500,12 @@ class OptimizerVisualizationWindow(QMainWindow):
                 prev_idx = valid_indices[i - 1]
 
                 if result.scores[prev_idx] != 0:
-                    change_percent = abs(
-                        (result.scores[idx] - result.scores[prev_idx]) / result.scores[prev_idx]) * 100
+                    change_percent = (
+                        abs(
+                            (result.scores[idx] - result.scores[prev_idx]) / result.scores[prev_idx]
+                        )
+                        * 100
+                    )
 
                     # Add percentage change annotations
                     mid_k = (result.k_values[prev_idx] + result.k_values[idx]) / 2
@@ -1243,57 +1513,80 @@ class OptimizerVisualizationWindow(QMainWindow):
 
                     # Color based on whether it's above or below threshold
                     if change_percent < threshold:
-                        color = 'red'
-                        weight = 'bold'
+                        color = "red"
+                        weight = "bold"
                         if not elbow_found:
                             # Highlight the region where change is below threshold
-                            ax.axvspan(result.k_values[prev_idx], result.k_values[idx],
-                                       alpha=0.2, color='yellow',
-                                       label=f'Below threshold ({threshold}%)')
+                            ax.axvspan(
+                                result.k_values[prev_idx],
+                                result.k_values[idx],
+                                alpha=0.2,
+                                color="yellow",
+                                label=f"Below threshold ({threshold}%)",
+                            )
                             elbow_found = True
                     else:
-                        color = 'black'
-                        weight = 'normal'
+                        color = "black"
+                        weight = "normal"
 
                     # Add text annotation
-                    ax.annotate(f'{change_percent:.1f}%',
-                                xy=(mid_k, mid_y),
-                                xytext=(0, 10),
-                                textcoords='offset points',
-                                ha='center',
-                                fontsize=self._get_font_size() - 4,
-                                color=color,
-                                weight=weight,
-                                bbox=dict(boxstyle='round,pad=0.3',
-                                          facecolor='white',
-                                          edgecolor=color,
-                                          alpha=0.8))
+                    ax.annotate(
+                        f"{change_percent:.1f}%",
+                        xy=(mid_k, mid_y),
+                        xytext=(0, 10),
+                        textcoords="offset points",
+                        ha="center",
+                        fontsize=self._get_font_size() - 4,
+                        color=color,
+                        weight=weight,
+                        bbox=dict(
+                            boxstyle="round,pad=0.3", facecolor="white", edgecolor=color, alpha=0.8
+                        ),
+                    )
 
-    def _create_plot_title(self, result: Any, results: Dict[str, Any],
-                           threshold: Optional[float], method_code: str) -> str:
-        """Create the plot title"""
+    @staticmethod
+    def _create_plot_title(
+        result: Any, results: dict[str, Any], threshold: Optional[float], method_code: str
+    ) -> str:
+        """Create the plot title.
+
+        Args:
+          result: Result object with method name, k_values, optimal_k.
+          results (dict[str, Any]): Cached entry for the current method.
+          threshold (float | None): Threshold used (if any).
+          method_code (str): Method code (e.g., 'gev').
+
+        Returns:
+          str: Title text.
+        """
         title_parts = [result.method_name]
 
         # Add specific notes for custom implementations
-        if method_code in ['db']:
+        if method_code in ["db"]:
             title_parts[0] += " (Consolidated Implementation)"
         else:
             title_parts[0] += " (Modified K-means)"
 
         title_parts.append(f"K range: {result.k_values[0]} to {result.k_values[-1]}")
 
-        if threshold is not None and method_code in ['gev']:
+        if threshold is not None and method_code in ["gev"]:
             title_parts.append(f"Threshold: {threshold}%")
 
             # Show if threshold was changed after analysis
-            original_optimal = results.get('original_optimal_k', None)
+            original_optimal = results.get("original_optimal_k")
             if original_optimal and original_optimal != result.optimal_k:
                 title_parts.append(f"(Original optimal K was {original_optimal})")
 
-        return '\n'.join(title_parts)
+        return "\n".join(title_parts)
 
-    def _adjust_y_axis(self, ax, scores: List[float]):
-        """Adjust y-axis for better visualization"""
+    @staticmethod
+    def _adjust_y_axis(ax, scores: list[float]):
+        """Adjust y-axis for better visualization.
+
+        Args:
+          ax (matplotlib.axes.Axes): Axis to adjust.
+          scores (list[float]): Score values.
+        """
         valid_scores = [s for s in scores if not np.isnan(s)]
         if valid_scores:
             y_margin = 0.1 * (max(valid_scores) - min(valid_scores))
@@ -1307,73 +1600,82 @@ class OptimizerVisualizationWindow(QMainWindow):
         """Open a file dialog to export the current plot in vector or raster format."""
         # Get current method for default save name
         current_method = self.ui.optimizer_combobox.currentText()
-        safe_method_name = current_method.replace(' - ', '_').replace(' ', '_').lower()
+        safe_method_name = current_method.replace(" - ", "_").replace(" ", "_").lower()
         default_name = f"microstate_optimization_{safe_method_name}.pdf"
 
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export Microstate Optimization Plot",
-            default_name,
-            "PDF Files (*.pdf);;PNG Files (*.png);;JPG Files (*.jpg);;SVG Files (*.svg);;All Files (*)",
-            options=options
-        )
+        file_name = get_save_file_path(self, default_name, "Export Microstate Optimization Plot")
         if file_name:
-            self._save_plot(file_name)
+            # Use the method name as an optional title
+            title_text = current_method if current_method else None
+            save_matplotlib_figure(
+                figure=self.figure,
+                canvas=self.canvas,
+                file_name=file_name,
+                title_text=title_text,
+                title_fontsize=self._get_font_size() + 2,
+                font_family=self.current_font_family,
+            )
 
     def _save_plot(self, file_name: str):
-        """Save the current plot to file"""
-        try:
-            # Get file extension
-            extension = file_name.split('.')[-1].lower()
+        """Deprecated: retained for compatibility; delegates to export utils.
 
-            # Set appropriate DPI for raster formats
-            dpi = 300 if extension in ['png', 'jpg', 'jpeg'] else None
-
-            # Save the figure
-            self.figure.savefig(file_name, dpi=dpi, bbox_inches='tight')
-            print(f"Microstate optimization plot exported successfully to: {file_name}")
-            self.ui.statusbar.showMessage(f"Plot exported to: {file_name}")
-
-        except Exception as e:
-            error_msg = f"Error exporting plot: {str(e)}"
-            print(error_msg)
-            self.ui.statusbar.showMessage(error_msg)
+        Args:
+          file_name (str): Destination path.
+        """
+        title_text = self.ui.optimizer_combobox.currentText() or None
+        save_matplotlib_figure(
+            figure=self.figure,
+            canvas=self.canvas,
+            file_name=file_name,
+            title_text=title_text,
+            title_fontsize=self._get_font_size() + 2,
+            font_family=self.current_font_family,
+        )
 
     # ========================================================================
     # Public Interface Methods
     # ========================================================================
 
-    def get_all_results_summary(self) -> Optional[Dict[str, Any]]:
-        """Get summary of all computed results using modified K-means."""
+    def get_all_results_summary(self) -> Optional[dict[str, Any]]:
+        """Get summary of all computed results using modified K-means.
+
+        Returns:
+          dict[str, Any] | None: Summary dictionary or None if no results.
+        """
         if not self.results_cache:
             return None
 
         summary = {
-            'algorithm': 'Modified K-means (polarity-independent)',
-            'metrics': 'Consolidated implementations from ClustererOptimizer',
-            'results': {},
-            'has_saved_results': True,
-            'last_updated': time.strftime('%Y-%m-%d %H:%M:%S')
+            "algorithm": "Modified K-means (polarity-independent)",
+            "metrics": "Consolidated implementations from ClustererOptimizer",
+            "results": {},
+            "has_saved_results": True,
+            "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
         for method_code, results in self.results_cache.items():
             method_name = self._get_method_name(method_code)
-            optimal_k = results['result'].optimal_k
-            threshold = results.get('threshold', None)
+            optimal_k = results["result"].optimal_k
+            threshold = results.get("threshold", None)
 
-            if threshold is not None and method_code in ['gev']:
-                summary['results'][method_name] = {'optimal_k': optimal_k, 'threshold': threshold}
+            if threshold is not None and method_code in ["gev"]:
+                summary["results"][method_name] = {"optimal_k": optimal_k, "threshold": threshold}
             else:
-                summary['results'][method_name] = optimal_k
+                summary["results"][method_name] = optimal_k
 
         return summary
 
-    def get_microstate_maps_for_optimal_k(self, method: str = 'gev') -> Optional[np.ndarray]:
-        """Get the microstate maps for the optimal K determined by the specified method"""
+    def get_microstate_maps_for_optimal_k(self, method: str = "gev") -> Optional[np.ndarray]:
+        """Get microstate maps for the optimal K determined by a method.
+
+        Args:
+          method (str): Method code (default 'gev').
+
+        Returns:
+          np.ndarray | None: Microstate maps or None on error/missing data.
+        """
         if method in self.results_cache and self.optimizer:
-            optimal_k = self.results_cache[method]['optimal_k']
+            optimal_k = self.results_cache[method]["optimal_k"]
             try:
                 return self.optimizer.get_microstate_maps(optimal_k)
             except Exception as e:
@@ -1416,44 +1718,70 @@ class OptimizerVisualizationWindow(QMainWindow):
     # Utility Methods
     # ========================================================================
 
-    def _get_method_code(self, method_name: str) -> str:
-        """Convert method name to internal code"""
-        method_map = {
-            'Global Explained Variance Criterion': 'gev',
-            'Davies-Bouldin Criterion': 'db',
-            'Cross Validation Criterion': 'cv',
-            'Krzanowski-Lai Criterion': 'kl'
-        }
-        return method_map.get(method_name, 'gev')
+    @staticmethod
+    def _get_method_code(method_name: str) -> str:
+        """Convert method name to internal code.
 
-    def _get_method_name(self, method_code: str) -> str:
-        """Convert method code to display name"""
+        Args:
+          method_name (str): Human-readable method name.
+
+        Returns:
+          str: Method code.
+        """
+        method_map = {
+            "Global Explained Variance Criterion": "gev",
+            "Davies-Bouldin Criterion": "db",
+            "Cross Validation Criterion": "cv",
+            "Krzanowski-Lai Criterion": "kl",
+        }
+        return method_map.get(method_name, "gev")
+
+    @staticmethod
+    def _get_method_name(method_code: str) -> str:
+        """Convert method code to display name.
+
+        Args:
+          method_code (str): Internal method code.
+
+        Returns:
+          str: Human-readable method name.
+        """
         name_map = {
-            'gev': 'Global Explained Variance Criterion',
-            'db': 'Davies-Bouldin Criterion',
-            'cv': 'Cross Validation Criterion',
-            'kl': 'Krzanowski-Lai Criterion'
+            "gev": "Global Explained Variance Criterion",
+            "db": "Davies-Bouldin Criterion",
+            "cv": "Cross Validation Criterion",
+            "kl": "Krzanowski-Lai Criterion",
         }
         return name_map.get(method_code, method_code)
 
-    def _get_method_display_names(self) -> Dict[str, str]:
-        """Get all method display names"""
+    @staticmethod
+    def _get_method_display_names() -> dict[str, str]:
+        """Get all method display names.
+
+        Returns:
+          dict[str, str]: Mapping from code to display name.
+        """
         return {
-            'gev': 'Global Explained Variance Criterion',
-            
-            
-            
-            'db': 'Davies-Bouldin Criterion',
-            'cv': 'Cross Validation Criterion',
-            'kl': 'Krzanowski-Lai Criterion'
+            "gev": "Global Explained Variance Criterion",
+            "db": "Davies-Bouldin Criterion",
+            "cv": "Cross Validation Criterion",
+            "kl": "Krzanowski-Lai Criterion",
         }
 
-    def _get_ylabel(self, method_name: str) -> str:
-        """Get appropriate y-axis label for method"""
+    @staticmethod
+    def _get_ylabel(method_name: str) -> str:
+        """Get appropriate y-axis label for a method name.
+
+        Args:
+          method_name (str): Human-readable method name.
+
+        Returns:
+          str: Y-axis label text.
+        """
         labels = {
-            'Global Explained Variance Criterion': 'Global Explained Variance',
-            'Davies-Bouldin Criterion': 'Davies-Bouldin Index',
-            'Cross Validation Criterion': 'Cross-Validation Score',
-            'Krzanowski-Lai Criterion': 'Krzanowski-Lai Score'
+            "Global Explained Variance Criterion": "Global Explained Variance",
+            "Davies-Bouldin Criterion": "Davies-Bouldin Index",
+            "Cross Validation Criterion": "Cross-Validation Score",
+            "Krzanowski-Lai Criterion": "Krzanowski-Lai Score",
         }
-        return labels.get(method_name, 'Score')
+        return labels.get(method_name, "Score")
