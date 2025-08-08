@@ -14,6 +14,7 @@ from matplotlib.figure import Figure
 from data_utils.data_initializer import DataInitializer
 from clustering_utils.clusterer_optimizer import ClustererOptimizer, OptimizationResult
 from clustering_utils.microstate_clusterer import MicrostateClusterer
+from gui_utils.logger import get_logger
 
 
 # ============================================================================
@@ -34,97 +35,35 @@ class OptimizedOptimizerWorker(QThread):
         self.results = {}
 
     def run(self):
-        """Run optimization by computing all metrics for each K value using modified K-means"""
+        """
+        Execute requested optimisation methods by delegating to the
+        underlying `ClustererOptimizer` instance. Uses a batch API to avoid
+        redundant recomputation across methods.
+        """
         try:
-            # Initialize results storage
-            k_values = list(range(self.optimizer.kmin, self.optimizer.kmax + 1))
+            # Use the optimised batch computation to minimise repeated work
+            batch_results = self.optimizer.compute_methods_batch(self.methods_to_run, self.parameters)
 
-            # Validate k_values generation
-            if not k_values:
-                raise ValueError(f"No K values generated! kmin={self.optimizer.kmin}, kmax={self.optimizer.kmax}")
-
-            if len(k_values) != (self.optimizer.kmax - self.optimizer.kmin + 1):
-                raise ValueError(
-                    f"K values mismatch! Expected {self.optimizer.kmax - self.optimizer.kmin + 1} values, got {len(k_values)}")
-
-            metrics_data = {method: [] for method in self.methods_to_run}
-
-            print(f"\n[CLUSTERING] Starting microstate optimization analysis")
-            print(f"[CLUSTERING] Using modified K-means algorithm (polarity-independent)")
-
-            # For each K value, compute clustering once and calculate all metrics
-            total_steps = len(k_values)
-
-            for idx, k in enumerate(k_values):
-                # Update progress
-                current_step = idx + 1
-                progress_percent = (current_step / total_steps) * 100
-                self.progress.emit(
-                    int(progress_percent),
-                    100,
-                    f"Computing all metrics for k={k} ({current_step}/{total_steps}) using modified K-means"
-                )
-
-                print(f"[CLUSTERING] Processing k={k} ({current_step}/{total_steps})")
-
-                # Perform clustering once for this K using modified K-means
-                try:
-                    clustering_result = self.optimizer._get_clustering_result(k)
-
-                    # Compute all metrics on this clustering result
-                    for method in self.methods_to_run:
-                        try:
-                            score = self._compute_metric(method, clustering_result, k)
-                            metrics_data[method].append(score)
-                        except Exception as e:
-                            print(f"[ERROR] Error computing {method} for k={k}: {str(e)}")
-                            metrics_data[method].append(np.nan)
-
-                except Exception as e:
-                    print(f"[ERROR] Error in clustering for k={k}: {str(e)}")
-                    for method in self.methods_to_run:
-                        metrics_data[method].append(np.nan)
-
-            print(f"[CLUSTERING] Computing optimal K for each method...")
-
-            # Process results for each method
-            for method in self.methods_to_run:
-                scores = metrics_data[method]
-
-                # Filter out NaN values for optimal K finding
-                valid_scores = [(k, s) for k, s in zip(k_values, scores) if not np.isnan(s)]
-
-                if valid_scores:
-                    valid_k_values, valid_scores_list = zip(*valid_scores)
-                    optimal_k = self._find_optimal_k(method, list(valid_k_values), list(valid_scores_list))
-                else:
-                    optimal_k = k_values[0]
-
-                # Create result object with all scores (including NaN)
-                result = OptimizationResult(
-                    method_name=self._get_method_display_name(method),
-                    k_values=k_values,
-                    scores=scores,
-                    optimal_k=optimal_k,
-                    higher_is_better=self._is_higher_better(method)
-                )
-
+            # Convert to the expected window cache structure
+            for method, result_obj in batch_results.items():
                 self.results[method] = {
                     'method': method,
-                    'result': result,
-                    'optimal_k': optimal_k,
-                    'original_optimal_k': optimal_k,
-                    'k_values': k_values,
-                    'scores': scores,
+                    'result': result_obj,
+                    'optimal_k': result_obj.optimal_k,
+                    'original_optimal_k': result_obj.optimal_k,
+                    'k_values': result_obj.k_values,
+                    'scores': result_obj.scores,
                     'threshold': self.parameters.get(method, None)
                 }
 
-                threshold_info = f" (threshold: {self.parameters.get(method)}%)" if method in ['gev', 'res'] else ""
-                print(f"[CLUSTERING] {self._get_method_display_name(method)}: Optimal k = {optimal_k}{threshold_info}")
-
-            # Final progress update
-            self.progress.emit(100, 100, "All modified K-means computations complete")
+            self.progress.emit(100, 100, "All optimisations complete")
             self.finished.emit(self.results)
+
+        except Exception as e:
+            import traceback
+            error_msg = f"Error in optimization: {str(e)}\n{traceback.format_exc()}"
+            print(f"[ERROR] {error_msg}")
+            self.error.emit(error_msg)
 
         except Exception as e:
             import traceback
@@ -136,12 +75,9 @@ class OptimizedOptimizerWorker(QThread):
         """Compute a specific metric on the clustering result"""
         metric_map = {
             'gev': 'gev',
-            'res': 'residual_variance',
-            'sil': 'silhouette',
-            'ch': 'calinski_harabasz',
             'db': 'davies_bouldin',
-            'cv': 'cv_score',
-            'kl': 'kl_score'
+            'cv': 'cross_validation_criterion',
+            'kl': 'krzanowski_lai_criterion'
         }
 
         metric_key = metric_map.get(method)
@@ -156,11 +92,7 @@ class OptimizedOptimizerWorker(QThread):
             return k_values[0] if k_values else 2
 
         # Handle methods based on optimization direction
-        if method == 'sil' or method == 'ch':
-            # Higher is better - find maximum
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        elif method == 'db':
+        if method == 'db':
             # Lower is better - find minimum
             min_idx = np.argmin(scores)
             return k_values[min_idx]
@@ -168,10 +100,6 @@ class OptimizedOptimizerWorker(QThread):
             # Global Explained Variance - use elbow method
             threshold = self.parameters.get(method, 5.0)
             return self._find_elbow_point(k_values, scores, threshold, higher_is_better=True)
-        elif method == 'res':
-            # Residual Variance - use elbow method
-            threshold = self.parameters.get(method, 5.0)
-            return self._find_elbow_point(k_values, scores, threshold, higher_is_better=False)
         elif method == 'cv':
             # Cross validation - typically lower is better
             min_idx = np.argmin(scores)
@@ -205,15 +133,15 @@ class OptimizedOptimizerWorker(QThread):
 
     def _is_higher_better(self, method):
         """Determine if higher scores are better for the method"""
-        return method in ['gev', 'sil', 'ch', 'kl']
+        return method in ['gev', 'kl']
 
     def _get_method_display_name(self, method):
         """Get display name for method"""
         name_map = {
             'gev': 'Global Explained Variance Criterion',
-            'res': 'Elbow - Residual Variance',
-            'sil': 'Silhouette Method',
-            'ch': 'Calinski-Harabasz Method',
+            
+            
+            
             'db': 'Davies-Bouldin Criterion',
             'cv': 'Cross Validation Criterion',
             'kl': 'Krzanowski-Lai Criterion'
@@ -235,110 +163,39 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
                  preprocessed_data_path=None, extension=None, datatype=None,
                  tolerance=1e-6, max_iter=500, batch_size=None, logger=None):
         super().__init__(maps2use, min_dist, n_inits, kmin, kmax,
-                         preprocessed_data_path, extension, datatype, tolerance, max_iter, 
-                         batch_size, progress_callback=None, logger=logger)
+                          preprocessed_data_path, extension, datatype, tolerance, max_iter,
+                          batch_size, progress_callback=None, logger=logger)
+
+        # Ensure we have a logger instance
+        if logger is None:
+            from gui_utils.logger import get_logger
+            logger = get_logger()
+        self.logger = logger
 
         # Prepare data in the correct format for modified K-means (n_channels, n_samples)
         if self.maps2use.shape[0] > self.maps2use.shape[1]:
             self.eeg_data = self.maps2use.T
-            print(f"Transposed data from {self.maps2use.shape} to {self.eeg_data.shape}")
+            self.logger.processing_info("CLUSTERING", "Data matrix transposed to channels × samples")
         else:
             self.eeg_data = self.maps2use
-            print(f"Data already in correct format: {self.eeg_data.shape}")
+
 
         # Validate data size and provide memory warnings
         n_channels, n_samples = self.eeg_data.shape
-        self._validate_data_size(n_channels, n_samples)
 
         self.batch_size = batch_size
 
-        print(f"Initialized MicrostateClustererOptimizer:")
-        print(f"  EEG data shape: {self.eeg_data.shape} (channels × samples)")
-        print(f"  K range: {kmin} to {kmax}")
-        print(f"  Using modified K-means (polarity-independent)")
-        print(f"  Memory usage strategy: {self._get_memory_strategy(n_samples)}")
-        print(f"  All metrics computed via ClustererOptimizer (consolidated)")
 
-    def _validate_data_size(self, n_channels: int, n_samples: int):
-        """
-        Validate data size and provide warnings about potential memory issues.
-        """
-        # Calculate approximate memory requirements
-        memory_gb = self._estimate_memory_usage(n_samples)
 
-        print(f"\nData validation:")
-        print(f"  Channels: {n_channels}")
-        print(f"  Samples: {n_samples:,}")
-        print(f"  Estimated peak memory usage: {memory_gb:.2f} GB")
+        if self.logger is None:
+            from gui_utils.logger import get_logger
+            self.logger = get_logger()
+        self.logger.processing_info("CLUSTERING", f"Visualization optimizer ready (k={kmin}-{kmax})")
 
-        # Provide warnings based on data size
-        if n_samples > 100000:
-            print(f"\n⚠️  WARNING: Very large dataset detected!")
-            print(f"  - {n_samples:,} samples may cause memory issues")
-            print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
-            print(f"  - Using aggressive sampling and batch processing")
-            print(f"  - Consider using fewer samples or more RAM")
-
-        elif n_samples > 50000:
-            print(f"\n⚠️  WARNING: Large dataset detected!")
-            print(f"  - {n_samples:,} samples will use sampling for efficiency")
-            print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
-            print(f"  - Processing will be slower but memory-safe")
-
-        elif n_samples > 10000:
-            print(f"\nℹ️  INFO: Medium dataset detected")
-            print(f"  - {n_samples:,} samples will use batch processing")
-            print(f"  - Estimated memory needed: {memory_gb:.2f} GB")
-            print(f"  - Processing optimized for memory efficiency")
-
-        else:
-            print(f"\nℹ️  INFO: Small dataset - optimal for full computation")
-            print(f"  - {n_samples:,} samples can be processed efficiently")
-
-        # Check if this might be raw data instead of GFP peaks
-        if n_samples > 50000:
-            print(f"\n🔍 DIAGNOSTIC: Very high sample count detected")
-            print(f"  - Are you using raw EEG timepoints instead of GFP peaks?")
-            print(f"  - Microstate analysis typically uses GFP peaks (~hundreds to thousands)")
-            print(f"  - Consider using only GFP peak timepoints for better results")
-
-    def _estimate_memory_usage(self, n_samples: int) -> float:
-        """
-        Estimate peak memory usage in GB for the clustering process.
-        """
-        # Main memory consumers:
-        # 1. Distance matrices for silhouette (avoided with optimization)
-        # 2. Correlation matrices in batch processing
-        # 3. Data copies and intermediate arrays
-
-        # Conservative estimate based on optimized algorithms
-        if n_samples > 50000:
-            # Using sampling approach
-            estimated_mb = (n_samples * 64 * 8) / (1024 ** 2)  # Basic data storage
-            estimated_mb += 100  # Overhead for sampling and processing
-        elif n_samples > 10000:
-            # Using batch processing
-            estimated_mb = (n_samples * 128 * 8) / (1024 ** 2)  # Data + batch overhead
-        else:
-            # Full computation but optimized
-            estimated_mb = (n_samples * 256 * 8) / (1024 ** 2)  # Data + correlation matrices
-
-        return estimated_mb / 1024  # Convert to GB
-
-    def _get_memory_strategy(self, n_samples: int) -> str:
-        """Get the memory strategy description based on sample count."""
-        if n_samples > 50000:
-            return "Aggressive sampling (memory-critical)"
-        elif n_samples > 10000:
-            return "Stratified sampling (memory-efficient)"
-        elif n_samples > 1000:
-            return "Batch processing (balanced)"
-        else:
-            return "Full computation (optimal)"
 
     def _perform_single_clustering(self, k):
         """Perform modified K-means clustering for a single K value"""
-        print(f"    Performing modified K-means clustering for k={k}")
+        self.logger.processing_info("CLUSTERING", f"Clustering k={k} (modified K-means)")
         start_time = time.time()
 
         # Initialize the MicrostateClusterer for this K
@@ -358,7 +215,7 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         best_labels = None
         best_gev = 0.0
 
-        print(f"      Running {self.n_inits} initializations...")
+        self.logger.processing_info("CLUSTERING", f"k={k}: running {self.n_inits} initializations")
 
         for init_attempt in range(self.n_inits):
             try:
@@ -388,7 +245,7 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
                     best_labels = np.argmax(np.abs(activation), axis=0)
 
             except Exception as e:
-                print(f"        Warning: Initialization {init_attempt + 1} failed: {str(e)}")
+                self.logger.warning("CLUSTERING", f"Init {init_attempt+1} failed for k={k}: {str(e)}")
                 continue
 
         if best_maps is None:
@@ -414,10 +271,7 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         # Show cluster distribution
         unique_labels, counts = np.unique(best_labels, return_counts=True)
         total_samples = len(best_labels)
-        print(f"        Cluster distribution:")
-        for label, count in zip(unique_labels, counts):
-            percentage = (count / total_samples) * 100
-            print(f"          State {label}: {count} samples ({percentage:.1f}%)")
+
 
         return clustering_result
 
@@ -476,8 +330,17 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         else:
             clustering_result['davies_bouldin'] = 0.0
 
-        # 7. Cross Validation Score (use GEV as proxy for microstates)
-        clustering_result['cv_score'] = best_gev
+        # 7. Cross Validation Score (classical microstate CV criterion)
+        try:
+            cv_score = self._compute_cross_validation_criterion_vectorized(
+                self.eeg_data,  # (n_channels × n_samples)
+                clustering_result.get('centers'),  # (k × n_channels)
+                best_labels  # (n_samples,)
+            )
+            clustering_result['cross_validation_criterion'] = cv_score
+        except Exception as e:
+            print(f"        Warning: CV computation failed for k={k}: {str(e)}")
+            clustering_result['cross_validation_criterion'] = np.nan
 
     def get_microstate_maps(self, k):
         """Get the final microstate maps for a specific k value"""
@@ -558,6 +421,8 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.last_used_parameters = {}
         self.current_font_family = 'Arial'
         self.current_font_size = 'Large'
+        # Logger
+        self.logger = get_logger()
 
     def _setup_ui(self):
         """Setup the UI components"""
@@ -785,7 +650,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             return
 
         # Try to select GEV as default, or the first available method
-        preferred_order = ['gev', 'res', 'sil', 'ch', 'db', 'cv']
+        preferred_order = ['gev', 'db', 'cv', 'kl']
 
         for method_code in preferred_order:
             if method_code in self.results_cache:
@@ -905,11 +770,8 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         # Define parameter labels for each method
         param_labels = {
-            'Cross Validation Criterion': 'Number of folds:',
+            'Cross Validation Criterion': '',
             'Global Explained Variance Criterion': 'Threshold (%):',
-            'Elbow - Residual Variance': 'Threshold (%):',
-            'Silhouette Method': '',
-            'Calinski-Harabasz Method': '',
             'Davies-Bouldin Criterion': '',
             'Krzanowski-Lai Criterion': ''
         }
@@ -946,18 +808,19 @@ class OptimizerVisualizationWindow(QMainWindow):
             self._set_default_threshold(optimizer_method)
 
     def _set_default_threshold(self, optimizer_method: str):
-        """Set default threshold values for methods."""
-        if optimizer_method == 'Cross Validation Criterion':
+        """Set default threshold values for threshold-based methods."""
+        if optimizer_method in ['Global Explained Variance Criterion', 'Elbow - Residual Variance']:
             self.ui.optimizer_stopping_threshold_input.setText('5')
-        elif optimizer_method in ['Global Explained Variance Criterion', 'Elbow - Residual Variance']:
-            self.ui.optimizer_stopping_threshold_input.setText('5')
+        else:
+            # No threshold needed
+            self.ui.optimizer_stopping_threshold_input.clear()
 
     def _on_threshold_changed(self):
         """Handle threshold change by automatically updating visualization"""
         if self.all_methods_complete and self.ui.visualize_button.isEnabled():
             # Only update if we have results and the current method uses thresholds
             method_code = self._get_method_code(self.ui.optimizer_combobox.currentText())
-            if method_code in ['gev', 'res']:
+            if method_code in ['gev']:
                 self.visualize_selected_method()
 
     # ========================================================================
@@ -1030,13 +893,10 @@ class OptimizerVisualizationWindow(QMainWindow):
             self.ui.statusbar.showMessage("Error: Invalid K range")
             return
 
-        print(f"\nStarting microstate optimization with modified K-means")
-        print(f"K range: {kmin} to {kmax}")
-        print(f"Total K values to process: {kmax - kmin + 1}")
-        print(f"Using consolidated metrics from ClustererOptimizer")
+        self.logger.processing_info("CLUSTERING", f"Running visualization analyses (modified K-means), k range {kmin}-{kmax}, total {kmax-kmin+1}")
 
         # Get all methods to run
-        all_methods = ['gev', 'res', 'sil', 'ch', 'db', 'cv', 'kl']
+        all_methods = ['gev', 'db', 'cv', 'kl']
 
         # Get parameters from UI for methods that need them
         parameters = self._get_method_parameters()
@@ -1062,9 +922,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             self.min_distance_size
         )
 
-        print(f"Generated data for optimization:")
-        print(f"  Maps shape: {self.maps2use.shape}")
-        print(f"  Peaks count: {len(self.peaks2use) if self.peaks2use is not None else 'None'}")
+
 
         # Create optimized optimizer
         kmin = int(self.ui.optimizer_min_input.text())
@@ -1096,9 +954,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             batch_size=self.batch_size
         )
 
-        print(f"Microstate optimizer initialized with K range: {kmin} to {kmax}")
-        print("Using modified K-means algorithm (polarity-independent)")
-        print("Using consolidated metrics from ClustererOptimizer (single source of truth)")
+
 
     def _get_method_parameters(self) -> Optional[Dict[str, float]]:
         """Get parameters from UI for methods that need them"""
@@ -1120,15 +976,11 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         # Apply threshold to methods that use it
         parameters['gev'] = threshold_value
-        parameters['res'] = threshold_value
-        parameters['cv'] = int(threshold_value) if threshold_value.is_integer() else 5
-
+        
         # Store the parameters used
         self.last_used_parameters = parameters.copy()
 
-        print(f"Using parameters: {parameters}")
-        print("Algorithm: Modified K-means (polarity-independent)")
-        print("Metrics: Consolidated implementation from ClustererOptimizer")
+        
 
         return parameters
 
@@ -1176,7 +1028,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             optimal_k = results['optimal_k']
             threshold = results.get('threshold', None)
 
-            threshold_info = f" (threshold: {threshold}%)" if threshold is not None and method_code in ['gev', 'res'] else ""
+            threshold_info = f" (threshold: {threshold}%)" if threshold is not None and method_code in ['gev'] else ""
             print(f"[CLUSTERING] {method_name}: Optimal k = {optimal_k}{threshold_info}")
 
         print(f"[CLUSTERING] All results computed using modified K-means algorithm")
@@ -1210,7 +1062,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             self.current_plot_method = method_code
 
             # Check if this is a threshold-based method and if threshold has changed
-            if method_code in ['gev', 'res']:
+            if method_code in ['gev']:
                 self._handle_threshold_visualization(method_code)
             else:
                 self.ui.statusbar.showMessage(f"Displaying {method_name} (Modified K-means)")
@@ -1260,10 +1112,12 @@ class OptimizerVisualizationWindow(QMainWindow):
             valid_k_values, valid_scores_list = zip(*valid_scores)
 
             # Use the same elbow detection algorithm with the new threshold
-            optimal_k = self._find_elbow_point_for_visualization(
+            # Delegate elbow detection to the optimiser implementation to avoid
+            # duplicate local logic.
+            optimal_k = self.optimizer._find_elbow_point(
                 list(valid_k_values),
                 list(valid_scores_list),
-                new_threshold,
+                threshold=new_threshold,
                 higher_is_better=(method_code == 'gev')
             )
         else:
@@ -1333,12 +1187,12 @@ class OptimizerVisualizationWindow(QMainWindow):
                 markeredgecolor='white')
 
         # For elbow methods, show the threshold region and percentage changes
-        if method_code in ['gev', 'res'] and threshold is not None:
+        if method_code in ['gev'] and threshold is not None:
             self._add_elbow_annotations(ax, result, threshold)
 
         # Highlight optimal k
         optimal_label = f'Optimal k = {result.optimal_k}'
-        if threshold is not None and method_code in ['gev', 'res']:
+        if threshold is not None and method_code in ['gev']:
             optimal_label += f' (threshold: {threshold}%)'
 
         ax.axvline(x=result.optimal_k, color='red', linestyle='--',
@@ -1421,14 +1275,14 @@ class OptimizerVisualizationWindow(QMainWindow):
         title_parts = [result.method_name]
 
         # Add specific notes for custom implementations
-        if method_code in ['sil', 'db', 'ch']:
+        if method_code in ['db']:
             title_parts[0] += " (Consolidated Implementation)"
         else:
             title_parts[0] += " (Modified K-means)"
 
         title_parts.append(f"K range: {result.k_values[0]} to {result.k_values[-1]}")
 
-        if threshold is not None and method_code in ['gev', 'res']:
+        if threshold is not None and method_code in ['gev']:
             title_parts.append(f"Threshold: {threshold}%")
 
             # Show if threshold was changed after analysis
@@ -1509,7 +1363,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             optimal_k = results['result'].optimal_k
             threshold = results.get('threshold', None)
 
-            if threshold is not None and method_code in ['gev', 'res']:
+            if threshold is not None and method_code in ['gev']:
                 summary['results'][method_name] = {'optimal_k': optimal_k, 'threshold': threshold}
             else:
                 summary['results'][method_name] = optimal_k
@@ -1566,9 +1420,6 @@ class OptimizerVisualizationWindow(QMainWindow):
         """Convert method name to internal code"""
         method_map = {
             'Global Explained Variance Criterion': 'gev',
-            'Elbow - Residual Variance': 'res',
-            'Silhouette Method': 'sil',
-            'Calinski-Harabasz Method': 'ch',
             'Davies-Bouldin Criterion': 'db',
             'Cross Validation Criterion': 'cv',
             'Krzanowski-Lai Criterion': 'kl'
@@ -1579,9 +1430,6 @@ class OptimizerVisualizationWindow(QMainWindow):
         """Convert method code to display name"""
         name_map = {
             'gev': 'Global Explained Variance Criterion',
-            'res': 'Elbow - Residual Variance',
-            'sil': 'Silhouette Method',
-            'ch': 'Calinski-Harabasz Method',
             'db': 'Davies-Bouldin Criterion',
             'cv': 'Cross Validation Criterion',
             'kl': 'Krzanowski-Lai Criterion'
@@ -1592,9 +1440,9 @@ class OptimizerVisualizationWindow(QMainWindow):
         """Get all method display names"""
         return {
             'gev': 'Global Explained Variance Criterion',
-            'res': 'Elbow - Residual Variance',
-            'sil': 'Silhouette Method',
-            'ch': 'Calinski-Harabasz Method',
+            
+            
+            
             'db': 'Davies-Bouldin Criterion',
             'cv': 'Cross Validation Criterion',
             'kl': 'Krzanowski-Lai Criterion'
@@ -1604,9 +1452,6 @@ class OptimizerVisualizationWindow(QMainWindow):
         """Get appropriate y-axis label for method"""
         labels = {
             'Global Explained Variance Criterion': 'Global Explained Variance',
-            'Elbow - Residual Variance': 'Residual Variance',
-            'Silhouette Method': 'Silhouette Score',
-            'Calinski-Harabasz Method': 'Calinski-Harabasz Index',
             'Davies-Bouldin Criterion': 'Davies-Bouldin Index',
             'Cross Validation Criterion': 'Cross-Validation Score',
             'Krzanowski-Lai Criterion': 'Krzanowski-Lai Score'
