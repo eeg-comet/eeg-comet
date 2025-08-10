@@ -135,6 +135,9 @@ class LogWindow(QWidget):
         # Store reference to COMET instance for log persistence
         self.comet_instance = comet_instance
 
+        # Re-entrancy guard to avoid recursive logging during save
+        self._is_saving_logs = False
+
         # Callback function to be called when processing is finished
         self.process_finished_callback = None
 
@@ -251,16 +254,17 @@ class LogWindow(QWidget):
             self._save_log_to_comet()
 
     def _save_log_to_comet(self):
-        """Save the current log content to the COMET instance, if available.
-
-        Returns:
-          None
-        """
-        if self.comet_instance is not None:
+        """Save the current log content to the COMET instance, if available, without recursion."""
+        if self.comet_instance is None or self._is_saving_logs:
+            return
+        self._is_saving_logs = True
+        try:
             log_content = self.get_log_content()
             self.comet_instance.log_text = log_content
             # Also save to the separate log file
             self.comet_instance.save_logs_to_file()
+        finally:
+            self._is_saving_logs = False
 
     def setup_progress_dialog(self, window_title, label_text, tasks, processing_func):
         """Set up and start the processing thread with enhanced progress tracking.

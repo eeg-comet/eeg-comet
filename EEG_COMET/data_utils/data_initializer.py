@@ -109,7 +109,24 @@ class DataInitializer:
         else:
             if min_dist == 0:
                 min_dist = None
-            peaks, _ = find_peaks(gfp, distance=min_dist)
+            # Optional masking around boundaries
+            boundary_mask = None
+            try:
+                # data may be derived from a Raw with annotations; if present in caller, they should pass masked data
+                # Here we support a simple convention: if the first channel encodes a mask as NaN at boundary samples
+                # we drop those. Otherwise, use distance-based detection only.
+                if np.isnan(data[0]).any():
+                    boundary_mask = ~np.isnan(data[0])
+            except Exception:
+                boundary_mask = None
+
+            if boundary_mask is not None and boundary_mask.any():
+                valid_idx = np.where(boundary_mask)[0]
+                gfp_valid = gfp[valid_idx]
+                local_peaks, _ = find_peaks(gfp_valid, distance=min_dist)
+                peaks = valid_idx[local_peaks]
+            else:
+                peaks, _ = find_peaks(gfp, distance=min_dist)
         maps = data[:, peaks]
         maps /= np.linalg.norm(maps, axis=1, keepdims=True)
         return maps, peaks

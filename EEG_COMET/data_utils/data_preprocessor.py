@@ -1,6 +1,21 @@
-"""Data preprocessing utilities for EEG-COMET."""
+"""Data preprocessing utilities for EEG-COMET.
+
+This module implements the EEG preprocessing pipeline (temporal filtering,
+downsampling, spatial smoothing, re-referencing) and, when requested, performs
+event-based data selection BEFORE preprocessing so that only the selected data
+are filtered/resampled/re-referenced. Event selection supports:
+
+- Raw data: concatenates continuous time windows from each occurrence of the
+  selected event label onset to the next event onset (the last window extends
+  to the end). The concatenated result is materialized as a new Raw instance.
+- Epoched data: keeps only epochs whose event label matches the selected label.
+
+By selecting first and preprocessing afterwards, processing parameters are
+consistent across the retained windows/epochs and temporal ordering is preserved.
+"""
 
 import warnings
+import mne
 
 import numpy as np
 from mne import pick_info, pick_types, use_log_level
@@ -11,11 +26,20 @@ from scipy.spatial.distance import pdist, squareform
 
 
 class DataPreprocessor:
-    """Provides comprehensive methods for preprocessing electroencephalography (EEG) data.
+    """Provides comprehensive methods for preprocessing EEG data.
 
-    This class contains various static and instance methods to clean, filter, and
-    prepare EEG data for analysis. It handles bad channel detection, spatial smoothing,
-    line noise removal, and automatic cleaning pipelines.
+    Responsibilities:
+    - Temporal filtering (FIR/IIR)
+    - Downsampling
+    - Spatial smoothing (neighbor averaging)
+    - Average re-referencing and projection application
+    - Optional automatic bad channel identification (pyprep)
+    - Pre-preprocessing event-based selection (raw/epoched)
+
+    Event-based selection occurs after all preprocessing steps to ensure that
+    the concatenated segments/epochs share identical preprocessing parameters.
+    For raw data, selection concatenates full label blocks; for epoched data,
+    selection reduces to the chosen event label.
     """
 
     def __init__(self):
@@ -130,37 +154,117 @@ class DataPreprocessor:
         downsample_bool,
         sampling_rate,
         spatial_smooth_bool,
+        select_events_only=False,
+        selected_event_label=None,
+        datatype="raw",
         verbose="ERROR",
     ):
-        """Preprocess EEG data with configurable pipeline options.
+        """Preprocess EEG data and optionally select event-specific segments.
 
-        Applies a combination of temporal filtering, downsampling, spatial smoothing,
-        and re-referencing based on the provided parameters.
+        Pipeline (in order):
+        0) Event-based selection (if requested)
+        1) Temporal filtering (if enabled)
+        2) Resampling (if enabled and current sfreq != target)
+        3) Spatial smoothing (if enabled)
+        4) Average reference and projection apply
+
+        Event-based selection behavior:
+        - Raw: concatenates continuous time windows for ``selected_event_label``.
+          Windows are defined from each selected event onset to the next event
+          onset (last window to end), preserving strict temporal order.
+        - Epoched: returns only epochs matching ``selected_event_label`` if present.
 
         Args:
-            eeg (Raw or Epochs): MNE Raw or Epochs object containing EEG data
-            filter_bool (bool): Whether to apply temporal filtering
-            filtermethod (str): Filtering method ('FIR', 'IIR', etc.)
-            lowcut (float): Low cutoff frequency for filtering in Hz
-            highcut (float): High cutoff frequency for filtering in Hz
-            downsample_bool (bool): Whether to downsample the data
-            sampling_rate (int): Target sampling rate in Hz
-            spatial_smooth_bool (bool): Whether to apply spatial smoothing
-            verbose (str): Logging verbosity level ('ERROR', 'WARNING', 'INFO', etc.)
+            eeg (Raw | Epochs): Input MNE object.
+            filter_bool (bool): Apply temporal filtering.
+            filtermethod (str): Filtering method ('fir', 'iir').
+            lowcut (float): Lower cutoff frequency (Hz).
+            highcut (float): Upper cutoff frequency (Hz).
+            downsample_bool (bool): Apply resampling.
+            sampling_rate (int): Target sampling rate (Hz).
+            spatial_smooth_bool (bool): Apply spatial smoothing.
+            select_events_only (bool): Whether to perform event-based selection.
+            selected_event_label (str | None): Label to select (e.g., 'Eyes Closed').
+            datatype (str): 'raw' or 'epoched'.
+            verbose (str): MNE verbosity level.
 
         Returns:
-            Raw or Epochs: Preprocessed EEG data
+            Raw | Epochs: Preprocessed (and possibly event-selected) EEG.
         """
+        # 0) Event-based selection FIRST (before any filtering/resampling/reference)
+        if select_events_only and selected_event_label:
+            label = selected_event_label
+            if datatype == "raw":
+                # Build windows from selected event onsets to next event onset and create a new Raw
+                try:
+                    events, event_id = mne.events_from_annotations(eeg)
+                except Exception:
+                    events, event_id = None, {}
+                if events is not None and event_id and label in event_id:
+                    # Sort by onset to strictly preserve temporal order
+                    order_idx = np.argsort(events[:, 0], kind="stable")
+                    events = events[order_idx]
+
+                    sfreq = float(eeg.info["sfreq"])  # Hz
+                    code_sel = int(event_id[label])
+                    total_samples = int(eeg.n_times)
+
+                    # Collect sample windows in order
+                    sample_windows = []  # list of (start_samp, end_samp)
+                    for i in range(len(events)):
+                        if int(events[i, 2]) == code_sel:
+                            start_samp = int(events[i, 0])
+                            end_samp = int(events[i + 1, 0]) if i + 1 < len(events) else total_samples
+                            if end_samp > start_samp:
+                                sample_windows.append((start_samp, end_samp))
+
+                    if sample_windows:
+                        # Extract numpy segments then concatenate along time
+                        data_segments = []
+                        seg_lengths = []
+                        for start_samp, end_samp in sample_windows:
+                            try:
+                                seg_data = eeg.get_data(start=start_samp, stop=end_samp)  # (n_chan, n_time)
+                                if seg_data.size > 0:
+                                    data_segments.append(seg_data)
+                                    seg_lengths.append(seg_data.shape[1])
+                            except Exception:
+                                continue
+
+                        if data_segments:
+                            concat_data = np.concatenate(data_segments, axis=1)
+                            # Create new Raw from concatenated data
+                            info_copy = eeg.info.copy()
+                            try:
+                                new_raw = mne.io.RawArray(concat_data, info_copy, verbose=verbose)
+                            except Exception:
+                                # Fallback: create a minimal info
+                                ch_names = eeg.ch_names
+                                ch_types = ["eeg"] * len(ch_names)
+                                minfo = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
+                                new_raw = mne.io.RawArray(concat_data, minfo, verbose=verbose)
+
+                            eeg = new_raw
+            else:
+                # Epoched selection: keep only epochs of the chosen event before preprocessing
+                if hasattr(eeg, "event_id") and isinstance(eeg.event_id, dict) and selected_event_label in eeg.event_id:
+                    eeg = eeg[selected_event_label]
+
+        # 1) Temporal filtering
         if filter_bool:
             eeg = eeg.filter(
                 l_freq=lowcut, h_freq=highcut, method=filtermethod, phase="zero", verbose=verbose
             )
+        # 2) Resampling
         if downsample_bool:
             sfreq = eeg.info["sfreq"]
             if sfreq != sampling_rate:
                 eeg = eeg.resample(sampling_rate, verbose=verbose)
+        # 3) Spatial smoothing
         if spatial_smooth_bool:
             eeg = self.spatial_smooth_eeg(eeg=eeg, verbose=verbose)
+        # 4) Average reference
         eeg.set_eeg_reference("average", projection=True, verbose=verbose)
         eeg.apply_proj(verbose=verbose)
+
         return eeg

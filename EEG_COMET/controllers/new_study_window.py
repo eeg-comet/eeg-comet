@@ -4,6 +4,7 @@ import os.path
 import re
 
 import numpy as np
+import mne
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from mne.channels import get_builtin_montages, make_standard_montage, read_custom_montage
@@ -116,6 +117,15 @@ class NewStudyWindow(QDialog):
         self.current_plot_mode = mode
         self.update_plot_buttons_style()
 
+    def _get_widgets(self, names):
+        """Return a list of existing UI widgets by their object names, skipping missing ones."""
+        widgets = []
+        for name in names:
+            widget = getattr(self.ui, name, None)
+            if widget is not None:
+                widgets.append(widget)
+        return widgets
+
     def setup_connections(self):
         """Set up signal-slot connections.
 
@@ -134,6 +144,8 @@ class NewStudyWindow(QDialog):
                 self.ui.step2_default_montage_radio,
                 self.ui.step2_load_montage_radio,
                 self.ui.step2_use_template_montage_radio,
+                getattr(self.ui, "step2_select_all", None),
+                getattr(self.ui, "step2_select_events", None),
                 self.ui.step2_temporal_filter_option_checkbox,
                 self.ui.step2_downsamp_option_checkbox,
                 self.ui.step2_spatial_filter_option_checkbox,
@@ -179,18 +191,27 @@ class NewStudyWindow(QDialog):
         # Connect widgets that trigger newstudy_controller
         for signal_name, widgets in controller_widgets.items():
             for widget in widgets:
-                getattr(widget, signal_name).connect(self.newstudy_controller)
+                if widget is not None:
+                    getattr(widget, signal_name).connect(self.newstudy_controller)
 
         # Connect widgets that trigger plot_montage
         for signal_name, widgets in montage_widgets.items():
             for widget in widgets:
-                getattr(widget, signal_name).connect(self.plot_montage)
+                if widget is not None:
+                    getattr(widget, signal_name).connect(self.plot_montage)
 
         # Connect special cases: update_channel_names
         self.ui.loaded_selected_files_list.itemClicked.connect(self.update_channel_names)
 
         # Persist plot type across file selection and refresh figure
         self.ui.loaded_selected_files_list.itemClicked.connect(self.refresh_current_plot)
+
+        # Populate events when file selection changes or selection mode toggles
+        self.ui.loaded_selected_files_list.itemClicked.connect(self.populate_events_for_current_file)
+        if hasattr(self.ui, "step2_select_all"):
+            self.ui.step2_select_all.clicked.connect(self.populate_events_for_current_file)
+        if hasattr(self.ui, "step2_select_events"):
+            self.ui.step2_select_events.clicked.connect(self.populate_events_for_current_file)
 
         # Connect specific actions
         for widget, signal_name, action in action_widgets:
@@ -236,43 +257,44 @@ class NewStudyWindow(QDialog):
             self.ui.step1_import_log_lineedit,
         ]
 
-        preprocessing_widgets = [
-            self.ui.step2_montage_label,
-            self.ui.step2_default_montage_radio,
-            self.ui.step2_load_montage_radio,
-            self.ui.step2_chanloc_path_lineedit,
-            self.ui.step2_use_template_montage_radio,
-            self.ui.step2_template_montage_combobox,
-            self.ui.step2_temporal_filter_option_checkbox,
-            self.ui.step2_downsamp_option_checkbox,
-            self.ui.step2_spatial_filter_option_checkbox,
-            self.ui.step2_preprocess_label,
-            self.ui.step2_ch2rm_label,
-            self.ui.step2_ch2rm_radio,
-            self.ui.step2_ch2rm_combobox,
-            self.ui.step2_prep_option_checkbox,
-            self.ui.step2_save_path_button,
-            self.ui.step2_save_path_lineedit,
-            self.ui.step2_preprocess_data_button,
-        ]
+        preprocessing_widgets = self._get_widgets([
+            "step2_montage_label",
+            "step2_default_montage_radio",
+            "step2_load_montage_radio",
+            "step2_chanloc_path_lineedit",
+            "step2_use_template_montage_radio",
+            "step2_template_montage_combobox",
+            "step2_temporal_filter_option_checkbox",
+            "step2_downsamp_option_checkbox",
+            "step2_spatial_filter_option_checkbox",
+            "step2_preprocess_label",
+            "step2_ch2rm_label",
+            "step2_ch2rm_radio",
+            "step2_ch2rm_combobox",
+            "step2_prep_option_checkbox",
+            "step2_save_path_button",
+            "step2_save_path_lineedit",
+            "step2_preprocess_data_button",
+            "step2_events_combobox",
+        ])
 
-        temporal_filter_sub_widgets = [
-            self.ui.step2_filter_method_label,
-            self.ui.step2_fir_filtermethod_radio,
-            self.ui.step2_iir_filtermethod_radio,
-            self.ui.step2_lowcut_freq_label,
-            self.ui.step2_lowcut_freq_input,
-            self.ui.step2_filt_hz1,
-            self.ui.step2_highcut_freq_label,
-            self.ui.step2_highcut_freq_input,
-            self.ui.step2_filt_hz2,
-        ]
+        temporal_filter_sub_widgets = self._get_widgets([
+            "step2_filter_method_label",
+            "step2_fir_filtermethod_radio",
+            "step2_iir_filtermethod_radio",
+            "step2_lowcut_freq_label",
+            "step2_lowcut_freq_input",
+            "step2_filt_hz1",
+            "step2_highcut_freq_label",
+            "step2_highcut_freq_input",
+            "step2_filt_hz2",
+        ])
 
-        downsample_sub_widgets = [
-            self.ui.step2_downsamp_freq_label,
-            self.ui.step2_downsamp_freq_input,
-            self.ui.step2_downsamp_hz,
-        ]
+        downsample_sub_widgets = self._get_widgets([
+            "step2_downsamp_freq_label",
+            "step2_downsamp_freq_input",
+            "step2_downsamp_hz",
+        ])
 
         if self.ui.new_study_tab_widget.currentIndex() == 0:
             widgets_to_rm = (
@@ -315,16 +337,45 @@ class NewStudyWindow(QDialog):
             widgets_to_hide_or_disable = [self.ui.step1_import_raw_button] + import_data_widgets
             set_widgets_status(widgets_to_show, mode="show")
             set_widgets_status(widgets_to_hide_or_disable, mode="disable")
+            # Explicitly include event selection radios in the enable flow when data is loaded
+            if hasattr(self.ui, "step2_select_all"):
+                set_widgets_status(self.ui.step2_select_all, mode="enable")
+            if hasattr(self.ui, "step2_select_events"):
+                # Disable event selection for epoched data; enable for raw data only
+                if self.get_data_type() == "epoched":
+                    set_widgets_status(self.ui.step2_select_events, mode="disable")
+                    # Ensure we use all data when epoched is selected
+                    try:
+                        self.ui.step2_select_all.setChecked(True)
+                    except Exception:
+                        pass
+                else:
+                    set_widgets_status(self.ui.step2_select_events, mode="enable")
             widget_conditions = [
                 (
-                    self.ui.step2_template_montage_combobox,
-                    self.ui.step2_use_template_montage_radio.isChecked(),
+                    getattr(self.ui, "step2_template_montage_combobox", None),
+                    hasattr(self.ui, "step2_use_template_montage_radio")
+                    and self.ui.step2_use_template_montage_radio.isChecked(),
                 ),
-                (self.ui.step2_chanloc_path_lineedit, self.ui.step2_load_montage_radio.isChecked()),
-                (self.ui.step2_ch2rm_combobox, self.ui.step2_ch2rm_radio.isChecked()),
+                (
+                    getattr(self.ui, "step2_chanloc_path_lineedit", None),
+                    hasattr(self.ui, "step2_load_montage_radio")
+                    and self.ui.step2_load_montage_radio.isChecked(),
+                ),
+                (
+                    getattr(self.ui, "step2_ch2rm_combobox", None),
+                    hasattr(self.ui, "step2_ch2rm_radio") and self.ui.step2_ch2rm_radio.isChecked(),
+                ),
+                (
+                    getattr(self.ui, "step2_events_combobox", None),
+                    hasattr(self.ui, "step2_select_events")
+                    and self.ui.step2_select_events.isChecked()
+                    and self.get_data_type() != "epoched",
+                ),
             ]
             for widget, condition in widget_conditions:
-                set_widgets_status(widget, "enable" if condition else "disable")
+                if widget is not None:
+                    set_widgets_status(widget, "enable" if condition else "disable")
             self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
             set_widgets_status(
                 temporal_filter_sub_widgets,
@@ -423,7 +474,10 @@ class NewStudyWindow(QDialog):
 
     def update_channel_names(self):
         """Update the channel names list based on the selected EEG file."""
-        filename = self.ui.loaded_selected_files_list.currentItem().text()
+        current_item = self.ui.loaded_selected_files_list.currentItem()
+        if current_item is None:
+            return
+        filename = current_item.text()
         eeg = DataIO().load_eeg(filename, self.comet.datatype, montage=None)  # Don't force montage
         data_channel_names = eeg.info["ch_names"]
         self.ui.step2_ch2rm_combobox.addItems(data_channel_names)
@@ -528,7 +582,8 @@ class NewStudyWindow(QDialog):
     def clear_files(self):
         """Clear all files from the selected files list and reset the canvas."""
         self.ui.loaded_selected_files_list.clear()
-        self.canvas.figure.clear()
+        # Remove any plot widget (raw viewer) or canvas and re-init a blank canvas
+        self.init_canvas()
         self.set_current_plot_mode(None)
         self.newstudy_controller()
 
@@ -540,6 +595,49 @@ class NewStudyWindow(QDialog):
             self.plot_psd()
         elif self.current_plot_mode == "montage":
             self.plot_montage()
+
+    def populate_events_for_current_file(self):
+        """Populate the events combobox with unique event labels from the selected file."""
+        if not hasattr(self.ui, "step2_events_combobox"):
+            return
+        # Only populate if the 'select events' option is active
+        if not (hasattr(self.ui, "step2_select_events") and self.ui.step2_select_events.isChecked()):
+            return
+        current_item = self.ui.loaded_selected_files_list.currentItem()
+        if current_item is None:
+            return
+        filepath = current_item.text()
+        try:
+            eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+        except Exception:
+            return
+        event_names = []
+        try:
+            if self.comet.datatype == "epoched":
+                # Prefer explicit event_id if available
+                if hasattr(eeg, "event_id") and isinstance(eeg.event_id, dict) and eeg.event_id:
+                    event_names = list(eeg.event_id.keys())
+                else:
+                    # Fallback: derive from annotations if present
+                    try:
+                        events, event_id = mne.events_from_annotations(eeg)
+                        event_names = list(event_id.keys()) if event_id else []
+                    except Exception:
+                        event_names = []
+            else:
+                # Raw data: get from annotations
+                try:
+                    events, event_id = mne.events_from_annotations(eeg)
+                    event_names = list(event_id.keys()) if event_id else []
+                except Exception:
+                    event_names = []
+        except Exception:
+            event_names = []
+
+        # Update combobox
+        self.ui.step2_events_combobox.clear()
+        if event_names:
+            self.ui.step2_events_combobox.addItems(sorted(set(event_names)))
 
     def preprocess_data(self):
         """Perform data preprocessing based on user-selected options.
@@ -596,6 +694,15 @@ class NewStudyWindow(QDialog):
         )
         self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
 
+        # Event selection handling
+        self.select_events_only = (
+            hasattr(self.ui, "step2_select_events") and self.ui.step2_select_events.isChecked()
+        )
+        self.selected_event_label = None
+        if self.select_events_only and hasattr(self.ui, "step2_events_combobox"):
+            chosen = self.ui.step2_events_combobox.currentText()
+            self.selected_event_label = chosen if chosen else None
+
         # The save_dir should match the one that COMET will compute based on study_name and output_folder
         self.save_dir = os.path.join(save_parent_dir, self.study_name)
 
@@ -610,6 +717,8 @@ class NewStudyWindow(QDialog):
             "spatial_filter_data",
             "chan2rm",
             "prep_data",
+            "select_events_only",
+            "selected_event_label",
         ]
         for attr in attributes:
             setattr(self.comet, attr, getattr(self, attr))
@@ -658,7 +767,10 @@ class NewStudyWindow(QDialog):
         Returns:
           tuple[str, str]: (filepath, filename_without_extension).
         """
-        filepath = self.ui.loaded_selected_files_list.currentItem().text()
+        current_item = self.ui.loaded_selected_files_list.currentItem()
+        if current_item is None:
+            return None, None
+        filepath = current_item.text()
         filename = os.path.splitext(os.path.basename(filepath))[0]
         self.ui.vis_figure_filename_lineedit.setText(filename)
         return filepath, filename
@@ -677,6 +789,8 @@ class NewStudyWindow(QDialog):
 
         self.init_canvas()
         filepath, filename = self.item_selected()
+        if not filepath:
+            return
 
         try:
             # Load EEG without forcing montage to preserve existing channel locations
@@ -777,6 +891,8 @@ class NewStudyWindow(QDialog):
         selects an appropriate visualization (topomaps + evoked trace or raw view).
         """
         filepath, filename = self.item_selected()
+        if not filepath:
+            return
 
         # Load EEG without forcing montage to preserve existing channel locations
         eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
@@ -873,6 +989,8 @@ class NewStudyWindow(QDialog):
         """Plot the Power Spectral Density (PSD) of EEG data."""
         self.init_canvas()
         filepath, filename = self.item_selected()
+        if not filepath:
+            return
 
         # Load EEG without forcing montage to preserve existing channel locations
         eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None, preload=False)

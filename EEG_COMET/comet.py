@@ -817,7 +817,7 @@ class COMET:
             eeg = self.comet_preprocessor.identify_bad_channels(eeg)
             eeg.interpolate_bads(reset_bads=False)
 
-        # Apply preprocessing steps
+        # Apply preprocessing steps (event selection happens inside preprocessor after processing)
         preprocessed_eeg = self.comet_preprocessor.preprocess_eeg(
             eeg=eeg,
             filter_bool=self.temporal_filter_data,
@@ -827,6 +827,9 @@ class COMET:
             downsample_bool=self.downsample_data,
             sampling_rate=self.sample_rate,
             spatial_smooth_bool=self.spatial_filter_data,
+            select_events_only=getattr(self, "select_events_only", False),
+            selected_event_label=getattr(self, "selected_event_label", None),
+            datatype=self.datatype,
         )
 
         # Save preprocessed data
@@ -1139,6 +1142,13 @@ class COMET:
                 "Files Found": f"{len(self.list_eegs_path)} {self.datatype} EEG files with {self.extension} extension",
             }
             self.logger.settings_info("PREPROCESSING", study_info)
+
+            # Log data selection mode between Files Found and preprocessing settings
+            if getattr(self, "select_events_only", False) and getattr(self, "selected_event_label", None):
+                selection_message = f"Data Selection: Only segments with event '{self.selected_event_label}'"
+            else:
+                selection_message = "Data Selection: Entire recording"
+            self.logger.processing_info("PREPROCESSING", selection_message)
 
             # Preprocessing settings
             preprocessing_settings = {}
@@ -2785,6 +2795,11 @@ class COMET:
         """Save current log content to the separate log file."""
         if hasattr(self, "log_file_path") and self.log_text:
             try:
+                # Ensure the directory exists before writing
+                log_dir = os.path.dirname(self.log_file_path)
+                if log_dir and not os.path.exists(log_dir):
+                    os.makedirs(log_dir, exist_ok=True)
+
                 with open(self.log_file_path, "w", encoding="utf-8") as f:
                     f.write(self.log_text)
             except Exception as e:

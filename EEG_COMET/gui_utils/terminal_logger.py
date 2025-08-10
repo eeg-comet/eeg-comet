@@ -74,7 +74,11 @@ class EEGCometLogger:
                 'warning', 'error', 'file', or 'section'.
         """
         if self.log_window is not None and hasattr(self.log_window, "append_log"):
-            self.log_window.append_log(message, log_type=log_type)
+            try:
+                self.log_window.append_log(message, log_type=log_type)
+            except RecursionError:
+                # Avoid crashing due to recursive logging when saving logs fails
+                self._print_to_console(f"[LOGGER WARNING] Recursive logging prevented: {message}")
 
     def section_header(self, step: str, title: str = None):
         """Print a section header with centered title.
