@@ -89,6 +89,33 @@ class NewStudyWindow(QDialog):
         self.ui.step2_template_montage_combobox.setCurrentText("standard_1020")
         self.init_canvas()
 
+        # Track current plotted view and default button styles for highlighting
+        self.current_plot_mode = None  # one of: 'montage', 'eeg', 'psd', or None
+        self._button_default_styles = {
+            "eeg": self.ui.vis_plot_button.styleSheet(),
+            "montage": self.ui.vis_montage_button.styleSheet(),
+            "psd": self.ui.vis_psd_button.styleSheet(),
+        }
+        self.update_plot_buttons_style()
+
+    def update_plot_buttons_style(self):
+        """Highlight the active plot button in light green, reset others."""
+        active_style = "background-color: #90EE90; color: black;"
+        self.ui.vis_plot_button.setStyleSheet(
+            active_style if self.current_plot_mode == "eeg" else self._button_default_styles.get("eeg", "")
+        )
+        self.ui.vis_montage_button.setStyleSheet(
+            active_style if self.current_plot_mode == "montage" else self._button_default_styles.get("montage", "")
+        )
+        self.ui.vis_psd_button.setStyleSheet(
+            active_style if self.current_plot_mode == "psd" else self._button_default_styles.get("psd", "")
+        )
+
+    def set_current_plot_mode(self, mode):
+        """Set the current plot mode and update button highlight."""
+        self.current_plot_mode = mode
+        self.update_plot_buttons_style()
+
     def setup_connections(self):
         """Set up signal-slot connections.
 
@@ -129,7 +156,7 @@ class NewStudyWindow(QDialog):
                 self.ui.step2_load_montage_radio,
                 self.ui.step2_use_template_montage_radio,
             ],
-            "itemClicked": [self.ui.loaded_selected_files_list],
+            # Do not auto-plot montage on file select; we refresh current plot type instead
             "itemCheckedStateChanged": [self.ui.step2_ch2rm_combobox],
             "textChanged": [self.ui.step2_chanloc_path_lineedit],
             "currentTextChanged": [self.ui.step2_template_montage_combobox],
@@ -161,6 +188,9 @@ class NewStudyWindow(QDialog):
 
         # Connect special cases: update_channel_names
         self.ui.loaded_selected_files_list.itemClicked.connect(self.update_channel_names)
+
+        # Persist plot type across file selection and refresh figure
+        self.ui.loaded_selected_files_list.itemClicked.connect(self.refresh_current_plot)
 
         # Connect specific actions
         for widget, signal_name, action in action_widgets:
@@ -499,7 +529,17 @@ class NewStudyWindow(QDialog):
         """Clear all files from the selected files list and reset the canvas."""
         self.ui.loaded_selected_files_list.clear()
         self.canvas.figure.clear()
+        self.set_current_plot_mode(None)
         self.newstudy_controller()
+
+    def refresh_current_plot(self):
+        """Re-plot the current plot type for the newly selected file."""
+        if self.current_plot_mode == "eeg":
+            self.plot_eeg()
+        elif self.current_plot_mode == "psd":
+            self.plot_psd()
+        elif self.current_plot_mode == "montage":
+            self.plot_montage()
 
     def preprocess_data(self):
         """Perform data preprocessing based on user-selected options.
@@ -629,6 +669,12 @@ class NewStudyWindow(QDialog):
         Handles multiple montage scenarios (existing, custom, template) and
         provides informative dialogs when positions are missing.
         """
+        # Only plot montage if invoked by its button, or montage is the active view
+        sender = self.sender()
+        invoked_by_button = sender is not None and sender == self.ui.vis_montage_button
+        if not invoked_by_button and self.current_plot_mode not in ("montage", None):
+            return
+
         self.init_canvas()
         filepath, filename = self.item_selected()
 
@@ -708,6 +754,8 @@ class NewStudyWindow(QDialog):
                 self.ui.vis_figure_title_lineedit.setText("EEG Montage")
                 self.canvas.figure = fig
                 self.canvas.draw()
+                if invoked_by_button or self.current_plot_mode is None:
+                    self.set_current_plot_mode("montage")
             except RuntimeError as e:
                 error_msg = str(e)
                 QMessageBox.warning(
@@ -803,6 +851,7 @@ class NewStudyWindow(QDialog):
             ax_main.set_title(f"{filename} - Evoked Response", fontsize=20)
             ax_main.tick_params(axis="both", which="major", labelsize=16)
             self.canvas.draw()
+            self.set_current_plot_mode("eeg")
         else:
             # Plot raw continuous data
             self.clean_figure_layout()
@@ -818,6 +867,7 @@ class NewStudyWindow(QDialog):
             )
             self.ui.Figure_Layout.addWidget(fig)
             self.ui.vis_figure_title_lineedit.setText("Raw EEG Time Series")
+            self.set_current_plot_mode("eeg")
 
     def plot_psd(self):
         """Plot the Power Spectral Density (PSD) of EEG data."""
@@ -860,3 +910,4 @@ class NewStudyWindow(QDialog):
         self.canvas.figure = fig
         self.canvas.draw()
         self.ui.vis_figure_title_lineedit.setText("Power Spectral Density (PSD)")
+        self.set_current_plot_mode("psd")
