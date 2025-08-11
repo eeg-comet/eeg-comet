@@ -7,7 +7,7 @@ import numpy as np
 import mne
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from mne.channels import get_builtin_montages, make_standard_montage, read_custom_montage
+from mne.channels import get_builtin_montages, make_standard_montage
 from mne.viz import plot_topomap
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
@@ -504,7 +504,7 @@ class NewStudyWindow(QDialog):
             # User explicitly selected a montage option
             montage = None
             if user_wants_custom_montage:
-                montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
+                montage = DataIO().load_montage(self.ui.step2_chanloc_path_lineedit.text())
                 self.comet.montage = self.ui.step2_chanloc_path_lineedit.text()
             elif user_wants_template_montage:
                 # Always get the template name from the combobox for template montage
@@ -825,7 +825,7 @@ class NewStudyWindow(QDialog):
                 # User explicitly selected a montage option
                 montage = None
                 if user_wants_custom_montage:
-                    montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
+                    montage = DataIO().load_montage(self.ui.step2_chanloc_path_lineedit.text())
                 elif user_wants_template_montage:
                     # Always get the template name from the combobox for template montage
                     template_name = self.ui.step2_template_montage_combobox.currentText()
@@ -915,7 +915,7 @@ class NewStudyWindow(QDialog):
             # User explicitly selected a montage option
             montage = None
             if user_wants_custom_montage:
-                montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
+                montage = DataIO().load_montage(self.ui.step2_chanloc_path_lineedit.text())
             elif user_wants_template_montage:
                 # Always get the template name from the combobox for template montage
                 template_name = self.ui.step2_template_montage_combobox.currentText()
@@ -1013,7 +1013,7 @@ class NewStudyWindow(QDialog):
             # User explicitly selected a montage option
             montage = None
             if user_wants_custom_montage:
-                montage = read_custom_montage(self.ui.step2_chanloc_path_lineedit.text())
+                montage = DataIO().load_montage(self.ui.step2_chanloc_path_lineedit.text())
             elif user_wants_template_montage:
                 # Always get the template name from the combobox for template montage
                 template_name = self.ui.step2_template_montage_combobox.currentText()

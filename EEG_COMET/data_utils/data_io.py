@@ -18,6 +18,127 @@ class DataIO:
         pass
 
     @staticmethod
+    def _umeyama_similarity_transform(source_points: np.ndarray, target_points: np.ndarray, allow_reflection: bool = True):
+        """Compute similarity transform (scale, rotation, translation) using Umeyama.
+
+        Args:
+            source_points: Nx3 array of source coordinates
+            target_points: Nx3 array of target coordinates
+            allow_reflection: If True, allow a reflection in rotation
+
+        Returns:
+            scale (float), rotation (3x3 np.ndarray), translation (3x1 np.ndarray)
+        """
+        if source_points.shape != target_points.shape:
+            raise ValueError("Source and target must have the same shape")
+        if source_points.ndim != 2 or source_points.shape[1] != 3:
+            raise ValueError("Points must be of shape (N, 3)")
+
+        num_points = source_points.shape[0]
+        if num_points < 3:
+            raise ValueError("At least 3 points are required for a stable fit")
+
+        mu_source = source_points.mean(axis=0)
+        mu_target = target_points.mean(axis=0)
+        X = source_points - mu_source
+        Y = target_points - mu_target
+
+        cov = (Y.T @ X) / num_points
+        U, S, Vt = np.linalg.svd(cov)
+        R = U @ Vt
+        if not allow_reflection and np.linalg.det(R) < 0:
+            # Enforce proper rotation
+            Vt[-1, :] *= -1
+            R = U @ Vt
+        elif allow_reflection and np.linalg.det(R) < 0:
+            # Allow reflection: flip the sign of the last singular value
+            Vt[-1, :] *= -1
+            S[-1] *= -1
+            R = U @ Vt
+
+        var_X = (X**2).sum() / num_points
+        if var_X <= 0:
+            scale = 1.0
+        else:
+            scale = S.sum() / var_X
+
+        t = mu_target - scale * (R @ mu_source)
+        return scale, R, t
+
+    @staticmethod
+    def _fit_ch_pos_to_template(ch_pos: dict, template_names: list[str] | None = None, allow_reflection: bool = True) -> dict:
+        """Fit arbitrary channel coordinates to a standard head shape via similarity transform.
+
+        Matches channels to a standard montage by name, computes a similarity transform
+        (scale, rotation, translation) to best-align the input to the template, and
+        applies it to all input channels.
+
+        Args:
+            ch_pos: Mapping of channel name -> np.ndarray([x, y, z]) in arbitrary units
+            template_names: Ordered list of template montage names to attempt
+            allow_reflection: Whether to allow reflections during alignment
+
+        Returns:
+            dict: Fitted channel positions in meters (head coordinate frame)
+        """
+        if template_names is None:
+            template_names = ["standard_1020", "standard_1005"]
+
+        # Build case-insensitive name mapping for input
+        input_names_lower_to_orig = {name.lower(): name for name in ch_pos.keys()}
+
+        matched = False
+        fitted = None
+        for tmpl in template_names:
+            try:
+                template = mne.channels.make_standard_montage(tmpl)
+                template_positions = template.get_positions()
+                template_ch_pos = template_positions.get("ch_pos", {})
+                # Build arrays of matched points
+                common_lower = [
+                    nm for nm in input_names_lower_to_orig.keys() if nm in {k.lower(): v for k, v in template_ch_pos.items()}.keys()
+                ]
+                if len(common_lower) < 3:
+                    continue
+                # Prepare matched arrays
+                source_pts = []
+                target_pts = []
+                for nm_lower in common_lower:
+                    src_name = input_names_lower_to_orig[nm_lower]
+                    src_pt = np.asarray(ch_pos[src_name], dtype=float)
+                    # Map nm_lower back to actual template key (case-insensitive)
+                    # Find first template key with same lowercase
+                    for tmpl_key, tmpl_val in template_ch_pos.items():
+                        if tmpl_key.lower() == nm_lower:
+                            tgt_pt = np.asarray(tmpl_val, dtype=float)
+                            break
+                    else:
+                        continue
+                    source_pts.append(src_pt)
+                    target_pts.append(tgt_pt)
+
+                source_pts = np.asarray(source_pts)
+                target_pts = np.asarray(target_pts)
+                if source_pts.shape[0] < 3:
+                    continue
+
+                scale, R, t = DataIO._umeyama_similarity_transform(source_pts, target_pts, allow_reflection=allow_reflection)
+                # Apply to all points
+                fitted = {}
+                for name, pt in ch_pos.items():
+                    pt = np.asarray(pt, dtype=float)
+                    new_pt = scale * (R @ pt) + t
+                    fitted[name] = new_pt
+                matched = True
+                break
+            except Exception:
+                continue
+
+        if matched and fitted is not None:
+            return fitted
+        # Fallback: return original positions unchanged
+        return {k: np.asarray(v, dtype=float) for k, v in ch_pos.items()}
+    @staticmethod
     def find_data(input_folder, extension, pattern="*"):
         """Recursively search for data files within a folder based on extension and pattern.
 
@@ -96,7 +217,7 @@ class DataIO:
         """Read channel locations from an EEGLAB .ced file.
 
         Parses a .ced file to extract electrode positions, detecting column layout
-        and converting coordinates to meters if necessary.
+        and converting coordinates to meters (auto-detecting mm/cm/m units).
 
         Args:
             fname (str): Path to the .ced file
@@ -131,12 +252,16 @@ class DataIO:
         x_idx = col_map["x"]
         y_idx = col_map["y"]
         z_idx = col_map["z"]
+        # First pass: parse values as-is. We'll fit to a template instead of threshold scaling.
+        labels = []
+        coords = []  # list of (x, y, z) in original units
         for line_num, line in enumerate(lines[1:], start=2):
             line = line.strip()
             if not line:
                 continue
-            parts = line.split("\t")
-            if len(parts) < len(parts):
+            if "\t" in line:
+                parts = [p for p in line.split("\t") if p != ""]
+            else:
                 parts = line.split()
             if len(parts) <= max(label_idx, x_idx, y_idx, z_idx):
                 raise ValueError(f"Invalid line in CED file at line {line_num}: {line}")
@@ -149,11 +274,31 @@ class DataIO:
                 raise ValueError(
                     f"Invalid numerical values in line {line_num}: {line}"
                 ) from err
-            if abs(x) > 0.5 or abs(y) > 0.5 or abs(z) > 0.5:
-                x = x / 1000.0
-                y = y / 1000.0
-                z = z / 1000.0
-            ch_pos[label] = np.array([y, x, z])
+            labels.append(label)
+            coords.append((x, y, z))
+
+        if not coords:
+            return ch_pos
+
+        # Build raw positions dict in the original coordinate order (x, y, z)
+        raw_pos = {label: np.array([x, y, z], dtype=float) for label, (x, y, z) in zip(labels, coords)}
+
+        # Fit to default head shape using a robust similarity transform
+        fitted = DataIO._fit_ch_pos_to_template(raw_pos, template_names=["standard_1020", "standard_1005"], allow_reflection=True)
+
+        # Ensure positions are in meters. If magnitude suggests mm/cm, rescale roughly to meters after fitting.
+        # This is a gentle safeguard if the fit still leaves obviously non-metric units.
+        abs_max = max(np.linalg.norm(v) for v in fitted.values())
+        if abs_max > 20.0:
+            post_scale = 1.0 / 1000.0
+        elif abs_max > 1.0:
+            post_scale = 1.0 / 100.0
+        else:
+            post_scale = 1.0
+
+        for k, v in fitted.items():
+            ch_pos[k] = np.asarray(v) * post_scale
+
         return ch_pos
 
     def load_montage(self, montage):
