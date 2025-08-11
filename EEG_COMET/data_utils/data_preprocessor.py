@@ -62,10 +62,39 @@ class DataPreprocessor:
         """
         with use_log_level(verbose):
             warnings.filterwarnings("ignore")
-            nd = NoisyChannels(eeg, random_state=1337).find_all_bads()
-            if nd:
-                bad_channels = nd.get_bads()
-                eeg.info["bads"] = bad_channels
+            try:
+                # Restrict to EEG channels that have finite 3D positions (required by RANSAC)
+                eeg_picks = pick_types(info=eeg.info, meg=False, eeg=True, exclude=[])
+                valid_picks = []
+                for pick_idx in eeg_picks:
+                    ch = eeg.info["chs"][pick_idx]
+                    loc = ch.get("loc", None)
+                    if loc is None:
+                        continue
+                    xyz = loc[:3]
+                    if xyz is None:
+                        continue
+                    if np.all(np.isfinite(xyz)):
+                        valid_picks.append(pick_idx)
+
+                # If too few valid channels, skip automatic detection gracefully
+                # RANSAC needs multiple channels with valid positions
+                if len(valid_picks) < 3:
+                    return eeg
+
+                valid_names = [eeg.info["ch_names"][i] for i in valid_picks]
+
+                # Run PyPREP on a copy restricted to valid channels only
+                eeg_valid = eeg.copy().pick(valid_picks)
+                nd = NoisyChannels(eeg_valid, random_state=1337).find_all_bads()
+                if nd:
+                    bad_channels_subset = nd.get_bads()
+                    # Map back to original channel list (names are preserved)
+                    merged_bads = set(eeg.info.get("bads", [])) | set(bad_channels_subset)
+                    eeg.info["bads"] = sorted(merged_bads)
+            except Exception:
+                # If anything goes wrong, leave EEG unchanged rather than failing the pipeline
+                return eeg
         return eeg
 
     @staticmethod
