@@ -1222,11 +1222,59 @@ class COMET:
         self.logger.processing_start("CLUSTERING", "Starting Microstate Clustering")
         self.logger.settings_info("CLUSTERING", clustering_settings)
 
+        # Provide concise, high-signal details about the upcoming clustering
+        # - K selection mode (user vs auto)
+        # - Clustering input (GFP peaks vs random subset vs entire recordings)
+        # - Effective repetitions and selection criterion (highest GEV)
+        try:
+            # K selection message
+            if self.number_of_maps == "auto":
+                k_selection_msg = (
+                    f"K Selection: Automatic (kmin={getattr(self, 'kmin', 'Unknown')}, "
+                    f"kmax={getattr(self, 'kmax', 'Unknown')}, "
+                    f"stopping={getattr(self, 'stopping_mode', 'Unknown')})"
+                )
+            else:
+                k_selection_msg = f"K Selection: User-specified (k={self.number_of_maps})"
+
+            # Input selection message
+            if self.number_of_maps == "auto":
+                input_msg = "Clustering Input: GFP peaks (auto-k enforced)"
+            else:
+                use_pct = int(getattr(self, "use_percentages", 100) or 100)
+                if use_pct >= 100:
+                    input_msg = "Clustering Input: Entire recordings"
+                else:
+                    input_msg = f"Clustering Input: Random subset ({use_pct}%)"
+
+            # Effective repetitions (TAAHC is deterministic → 1)
+            is_taahc = (
+                getattr(self, "clustering_method", "")
+                == "Topographic Atomize and Agglomerate Hierarchical Clustering"
+            )
+            effective_repeats = 1 if is_taahc else getattr(self, "number_of_repeats", 1)
+            repeats_msg = (
+                f"Repetitions: {effective_repeats} (best solution selected by highest GEV)"
+            )
+
+            self.logger.processing_info("CLUSTERING", k_selection_msg)
+            self.logger.processing_info("CLUSTERING", input_msg)
+            self.logger.processing_info("CLUSTERING", repeats_msg)
+        except Exception:
+            # Logging should never break the flow
+            pass
+
         # Add specific clustering parameters message with ⌛ emoji
         if self.number_of_maps != "auto":
+            # Reflect effective repeats in the identifying message for deterministic methods
+            is_taahc = (
+                getattr(self, "clustering_method", "")
+                == "Topographic Atomize and Agglomerate Hierarchical Clustering"
+            )
+            effective_repeats = 1 if is_taahc else getattr(self, "number_of_repeats", 1)
             self.logger.processing_info(
                 "CLUSTERING",
-                f"Identifying {self.number_of_maps} Microstate Maps with {self.number_of_repeats} Repetitions...",
+                f"Identifying {self.number_of_maps} Microstate Maps with {effective_repeats} Repetitions...",
             )
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
