@@ -15,6 +15,8 @@ from PyQt5.QtWidgets import QAbstractItemView, QActionGroup, QMainWindow, QSizeP
 from features_utils.feature_io import FeatureIO
 from gui_utils.set_widgets_status import set_widgets_status
 from gui_utils.export_utils import get_save_file_path, save_matplotlib_figure
+from scipy.stats import ttest_rel
+from statsmodels.stats.multitest import multipletests
 
 
 class FeatureVisualizationWindow(QMainWindow):
@@ -763,13 +765,14 @@ class FeatureVisualizationWindow(QMainWindow):
         Returns:
           None
         """
-        if source_list.currentItem():
-            selected_items = source_list.selectedItems()
-            if not selected_items:
-                return
-            for item in selected_items:
-                source_list.takeItem(source_list.row(item))
-                target_list.addItem(item.text())
+        selected_items = source_list.selectedItems()
+        if not selected_items:
+            return
+        for item in selected_items:
+            # Preserve text then remove from source and add to target
+            text = item.text()
+            source_list.takeItem(source_list.row(item))
+            target_list.addItem(text)
 
     def move_file_from_all_to_a(self):
         """Move selected items from 'All' to Group A.
@@ -962,6 +965,9 @@ class FeatureVisualizationWindow(QMainWindow):
             display_options,
         )
 
+        # Also compute paired t-tests per microstate and display in the text area
+        self._compute_and_display_paired_ttests(features_df, selected_feature, group_a_name, group_b_name)
+
     def load_features(self, mode):
         """Load features for a given mode.
 
@@ -1151,6 +1157,9 @@ class FeatureVisualizationWindow(QMainWindow):
         self.figure.clear()
         ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(feature)]
+        # Fallback for features computed for the whole sequence (single column without suffix)
+        if not filter_cols and feature in features_df.columns:
+            filter_cols = [feature]
         filter_cols.sort()
 
         plot_data = pd.melt(features_df.reset_index(), id_vars=["Filename"], value_vars=filter_cols)
@@ -1446,6 +1455,9 @@ class FeatureVisualizationWindow(QMainWindow):
         self.figure.clear()
         ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(selected_feature)]
+        # Fallback for features computed for the whole sequence
+        if not filter_cols and selected_feature in features_df.columns:
+            filter_cols = [selected_feature]
         filter_cols.sort()
 
         plot_data = pd.melt(features_df.reset_index(), id_vars=["Filename"], value_vars=filter_cols)
@@ -1508,6 +1520,244 @@ class FeatureVisualizationWindow(QMainWindow):
 
         self.canvas.draw()
 
+    def _format_feature_label_from_column(self, column_name: str, feature_code: str) -> str:
+        """Return a short display label for a feature column.
+
+        For microstate-indexed features like "COV_1" returns "A"; for
+        transition-like features such as "TP_1_2" returns "A-B".
+
+        Args:
+          column_name: Full column name (e.g., "COV_1", "TP_1_2").
+          feature_code: Selected feature short code (e.g., "COV", "TP").
+
+        Returns:
+          Readable label string for display.
+        """
+        def _state_to_letter(idx_str: str) -> str:
+            try:
+                state_idx = int(idx_str)
+                letter_idx = max(state_idx - 1, 0)
+                return chr(ord("A") + letter_idx)
+            except Exception:
+                return idx_str
+
+        parts = column_name.split("_")
+        if feature_code in ["TP", "RTF"] and len(parts) >= 3:
+            return f"{_state_to_letter(parts[-2])}-{_state_to_letter(parts[-1])}"
+        # If feature is whole-sequence (no suffix), return feature code as label
+        if feature_code == column_name:
+            return feature_code
+        if len(parts) >= 2:
+            return _state_to_letter(parts[-1])
+        return column_name
+
+    def _compute_and_display_paired_ttests(
+        self,
+        features_df: pd.DataFrame,
+        selected_feature: str,
+        group_a_name: str,
+        group_b_name: str,
+    ) -> None:
+        """Compute paired t-tests per microstate and write results to the text area.
+
+        Pairing strategy: pairs are formed by list order between Group A and Group B
+        file lists. If lengths differ, only the first min(len(A), len(B)) items are used.
+        Rows missing in the features table are skipped. NaNs are dropped pairwise.
+        Bonferroni correction is applied across the microstate comparisons.
+        """
+        if not hasattr(self.ui, "compare_groups_textedit"):
+            return
+
+        # Collect file lists in the order displayed in the UI
+        group_a_files = [self.ui.group_a_files_list.item(i).text() for i in range(self.ui.group_a_files_list.count())]
+        group_b_files = [self.ui.group_b_files_list.item(i).text() for i in range(self.ui.group_b_files_list.count())]
+
+        num_pairs_planned = min(len(group_a_files), len(group_b_files))
+
+        # Identify microstate columns for the selected feature
+        feature_columns = [col for col in features_df.columns if col.startswith(selected_feature + "_")]
+        # Fallback for whole-sequence features that have a single column equal to the code
+        if not feature_columns and selected_feature in features_df.columns:
+            feature_columns = [selected_feature]
+        feature_columns.sort()
+
+        # Prepare containers
+        raw_p_values: list[float] = []
+        test_results = []  # list of dicts per column
+
+        # Pre-index features by filename for quick lookup
+        features_by_file = features_df.set_index("Filename")
+
+        for feature_column in feature_columns:
+            values_a = []
+            values_b = []
+
+            # Build paired values from list order
+            for idx in range(num_pairs_planned):
+                file_a = group_a_files[idx]
+                file_b = group_b_files[idx]
+
+                # Skip if any filename is not present in the dataframe
+                if file_a not in features_by_file.index or file_b not in features_by_file.index:
+                    continue
+
+                val_a = features_by_file.at[file_a, feature_column]
+                val_b = features_by_file.at[file_b, feature_column]
+
+                # Drop pairs with NaNs
+                if pd.isna(val_a) or pd.isna(val_b):
+                    continue
+
+                values_a.append(float(val_a))
+                values_b.append(float(val_b))
+
+            # Perform paired test if we have at least 2 pairs
+            if len(values_a) >= 2:
+                t_stat, p_val = ttest_rel(values_a, values_b)
+                raw_p_values.append(float(p_val))
+                test_results.append(
+                    {
+                        "column": feature_column,
+                        "label": self._format_feature_label_from_column(feature_column, selected_feature),
+                        "t": float(t_stat),
+                        "p": float(p_val),
+                        "n_pairs": len(values_a),
+                        "mean_a": float(np.mean(values_a)) if values_a else None,
+                        "mean_b": float(np.mean(values_b)) if values_b else None,
+                    }
+                )
+            else:
+                test_results.append(
+                    {
+                        "column": feature_column,
+                        "label": self._format_feature_label_from_column(feature_column, selected_feature),
+                        "t": None,
+                        "p": None,
+                        "n_pairs": len(values_a),
+                        "mean_a": float(np.mean(values_a)) if values_a else None,
+                        "mean_b": float(np.mean(values_b)) if values_b else None,
+                    }
+                )
+
+        # Apply Bonferroni correction only if there are multiple tests
+        corrected_map = {}
+        multiple_testing = len(raw_p_values) > 1
+        if multiple_testing and raw_p_values:
+            _, pvals_corr, _, _ = multipletests(raw_p_values, method="bonferroni")
+            # Map back in order to test_results entries with non-None p
+            corr_iter = iter(pvals_corr.tolist())
+            for res in test_results:
+                if res["p"] is not None:
+                    corrected_map[res["column"]] = next(corr_iter)
+
+        # Build output text (well-formatted report)
+        lines = []
+        title = "Paired t-test Report"
+        lines.append(title)
+        lines.append("=" * len(title))
+        lines.append(
+            f"Feature: {self.comet.feature_list_dictionary.get(selected_feature, selected_feature)} ({selected_feature})"
+        )
+        lines.append(f"Groups: {group_a_name} vs {group_b_name}")
+        lines.append(f"Planned pairs: {num_pairs_planned}")
+        if multiple_testing:
+            lines.append("Multiple testing: Bonferroni correction")
+        lines.append("")
+        lines.append("Results by microstate")
+        lines.append("---------------------")
+
+        # Table header
+        if multiple_testing:
+            header = (
+                f"{'Microstate':<12} {'n':>3}  {'mean('+group_a_name+')':>12}  "
+                f"{'mean('+group_b_name+')':>12}  {'Δ(A-B)':>9}  {'t':>7}  {'p':>9}  {'p_bonf':>9}  {'sig':>3}"
+            )
+        else:
+            header = (
+                f"{'Microstate':<12} {'n':>3}  {'mean('+group_a_name+')':>12}  "
+                f"{'mean('+group_b_name+')':>12}  {'Δ(A-B)':>9}  {'t':>7}  {'p':>9}  {'sig':>3}"
+            )
+        lines.append(header)
+        lines.append("-" * len(header))
+
+        insufficient = []
+        alpha = 0.05
+        significant = []
+        for res in test_results:
+            label = res["label"]
+            n_pairs = res["n_pairs"]
+            mean_a = res.get("mean_a")
+            mean_b = res.get("mean_b")
+            if res["p"] is None:
+                insufficient.append((label, n_pairs))
+                continue
+            p_corr = corrected_map.get(res["column"], res["p"]) if multiple_testing else res["p"]
+            t_stat = res["t"]
+            diff = None
+            sig_mark = "*" if p_corr < alpha else ""
+            if mean_a is not None and mean_b is not None:
+                diff = mean_a - mean_b
+            if multiple_testing:
+                lines.append(
+                    f"{label:<12} {n_pairs:>3}  "
+                    f"{(mean_a if mean_a is not None else float('nan')):>12.3f}  "
+                    f"{(mean_b if mean_b is not None else float('nan')):>12.3f}  "
+                    f"{(diff if diff is not None else float('nan')):>9.3f}  "
+                    f"{t_stat:>7.3f}  {res['p']:>9.2g}  {p_corr:>9.2g}  {sig_mark:>3}"
+                )
+            else:
+                lines.append(
+                    f"{label:<12} {n_pairs:>3}  "
+                    f"{(mean_a if mean_a is not None else float('nan')):>12.3f}  "
+                    f"{(mean_b if mean_b is not None else float('nan')):>12.3f}  "
+                    f"{(diff if diff is not None else float('nan')):>9.3f}  "
+                    f"{t_stat:>7.3f}  {p_corr:>9.2g}  {sig_mark:>3}"
+                )
+
+            if p_corr < alpha and mean_a is not None and mean_b is not None:
+                direction = (
+                    f"{group_a_name} > {group_b_name}" if mean_a > mean_b else f"{group_b_name} > {group_a_name}"
+                )
+                significant.append(
+                    {
+                        "label": label,
+                        "p_corr": p_corr,
+                        "direction": direction,
+                        "diff": (mean_a - mean_b),
+                    }
+                )
+
+        lines.append("")
+        if multiple_testing:
+            lines.append(f"Summary (significant after Bonferroni, alpha={alpha})")
+            lines.append("-----------------------------------------------")
+        else:
+            lines.append(f"Summary (alpha={alpha})")
+            lines.append("----------------------")
+        if not significant:
+            lines.append("  No significant differences.")
+        else:
+            # Sort by corrected p-value ascending
+            significant.sort(key=lambda x: x["p_corr"]) 
+            for s in significant:
+                if multiple_testing:
+                    lines.append(
+                        f"  {s['label']}: {s['direction']} (p_bonf={s['p_corr']:.4g}, Δ={s['diff']:.3g})"
+                    )
+                else:
+                    lines.append(
+                        f"  {s['label']}: {s['direction']} (p={s['p_corr']:.4g}, Δ={s['diff']:.3g})"
+                    )
+
+        if insufficient:
+            lines.append("")
+            lines.append("Insufficient data")
+            lines.append("-----------------")
+            for label, n_pairs in insufficient:
+                lines.append(f"  {label}: insufficient pairs (n={n_pairs})")
+
+        self.ui.compare_groups_textedit.setPlainText("\n".join(lines))
+
     def plot_box(self, features_df, feature, font_sizes, colormap, font_family, display_options):
         """Plot a box plot for the selected static feature.
 
@@ -1526,6 +1776,9 @@ class FeatureVisualizationWindow(QMainWindow):
         self.figure.clear()
         ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(feature)]
+        # Fallback for features computed for the whole sequence
+        if not filter_cols and feature in features_df.columns:
+            filter_cols = [feature]
         filter_cols.sort()
 
         plot_data = pd.melt(features_df.reset_index(), id_vars=["Filename"], value_vars=filter_cols)
