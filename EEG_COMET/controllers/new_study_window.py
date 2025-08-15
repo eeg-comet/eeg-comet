@@ -645,6 +645,13 @@ class NewStudyWindow(QDialog):
         Validates filter parameters, collects settings into the COMET instance,
         logs study creation details, and launches preprocessing in the background.
         """
+        # Update the file list from the current UI state
+        self.comet.list_eegs_path = []
+        for i in range(self.ui.loaded_selected_files_list.count()):
+            item = self.ui.loaded_selected_files_list.item(i)
+            if item:
+                self.comet.list_eegs_path.append(item.text())
+        
         # Set critical path parameters first
         self.study_name = self.ui.step1_study_name_lineedit.text()
         save_parent_dir = os.path.dirname(self.ui.step2_save_path_lineedit.text())
