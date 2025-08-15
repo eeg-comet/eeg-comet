@@ -1108,8 +1108,11 @@ class COMET:
         os.makedirs(self.save_dir, exist_ok=True)
         os.makedirs(self.preprocessed_data_path, exist_ok=True)
 
-        # Iterate through EEG files
-        self.load_raw()
+        # Only load raw files if list_eegs_path is empty or not set
+        # This allows the NewStudyWindow to provide a pre-filtered list
+        if not hasattr(self, "list_eegs_path") or not self.list_eegs_path:
+            # Iterate through EEG files
+            self.load_raw()
 
         # Check if any files were found
         if not hasattr(self, "list_eegs_path") or len(self.list_eegs_path) == 0:
