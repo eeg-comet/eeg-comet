@@ -647,10 +647,15 @@ class NewStudyWindow(QDialog):
         """
         # Update the file list from the current UI state
         self.comet.list_eegs_path = []
+        self.comet.list_eegs = []
         for i in range(self.ui.loaded_selected_files_list.count()):
             item = self.ui.loaded_selected_files_list.item(i)
             if item:
-                self.comet.list_eegs_path.append(item.text())
+                file_path = item.text()
+                self.comet.list_eegs_path.append(file_path)
+                # Extract just the filename for list_eegs
+                file_name = os.path.basename(file_path)
+                self.comet.list_eegs.append(file_name)
         
         # Set critical path parameters first
         self.study_name = self.ui.step1_study_name_lineedit.text()
