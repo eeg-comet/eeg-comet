@@ -1210,11 +1210,22 @@ class FeatureVisualizationWindow(QMainWindow):
         ax = self.canvas.figure.gca()
         filter_cols = [col for col in features_df if col.startswith(feature)]
         filter_cols.sort()
+        
+        # Check if there are any features to plot
+        if not filter_cols:
+            ax.text(0.5, 0.5, f'No features found starting with "{feature}"', 
+                   ha='center', va='center', transform=ax.transAxes,
+                   fontsize=12)
+            self.canvas.draw()
+            return
 
         # Convert window indices to time in seconds for sliding window features
         if "Window_index" in features_df.columns:
+            # Check if this is event-based sliding (has Event_name column)
+            is_event_based = "Event_name" in features_df.columns
+            
             # Get sampling rate and window size from COMET object
-            getattr(self.comet, "sample_rate", 250)  # Default to 250 Hz
+            sampling_rate = getattr(self.comet, "sampling_rate", 250)  # Default to 250 Hz
             sliding_window_size = getattr(
                 self.comet, "sliding_window_size", 1
             )  # Default to 1 second
@@ -1226,39 +1237,144 @@ class FeatureVisualizationWindow(QMainWindow):
             unique_features = [col for col in filter_cols]
             colors = sns.color_palette(n_colors=len(unique_features))
 
-            for i, col in enumerate(unique_features):
-                # Get the feature values for this column
-                feature_values = features_df[col].values
+            if is_event_based and len(unique_features) > 0:
+                # For event-based sliding, show time-based plot with event markers
+                # Get event timing information if available
+                has_timing = all(col in features_df.columns for col in ['window_start_idx', 'window_end_idx', 'window_duration_ms'])
+                
+                if has_timing:
+                    # Calculate time positions from timing information
+                    # Convert from sample indices to seconds
+                    window_starts = features_df['window_start_idx'].values / sampling_rate
+                    window_ends = features_df['window_end_idx'].values / sampling_rate
+                    event_names = features_df['Event_name'].values
+                    
+                    # Plot features as horizontal lines for each event window
+                    for i, col in enumerate(unique_features):
+                        feature_values = features_df[col].values
+                        
+                        for window_idx, (start_time, end_time, value, event_name) in enumerate(
+                            zip(window_starts, window_ends, feature_values, event_names)
+                        ):
+                            if not pd.isna(value):
+                                # Draw horizontal line for this event window
+                                ax.plot(
+                                    [start_time, end_time],
+                                    [value, value],
+                                    color=colors[i],
+                                    linewidth=2,
+                                    label=col if window_idx == 0 else "",
+                                )
+                                
+                                # Connect to previous window if exists
+                                if window_idx > 0 and not pd.isna(feature_values[window_idx - 1]):
+                                    prev_value = feature_values[window_idx - 1]
+                                    ax.plot(
+                                        [window_starts[window_idx], window_starts[window_idx]],
+                                        [prev_value, value],
+                                        color=colors[i],
+                                        linewidth=1,
+                                        alpha=0.7,
+                                    )
+                    
+                    # Add vertical lines at event boundaries with labels
+                    unique_event_times = []
+                    unique_event_names = []
+                    for start_time, event_name in zip(window_starts, event_names):
+                        if start_time not in unique_event_times:
+                            unique_event_times.append(start_time)
+                            unique_event_names.append(event_name)
+                    
+                    # Update plot to ensure y-axis includes space for labels
+                    ax.relim()
+                    ax.autoscale_view()
+                    
+                    # Get y-axis limits after plotting
+                    y_min, y_max = ax.get_ylim()
+                    y_range = y_max - y_min
+                    
+                    # Add vertical lines and labels for events
+                    for event_time, event_name in zip(unique_event_times, unique_event_names):
+                        ax.axvline(x=event_time, color='gray', linestyle='--', alpha=0.5, linewidth=1)
+                        # Add event name as text annotation
+                        # Position text slightly above the plot area
+                        ax.text(event_time, y_max + y_range * 0.02, event_name, 
+                               rotation=90, va='bottom', ha='right', 
+                               fontsize=font_sizes.get("tick", 10) - 2, 
+                               color='gray', alpha=0.8)
+                    
+                    # Extend y-axis slightly to accommodate event labels
+                    ax.set_ylim(y_min, y_max + y_range * 0.15)
+                    
+                    ax.set_xlabel("Time (seconds)", fontsize=font_sizes["label"], fontfamily=font_family)
+                else:
+                    # Fallback to window index based plotting if timing info not available
+                    # This is similar to regular sliding but shows event boundaries
+                    for i, col in enumerate(unique_features):
+                        feature_values = features_df[col].values
+                        event_names = features_df['Event_name'].values
+                        
+                        for window_idx, (value, event_name) in enumerate(zip(feature_values, event_names)):
+                            if not pd.isna(value):
+                                # Use window index as proxy for time
+                                window_start = window_idx
+                                window_end = window_idx + 1
+                                
+                                ax.plot(
+                                    [window_start, window_end],
+                                    [value, value],
+                                    color=colors[i],
+                                    linewidth=2,
+                                    label=col if window_idx == 0 else "",
+                                )
+                                
+                                if window_idx > 0 and not pd.isna(feature_values[window_idx - 1]):
+                                    prev_value = feature_values[window_idx - 1]
+                                    ax.plot(
+                                        [window_start, window_start],
+                                        [prev_value, value],
+                                        color=colors[i],
+                                        linewidth=1,
+                                        alpha=0.7,
+                                    )
+                    
+                    ax.set_xlabel("Event Window Index", fontsize=font_sizes["label"], fontfamily=font_family)
+                
+            else:
+                # Original time-based sliding window visualization
+                for i, col in enumerate(unique_features):
+                    # Get the feature values for this column
+                    feature_values = features_df[col].values
 
-                # Create horizontal lines for each window
-                for window_idx, value in enumerate(feature_values):
-                    if not pd.isna(value):  # Skip NaN values
-                        # Calculate window start and end times
-                        window_start = window_idx * sliding_window_size
-                        window_end = (window_idx + 1) * sliding_window_size
+                    # Create horizontal lines for each window
+                    for window_idx, value in enumerate(feature_values):
+                        if not pd.isna(value):  # Skip NaN values
+                            # Calculate window start and end times
+                            window_start = window_idx * sliding_window_size
+                            window_end = (window_idx + 1) * sliding_window_size
 
-                        # Draw horizontal line for this window
-                        ax.plot(
-                            [window_start, window_end],
-                            [value, value],
-                            color=colors[i],
-                            linewidth=2,
-                            label=col if window_idx == 0 else "",
-                        )
-
-                        # Add vertical connectors between windows (optional, for continuity)
-                        if window_idx > 0 and not pd.isna(feature_values[window_idx - 1]):
-                            prev_value = feature_values[window_idx - 1]
+                            # Draw horizontal line for this window
                             ax.plot(
-                                [window_start, window_start],
-                                [prev_value, value],
+                                [window_start, window_end],
+                                [value, value],
                                 color=colors[i],
-                                linewidth=1,
-                                alpha=0.7,
+                                linewidth=2,
+                                label=col if window_idx == 0 else "",
                             )
 
-            # Set x-axis label
-            ax.set_xlabel("Time (seconds)", fontsize=font_sizes["label"], fontfamily=font_family)
+                            # Add vertical connectors between windows (optional, for continuity)
+                            if window_idx > 0 and not pd.isna(feature_values[window_idx - 1]):
+                                prev_value = feature_values[window_idx - 1]
+                                ax.plot(
+                                    [window_start, window_start],
+                                    [prev_value, value],
+                                    color=colors[i],
+                                    linewidth=1,
+                                    alpha=0.7,
+                                )
+
+                # Set x-axis label
+                ax.set_xlabel("Time (seconds)", fontsize=font_sizes["label"], fontfamily=font_family)
             self.set_labels_ticks_sliding(
                 filter_cols, feature, ax, font_sizes, font_family, display_options
             )

@@ -5,6 +5,7 @@ backfitting, feature extraction, source localization, and correlation routines.
 """
 
 import contextlib
+import glob
 import os
 from configparser import ConfigParser
 
@@ -165,6 +166,9 @@ class COMET:
         self.feature_mode = ["averaged"]
         self.feature_types = ["real"]
         self.sliding_window_size = 1
+        self.event_based_sliding = False
+        self.selected_events = []
+        self.event_matching_mode = "partial"  # "exact", "case_insensitive", or "partial"
         self.pre_window_size = 1
         self.post_window_size = 1
         self.feature_list_dictionary = {}
@@ -531,6 +535,12 @@ class COMET:
                 self.sliding_window_size = 1
         else:
             self.sliding_window_size = 1
+        
+        # Load event-based sliding settings
+        self.event_based_sliding = features_config.getboolean("event_based_sliding", False)
+        selected_events_str = features_config.get("selected_events", "")
+        self.selected_events = [e.strip() for e in selected_events_str.split(",") if e.strip()]
+        self.event_matching_mode = features_config.get("event_matching_mode", "partial")
 
         try:
             self.pre_window_size = features_config.getint("pre_window_size", 1)
@@ -810,6 +820,21 @@ class COMET:
             if not hasattr(self, "events_per_file"):
                 self.events_per_file = {}
             self.events_per_file[eeg_name] = event_info
+            
+            # Log extracted events for debugging
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                event_names = sorted(event_info.keys())
+                self.LogWindow.append_log(
+                    f"Extracted events from {eeg_name}: {', '.join(event_names)}",
+                    log_type="info"
+                )
+        else:
+            # No events found - also log this
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"No events found in {eeg_name} annotations",
+                    log_type="warning"
+                )
         # --- END NEW ---
 
         # Apply automatic bad channel detection and interpolation if requested
@@ -848,8 +873,29 @@ class COMET:
 
     def get_preprocessed_eeg(self, subject_name):
         """Load a preprocessed EEG file on demand instead of keeping it in memory."""
-        eeg_path = os.path.join(self.preprocessed_data_path, f"{subject_name}{self.extension}")
-        return self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+        # Handle .auto extension by looking for actual saved file
+        if self.extension == ".auto":
+            # Try common extensions in order of preference
+            possible_extensions = [".set", ".vhdr", ".edf"]
+            for ext in possible_extensions:
+                eeg_path = os.path.join(self.preprocessed_data_path, f"{subject_name}{ext}")
+                if os.path.exists(eeg_path):
+                    return self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+            
+            # If no file found with standard extensions, try to find any matching file
+            pattern = f"{subject_name}.*"
+            files = glob.glob(os.path.join(self.preprocessed_data_path, pattern))
+            if files:
+                # Use the first matching file
+                return self.comet_data_io.load_eeg(eeg_path=files[0], datatype=self.datatype)
+            else:
+                raise FileNotFoundError(
+                    f"No preprocessed EEG file found for {subject_name} in {self.preprocessed_data_path}"
+                )
+        else:
+            # Use the specified extension
+            eeg_path = os.path.join(self.preprocessed_data_path, f"{subject_name}{self.extension}")
+            return self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
 
     def compute_gev_all_data(self):
         """Compute Global Explained Variance for all data."""
@@ -2151,38 +2197,238 @@ class COMET:
                     try:
                         # Load preprocessed EEG to fetch accurate annotation timings
                         subject_name = os.path.splitext(segmentation_name)[0]
-                        preproc_eeg = self.get_preprocessed_eeg(subject_name)
+                        try:
+                            preproc_eeg = self.get_preprocessed_eeg(subject_name)
+                        except FileNotFoundError as e:
+                            # Provide more helpful error message for missing files
+                            error_msg = (
+                                f"Could not find preprocessed EEG file for {subject_name}. "
+                                f"Please ensure the file was preprocessed and saved correctly. Error: {str(e)}"
+                            )
+                            self.logger.error("FEATURE_EXTRACTION", error_msg)
+                            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                self.LogWindow.append_log(error_msg, log_type="error")
+                            raise
                         sfreq = preproc_eeg.info["sfreq"]
                         ann = preproc_eeg.annotations
+                        
+                        # Log event-based processing start
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(
+                                f"Starting event-based feature extraction for {segmentation_name} "
+                                f"with events: {', '.join(self.selected_events)}",
+                                log_type="info"
+                            )
+                        
                         # Build windows for selected events
                         event_windows = []  # list of (start_idx,end_idx,label)
-                        for desc, onset, duration in zip(ann.description, ann.onset, ann.duration):
-                            if desc in self.selected_events:
+                        available_events = list(ann.description) if ann else []
+                        
+                        # Get the total number of samples in the data
+                        total_samples = preproc_eeg.n_times
+                        
+                        # Check segmentation array length
+                        seg_length = len(segmentation_array) if len(segmentation_array.shape) == 1 else segmentation_array.shape[1]
+                        
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(
+                                f"Data info - EEG samples: {total_samples}, Segmentation length: {seg_length}, Sampling rate: {sfreq}Hz",
+                                log_type="info"
+                            )
+                        
+                        # Use the minimum of the two lengths to avoid out-of-bounds errors
+                        max_valid_samples = min(total_samples, seg_length)
+                        
+                        # Log available events for debugging
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None and available_events:
+                            unique_events = sorted(set(available_events))
+                            self.LogWindow.append_log(
+                                f"Available events in {segmentation_name}: {', '.join(unique_events)}",
+                                log_type="info"
+                            )
+                            
+                            # Log event details for debugging
+                            for desc, onset, dur in zip(ann.description, ann.onset, ann.duration):
+                                self.LogWindow.append_log(
+                                    f"  Event '{desc}': onset={onset:.3f}s, duration={dur:.3f}s",
+                                    log_type="info"
+                                )
+                        
+                        # Match events based on configured matching mode
+                        matching_mode = getattr(self, "event_matching_mode", "partial")
+                        
+                        # Get all annotation data for calculating windows
+                        all_onsets = list(ann.onset)
+                        all_durations = list(ann.duration)
+                        all_descriptions = list(ann.description)
+                        
+                        for event_idx, (desc, onset, duration) in enumerate(zip(ann.description, ann.onset, ann.duration)):
+                            matched = False
+                            
+                            # Apply matching based on mode
+                            if matching_mode == "exact":
+                                # Only exact matching
+                                matched = desc in self.selected_events
+                            
+                            elif matching_mode == "case_insensitive":
+                                # Exact match (case-insensitive)
+                                for selected_event in self.selected_events:
+                                    if desc.lower() == selected_event.lower():
+                                        matched = True
+                                        break
+                            
+                            else:  # default to "partial" for backward compatibility
+                                # Try exact match first
+                                matched = desc in self.selected_events
+                                
+                                # If no exact match, try case-insensitive match
+                                if not matched:
+                                    for selected_event in self.selected_events:
+                                        if desc.lower() == selected_event.lower():
+                                            matched = True
+                                            break
+                                
+                                # If still no match, try partial/substring matching (both ways)
+                                if not matched:
+                                    for selected_event in self.selected_events:
+                                        # Check if selected event is substring of desc or vice versa
+                                        if (selected_event.lower() in desc.lower() or 
+                                            desc.lower() in selected_event.lower()):
+                                            matched = True
+                                            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                                self.LogWindow.append_log(
+                                                    f"Partial match: '{selected_event}' matched with '{desc}'",
+                                                    log_type="info"
+                                                )
+                                            break
+                            
+                            if matched:
                                 start_idx = int(round(onset * sfreq))
-                                end_idx = int(round((onset + duration) * sfreq))
+                                
+                                # Handle zero-duration events by creating a window
+                                if duration == 0:
+                                    # For zero-duration events, try to use time until next event
+                                    # Find the next event after this one
+                                    next_onset = None
+                                    for j in range(event_idx + 1, len(all_onsets)):
+                                        if all_onsets[j] > onset:
+                                            next_onset = all_onsets[j]
+                                            break
+                                    
+                                    if next_onset is not None:
+                                        # Use time until next event
+                                        window_duration = next_onset - onset
+                                        end_idx = int(round((onset + window_duration) * sfreq))
+                                        
+                                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                            self.LogWindow.append_log(
+                                                f"Zero-duration event '{desc}' at {onset:.3f}s - using window until next event at {next_onset:.3f}s ({window_duration:.3f}s)",
+                                                log_type="info"
+                                            )
+                                    else:
+                                        # No next event, use default window
+                                        default_window_duration = 1.0  # 1 second default
+                                        end_idx = int(round((onset + default_window_duration) * sfreq))
+                                        
+                                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                            self.LogWindow.append_log(
+                                                f"Zero-duration event '{desc}' at {onset:.3f}s - using default {default_window_duration}s window",
+                                                log_type="info"
+                                            )
+                                else:
+                                    end_idx = int(round((onset + duration) * sfreq))
+                                
+                                # Ensure end_idx doesn't exceed valid data length
+                                end_idx = min(end_idx, max_valid_samples)
+                                
+                                # Also ensure start_idx is within bounds
+                                if start_idx >= max_valid_samples:
+                                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                        self.LogWindow.append_log(
+                                            f"Skipping event '{desc}' at {onset:.3f}s - start index {start_idx} exceeds data length {max_valid_samples}",
+                                            log_type="warning"
+                                        )
+                                    continue
+                                
                                 if end_idx > start_idx:
                                     event_windows.append((start_idx, end_idx, desc))
-                        # For each window compute features in averaged mode
-                        aggregated = {"sliding": {ftype: [] for ftype in self.feature_types}}
-                        for start_idx, end_idx, ev_label in event_windows:
+                                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                        self.LogWindow.append_log(
+                                            f"Added event window for '{desc}': samples {start_idx}-{end_idx} ({(end_idx-start_idx)/sfreq:.3f}s)",
+                                            log_type="info"
+                                        )
+                                else:
+                                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                        self.LogWindow.append_log(
+                                            f"Skipping event '{desc}' at {onset:.3f}s - invalid window (start={start_idx}, end={end_idx})",
+                                            log_type="warning"
+                                        )
+                        
+                        if not event_windows:
+                            # Provide detailed error message with available events
+                            available_str = ', '.join(sorted(set(available_events))) if available_events else 'None'
+                            selected_str = ', '.join(self.selected_events) if self.selected_events else 'None'
+                            
+                            error_msg = (
+                                f"No matching events found in {segmentation_name}.\n"
+                                f"Selected events: [{selected_str}]\n"
+                                f"Available events in file: [{available_str}]"
+                            )
+                            
+                            self.logger.warning("FEATURE_EXTRACTION", error_msg)
+                            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                self.LogWindow.append_log(error_msg, log_type="warning")
+                            # Continue with standard processing if no events found
+                            raise ValueError("No matching events found")
+                        
+                        # Log number of event windows found
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(
+                                f"Found {len(event_windows)} event windows in {segmentation_name}",
+                                log_type="info"
+                            )
+                        
+                        # For event-based sliding, we need to create a custom sliding extraction
+                        # that includes Window_index and Event_name columns properly
+                        all_sliding_dfs = {ftype: [] for ftype in self.feature_types}
+                        
+                        # Process each event window
+                        for window_index, (start_idx, end_idx, ev_label) in enumerate(event_windows):
+                            # Ensure indices are within bounds of segmentation array
+                            seg_len = len(segmentation_array) if len(segmentation_array.shape) == 1 else segmentation_array.shape[1]
+                            safe_start = max(0, min(start_idx, seg_len - 1))
+                            safe_end = max(safe_start + 1, min(end_idx, seg_len))
+                            
                             window_labels = (
-                                segmentation_array[start_idx:end_idx].tolist()
+                                segmentation_array[safe_start:safe_end].tolist()
                                 if len(segmentation_array.shape) == 1
-                                else segmentation_array[0, start_idx:end_idx].tolist()
+                                else segmentation_array[0, safe_start:safe_end].tolist()
                             )
+                            
                             if not window_labels:
+                                if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                    self.LogWindow.append_log(
+                                        f"Empty window for event '{ev_label}' (indices {start_idx}-{end_idx})",
+                                        log_type="warning"
+                                    )
                                 continue
-                            FeatureExtractor(
-                                input_sequence=window_labels,
-                                sampling_rate=sfreq,
-                                sliding_window_size=None,
-                                feature_mode="averaged",
-                            )
+                            
+                            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                self.LogWindow.append_log(
+                                    f"Processing event '{ev_label}' window: {len(window_labels)} samples",
+                                    log_type="info"
+                                )
+                            
                             # Build minimal segmentation dict to reuse coordinator
+                            # Create segmentation data for this event window
+                            # Include event information for proper handling
                             seg_stub = {
                                 "filename": segmentation_name,
+                                "labels": window_labels,  # Add this field which is expected by the coordinator
                                 "microstate_labels": window_labels,
                                 "time": list(range(len(window_labels))),
+                                "event_name": ev_label,  # Add event name
+                                "window_index": window_index,  # Add window index
                             }
                             coordinator = FeatureExtractionCoordinator()
                             feat_res = coordinator.extract_features(
@@ -2193,22 +2439,75 @@ class COMET:
                                 sliding_window_size=1,
                                 min_samples=None,
                             )
-                            # Map averaged results to 'sliding' to integrate with downstream collector
-                            # Add event label column to each DataFrame
+                            # Process the results for each feature type
                             averaged_dict = feat_res.get("averaged", {})
-                            for _ftype, df_list in averaged_dict.items():
-                                for df in df_list:
-                                    with contextlib.suppress(Exception):
-                                        df["event"] = ev_label
                             for ftype, df_list in averaged_dict.items():
-                                aggregated["sliding"][ftype].extend(df_list)
+                                for df in df_list:
+                                    # Create a new DataFrame with proper structure for sliding mode
+                                    # Get the feature columns (all except 'Filename')
+                                    feature_cols = [col for col in df.columns if col != 'Filename']
+                                    
+                                    # Create rows for sliding format
+                                    sliding_rows = []
+                                    for feat_col in feature_cols:
+                                        if feat_col in df.columns:
+                                            sliding_rows.append({
+                                                'Filename': segmentation_name,
+                                                'Window_index': window_index,
+                                                'Event_name': ev_label,
+                                                'Feature': feat_col,
+                                                'Value': df[feat_col].iloc[0] if not df.empty else None
+                                            })
+                                    
+                                    # Create DataFrame in sliding format
+                                    if sliding_rows:
+                                        sliding_df = pd.DataFrame(sliding_rows)
+                                        # Pivot to get the expected format
+                                        pivoted_df = sliding_df.pivot_table(
+                                            index=['Filename', 'Window_index', 'Event_name'],
+                                            columns='Feature',
+                                            values='Value'
+                                        ).reset_index()
+                                        
+                                        # Add timing information
+                                        pivoted_df['window_start_idx'] = start_idx
+                                        pivoted_df['window_end_idx'] = end_idx
+                                        pivoted_df['window_duration_ms'] = (end_idx - start_idx) * 1000 / sfreq
+                                        
+                                        all_sliding_dfs[ftype].append(pivoted_df)
+                        
+                        # Combine all DataFrames for each feature type
+                        final_sliding_results = {"sliding": {}}
+                        for ftype in self.feature_types:
+                            if all_sliding_dfs[ftype]:
+                                # Concatenate all DataFrames for this feature type
+                                combined_df = pd.concat(all_sliding_dfs[ftype], ignore_index=True)
+                                final_sliding_results["sliding"][ftype] = [combined_df]
+                            else:
+                                final_sliding_results["sliding"][ftype] = []
+                        
+                        # Log successful event-based extraction
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(
+                                f"Successfully extracted event-based features from {segmentation_name}",
+                                log_type="success"
+                            )
+                        
                         # Store results
                         COMET._shared_feature_results[segmentation_idx] = {
                             "segmentation_name": segmentation_name,
-                            "extracted_features": aggregated,
+                            "extracted_features": final_sliding_results,
                         }
                         return  # Skip standard sliding processing
                     except Exception as _eb_err:
+                        # Log the error before falling back
+                        error_msg = f"Event-based feature extraction failed for {segmentation_name}: {str(_eb_err)}"
+                        self.logger.error("FEATURE_EXTRACTION", error_msg)
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(
+                                f"Error in event-based extraction: {str(_eb_err)}. Falling back to standard sliding windows.",
+                                log_type="error"
+                            )
                         # Fallback to standard path if any error occurs
                         pass
 
@@ -2781,6 +3080,9 @@ class COMET:
         self.config["features_config"]["feature_mode"] = ", ".join(self.feature_mode)
         self.config["features_config"]["feature_types"] = ", ".join(self.feature_types)
         self.config["features_config"]["sliding_window_size"] = str(self.sliding_window_size)
+        self.config["features_config"]["event_based_sliding"] = str(self.event_based_sliding)
+        self.config["features_config"]["selected_events"] = ", ".join(self.selected_events)
+        self.config["features_config"]["event_matching_mode"] = self.event_matching_mode
         self.config["features_config"]["pre_window_size"] = str(self.pre_window_size)
         self.config["features_config"]["post_window_size"] = str(self.post_window_size)
 

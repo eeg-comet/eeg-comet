@@ -2371,6 +2371,8 @@ class MainMicrostateWindow(QMainWindow):
         # Sliding window parameters
         if self.ui.step4_sliding_features_checkbox.isChecked():
             if self.ui.step4_sliding_fix_radio.isChecked():
+                # Fixed time interval sliding
+                self.comet.event_based_sliding = False
                 # Get custom window size from input (in seconds)
                 try:
                     window_size = int(self.ui.step4_sliding_fix_input.text())
@@ -2388,13 +2390,20 @@ class MainMicrostateWindow(QMainWindow):
                     for i in range(self.ui.step4_sliding_event_combobox.count()):
                         if self.ui.step4_sliding_event_combobox.itemData(i, Qt.CheckStateRole) == Qt.Checked:  # type: ignore[arg-type]
                             selected_events.append(self.ui.step4_sliding_event_combobox.itemText(i))
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.comet.logger.error("UI", f"Error retrieving selected events: {str(e)}")
                 self.comet.selected_events = selected_events
+                # Log selected events for debugging
+                if self.comet.LogWindow:
+                    self.comet.LogWindow.append_log(
+                        f"Event-based sliding enabled with events: {', '.join(selected_events) if selected_events else 'None selected'}",
+                        log_type="info"
+                    )
                 # Use placeholder window size (not used in event mode)
                 self.comet.sliding_window_size = 1
         else:
             # Default window size when sliding features are not used
+            self.comet.event_based_sliding = False
             self.comet.sliding_window_size = 1
 
         # Data type specific parameters
