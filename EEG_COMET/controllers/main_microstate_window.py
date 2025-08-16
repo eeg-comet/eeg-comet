@@ -1419,6 +1419,36 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step4_feature_rof_checkbox.setChecked(False)
             self.ui.step4_feature_rtf_checkbox.setChecked(False)
 
+    def _get_extracted_feature_modes(self):
+        """Get list of feature modes that have been extracted (have existing files).
+        
+        Returns:
+          list[str]: List of available feature modes (e.g., ["averaged"], ["sliding"], or ["averaged", "sliding"]).
+        """
+        extracted_modes = []
+        
+        if not hasattr(self.comet, "extracted_features_path") or not self.comet.extracted_features_path:
+            return extracted_modes
+            
+        if not hasattr(self.comet, "export_format") or not self.comet.export_format:
+            return extracted_modes
+            
+        # Check for averaged features
+        averaged_path = os.path.join(
+            self.comet.extracted_features_path, f"real_averaged_features{self.comet.export_format}"
+        )
+        if os.path.exists(averaged_path):
+            extracted_modes.append("averaged")
+            
+        # Check for sliding features
+        sliding_path = os.path.join(
+            self.comet.extracted_features_path, f"real_sliding_features{self.comet.export_format}"
+        )
+        if os.path.exists(sliding_path):
+            extracted_modes.append("sliding")
+            
+        return extracted_modes
+
     def _handle_feature_extraction_settings(self):
         """Handle feature extraction UI settings."""
         # Check if extract button should be enabled
@@ -1435,7 +1465,9 @@ class MainMicrostateWindow(QMainWindow):
         # Update button styles based on processing state
         if self.comet.done_extracting_features:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
-            self.ui.view_features_action.setEnabled(True)
+            # Enable view features action only if any feature files exist
+            extracted_modes = self._get_extracted_feature_modes()
+            self.ui.view_features_action.setEnabled(len(extracted_modes) > 0)
         else:
             self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
             self.ui.view_features_action.setDisabled(True)
@@ -2420,7 +2452,8 @@ class MainMicrostateWindow(QMainWindow):
         # Set parameters
         viz_window.extracted_features_path = self.comet.extracted_features_path
         viz_window.export_format = self.comet.export_format
-        viz_window.feature_mode = self.comet.feature_mode
+        # Pass the actually extracted feature modes instead of the configured ones
+        viz_window.feature_mode = self._get_extracted_feature_modes()
         if hasattr(viz_window, "feature_combo"):
             viz_window.feature_combo.clear()  # type: ignore[attr-defined]
             # Use full feature names from dictionary instead of short codes
