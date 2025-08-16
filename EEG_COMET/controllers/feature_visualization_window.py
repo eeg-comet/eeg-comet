@@ -80,6 +80,50 @@ class FeatureVisualizationWindow(QMainWindow):
 
         return selected_full_name
 
+    def _update_radio_button_states(self):
+        """Enable/disable static and dynamic radio buttons based on available feature modes.
+        
+        Returns:
+          None
+        """
+        # Check if we have any feature modes available
+        if not self.feature_mode:
+            # No feature modes available - disable both radios
+            if hasattr(self.ui, "static_radio"):
+                self.ui.static_radio.setEnabled(False)
+            if hasattr(self.ui, "dynamic_radio"):
+                self.ui.dynamic_radio.setEnabled(False)
+            return
+        
+        # Enable static radio if averaged features are available
+        static_available = "averaged" in self.feature_mode
+        if hasattr(self.ui, "static_radio"):
+            self.ui.static_radio.setEnabled(static_available)
+            # If static becomes unavailable and it was selected, switch to dynamic
+            if not static_available and self.ui.static_radio.isChecked():
+                if hasattr(self.ui, "dynamic_radio") and "sliding" in self.feature_mode:
+                    self.ui.dynamic_radio.setChecked(True)
+        
+        # Enable dynamic radio if sliding features are available
+        dynamic_available = "sliding" in self.feature_mode
+        if hasattr(self.ui, "dynamic_radio"):
+            self.ui.dynamic_radio.setEnabled(dynamic_available)
+            # If dynamic becomes unavailable and it was selected, switch to static
+            if not dynamic_available and self.ui.dynamic_radio.isChecked():
+                if hasattr(self.ui, "static_radio") and "averaged" in self.feature_mode:
+                    self.ui.static_radio.setChecked(True)
+        
+        # If only one mode is available, select it automatically
+        if static_available and not dynamic_available and hasattr(self.ui, "static_radio"):
+            self.ui.static_radio.setChecked(True)
+        elif dynamic_available and not static_available and hasattr(self.ui, "dynamic_radio"):
+            self.ui.dynamic_radio.setChecked(True)
+        elif static_available and dynamic_available:
+            # If both are available and none are selected, default to static
+            if (hasattr(self.ui, "static_radio") and hasattr(self.ui, "dynamic_radio") 
+                and not self.ui.static_radio.isChecked() and not self.ui.dynamic_radio.isChecked()):
+                self.ui.static_radio.setChecked(True)
+
     def setup_style_actions(self):
         """Set up colormap, font family, and style action groups.
 
@@ -539,6 +583,9 @@ class FeatureVisualizationWindow(QMainWindow):
         Returns:
           None
         """
+        # Update radio button states based on available feature modes
+        self._update_radio_button_states()
+        
         # Determine current visualization mode based on radio buttons
         static_mode = hasattr(self.ui, "static_radio") and self.ui.static_radio.isChecked()
         dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
