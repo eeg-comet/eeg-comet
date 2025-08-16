@@ -2194,6 +2194,17 @@ class COMET:
                     and hasattr(self, "selected_events")
                     and self.selected_events
                 ):
+                    # Log that event-based processing is starting
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(
+                            f"🔄 Event-based sliding feature extraction enabled for {segmentation_name}",
+                            log_type="info"
+                        )
+                        self.LogWindow.append_log(
+                            f"   Selected events: {', '.join(self.selected_events)}",
+                            log_type="info"
+                        )
+                    
                     try:
                         # Load preprocessed EEG to fetch accurate annotation timings
                         subject_name = os.path.splitext(segmentation_name)[0]
@@ -2202,15 +2213,20 @@ class COMET:
                         except FileNotFoundError as e:
                             # Provide more helpful error message for missing files
                             error_msg = (
-                                f"Could not find preprocessed EEG file for {subject_name}. "
+                                f"❌ Event-based sliding FAILED: Could not find preprocessed EEG file for {subject_name}. "
                                 f"Please ensure the file was preprocessed and saved correctly. Error: {str(e)}"
                             )
                             self.logger.error("FEATURE_EXTRACTION", error_msg)
                             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                                 self.LogWindow.append_log(error_msg, log_type="error")
-                            raise
+                            # Re-raise to prevent fallback - this is a critical error
+                            raise RuntimeError(f"Event-based sliding failed: {str(e)}")
                         sfreq = preproc_eeg.info["sfreq"]
                         ann = preproc_eeg.annotations
+                        
+                        # Validate that annotations exist
+                        if ann is None or len(ann) == 0:
+                            raise RuntimeError(f"No annotations found in {segmentation_name}. Event-based sliding requires annotations.")
                         
                         # Log event-based processing start
                         if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -2219,10 +2235,46 @@ class COMET:
                                 f"with events: {', '.join(self.selected_events)}",
                                 log_type="info"
                             )
+                            self.LogWindow.append_log(
+                                f"   Found {len(ann)} annotations in file, sampling rate: {sfreq}Hz",
+                                log_type="info"
+                            )
                         
                         # Build windows for selected events
                         event_windows = []  # list of (start_idx,end_idx,label)
                         available_events = list(ann.description) if ann else []
+                        
+                        # Early validation: Check if ANY of the selected events exist in available events
+                        matching_mode = getattr(self, "event_matching_mode", "partial")
+                        has_any_match = False
+                        
+                        for selected_event in self.selected_events:
+                            for available_event in available_events:
+                                matched = False
+                                
+                                if matching_mode == "exact":
+                                    matched = selected_event == available_event
+                                elif matching_mode == "case_insensitive":
+                                    matched = selected_event.lower() == available_event.lower()
+                                else:  # "partial"
+                                    matched = (selected_event == available_event or 
+                                             selected_event.lower() == available_event.lower() or
+                                             selected_event.lower() in available_event.lower() or 
+                                             available_event.lower() in selected_event.lower())
+                                
+                                if matched:
+                                    has_any_match = True
+                                    break
+                            if has_any_match:
+                                break
+                        
+                        if not has_any_match:
+                            available_str = ', '.join(sorted(set(available_events))) if available_events else 'None'
+                            selected_str = ', '.join(self.selected_events) if self.selected_events else 'None'
+                            raise RuntimeError(
+                                f"Event-based sliding failed: None of the selected events [{selected_str}] "
+                                f"match any available events [{available_str}] using {matching_mode} matching mode."
+                            )
                         
                         # Get the total number of samples in the data
                         total_samples = preproc_eeg.n_times
@@ -2254,8 +2306,7 @@ class COMET:
                                     log_type="info"
                                 )
                         
-                        # Match events based on configured matching mode
-                        matching_mode = getattr(self, "event_matching_mode", "partial")
+                        # Process events using the already configured matching_mode
                         
                         # Get all annotation data for calculating windows
                         all_onsets = list(ann.onset)
@@ -2305,38 +2356,34 @@ class COMET:
                             if matched:
                                 start_idx = int(round(onset * sfreq))
                                 
-                                # Handle zero-duration events by creating a window
-                                if duration == 0:
-                                    # For zero-duration events, try to use time until next event
-                                    # Find the next event after this one
-                                    next_onset = None
-                                    for j in range(event_idx + 1, len(all_onsets)):
-                                        if all_onsets[j] > onset:
-                                            next_onset = all_onsets[j]
-                                            break
+                                # For onset-only annotations, create windows from current event to next event
+                                # Find the next event after this one (any event, not just selected ones)
+                                next_onset = None
+                                for j in range(event_idx + 1, len(all_onsets)):
+                                    if all_onsets[j] > onset:
+                                        next_onset = all_onsets[j]
+                                        break
+                                
+                                if next_onset is not None:
+                                    # Use time until next event (regardless of what the next event is)
+                                    window_duration = next_onset - onset
+                                    end_idx = int(round(next_onset * sfreq))
                                     
-                                    if next_onset is not None:
-                                        # Use time until next event
-                                        window_duration = next_onset - onset
-                                        end_idx = int(round((onset + window_duration) * sfreq))
-                                        
-                                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                                            self.LogWindow.append_log(
-                                                f"Zero-duration event '{desc}' at {onset:.3f}s - using window until next event at {next_onset:.3f}s ({window_duration:.3f}s)",
-                                                log_type="info"
-                                            )
-                                    else:
-                                        # No next event, use default window
-                                        default_window_duration = 1.0  # 1 second default
-                                        end_idx = int(round((onset + default_window_duration) * sfreq))
-                                        
-                                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                                            self.LogWindow.append_log(
-                                                f"Zero-duration event '{desc}' at {onset:.3f}s - using default {default_window_duration}s window",
-                                                log_type="info"
-                                            )
+                                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                        self.LogWindow.append_log(
+                                            f"Event '{desc}' at {onset:.3f}s - window until next event at {next_onset:.3f}s ({window_duration:.3f}s)",
+                                            log_type="info"
+                                        )
                                 else:
-                                    end_idx = int(round((onset + duration) * sfreq))
+                                    # No next event, use window until end of data
+                                    end_idx = max_valid_samples
+                                    window_duration = (max_valid_samples - start_idx) / sfreq
+                                    
+                                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                        self.LogWindow.append_log(
+                                            f"Event '{desc}' at {onset:.3f}s - window until end of data ({window_duration:.3f}s)",
+                                            log_type="info"
+                                        )
                                 
                                 # Ensure end_idx doesn't exceed valid data length
                                 end_idx = min(end_idx, max_valid_samples)
@@ -2370,16 +2417,17 @@ class COMET:
                             selected_str = ', '.join(self.selected_events) if self.selected_events else 'None'
                             
                             error_msg = (
-                                f"No matching events found in {segmentation_name}.\n"
-                                f"Selected events: [{selected_str}]\n"
-                                f"Available events in file: [{available_str}]"
+                                f"❌ Event-based sliding FAILED: No matching events found in {segmentation_name}.\n"
+                                f"   Selected events: [{selected_str}]\n"
+                                f"   Available events in file: [{available_str}]\n"
+                                f"   Event matching mode: {getattr(self, 'event_matching_mode', 'partial')}"
                             )
                             
-                            self.logger.warning("FEATURE_EXTRACTION", error_msg)
+                            self.logger.error("FEATURE_EXTRACTION", error_msg)
                             if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                                self.LogWindow.append_log(error_msg, log_type="warning")
-                            # Continue with standard processing if no events found
-                            raise ValueError("No matching events found")
+                                self.LogWindow.append_log(error_msg, log_type="error")
+                            # Raise RuntimeError to prevent silent fallback to fixed sliding
+                            raise RuntimeError(f"Event-based sliding failed: No matching events found. Selected: {selected_str}, Available: {available_str}")
                         
                         # Log number of event windows found
                         if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -2489,7 +2537,7 @@ class COMET:
                         # Log successful event-based extraction
                         if hasattr(self, "LogWindow") and self.LogWindow is not None:
                             self.LogWindow.append_log(
-                                f"Successfully extracted event-based features from {segmentation_name}",
+                                f"✅ Successfully extracted event-based features from {segmentation_name} ({len(event_windows)} event windows processed)",
                                 log_type="success"
                             )
                         
@@ -2499,17 +2547,28 @@ class COMET:
                             "extracted_features": final_sliding_results,
                         }
                         return  # Skip standard sliding processing
-                    except Exception as _eb_err:
-                        # Log the error before falling back
-                        error_msg = f"Event-based feature extraction failed for {segmentation_name}: {str(_eb_err)}"
+                    except RuntimeError as _eb_err:
+                        # RuntimeError indicates a critical event-based sliding error - do not fallback
+                        error_msg = f"❌ Event-based feature extraction failed for {segmentation_name}: {str(_eb_err)}"
                         self.logger.error("FEATURE_EXTRACTION", error_msg)
                         if hasattr(self, "LogWindow") and self.LogWindow is not None:
                             self.LogWindow.append_log(
-                                f"Error in event-based extraction: {str(_eb_err)}. Falling back to standard sliding windows.",
+                                f"❌ Event-based extraction failed: {str(_eb_err)}",
                                 log_type="error"
                             )
-                        # Fallback to standard path if any error occurs
-                        pass
+                        # Re-raise to stop processing - do not fallback to fixed sliding
+                        raise
+                    except Exception as _eb_err:
+                        # For other unexpected errors, provide detailed error info and prevent fallback
+                        error_msg = f"❌ Event-based feature extraction failed for {segmentation_name}: {str(_eb_err)}"
+                        self.logger.error("FEATURE_EXTRACTION", error_msg)
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(
+                                f"❌ Unexpected error in event-based extraction: {str(_eb_err)}. Event-based sliding requires debugging.",
+                                log_type="error"
+                            )
+                        # Convert to RuntimeError to prevent silent fallback
+                        raise RuntimeError(f"Event-based sliding failed with unexpected error: {str(_eb_err)}") from _eb_err
 
                 # Check if we have epoched data with sliding features enabled OR ROF feature requested
                 is_epoched_sliding = self.datatype == "epoched" and "sliding" in self.feature_mode
