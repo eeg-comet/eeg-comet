@@ -31,6 +31,8 @@ class EEGCometLogger:
             "ORGANIZATION": "🧠  [ORGANIZATION]",
             "GITHUB": "🌐  [GITHUB]",
             "CONTACT": "✉️  [CONTACT]",
+            "MAINTENANCE": "🛠️  [MAINTENANCE]",
+            "REFERENCES": "📝  [REFERENCE]",
         }
 
     def _get_step_prefix(self, step: str) -> str:
@@ -169,8 +171,8 @@ class EEGCometLogger:
             step (str): Processing step.
             message (str): Message to display.
         """
-        # Use step-specific prefix for SHUTDOWN, ORGANIZATION, GITHUB, CONTACT, and CLUSTERING processing messages
-        if step.upper() in ["SHUTDOWN", "ORGANIZATION", "GITHUB", "CONTACT"] or (
+        # Use step-specific prefix for SHUTDOWN, ORGANIZATION, GITHUB, CONTACT, REFERENCES, MAINTENANCE, and CLUSTERING processing messages
+        if step.upper() in ["SHUTDOWN", "ORGANIZATION", "GITHUB", "CONTACT", "REFERENCES", "MAINTENANCE"] or (
             step.upper() == "CLUSTERING" and "Identifying" in message
         ):
             prefix = self._get_step_prefix(step)
@@ -244,14 +246,21 @@ class EEGCometLogger:
 
             # Special handling for clustering method to show shorter citation in logs
             if key == "Clustering Method" and step.upper() == "CLUSTERING":
-                # Map full method names to shorter citation format
+                # Map full method names to method name and reference
                 method_mapping = {
-                    "Modified K-Means Clustering (Pascual-Marqui et al. 1995)": "Modified K-Means (https://doi.org/10.1109/10.391164/)",
-                    "Modified K-Means Clustering with Spatial Similarity": "Modified K-Means with Spatial Similarity",
-                    "Topographic Atomize and Agglomerate Hierarchical Clustering": "TAAHC Clustering",
+                    "Modified K-Means Clustering (Pascual-Marqui et al. 1995)": ("Modified K-Means", "https://doi.org/10.1109/10.391164"),
+                    "Modified K-Means Clustering with Spatial Similarity": ("Modified K-Means with Spatial Similarity", None),
+                    "Topographic Atomize and Agglomerate Hierarchical Clustering": ("TAAHC Clustering", None),
                 }
-                log_value = method_mapping.get(value, value)
-                self.processing_info(step, f"{key}: {log_value}")
+                method_info = method_mapping.get(value, (value, None))
+                method_name, reference = method_info
+                
+                # Log the method name
+                self.processing_info(step, f"{key}: {method_name}")
+                
+                # Log the reference separately if available
+                if reference:
+                    self.processing_info("REFERENCES", reference)
             else:
                 self.processing_info(step, f"{key}: {value}")
 
