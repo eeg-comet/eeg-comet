@@ -36,9 +36,10 @@ def run_application():
     """Run the EEG-COMET application."""
     # Display welcome message
     logger.toolbox_header("EEG-COMET", "(EEG Comprehensive Microstate Extraction Toolbox)")
-    logger.processing_info("ORGANIZATION", "SFU eBrain Lab (https://www.ebrainlab.ca/)")
-    logger.processing_info("GITHUB", "https://github.com/eBrainLab/eeg-comet/")
-    logger.processing_info("CONTACT", "@ Amin Kabir, @ Faranak Farzan")
+    logger.processing_info("ORGANIZATION", "SFU eBrain Lab")
+    logger.processing_info("CONTACT", "     https://www.ebrainlab.ca/about-us")
+    logger.processing_info("GITHUB", "      https://github.com/eBrainLab/eeg-comet")
+    logger.processing_info("MAINTENANCE", " https://github.com/aminkabir")
 
     try:
         # Create a custom application context
@@ -53,11 +54,11 @@ def run_application():
         if os.path.exists(icon_path):
             app.setWindowIcon(QIcon(icon_path))
         else:
-            logger.warning("INITIALIZATION", "Application icon not found")
+            logger.warning("STARTUP", "Application icon not found")
 
         # Show the window
         window.show()
-        logger.processing_success("INITIALIZATION", "Application Started Successfully")
+        logger.processing_success("STARTUP", "     EEG-COMET GUI Started Successfully")
 
         # Start the application
         exit_code = app.exec_()
@@ -85,11 +86,11 @@ def run_application():
         print()  # Empty line
         print("=" * 60)  # Separator line
 
-        logger.processing_info("SHUTDOWN", "EEG-COMET Application Closed Successfully")
+        logger.processing_info("SHUTDOWN", "    EEG-COMET GUI Closed Successfully")
         sys.exit(exit_code)
 
     except Exception as e:
-        logger.error("INITIALIZATION", f"Failed to Start Application: {str(e)}")
+        logger.error("STARTUP", f"Failed to Start EEG-COMET GUI: {str(e)}")
         sys.exit(1)
 
 
