@@ -54,11 +54,11 @@ def run_application():
         if os.path.exists(icon_path):
             app.setWindowIcon(QIcon(icon_path))
         else:
-            logger.warning("INITIALIZATION", "Application icon not found")
+            logger.warning("STARTUP", "Application icon not found")
 
         # Show the window
         window.show()
-        logger.processing_success("INITIALIZATION", "EEG-COMET GUI Started Successfully")
+        logger.processing_success("STARTUP", "     EEG-COMET GUI Started Successfully")
 
         # Start the application
         exit_code = app.exec_()
@@ -86,11 +86,11 @@ def run_application():
         print()  # Empty line
         print("=" * 60)  # Separator line
 
-        logger.processing_info("SHUTDOWN", "EEG-COMET GUI Closed Successfully")
+        logger.processing_info("SHUTDOWN", "    EEG-COMET GUI Closed Successfully")
         sys.exit(exit_code)
 
     except Exception as e:
-        logger.error("INITIALIZATION", f"Failed to Start EEG-COMET GUI: {str(e)}")
+        logger.error("STARTUP", f"Failed to Start EEG-COMET GUI: {str(e)}")
         sys.exit(1)
 
 
