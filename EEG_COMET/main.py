@@ -36,9 +36,10 @@ def run_application():
     """Run the EEG-COMET application."""
     # Display welcome message
     logger.toolbox_header("EEG-COMET", "(EEG Comprehensive Microstate Extraction Toolbox)")
-    logger.processing_info("ORGANIZATION", "SFU eBrain Lab (https://www.ebrainlab.ca/)")
-    logger.processing_info("GITHUB", "https://github.com/eBrainLab/eeg-comet/")
-    logger.processing_info("CONTACT", "@ Amin Kabir, @ Faranak Farzan")
+    logger.processing_info("ORGANIZATION", "SFU eBrain Lab")
+    logger.processing_info("CONTACT", "     https://www.ebrainlab.ca/about-us")
+    logger.processing_info("GITHUB", "      https://github.com/eBrainLab/eeg-comet")
+    logger.processing_info("MAINTENANCE", " https://github.com/aminkabir")
 
     try:
         # Create a custom application context
