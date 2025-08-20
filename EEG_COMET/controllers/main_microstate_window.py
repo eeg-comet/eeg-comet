@@ -2013,6 +2013,20 @@ class MainMicrostateWindow(QMainWindow):
             self._set_auto_k_parameters()
         else:
             self._set_user_k_parameters()
+            
+            # Validate user-defined k value
+            if self.comet.number_of_maps < 5:
+                reply = QMessageBox.question(
+                    self,
+                    "Low Number of States Warning",
+                    "Extracting fewer than 5 microstates is not recommended.\n\n"
+                    "Fewer than 5 microstates may incorrectly merge distinct states (especially C and E).\n\n"
+                    "Would you like to proceed anyway?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No,
+                )
+                if reply != QMessageBox.Yes:
+                    return
 
         # Set other parameters
         self._set_clustering_parameters()
