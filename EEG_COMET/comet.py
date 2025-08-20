@@ -749,41 +749,7 @@ class COMET:
         consistent_channels, missing_channels = self.comet_data_io.check_chan2rm(
             self.list_eegs_path, datatype=self.datatype, montage=self.montage
         )
-        
-        # Get ALL unique channels across all files (consistent + missing)
-        # This represents the complete channel set that all files should have
-        self.all_unique_channels = consistent_channels + missing_channels
-        
-        # Store missing channels separately for interpolation
-        self.missing_channels = missing_channels
-        
-        # Log channel consistency information
-        if hasattr(self, "LogWindow") and self.LogWindow is not None:
-            self.LogWindow.append_log("Channel Consistency Check", log_type="section")
-            self.LogWindow.append_log(
-                f"Total unique channels across all files: {len(self.all_unique_channels)}",
-                log_type="info"
-            )
-            self.LogWindow.append_log(
-                f"Channels present in all files: {len(consistent_channels)}",
-                log_type="info"
-            )
-            if missing_channels:
-                self.LogWindow.append_log(
-                    f"Channels missing from some files (will be interpolated): {len(missing_channels)}",
-                    log_type="warning"
-                )
-                self.LogWindow.append_log(
-                    f"Missing channels: {', '.join(missing_channels[:10])}{'...' if len(missing_channels) > 10 else ''}",
-                    log_type="info"
-                )
-        
-        # Only add to chan2rm if explicitly set to "missing" (backward compatibility)
-        if self.chan2rm == "missing":
-            # Don't remove any channels - we'll interpolate them instead
-            self.chan2rm = ""
-        
-        # Store consistent channels (these are present in all files)
+        self.chan2rm = list(set(self.chan2rm).union(set(missing_channels)))
         self.ch_names = consistent_channels
 
     def save_eeg_info(self, eeg_info_path):
@@ -792,35 +758,15 @@ class COMET:
         Args:
             eeg_info_path (str): Path where the EEG information will be saved
         """
-        # Use all unique channels found across all files
-        if hasattr(self, "all_unique_channels") and self.all_unique_channels:
-            all_channel_names = self.all_unique_channels.copy()
-        else:
-            # Fallback to consistent channels if all_unique_channels not available
-            all_channel_names = self.ch_names.copy()
-        
-        # Create a basic Info object with all channels
+        # Create a basic Info object
         eeg_info = mne.create_info(
-            ch_names=all_channel_names, ch_types=["eeg"] * len(all_channel_names), sfreq=self.sample_rate
+            ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sample_rate
         )
         eeg_info["description"] = self.study_name
 
-        # Set montage if available
-        if self.montage:
-            montage = self.comet_data_io.load_montage(self.montage)
-            eeg_info.set_montage(montage, match_case=False, on_missing="warn")
-        else:
-            # If no explicit montage, try to get one from the first preprocessed file
-            # This ensures the saved info has channel positions when data has built-in montage
-            try:
-                first_file = os.path.join(self.preprocessed_data_path, os.listdir(self.preprocessed_data_path)[0])
-                temp_eeg = self.comet_data_io.load_eeg(first_file, self.datatype, montage=None, preload=False)
-                if temp_eeg.info.get('dig') is not None:
-                    montage = temp_eeg.get_montage()
-                    if montage is not None:
-                        eeg_info.set_montage(montage, match_case=False, on_missing="warn")
-            except Exception:
-                pass
+        # Set montage
+        montage = self.comet_data_io.load_montage(self.montage)
+        eeg_info.set_montage(montage, match_case=False, on_missing="warn")
 
         mne.io.write_info(eeg_info_path, eeg_info)
 
@@ -850,72 +796,8 @@ class COMET:
             montage_obj = self.comet_data_io.load_montage(self.montage)
             eeg.set_montage(montage_obj, match_case=False, on_missing="warn")
 
-        # Interpolate any channels that are missing from this file but present in other files
-        if hasattr(self, "all_unique_channels") and self.all_unique_channels:
-            # Check which channels from the complete set are missing in this file
-            file_ch_names_lower = [ch.lower() for ch in eeg.ch_names]
-            channels_to_interpolate = []
-            for ch in self.all_unique_channels:
-                if ch.lower() not in file_ch_names_lower:
-                    channels_to_interpolate.append(ch)
-            
-            if channels_to_interpolate:
-                # Check if we have a montage to use for interpolation
-                # First try explicit montage, then check if data has montage info
-                montage_available = False
-                montage_source = None
-                
-                if self.montage:
-                    # Use explicitly specified montage
-                    montage_obj = self.comet_data_io.load_montage(self.montage)
-                    montage_available = True
-                    montage_source = "specified montage"
-                elif eeg.info.get('dig') is not None and len(eeg.info['dig']) > 0:
-                    # Use montage from the EEG data itself
-                    montage_obj = eeg.get_montage()
-                    if montage_obj is not None:
-                        montage_available = True
-                        montage_source = "data's built-in montage"
-                
-                if montage_available and montage_obj is not None:
-                    montage_ch_names_lower = [ch.lower() for ch in montage_obj.ch_names]
-                    
-                    # Separate channels that can and cannot be interpolated
-                    can_interpolate = [ch for ch in channels_to_interpolate if ch.lower() in montage_ch_names_lower]
-                    cannot_interpolate = [ch for ch in channels_to_interpolate if ch.lower() not in montage_ch_names_lower]
-                    
-                    # Log interpolation info
-                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                        if can_interpolate:
-                            self.LogWindow.append_log(
-                                f"Interpolating {len(can_interpolate)} missing channels in {eeg_name} using {montage_source}: {', '.join(can_interpolate[:5])}{'...' if len(can_interpolate) > 5 else ''}",
-                                log_type="info"
-                            )
-                        if cannot_interpolate:
-                            self.LogWindow.append_log(
-                                f"Cannot interpolate {len(cannot_interpolate)} channels (not in montage) in {eeg_name}: {', '.join(cannot_interpolate[:5])}{'...' if len(cannot_interpolate) > 5 else ''}",
-                                log_type="warning"
-                            )
-                    
-                    # Interpolate missing channels using the montage
-                    # Pass the montage object directly if using data's montage
-                    reference_montage = montage_obj if montage_source == "data's built-in montage" else self.montage
-                    eeg = self.comet_preprocessor.interpolate_missing_channels(
-                        eeg=eeg,
-                        reference_montage=reference_montage,
-                        target_channels=self.all_unique_channels,
-                        verbose="ERROR"
-                    )
-                else:
-                    # No montage available for interpolation
-                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                        self.LogWindow.append_log(
-                            f"Warning: {len(channels_to_interpolate)} channels missing in {eeg_name} but no montage available for interpolation",
-                            log_type="warning"
-                        )
-
-        # Remove channels if specified (only user-selected channels, not missing ones)
-        if hasattr(self, "chan2rm") and self.chan2rm and self.chan2rm != "missing":
+        # Remove channels if specified
+        if hasattr(self, "chan2rm") and self.chan2rm:
             channels_to_remove = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()]
             if channels_to_remove:
                 eeg.drop_channels(channels_to_remove, on_missing="ignore")
