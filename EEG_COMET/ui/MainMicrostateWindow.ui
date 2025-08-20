@@ -437,9 +437,9 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>0</y>
-               <width>1153</width>
-               <height>1630</height>
+               <y>-840</y>
+               <width>1125</width>
+               <height>1730</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
@@ -840,7 +840,7 @@ background-color: rgb(0, 0, 0);</string>
                    <set>Qt::ImhDigitsOnly</set>
                   </property>
                   <property name="text">
-                   <string>4</string>
+                   <string>5</string>
                   </property>
                   <property name="maxLength">
                    <number>2</number>
@@ -1920,9 +1920,9 @@ background-color: rgb(0, 0, 0);</string>
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>0</y>
-               <width>353</width>
-               <height>800</height>
+               <y>-120</y>
+               <width>1125</width>
+               <height>855</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_5">
@@ -2735,8 +2735,8 @@ background-color: rgb(0, 0, 0);</string>
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>302</width>
-               <height>1312</height>
+               <width>1125</width>
+               <height>1400</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_9">
@@ -3877,8 +3877,8 @@ background-color: rgb(0, 0, 0);</string>
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>473</width>
-               <height>976</height>
+               <width>767</width>
+               <height>1046</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
@@ -4898,7 +4898,7 @@ background-color: rgb(0, 0, 0);</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>18</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -5117,13 +5117,13 @@ background-color: rgb(0, 0, 0);</string>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_6"/>
   <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_8"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_7"/>
+  <buttongroup name="buttonGroup_6"/>
+  <buttongroup name="buttonGroup_5"/>
+  <buttongroup name="buttonGroup_8"/>
  </buttongroups>
 </ui>
