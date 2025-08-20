@@ -745,12 +745,150 @@ class COMET:
             raise ValueError(f"Error loading microstate maps: {err}") from err
 
     def check_chan2rm(self):
-        """Check the consistency of EEG channels across all data."""
-        consistent_channels, missing_channels = self.comet_data_io.check_chan2rm(
+        """Check the consistency of EEG channels across all data and prepare for interpolation."""
+        consistent_channels, missing_channels_per_file = self.comet_data_io.check_channel_consistency_per_file(
             self.list_eegs_path, datatype=self.datatype, montage=self.montage
         )
-        self.chan2rm = list(set(self.chan2rm).union(set(missing_channels)))
+        
+        # Store missing channels per file for later interpolation
+        self.missing_channels_per_file = missing_channels_per_file
+        
+        # Keep track of channels that should be removed (user-specified)
+        if isinstance(self.chan2rm, str):
+            # Convert string to list if it contains comma-separated values
+            if self.chan2rm.strip():
+                self.chan2rm = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()]
+            else:
+                self.chan2rm = []
+        elif not isinstance(self.chan2rm, list):
+            self.chan2rm = []
+        
+        # Store consistent channels (channels present in all files)
         self.ch_names = consistent_channels
+
+    def get_missing_channels_stats(self):
+        """Get statistics about missing channels across all files."""
+        if not hasattr(self, 'missing_channels_per_file'):
+            return 0, 0, []
+        
+        total_missing = 0
+        files_with_missing = 0
+        all_missing_channels = set()
+        
+        for file_path, missing_channels in self.missing_channels_per_file.items():
+            if missing_channels:
+                files_with_missing += 1
+                total_missing += len(missing_channels)
+                all_missing_channels.update(missing_channels)
+        
+        return total_missing, files_with_missing, sorted(all_missing_channels)
+
+    def interpolate_missing_channels_for_file(self, eeg, eeg_path):
+        """Interpolate missing channels for a specific file using the DataPreprocessor."""
+        if not hasattr(self, 'missing_channels_per_file') or eeg_path not in self.missing_channels_per_file:
+            return eeg
+        
+        missing_channels = self.missing_channels_per_file[eeg_path]
+        if not missing_channels:
+            return eeg
+        
+        # Use the DataPreprocessor's interpolation method with user's selected montage
+        try:
+            # Determine the montage to use for interpolation
+            if hasattr(self, "montage") and self.montage:
+                # User has selected a specific montage
+                montage_obj = self.comet_data_io.load_montage(self.montage)
+                interpolated_eeg = self.comet_preprocessor.interpolate_missing_channels(
+                    raw=eeg,
+                    missing_channels=missing_channels,
+                    custom_montage=montage_obj,  # Use user's selected montage
+                    verbose=False
+                )
+            else:
+                # Fallback to standard montage if no user selection
+                interpolated_eeg = self.comet_preprocessor.interpolate_missing_channels(
+                    raw=eeg,
+                    missing_channels=missing_channels,
+                    montage_name='standard_1020',
+                    verbose=False
+                )
+            
+            # Log the interpolation
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                montage_name = self.montage if hasattr(self, "montage") and self.montage else "standard_1020"
+                self.LogWindow.append_log(
+                    f"Interpolated {len(missing_channels)} missing channels using montage '{montage_name}': {', '.join(missing_channels)}",
+                    log_type="info"
+                )
+            
+            return interpolated_eeg
+        except Exception as e:
+            # Log the error but continue with original data
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"Warning: Failed to interpolate missing channels: {e}",
+                    log_type="warning"
+                )
+            return eeg
+
+    def validate_channel_count_consistency(self):
+        """Validate that the channel count in EEG info matches the actual data after preprocessing."""
+        try:
+            # Load the first preprocessed file to get the actual channel count
+            data_io = DataIO()
+            all_preprocessed_paths, _ = data_io.find_data(self.preprocessed_data_path, self.extension)
+            
+            if all_preprocessed_paths:
+                # Load the first file to get the actual channel count after preprocessing
+                first_eeg = data_io.load_eeg(all_preprocessed_paths[0], self.datatype)
+                actual_ch_count = len(first_eeg.ch_names)
+                stored_ch_count = len(self.ch_names)
+                
+                if actual_ch_count != stored_ch_count:
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(
+                            f"Channel count mismatch detected: stored={stored_ch_count}, actual={actual_ch_count}. Updating...",
+                            log_type="warning"
+                        )
+                    # Update the channel names to match the actual data
+                    self.ch_names = first_eeg.ch_names
+                    return True
+                    
+        except Exception as e:
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"Warning: Failed to validate channel count consistency: {e}",
+                    log_type="warning"
+                )
+        return False
+
+    def update_channel_names_after_preprocessing(self):
+        """Update channel names to reflect the actual channels after preprocessing and interpolation."""
+        try:
+            # Load the first preprocessed file to get the actual channel names
+            data_io = DataIO()
+            all_preprocessed_paths, _ = data_io.find_data(self.preprocessed_data_path, self.extension)
+            
+            if all_preprocessed_paths:
+                # Load the first file to get the actual channel names after preprocessing
+                first_eeg = data_io.load_eeg(all_preprocessed_paths[0], self.datatype)
+                actual_ch_names = first_eeg.ch_names
+                
+                # Update the channel names to reflect the actual channels after interpolation
+                self.ch_names = actual_ch_names
+                
+                if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                    self.LogWindow.append_log(
+                        f"Updated channel names after preprocessing: {len(self.ch_names)} channels",
+                        log_type="info"
+                    )
+                    
+        except Exception as e:
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"Warning: Failed to update channel names after preprocessing: {e}",
+                    log_type="warning"
+                )
 
     def save_eeg_info(self, eeg_info_path):
         """Save EEG information to a binary file using pickle.
@@ -758,6 +896,9 @@ class COMET:
         Args:
             eeg_info_path (str): Path where the EEG information will be saved
         """
+        # Validate and update channel names to reflect the actual channels after preprocessing
+        self.validate_channel_count_consistency()
+        
         # Create a basic Info object
         eeg_info = mne.create_info(
             ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sample_rate
@@ -796,9 +937,16 @@ class COMET:
             montage_obj = self.comet_data_io.load_montage(self.montage)
             eeg.set_montage(montage_obj, match_case=False, on_missing="warn")
 
-        # Remove channels if specified
+        # Interpolate missing channels if needed
+        eeg = self.interpolate_missing_channels_for_file(eeg, eeg_path)
+        
+        # Remove user-specified channels if any
         if hasattr(self, "chan2rm") and self.chan2rm:
-            channels_to_remove = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()]
+            if isinstance(self.chan2rm, list):
+                channels_to_remove = [ch.strip() for ch in self.chan2rm if ch.strip()]
+            else:
+                channels_to_remove = []
+            
             if channels_to_remove:
                 eeg.drop_channels(channels_to_remove, on_missing="ignore")
 
@@ -1199,7 +1347,14 @@ class COMET:
                 selection_message = "Data Selection: Entire recording"
             self.logger.processing_info("PREPROCESSING", selection_message)
 
-            # Preprocessing settings
+        # Build a list of EEG files
+        self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
+
+        # Check channel consistency
+        self.check_chan2rm()
+        
+        # Preprocessing settings (AFTER channel consistency check)
+        if hasattr(self, "LogWindow") and self.LogWindow is not None:
             preprocessing_settings = {}
             if self.temporal_filter_data:
                 preprocessing_settings["Bandpass Filter"] = (
@@ -1217,14 +1372,32 @@ class COMET:
             preprocessing_settings["Channels to Remove"] = (
                 str(self.chan2rm) if self.chan2rm else "None"
             )
+            # Check if interpolation is needed and which montage will be used
+            if hasattr(self, 'missing_channels_per_file') and any(self.missing_channels_per_file.values()):
+                montage_name = self.montage if hasattr(self, "montage") and self.montage else "standard_1020"
+                preprocessing_settings["Channel Interpolation"] = f"Enabled (using {montage_name})"
+            else:
+                preprocessing_settings["Channel Interpolation"] = "Not needed"
 
             self.logger.settings_info("PREPROCESSING", preprocessing_settings)
-
-        # Build a list of EEG files
-        self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
-
-        # Check channel consistency
-        self.check_chan2rm()
+            
+            # Log channel consistency warning after preprocessing settings
+            if hasattr(self, 'missing_channels_per_file') and any(self.missing_channels_per_file.values()):
+                logger = get_logger()
+                total_missing, files_with_missing, all_missing_channels = self.get_missing_channels_stats()
+                logger.warning("PREPROCESSING", f"Channels are not consistent across all data files. {files_with_missing} files have missing channels. Total missing channels: {total_missing}. Missing channels: {', '.join(all_missing_channels)}")
+        
+        # Log channel consistency information
+        total_missing, files_with_missing, all_missing_channels = self.get_missing_channels_stats()
+        if total_missing > 0:
+            montage_name = self.montage if hasattr(self, "montage") and self.montage else "standard_1020"
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"Channel consistency check: {total_missing} missing channels across {files_with_missing} files. "
+                    f"Missing channels: {', '.join(all_missing_channels)}. "
+                    f"Will interpolate using montage: {montage_name}",
+                    log_type="info"
+                )
 
         # Start preprocessing
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1424,6 +1597,13 @@ class COMET:
                 return self._handle_stopped_clustering("Loading EEG information")
             self.load_eeg_info()
 
+            # Step 1.5: Validate channel count consistency
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.log_clustering_setup_step("Validating channel consistency")
+            if check_stop():
+                return self._handle_stopped_clustering("Validating channel consistency")
+            self.validate_channel_count_consistency()
+
             # Step 2: Calculate minimum distance size if smoothing GFP is enabled
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.log_clustering_setup_step("Calculating parameters")
@@ -1477,6 +1657,17 @@ class COMET:
                 use_percentages=auto_k_use_percentages,
                 min_dist=self.min_distance_size,
             )
+
+            # Validate that the generated maps have the correct number of channels
+            if hasattr(self, "eeg_info") and self.eeg_info is not None:
+                expected_channels = len(self.eeg_info["ch_names"])
+                actual_channels = self.maps2use.shape[0]
+                if expected_channels != actual_channels:
+                    error_msg = f"Channel count mismatch: EEG info has {expected_channels} channels, but maps have {actual_channels} channels"
+                    self.logger.error("CLUSTERING", error_msg)
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(error_msg, log_type="error")
+                    return False
 
             # Step 6: Handle automatic k selection
             if self.number_of_maps == "auto":
@@ -3104,7 +3295,11 @@ class COMET:
         self.config["preprocessing_config"]["auto_clean_data"] = str(self.auto_clean_data)
         self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
-        self.config["preprocessing_config"]["ch2rm"] = str(self.chan2rm)
+        # Save user-specified channels to remove (not interpolated channels)
+        if isinstance(self.chan2rm, list):
+            self.config["preprocessing_config"]["ch2rm"] = ", ".join(self.chan2rm)
+        else:
+            self.config["preprocessing_config"]["ch2rm"] = str(self.chan2rm)
         self.config["preprocessing_config"]["prep_data"] = str(self.prep_data)
 
         self.config["clustering_config"]["smoothing_gfp"] = str(self.smoothing_gfp)
@@ -3421,8 +3616,15 @@ class COMET:
         self.config["events_config"]["common_events"] = ", ".join(self.common_events)
         # --- END NEW ---
 
-        # Log completion
-        self.logger.processing_success("PREPROCESSING", "Preprocessing completed successfully")
+        # Log completion with interpolation summary
+        total_missing, files_with_missing, all_missing_channels = self.get_missing_channels_stats()
+        if total_missing > 0:
+            montage_name = self.montage if hasattr(self, "montage") and self.montage else "standard_1020"
+            completion_msg = f"Preprocessing completed successfully. Interpolated {total_missing} missing channels across {files_with_missing} files using montage '{montage_name}'."
+        else:
+            completion_msg = "Preprocessing completed successfully. No channel interpolation was needed."
+        
+        self.logger.processing_success("PREPROCESSING", completion_msg)
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
