@@ -58,7 +58,7 @@ def run_application():
 
         # Show the window
         window.show()
-        logger.processing_success("INITIALIZATION", "Application Started Successfully")
+        logger.processing_success("INITIALIZATION", "EEG-COMET GUI Started Successfully")
 
         # Start the application
         exit_code = app.exec_()
@@ -86,11 +86,11 @@ def run_application():
         print()  # Empty line
         print("=" * 60)  # Separator line
 
-        logger.processing_info("SHUTDOWN", "EEG-COMET Application Closed Successfully")
+        logger.processing_info("SHUTDOWN", "EEG-COMET GUI Closed Successfully")
         sys.exit(exit_code)
 
     except Exception as e:
-        logger.error("INITIALIZATION", f"Failed to Start Application: {str(e)}")
+        logger.error("INITIALIZATION", f"Failed to Start EEG-COMET GUI: {str(e)}")
         sys.exit(1)
 
 
