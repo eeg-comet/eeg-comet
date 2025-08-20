@@ -98,6 +98,167 @@ class DataPreprocessor:
         return eeg
 
     @staticmethod
+    def interpolate_missing_channels(eeg, reference_montage, target_channels=None, verbose="ERROR"):
+        """Interpolate missing channels based on a reference montage.
+        
+        This method adds channels that are missing from the current EEG data.
+        It can either use channels from the reference montage or a specific list
+        of target channels.
+        
+        Args:
+            eeg (Raw or Epochs): MNE Raw or Epochs object containing EEG data
+            reference_montage: MNE montage object or string name of standard montage
+            target_channels: Optional list of channel names to ensure are present.
+                            If provided, these channels will be interpolated if missing.
+                            If not provided, uses channels from the reference montage.
+            verbose (str): Logging verbosity level
+            
+        Returns:
+            Raw or Epochs: EEG data with missing channels interpolated
+        """
+        with use_log_level(verbose):
+            # Get or create montage object
+            if isinstance(reference_montage, str):
+                from mne.channels import make_standard_montage
+                try:
+                    # Try as standard montage name
+                    montage = make_standard_montage(reference_montage)
+                except Exception:
+                    # Try loading from file
+                    from data_utils.data_io import DataIO
+                    try:
+                        montage = DataIO().load_montage(reference_montage)
+                    except Exception:
+                        return eeg
+            else:
+                # Assume it's already a montage object
+                montage = reference_montage
+            
+            if montage is None:
+                return eeg
+                
+            # Get channel names to check (either from target_channels or montage)
+            if target_channels is not None:
+                # Use provided target channels
+                channels_to_check = target_channels
+            else:
+                # Use channels from montage
+                channels_to_check = montage.ch_names
+            
+            # Find channels that need to be interpolated (case-insensitive comparison)
+            eeg_ch_names_lower = [ch.lower() for ch in eeg.ch_names]
+            missing_channels = []
+            missing_channels_original = []
+            
+            for ch in channels_to_check:
+                if ch.lower() not in eeg_ch_names_lower:
+                    missing_channels.append(ch.lower())
+                    missing_channels_original.append(ch)
+            
+            if not missing_channels:
+                # No channels to interpolate
+                return eeg
+                
+            # Filter missing channels to only those that exist in the montage
+            montage_ch_names_lower = [ch.lower() for ch in montage.ch_names]
+            interpolatable_channels = []
+            interpolatable_channels_original = []
+            
+            for i, ch in enumerate(missing_channels):
+                if ch.lower() in montage_ch_names_lower:
+                    interpolatable_channels.append(ch)
+                    interpolatable_channels_original.append(missing_channels_original[i])
+            
+            if not interpolatable_channels:
+                # No channels can be interpolated (missing channels not in montage)
+                return eeg
+                
+            # Update missing_channels to only include those we can interpolate
+            missing_channels = interpolatable_channels
+            missing_channels_original = interpolatable_channels_original
+                
+            # First ensure the EEG has the montage set
+            try:
+                eeg.set_montage(montage, match_case=False, on_missing="ignore")
+            except Exception:
+                # If montage setting fails, skip interpolation
+                return eeg
+                
+            # Create a list of all channels (existing + missing)
+            all_channels = eeg.ch_names + missing_channels_original
+            
+            try:
+                # Interpolate the missing channels
+                eeg_interpolated = eeg.copy().interpolate_bads(
+                    reset_bads=False, 
+                    exclude=[],  # Don't exclude any channels from interpolation
+                    method=dict(eeg='spline'),  # Use spline interpolation for EEG
+                    verbose=verbose
+                )
+                
+                # Add the missing channels by creating a new info with all channels
+                from mne import pick_info, pick_types
+                
+                # Get the interpolated data
+                data = eeg_interpolated.get_data()
+                
+                # For each missing channel, we need to interpolate based on existing channels
+                # MNE's interpolate_bads only works on channels marked as bad, so we need a different approach
+                
+                # Use MNE's add_channels method if available, otherwise use a workaround
+                from mne.io import RawArray
+                from mne.epochs import EpochsArray
+                
+                # Create zero data for missing channels (will be interpolated)
+                n_missing = len(missing_channels_original)
+                if hasattr(eeg, 'events'):  # Epochs
+                    n_epochs, n_channels, n_times = eeg.get_data().shape
+                    missing_data = np.zeros((n_epochs, n_missing, n_times))
+                else:  # Raw
+                    n_times = data.shape[1]
+                    missing_data = np.zeros((n_missing, n_times))
+                
+                # Create info for missing channels
+                missing_info = mne.create_info(
+                    ch_names=missing_channels_original,
+                    sfreq=eeg.info['sfreq'],
+                    ch_types=['eeg'] * n_missing
+                )
+                
+                # Set montage for missing channels info
+                missing_info.set_montage(montage, match_case=False, on_missing='ignore')
+                
+                # Create Raw/Epochs object for missing channels
+                if hasattr(eeg, 'events'):  # Epochs
+                    missing_epochs = EpochsArray(
+                        missing_data, missing_info, 
+                        events=eeg.events, event_id=eeg.event_id,
+                        tmin=eeg.tmin, verbose=verbose
+                    )
+                    # Combine with original epochs
+                    eeg_combined = eeg.copy().add_channels([missing_epochs])
+                else:  # Raw
+                    missing_raw = RawArray(missing_data, missing_info, verbose=verbose)
+                    # Combine with original raw
+                    eeg_combined = eeg.copy().add_channels([missing_raw])
+                
+                # Now mark the added channels as bad and interpolate them
+                eeg_combined.info['bads'].extend(missing_channels_original)
+                eeg_final = eeg_combined.interpolate_bads(
+                    reset_bads=True,
+                    method=dict(eeg='spline'),
+                    verbose=verbose
+                )
+                
+                return eeg_final
+                
+            except Exception as e:
+                # If interpolation fails, return original EEG
+                if verbose != "ERROR":
+                    print(f"Could not interpolate missing channels: {e}")
+                return eeg
+
+    @staticmethod
     def spatial_smooth_eeg(eeg, min_neighbors=3, max_neighbors=8, verbose="ERROR"):
         """Apply spatial smoothing to EEG data by averaging signals with neighboring electrodes.
 
