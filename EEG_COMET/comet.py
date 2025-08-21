@@ -484,9 +484,8 @@ class COMET:
         except (ValueError, KeyError):
             self.use_percentages = 100
 
-        # Ensure use_percentages is never None
-        if self.use_percentages is None:
-            self.use_percentages = 100
+        # Allow use_percentages to be None for GFP peak detection
+        # Note: None means use GFP peaks, values 20-100 mean use percentage of data
 
         # --- NEW: Load common events if present ---
         if "events_config" in self.config:
@@ -1005,10 +1004,12 @@ class COMET:
 
         # Only proceed if we have valid results
         if maps_init is not None:
-            # Compute Global Explained Variance
-            gev_init = self.comet_microstate_clusterer.compute_gev(
-                data=self.maps2use, maps=maps_init
-            )
+            # Compute Global Explained Variance on entire dataset
+            # Temporarily store the maps for GEV calculation
+            temp_best_maps = self.best_maps
+            self.best_maps = maps_init
+            gev_init = self.compute_gev_all_data()
+            self.best_maps = temp_best_maps
 
             # Log iteration results
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1277,9 +1278,6 @@ class COMET:
         self.logger.settings_info("CLUSTERING", clustering_settings)
 
         # Provide concise, high-signal details about the upcoming clustering
-        # - K selection mode (user vs auto)
-        # - Clustering input (GFP peaks vs random subset vs entire recordings)
-        # - Effective repetitions and selection criterion (highest GEV)
         try:
             # K selection message
             if self.number_of_maps == "auto":
@@ -1295,11 +1293,13 @@ class COMET:
             if self.number_of_maps == "auto":
                 input_msg = "Clustering Input: GFP peaks (auto-k enforced)"
             else:
-                use_pct = int(getattr(self, "use_percentages", 100) or 100)
-                if use_pct >= 100:
+                use_pct = getattr(self, "use_percentages", None)
+                if use_pct is None:
+                    input_msg = "Analyzing GFP peaks only"
+                elif use_pct >= 100:
                     input_msg = "Analyzing entire recordings"
                 else:
-                    input_msg = f"Analyzing a random {use_pct}% of the Data"
+                    input_msg = f"Analyzing a random {use_pct}% of the data per repeat"
 
             # Effective repetitions (TAAHC is deterministic → 1)
             is_taahc = (
@@ -1311,15 +1311,13 @@ class COMET:
                 f"Repeating analysis {effective_repeats} times"
             )
 
-            # Log messages in the requested order: input → repeats → k_selection
-            self.logger.processing_info("CLUSTERING", input_msg)
+            # Log messages
             self.logger.processing_info("CLUSTERING", repeats_msg)
+            self.logger.processing_info("CLUSTERING", input_msg)
             self.logger.processing_info("CLUSTERING", k_selection_msg)
         except Exception:
             # Logging should never break the flow
             pass
-
-        # The "Extracting" message with ellipsis is now the final message
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Calculate total steps for clustering - only count clustering repetitions
@@ -1364,9 +1362,13 @@ class COMET:
         except Exception as e:
             self.logger.error("CLUSTERING", f"Failed to save clustering results: {str(e)}")
 
-    def _run_full_clustering_worker(self, _task_name):
+    def _run_full_clustering_worker(self, _task_name, worker=None):
         """Worker function for running the entire clustering process.
         This method is designed to be called by the LogWindow's worker thread.
+        
+        Args:
+            _task_name: Task name (ignored for step-based processing)
+            worker: Worker thread instance for stop checking
         """
         # Ignore task_name parameter for step-based processing
         try:
@@ -1388,16 +1390,17 @@ class COMET:
                     # If step_increment is a percentage (0-100), convert to step
                     current_step = int((step_increment / 100) * total_steps)
 
-                    if (
-                        hasattr(self, "LogWindow")
-                        and self.LogWindow is not None
-                        and hasattr(self.LogWindow, "worker_thread")
-                        and self.LogWindow.worker_thread
-                    ):
-                        # Use current_step directly as the progress value (0 to total_steps)
-                        # The progress bar range is already set to (0, total_steps)
-                        progress_value = min(current_step, total_steps)
-                        self.LogWindow.worker_thread.progress_updated.emit(progress_value, message)
+                # Always emit progress update after updating current_step
+                if (
+                    hasattr(self, "LogWindow")
+                    and self.LogWindow is not None
+                    and hasattr(self.LogWindow, "worker_thread")
+                    and self.LogWindow.worker_thread
+                ):
+                    # Use current_step directly as the progress value (0 to total_steps)
+                    # The progress bar range is already set to (0, total_steps)
+                    progress_value = min(current_step, total_steps)
+                    self.LogWindow.worker_thread.progress_updated.emit(progress_value, message)
 
             def check_stop():
                 """Check if the process has been stopped by the user."""
@@ -1552,8 +1555,41 @@ class COMET:
                             completed_repetitions,
                         )
 
-                    # Perform clustering without updating progress during internal processing
-                    maps, gev, residual = self.cluster_eeg_microstates(init)
+                    # For random subset mode, generate new random samples for each repeat
+                    if (auto_k_use_percentages is not None and 
+                        auto_k_use_percentages < 100 and 
+                        not is_taahc):
+                        # Check for stop before expensive data loading operation
+                        if check_stop():
+                            return self._handle_stopped_clustering(
+                                f"Random data sampling for repetition {init + 1}/{clustering_repeats}",
+                                best_maps,
+                                best_gev,
+                                best_residual,
+                                completed_repetitions,
+                            )
+                        
+                        # Generate new random subset for this repeat
+                        temp_maps2use, temp_peaks = self.comet_data_initializer.generate_maps_and_peaks(
+                            preprocessed_folder=self.preprocessed_data_path,
+                            extension=self.extension,
+                            datatype=self.datatype,
+                            use_percentages=auto_k_use_percentages,
+                            min_dist=self.min_distance_size,
+                            random_seed=42 + init,  # Different seed for each repeat
+                        )
+                        # Temporarily store original maps2use
+                        original_maps2use = self.maps2use
+                        self.maps2use = temp_maps2use
+                        
+                        # Perform clustering with new random subset
+                        maps, gev, residual = self.cluster_eeg_microstates(init, worker=worker)
+                        
+                        # Restore original maps2use
+                        self.maps2use = original_maps2use
+                    else:
+                        # Use the same data for all repeats (GFP peaks or entire dataset)
+                        maps, gev, residual = self.cluster_eeg_microstates(init, worker=worker)
 
                     # Log detailed progress for each repetition
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1667,7 +1703,7 @@ class COMET:
 
     def _run_full_clustering_direct(self):
         """Run full clustering process directly (non-GUI mode)."""
-        return self._run_full_clustering_worker("full_clustering")
+        return self._run_full_clustering_worker("full_clustering", worker=None)
 
     def _run_clustering_repetition_worker(self, _task_name, init):
         """Worker function for running a single clustering repetition.

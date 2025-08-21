@@ -1907,12 +1907,15 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.min_distance_size = None
 
         # Data selection parameters
-        if self.ui.step2_use_percent_radio.isChecked():
+        if self.ui.step2_use_peaks_radio.isChecked():
+            # Use GFP peaks only - set use_percentages to None to trigger peak detection
+            self.comet.use_percentages = None
+        elif self.ui.step2_use_percent_radio.isChecked():
+            # Use percentage-based selection (random subset or entire data)
             self.comet.use_percentages = int(self.ui.step2_percent_slider.value())
         else:
-            self.comet.use_percentages = (
-                100  # Use 100% of data when percentage option is not selected
-            )
+            # Fallback - should not happen but default to GFP peaks
+            self.comet.use_percentages = None
 
         # Clustering parameters
         self.comet.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
