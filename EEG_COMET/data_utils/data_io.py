@@ -138,7 +138,6 @@ class DataIO:
             return fitted
         # Fallback: return original positions unchanged
         return {k: np.asarray(v, dtype=float) for k, v in ch_pos.items()}
-
     @staticmethod
     def find_data(input_folder, extension, pattern="*"):
         """Recursively search for data files within a folder based on extension and pattern.
@@ -347,66 +346,6 @@ class DataIO:
                 f"Could not create a montage from the provided directory or name: {montage}"
             )
         return montage
-
-    def check_channel_consistency_per_file(self, list_eegs_path, datatype, montage):
-        """Identify missing channels for each individual file in a dataset collection.
-
-        Checks for channel consistency across multiple EEG files and identifies
-        which channels are missing from each individual file.
-        Channel names are compared case-insensitively (e.g., 'Fpz', 'FPz', and 'fpz' are treated as the same).
-
-        Args:
-            list_eegs_path (list of str): Paths to EEG files to check
-            datatype (str): Type of EEG data ('raw' or 'epoched')
-            montage (str): Path to channel locations or name of standard montage
-
-        Returns:
-            tuple: (consistent_channels, missing_channels_per_file)
-                - consistent_channels (list of str): Names of channels present in all files
-                - missing_channels_per_file (dict): Dictionary mapping file paths to lists of missing channel names
-        """
-        # Dictionary to map canonical lowercase names to original name formats
-        channel_name_map = {}
-
-        # Store case-normalized channels from each file
-        all_file_channels = {}
-        missing_channels_per_file = {}
-
-        # Get channel names from each file and normalize cases
-        for filename in list_eegs_path:
-            eeg = self.load_eeg(filename, datatype, montage, preload=False)
-
-            # Create normalized version of channel names for this file
-            normalized_channels = []
-            for chan in eeg.info["ch_names"]:
-                chan_lower = chan.lower()
-
-                # Store the first encountered version of each channel as canonical
-                if chan_lower not in channel_name_map:
-                    channel_name_map[chan_lower] = chan
-
-                normalized_channels.append(chan_lower)
-
-            all_file_channels[filename] = normalized_channels
-
-        # Get all unique channels across all files
-        all_channels = set()
-        for channels in all_file_channels.values():
-            all_channels.update(channels)
-
-        # Find missing channels for each file
-        for filename, file_channels in all_file_channels.items():
-            missing_norm_channels = all_channels - set(file_channels)
-            missing_channels_per_file[filename] = [channel_name_map[chan] for chan in missing_norm_channels]
-
-        # Get channels that are present in all files
-        consistent_norm_channels = all_channels
-        for channels in all_file_channels.values():
-            consistent_norm_channels = consistent_norm_channels.intersection(set(channels))
-
-        consistent_channels = [channel_name_map[chan] for chan in consistent_norm_channels]
-
-        return consistent_channels, missing_channels_per_file
 
     def check_chan2rm(self, list_eegs_path, datatype, montage):
         """Identify consistent and missing channels across a dataset collection.
