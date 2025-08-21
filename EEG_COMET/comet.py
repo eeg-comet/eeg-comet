@@ -1076,7 +1076,7 @@ class COMET:
                 f"❌  [CLUSTERING] Stop Requested - Please Wait ...\n"
                 f"⚠️ Clustering stopped by user\n"
                 f"✓ Saved best maps found so far: {self.number_of_maps} microstates "
-                f"(GEV: {100 * self.best_gev:.3f}%)"
+                f"(GEV: {100 * best_gev:.3f}%%)"
             )
 
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1269,6 +1269,11 @@ class COMET:
 
         # Start clustering
         self.logger.processing_start("CLUSTERING", "Starting Microstate Clustering")
+        
+        # Add review references
+        self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neubiorev.2014.12.010 ")
+        self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neuroimage.2017.11.062")
+        
         self.logger.settings_info("CLUSTERING", clustering_settings)
 
         # Provide concise, high-signal details about the upcoming clustering
@@ -1284,7 +1289,7 @@ class COMET:
                     f"stopping={getattr(self, 'stopping_mode', 'Unknown')})"
                 )
             else:
-                k_selection_msg = f"K Selection: User-specified (k={self.number_of_maps})"
+                k_selection_msg = f"Extracting {self.number_of_maps} Microstates based on user input ..."
 
             # Input selection message
             if self.number_of_maps == "auto":
@@ -1292,9 +1297,9 @@ class COMET:
             else:
                 use_pct = int(getattr(self, "use_percentages", 100) or 100)
                 if use_pct >= 100:
-                    input_msg = "Clustering Input: Entire recordings"
+                    input_msg = "Analyzing entire recordings"
                 else:
-                    input_msg = f"Clustering Input: Random subset ({use_pct}%)"
+                    input_msg = f"Analyzing a random {use_pct}% of the Data"
 
             # Effective repetitions (TAAHC is deterministic → 1)
             is_taahc = (
@@ -1303,34 +1308,22 @@ class COMET:
             )
             effective_repeats = 1 if is_taahc else getattr(self, "number_of_repeats", 1)
             repeats_msg = (
-                f"Repetitions: {effective_repeats} (best solution selected by highest GEV)"
+                f"Repeating analysis {effective_repeats} times"
             )
 
-            self.logger.processing_info("CLUSTERING", k_selection_msg)
+            # Log messages in the requested order: input → repeats → k_selection
             self.logger.processing_info("CLUSTERING", input_msg)
             self.logger.processing_info("CLUSTERING", repeats_msg)
+            self.logger.processing_info("CLUSTERING", k_selection_msg)
         except Exception:
             # Logging should never break the flow
             pass
 
-        # Add specific clustering parameters message with ⌛ emoji
-        if self.number_of_maps != "auto":
-            # Reflect effective repeats in the identifying message for deterministic methods
-            is_taahc = (
-                getattr(self, "clustering_method", "")
-                == "Topographic Atomize and Agglomerate Hierarchical Clustering"
-            )
-            effective_repeats = 1 if is_taahc else getattr(self, "number_of_repeats", 1)
-            self.logger.processing_info(
-                "CLUSTERING",
-                f"Identifying {self.number_of_maps} Microstate Maps with {effective_repeats} Repetitions...",
-            )
+        # The "Extracting" message with ellipsis is now the final message
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Calculate total steps for clustering - only count clustering repetitions
             clustering_steps = self.number_of_repeats  # One step per repetition
-
-            # Create a single task for the entire clustering process
 
             # Use setup_progress_dialog for worker thread with correct total steps
             self.LogWindow.setup_progress_dialog(
@@ -1590,11 +1583,11 @@ class COMET:
                         best_residual = residual
                         if is_taahc:
                             self.logger.processing_info(
-                                "CLUSTERING", f"TAAHC clustering completed - GEV: {best_gev:.4f}"
+                                "CLUSTERING", f"TAAHC clustering completed - GEV: {100 * best_gev:.3f}%"
                             )
                         else:
                             self.logger.processing_info(
-                                "CLUSTERING", f"New best GEV: {best_gev:.4f}"
+                                "CLUSTERING", f"New best GEV: {100 * best_gev:.3f}%"
                             )
 
                 # Step 8: Store best results
@@ -1605,7 +1598,7 @@ class COMET:
 
                     self.logger.processing_info(
                         "CLUSTERING",
-                        f"Best GEV: {best_gev:.4f}, Best residual: {best_residual:.6f}",
+                        f"Best GEV: {100 * best_gev:.3f}%, Best residual: {best_residual:.6f}",
                     )
                     self.logger.processing_success(
                         "CLUSTERING", "Clustering completed successfully!"
@@ -1655,7 +1648,7 @@ class COMET:
             partial_msg = f"Partial results saved from {completed_repetitions} completed clustering repetitions"
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.append_log(partial_msg, log_type="info")
-                self.LogWindow.append_log(f"Best GEV from partial results: {best_gev:.4f}")
+                self.LogWindow.append_log(f"Best GEV from partial results: {100 * best_gev:.3f}%%")
 
             # Save partial clustering results
             self._save_clustering_results()

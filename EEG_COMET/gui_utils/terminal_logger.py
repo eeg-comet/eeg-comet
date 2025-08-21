@@ -32,7 +32,8 @@ class EEGCometLogger:
             "GITHUB": "🌐  [GITHUB]",
             "CONTACT": "✉️  [CONTACT]",
             "MAINTENANCE": "🛠️  [MAINTENANCE]",
-            "REFERENCES": "📝  [REFERENCE]",
+            "REFERENCE": "📝  [REFERENCE]",
+            "REVIEW": "📑  [REVIEW]"
         }
 
     def _get_step_prefix(self, step: str) -> str:
@@ -46,8 +47,7 @@ class EEGCometLogger:
         """
         return self._step_prefixes.get(step.upper(), "☄️  [PROCESSING]")
 
-    @staticmethod
-    def _get_info_prefix(step: str) -> str:
+    def _get_info_prefix(self, step: str) -> str:
         """Get the info emoji prefix for a given step.
 
         Args:
@@ -56,6 +56,11 @@ class EEGCometLogger:
         Returns:
             str: Info-prefixed step label.
         """
+        # Check if we have a custom prefix for this step
+        custom_prefix = self._step_prefixes.get(step.upper())
+        if custom_prefix:
+            return custom_prefix
+        # Default to info emoji for unknown steps
         return f"ℹ️  [{step.replace('_', ' ').upper()}]"
 
     @staticmethod
@@ -171,8 +176,8 @@ class EEGCometLogger:
             step (str): Processing step.
             message (str): Message to display.
         """
-        # Use step-specific prefix for SHUTDOWN, ORGANIZATION, GITHUB, CONTACT, REFERENCES, MAINTENANCE, and CLUSTERING processing messages
-        if step.upper() in ["SHUTDOWN", "ORGANIZATION", "GITHUB", "CONTACT", "REFERENCES", "MAINTENANCE"] or (
+        # Use step-specific prefix for SHUTDOWN, ORGANIZATION, GITHUB, CONTACT, REFERENCE, REVIEW, MAINTENANCE, and CLUSTERING processing messages
+        if step.upper() in ["SHUTDOWN", "ORGANIZATION", "GITHUB", "CONTACT", "REFERENCE", "REVIEW", "MAINTENANCE"] or (
             step.upper() == "CLUSTERING" and "Identifying" in message
         ):
             prefix = self._get_step_prefix(step)
@@ -248,7 +253,7 @@ class EEGCometLogger:
             if key == "Clustering Method" and step.upper() == "CLUSTERING":
                 # Map full method names to method name and reference
                 method_mapping = {
-                    "Modified K-Means Clustering": ("Modified K-Means", "https://doi.org/10.1109/10.391164"),
+                    "Modified K-Means Clustering": ("Modified K-Means", " https://doi.org/10.1109/10.391164"),
                     "Modified K-Means Clustering with Spatial Similarity": ("Modified K-Means with Spatial Similarity", None),
                     "Topographic Atomize and Agglomerate Hierarchical Clustering": ("TAAHC Clustering", None),
                 }
@@ -260,7 +265,7 @@ class EEGCometLogger:
                 
                 # Log the reference separately if available
                 if reference:
-                    self.processing_info("REFERENCES", reference)
+                    self.processing_info("REFERENCE", reference)
             else:
                 self.processing_info(step, f"{key}: {value}")
 
