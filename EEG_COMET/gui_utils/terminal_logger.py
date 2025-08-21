@@ -248,7 +248,7 @@ class EEGCometLogger:
             if key == "Clustering Method" and step.upper() == "CLUSTERING":
                 # Map full method names to method name and reference
                 method_mapping = {
-                    "Modified K-Means Clustering (Pascual-Marqui et al. 1995)": ("Modified K-Means", "https://doi.org/10.1109/10.391164"),
+                    "Modified K-Means Clustering": ("Modified K-Means", "https://doi.org/10.1109/10.391164"),
                     "Modified K-Means Clustering with Spatial Similarity": ("Modified K-Means with Spatial Similarity", None),
                     "Topographic Atomize and Agglomerate Hierarchical Clustering": ("TAAHC Clustering", None),
                 }

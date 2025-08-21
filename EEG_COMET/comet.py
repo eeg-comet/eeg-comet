@@ -142,7 +142,7 @@ class COMET:
         self.stopping_mode = "gev"
         self.stopping_parameter = 10
         self.initializer = "Random"
-        self.clustering_method = "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+        self.clustering_method = "Modified K-Means Clustering"
         self.max_iterations = 500
         self.clustering_tolerance = 1e-6
         self.similarity_metric = ""
@@ -311,7 +311,7 @@ class COMET:
         config["clustering_config"]["initializer"] = "Random"
         config["clustering_config"][
             "clustering_method"
-        ] = "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+        ] = "Modified K-Means Clustering"
         config["clustering_config"]["max_iterations"] = "500"
         config["clustering_config"]["clustering_tolerance"] = "1e-6"
         config["clustering_config"]["similarity_metric"] = "Spatial Correlation"
@@ -467,13 +467,13 @@ class COMET:
 
         self.initializer = clustering_config.get("initializer", "Random")
         self.clustering_method = clustering_config.get(
-            "clustering_method", "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+            "clustering_method", "Modified K-Means Clustering"
         )
         self.max_iterations = clustering_config.getint("max_iterations", 500)
         self.clustering_tolerance = clustering_config.getfloat("clustering_tolerance", 1e-6)
         self.similarity_metric = (
             clustering_config.get("similarity_metric", "Spatial Correlation")
-            if self.clustering_method != "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+            if self.clustering_method != "Modified K-Means Clustering"
             else ""
         )
         self.number_of_repeats = clustering_config.getint("number_of_repeats", 5)
@@ -940,7 +940,7 @@ class COMET:
 
         # Perform clustering based on selected method
         try:
-            if self.clustering_method == "Modified K-Means Clustering (Pascual-Marqui et al. 1995)":
+            if self.clustering_method == "Modified K-Means Clustering":
                 maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
                     data=self.maps2use,
                     initial_maps=initial_maps,
@@ -1442,7 +1442,7 @@ class COMET:
                     "Validating clustering method", self.clustering_method
                 )
             available_methods = [
-                "Modified K-Means Clustering (Pascual-Marqui et al. 1995)",
+                "Modified K-Means Clustering",
                 "Modified K-Means Clustering with Spatial Similarity",
                 "Topographic Atomize and Agglomerate Hierarchical Clustering",
             ]

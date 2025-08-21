@@ -1217,7 +1217,7 @@ class MainMicrostateWindow(QMainWindow):
             # Handle similarity metrics
             if (
                 self.comet.clustering_method
-                != "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+                != "Modified K-Means Clustering"
             ):
                 self.widget_groups.set_group_status("similarity", WidgetMode.ENABLE)
             else:
