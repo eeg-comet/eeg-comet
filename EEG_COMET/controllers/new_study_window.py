@@ -699,11 +699,13 @@ class NewStudyWindow(QDialog):
             else:
                 self.sample_rate = ""
         self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
-        self.chan2rm = (
-            self.ui.step2_ch2rm_combobox.currentData()
-            if self.ui.step2_ch2rm_radio.isChecked()
-            else "missing"
-        )
+        # Get list of channels to remove from CheckableComboBox
+        if self.ui.step2_ch2rm_radio.isChecked():
+            chan_list = self.ui.step2_ch2rm_combobox.currentData()
+            # Convert list to comma-separated string for compatibility
+            self.chan2rm = ",".join(chan_list) if chan_list else ""
+        else:
+            self.chan2rm = "missing"
         self.prep_data = self.ui.step2_prep_option_checkbox.isChecked()
 
         # Event selection handling
