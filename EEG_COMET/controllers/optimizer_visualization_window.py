@@ -350,8 +350,9 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
                     self.eeg_data, initial_maps, verbose=False
                 )
 
-                # Calculate GEV for this result
-                gev = clusterer.compute_gev(self.eeg_data, maps)
+                # Calculate GEV for this result using the full dataset
+                full_dataset = self._get_full_dataset()
+                gev = clusterer.compute_gev(full_dataset, maps)
 
                 # Keep the best result based on GEV
                 if gev > best_gev:

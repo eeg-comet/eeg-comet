@@ -142,7 +142,7 @@ class COMET:
         self.stopping_mode = "gev"
         self.stopping_parameter = 10
         self.initializer = "Random"
-        self.clustering_method = "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+        self.clustering_method = "Modified K-Means Clustering"
         self.max_iterations = 500
         self.clustering_tolerance = 1e-6
         self.similarity_metric = ""
@@ -311,7 +311,7 @@ class COMET:
         config["clustering_config"]["initializer"] = "Random"
         config["clustering_config"][
             "clustering_method"
-        ] = "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+        ] = "Modified K-Means Clustering"
         config["clustering_config"]["max_iterations"] = "500"
         config["clustering_config"]["clustering_tolerance"] = "1e-6"
         config["clustering_config"]["similarity_metric"] = "Spatial Correlation"
@@ -467,13 +467,13 @@ class COMET:
 
         self.initializer = clustering_config.get("initializer", "Random")
         self.clustering_method = clustering_config.get(
-            "clustering_method", "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+            "clustering_method", "Modified K-Means Clustering"
         )
         self.max_iterations = clustering_config.getint("max_iterations", 500)
         self.clustering_tolerance = clustering_config.getfloat("clustering_tolerance", 1e-6)
         self.similarity_metric = (
             clustering_config.get("similarity_metric", "Spatial Correlation")
-            if self.clustering_method != "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+            if self.clustering_method != "Modified K-Means Clustering"
             else ""
         )
         self.number_of_repeats = clustering_config.getint("number_of_repeats", 5)
@@ -484,9 +484,8 @@ class COMET:
         except (ValueError, KeyError):
             self.use_percentages = 100
 
-        # Ensure use_percentages is never None
-        if self.use_percentages is None:
-            self.use_percentages = 100
+        # Allow use_percentages to be None for GFP peak detection
+        # Note: None means use GFP peaks, values 20-100 mean use percentage of data
 
         # --- NEW: Load common events if present ---
         if "events_config" in self.config:
@@ -745,150 +744,12 @@ class COMET:
             raise ValueError(f"Error loading microstate maps: {err}") from err
 
     def check_chan2rm(self):
-        """Check the consistency of EEG channels across all data and prepare for interpolation."""
-        consistent_channels, missing_channels_per_file = self.comet_data_io.check_channel_consistency_per_file(
+        """Check the consistency of EEG channels across all data."""
+        consistent_channels, missing_channels = self.comet_data_io.check_chan2rm(
             self.list_eegs_path, datatype=self.datatype, montage=self.montage
         )
-        
-        # Store missing channels per file for later interpolation
-        self.missing_channels_per_file = missing_channels_per_file
-        
-        # Keep track of channels that should be removed (user-specified)
-        if isinstance(self.chan2rm, str):
-            # Convert string to list if it contains comma-separated values
-            if self.chan2rm.strip():
-                self.chan2rm = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()]
-            else:
-                self.chan2rm = []
-        elif not isinstance(self.chan2rm, list):
-            self.chan2rm = []
-        
-        # Store consistent channels (channels present in all files)
+        self.chan2rm = list(set(self.chan2rm).union(set(missing_channels)))
         self.ch_names = consistent_channels
-
-    def get_missing_channels_stats(self):
-        """Get statistics about missing channels across all files."""
-        if not hasattr(self, 'missing_channels_per_file'):
-            return 0, 0, []
-        
-        total_missing = 0
-        files_with_missing = 0
-        all_missing_channels = set()
-        
-        for file_path, missing_channels in self.missing_channels_per_file.items():
-            if missing_channels:
-                files_with_missing += 1
-                total_missing += len(missing_channels)
-                all_missing_channels.update(missing_channels)
-        
-        return total_missing, files_with_missing, sorted(all_missing_channels)
-
-    def interpolate_missing_channels_for_file(self, eeg, eeg_path):
-        """Interpolate missing channels for a specific file using the DataPreprocessor."""
-        if not hasattr(self, 'missing_channels_per_file') or eeg_path not in self.missing_channels_per_file:
-            return eeg
-        
-        missing_channels = self.missing_channels_per_file[eeg_path]
-        if not missing_channels:
-            return eeg
-        
-        # Use the DataPreprocessor's interpolation method with user's selected montage
-        try:
-            # Determine the montage to use for interpolation
-            if hasattr(self, "montage") and self.montage:
-                # User has selected a specific montage
-                montage_obj = self.comet_data_io.load_montage(self.montage)
-                interpolated_eeg = self.comet_preprocessor.interpolate_missing_channels(
-                    raw=eeg,
-                    missing_channels=missing_channels,
-                    custom_montage=montage_obj,  # Use user's selected montage
-                    verbose=False
-                )
-            else:
-                # Fallback to standard montage if no user selection
-                interpolated_eeg = self.comet_preprocessor.interpolate_missing_channels(
-                    raw=eeg,
-                    missing_channels=missing_channels,
-                    montage_name='standard_1020',
-                    verbose=False
-                )
-            
-            # Log the interpolation
-            if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                montage_name = self.montage if hasattr(self, "montage") and self.montage else "standard_1020"
-                self.LogWindow.append_log(
-                    f"Interpolated {len(missing_channels)} missing channels using montage '{montage_name}': {', '.join(missing_channels)}",
-                    log_type="info"
-                )
-            
-            return interpolated_eeg
-        except Exception as e:
-            # Log the error but continue with original data
-            if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                self.LogWindow.append_log(
-                    f"Warning: Failed to interpolate missing channels: {e}",
-                    log_type="warning"
-                )
-            return eeg
-
-    def validate_channel_count_consistency(self):
-        """Validate that the channel count in EEG info matches the actual data after preprocessing."""
-        try:
-            # Load the first preprocessed file to get the actual channel count
-            data_io = DataIO()
-            all_preprocessed_paths, _ = data_io.find_data(self.preprocessed_data_path, self.extension)
-            
-            if all_preprocessed_paths:
-                # Load the first file to get the actual channel count after preprocessing
-                first_eeg = data_io.load_eeg(all_preprocessed_paths[0], self.datatype)
-                actual_ch_count = len(first_eeg.ch_names)
-                stored_ch_count = len(self.ch_names)
-                
-                if actual_ch_count != stored_ch_count:
-                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                        self.LogWindow.append_log(
-                            f"Channel count mismatch detected: stored={stored_ch_count}, actual={actual_ch_count}. Updating...",
-                            log_type="warning"
-                        )
-                    # Update the channel names to match the actual data
-                    self.ch_names = first_eeg.ch_names
-                    return True
-                    
-        except Exception as e:
-            if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                self.LogWindow.append_log(
-                    f"Warning: Failed to validate channel count consistency: {e}",
-                    log_type="warning"
-                )
-        return False
-
-    def update_channel_names_after_preprocessing(self):
-        """Update channel names to reflect the actual channels after preprocessing and interpolation."""
-        try:
-            # Load the first preprocessed file to get the actual channel names
-            data_io = DataIO()
-            all_preprocessed_paths, _ = data_io.find_data(self.preprocessed_data_path, self.extension)
-            
-            if all_preprocessed_paths:
-                # Load the first file to get the actual channel names after preprocessing
-                first_eeg = data_io.load_eeg(all_preprocessed_paths[0], self.datatype)
-                actual_ch_names = first_eeg.ch_names
-                
-                # Update the channel names to reflect the actual channels after interpolation
-                self.ch_names = actual_ch_names
-                
-                if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                    self.LogWindow.append_log(
-                        f"Updated channel names after preprocessing: {len(self.ch_names)} channels",
-                        log_type="info"
-                    )
-                    
-        except Exception as e:
-            if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                self.LogWindow.append_log(
-                    f"Warning: Failed to update channel names after preprocessing: {e}",
-                    log_type="warning"
-                )
 
     def save_eeg_info(self, eeg_info_path):
         """Save EEG information to a binary file using pickle.
@@ -896,9 +757,6 @@ class COMET:
         Args:
             eeg_info_path (str): Path where the EEG information will be saved
         """
-        # Validate and update channel names to reflect the actual channels after preprocessing
-        self.validate_channel_count_consistency()
-        
         # Create a basic Info object
         eeg_info = mne.create_info(
             ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sample_rate
@@ -937,16 +795,9 @@ class COMET:
             montage_obj = self.comet_data_io.load_montage(self.montage)
             eeg.set_montage(montage_obj, match_case=False, on_missing="warn")
 
-        # Interpolate missing channels if needed
-        eeg = self.interpolate_missing_channels_for_file(eeg, eeg_path)
-        
-        # Remove user-specified channels if any
+        # Remove channels if specified
         if hasattr(self, "chan2rm") and self.chan2rm:
-            if isinstance(self.chan2rm, list):
-                channels_to_remove = [ch.strip() for ch in self.chan2rm if ch.strip()]
-            else:
-                channels_to_remove = []
-            
+            channels_to_remove = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()]
             if channels_to_remove:
                 eeg.drop_channels(channels_to_remove, on_missing="ignore")
 
@@ -1088,7 +939,7 @@ class COMET:
 
         # Perform clustering based on selected method
         try:
-            if self.clustering_method == "Modified K-Means Clustering (Pascual-Marqui et al. 1995)":
+            if self.clustering_method == "Modified K-Means Clustering":
                 maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
                     data=self.maps2use,
                     initial_maps=initial_maps,
@@ -1153,10 +1004,12 @@ class COMET:
 
         # Only proceed if we have valid results
         if maps_init is not None:
-            # Compute Global Explained Variance
-            gev_init = self.comet_microstate_clusterer.compute_gev(
-                data=self.maps2use, maps=maps_init
-            )
+            # Compute Global Explained Variance on entire dataset
+            # Temporarily store the maps for GEV calculation
+            temp_best_maps = self.best_maps
+            self.best_maps = maps_init
+            gev_init = self.compute_gev_all_data()
+            self.best_maps = temp_best_maps
 
             # Log iteration results
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1224,7 +1077,7 @@ class COMET:
                 f"❌  [CLUSTERING] Stop Requested - Please Wait ...\n"
                 f"⚠️ Clustering stopped by user\n"
                 f"✓ Saved best maps found so far: {self.number_of_maps} microstates "
-                f"(GEV: {100 * self.best_gev:.3f}%)"
+                f"(GEV: {100 * best_gev:.3f}%%)"
             )
 
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1347,14 +1200,7 @@ class COMET:
                 selection_message = "Data Selection: Entire recording"
             self.logger.processing_info("PREPROCESSING", selection_message)
 
-        # Build a list of EEG files
-        self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
-
-        # Check channel consistency
-        self.check_chan2rm()
-        
-        # Preprocessing settings (AFTER channel consistency check)
-        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+            # Preprocessing settings
             preprocessing_settings = {}
             if self.temporal_filter_data:
                 preprocessing_settings["Bandpass Filter"] = (
@@ -1372,32 +1218,14 @@ class COMET:
             preprocessing_settings["Channels to Remove"] = (
                 str(self.chan2rm) if self.chan2rm else "None"
             )
-            # Check if interpolation is needed and which montage will be used
-            if hasattr(self, 'missing_channels_per_file') and any(self.missing_channels_per_file.values()):
-                montage_name = self.montage if hasattr(self, "montage") and self.montage else "standard_1020"
-                preprocessing_settings["Channel Interpolation"] = f"Enabled (using {montage_name})"
-            else:
-                preprocessing_settings["Channel Interpolation"] = "Not needed"
 
             self.logger.settings_info("PREPROCESSING", preprocessing_settings)
-            
-            # Log channel consistency warning after preprocessing settings
-            if hasattr(self, 'missing_channels_per_file') and any(self.missing_channels_per_file.values()):
-                logger = get_logger()
-                total_missing, files_with_missing, all_missing_channels = self.get_missing_channels_stats()
-                logger.warning("PREPROCESSING", f"Channels are not consistent across all data files. {files_with_missing} files have missing channels. Total missing channels: {total_missing}. Missing channels: {', '.join(all_missing_channels)}")
-        
-        # Log channel consistency information
-        total_missing, files_with_missing, all_missing_channels = self.get_missing_channels_stats()
-        if total_missing > 0:
-            montage_name = self.montage if hasattr(self, "montage") and self.montage else "standard_1020"
-            if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                self.LogWindow.append_log(
-                    f"Channel consistency check: {total_missing} missing channels across {files_with_missing} files. "
-                    f"Missing channels: {', '.join(all_missing_channels)}. "
-                    f"Will interpolate using montage: {montage_name}",
-                    log_type="info"
-                )
+
+        # Build a list of EEG files
+        self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
+
+        # Check channel consistency
+        self.check_chan2rm()
 
         # Start preprocessing
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1442,12 +1270,14 @@ class COMET:
 
         # Start clustering
         self.logger.processing_start("CLUSTERING", "Starting Microstate Clustering")
+        
+        # Add review references
+        self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neubiorev.2014.12.010 ")
+        self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neuroimage.2017.11.062")
+        
         self.logger.settings_info("CLUSTERING", clustering_settings)
 
         # Provide concise, high-signal details about the upcoming clustering
-        # - K selection mode (user vs auto)
-        # - Clustering input (GFP peaks vs random subset vs entire recordings)
-        # - Effective repetitions and selection criterion (highest GEV)
         try:
             # K selection message
             if self.number_of_maps == "auto":
@@ -1457,17 +1287,19 @@ class COMET:
                     f"stopping={getattr(self, 'stopping_mode', 'Unknown')})"
                 )
             else:
-                k_selection_msg = f"K Selection: User-specified (k={self.number_of_maps})"
+                k_selection_msg = f"Extracting {self.number_of_maps} Microstates based on user input ..."
 
             # Input selection message
             if self.number_of_maps == "auto":
                 input_msg = "Clustering Input: GFP peaks (auto-k enforced)"
             else:
-                use_pct = int(getattr(self, "use_percentages", 100) or 100)
-                if use_pct >= 100:
-                    input_msg = "Clustering Input: Entire recordings"
+                use_pct = getattr(self, "use_percentages", None)
+                if use_pct is None:
+                    input_msg = "Analyzing GFP peaks only"
+                elif use_pct >= 100:
+                    input_msg = "Analyzing entire recordings"
                 else:
-                    input_msg = f"Clustering Input: Random subset ({use_pct}%)"
+                    input_msg = f"Analyzing a random {use_pct}% of the data per repeat"
 
             # Effective repetitions (TAAHC is deterministic → 1)
             is_taahc = (
@@ -1476,39 +1308,25 @@ class COMET:
             )
             effective_repeats = 1 if is_taahc else getattr(self, "number_of_repeats", 1)
             repeats_msg = (
-                f"Repetitions: {effective_repeats} (best solution selected by highest GEV)"
+                f"Repeating analysis {effective_repeats} times"
             )
 
-            self.logger.processing_info("CLUSTERING", k_selection_msg)
-            self.logger.processing_info("CLUSTERING", input_msg)
+            # Log messages
             self.logger.processing_info("CLUSTERING", repeats_msg)
+            self.logger.processing_info("CLUSTERING", input_msg)
+            self.logger.processing_info("CLUSTERING", k_selection_msg)
         except Exception:
             # Logging should never break the flow
             pass
-
-        # Add specific clustering parameters message with ⌛ emoji
-        if self.number_of_maps != "auto":
-            # Reflect effective repeats in the identifying message for deterministic methods
-            is_taahc = (
-                getattr(self, "clustering_method", "")
-                == "Topographic Atomize and Agglomerate Hierarchical Clustering"
-            )
-            effective_repeats = 1 if is_taahc else getattr(self, "number_of_repeats", 1)
-            self.logger.processing_info(
-                "CLUSTERING",
-                f"Identifying {self.number_of_maps} Microstate Maps with {effective_repeats} Repetitions...",
-            )
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Calculate total steps for clustering - only count clustering repetitions
             clustering_steps = self.number_of_repeats  # One step per repetition
 
-            # Create a single task for the entire clustering process
-
             # Use setup_progress_dialog for worker thread with correct total steps
             self.LogWindow.setup_progress_dialog(
-                window_title="Microstate Clustering...",
-                label_text="Initializing clustering process...",
+                window_title="Microstate Clustering ...",
+                label_text="Initializing clustering process ...",
                 tasks=clustering_steps,  # Pass only clustering steps
                 processing_func=self._run_full_clustering_worker,
             )
@@ -1544,9 +1362,13 @@ class COMET:
         except Exception as e:
             self.logger.error("CLUSTERING", f"Failed to save clustering results: {str(e)}")
 
-    def _run_full_clustering_worker(self, _task_name):
+    def _run_full_clustering_worker(self, _task_name, worker=None):
         """Worker function for running the entire clustering process.
         This method is designed to be called by the LogWindow's worker thread.
+        
+        Args:
+            _task_name: Task name (ignored for step-based processing)
+            worker: Worker thread instance for stop checking
         """
         # Ignore task_name parameter for step-based processing
         try:
@@ -1568,16 +1390,17 @@ class COMET:
                     # If step_increment is a percentage (0-100), convert to step
                     current_step = int((step_increment / 100) * total_steps)
 
-                    if (
-                        hasattr(self, "LogWindow")
-                        and self.LogWindow is not None
-                        and hasattr(self.LogWindow, "worker_thread")
-                        and self.LogWindow.worker_thread
-                    ):
-                        # Use current_step directly as the progress value (0 to total_steps)
-                        # The progress bar range is already set to (0, total_steps)
-                        progress_value = min(current_step, total_steps)
-                        self.LogWindow.worker_thread.progress_updated.emit(progress_value, message)
+                # Always emit progress update after updating current_step
+                if (
+                    hasattr(self, "LogWindow")
+                    and self.LogWindow is not None
+                    and hasattr(self.LogWindow, "worker_thread")
+                    and self.LogWindow.worker_thread
+                ):
+                    # Use current_step directly as the progress value (0 to total_steps)
+                    # The progress bar range is already set to (0, total_steps)
+                    progress_value = min(current_step, total_steps)
+                    self.LogWindow.worker_thread.progress_updated.emit(progress_value, message)
 
             def check_stop():
                 """Check if the process has been stopped by the user."""
@@ -1597,13 +1420,6 @@ class COMET:
                 return self._handle_stopped_clustering("Loading EEG information")
             self.load_eeg_info()
 
-            # Step 1.5: Validate channel count consistency
-            if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                self.LogWindow.log_clustering_setup_step("Validating channel consistency")
-            if check_stop():
-                return self._handle_stopped_clustering("Validating channel consistency")
-            self.validate_channel_count_consistency()
-
             # Step 2: Calculate minimum distance size if smoothing GFP is enabled
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.log_clustering_setup_step("Calculating parameters")
@@ -1622,7 +1438,7 @@ class COMET:
                     "Validating clustering method", self.clustering_method
                 )
             available_methods = [
-                "Modified K-Means Clustering (Pascual-Marqui et al. 1995)",
+                "Modified K-Means Clustering",
                 "Modified K-Means Clustering with Spatial Similarity",
                 "Topographic Atomize and Agglomerate Hierarchical Clustering",
             ]
@@ -1658,17 +1474,6 @@ class COMET:
                 min_dist=self.min_distance_size,
             )
 
-            # Validate that the generated maps have the correct number of channels
-            if hasattr(self, "eeg_info") and self.eeg_info is not None:
-                expected_channels = len(self.eeg_info["ch_names"])
-                actual_channels = self.maps2use.shape[0]
-                if expected_channels != actual_channels:
-                    error_msg = f"Channel count mismatch: EEG info has {expected_channels} channels, but maps have {actual_channels} channels"
-                    self.logger.error("CLUSTERING", error_msg)
-                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                        self.LogWindow.append_log(error_msg, log_type="error")
-                    return False
-
             # Step 6: Handle automatic k selection
             if self.number_of_maps == "auto":
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1677,7 +1482,7 @@ class COMET:
                     )
                     # Add the processing message with ⌛ emoji
                     self.LogWindow.append_log(
-                        f"⌛ Identifying {self.kmax - self.kmin + 1} optimal microstate maps..."
+                        f"⌛ Identifying {self.kmax - self.kmin + 1} optimal microstate maps ..."
                     )
                 if check_stop():
                     return self._handle_stopped_clustering("Starting automatic optimization")
@@ -1723,12 +1528,12 @@ class COMET:
                 if is_taahc:
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
                         self.LogWindow.append_log(
-                            "⌛ Running TAAHC clustering (deterministic algorithm)..."
+                            "⌛ Running TAAHC clustering (deterministic algorithm) ..."
                         )
                 else:
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
                         self.LogWindow.append_log(
-                            f"⌛ Running {clustering_repeats} clustering repetitions..."
+                            f"⌛ Running {clustering_repeats} clustering repetitions ..."
                         )
 
                 # Run clustering repetitions with progress updates
@@ -1750,8 +1555,41 @@ class COMET:
                             completed_repetitions,
                         )
 
-                    # Perform clustering without updating progress during internal processing
-                    maps, gev, residual = self.cluster_eeg_microstates(init)
+                    # For random subset mode, generate new random samples for each repeat
+                    if (auto_k_use_percentages is not None and 
+                        auto_k_use_percentages < 100 and 
+                        not is_taahc):
+                        # Check for stop before expensive data loading operation
+                        if check_stop():
+                            return self._handle_stopped_clustering(
+                                f"Random data sampling for repetition {init + 1}/{clustering_repeats}",
+                                best_maps,
+                                best_gev,
+                                best_residual,
+                                completed_repetitions,
+                            )
+                        
+                        # Generate new random subset for this repeat
+                        temp_maps2use, temp_peaks = self.comet_data_initializer.generate_maps_and_peaks(
+                            preprocessed_folder=self.preprocessed_data_path,
+                            extension=self.extension,
+                            datatype=self.datatype,
+                            use_percentages=auto_k_use_percentages,
+                            min_dist=self.min_distance_size,
+                            random_seed=42 + init,  # Different seed for each repeat
+                        )
+                        # Temporarily store original maps2use
+                        original_maps2use = self.maps2use
+                        self.maps2use = temp_maps2use
+                        
+                        # Perform clustering with new random subset
+                        maps, gev, residual = self.cluster_eeg_microstates(init, worker=worker)
+                        
+                        # Restore original maps2use
+                        self.maps2use = original_maps2use
+                    else:
+                        # Use the same data for all repeats (GFP peaks or entire dataset)
+                        maps, gev, residual = self.cluster_eeg_microstates(init, worker=worker)
 
                     # Log detailed progress for each repetition
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1781,11 +1619,11 @@ class COMET:
                         best_residual = residual
                         if is_taahc:
                             self.logger.processing_info(
-                                "CLUSTERING", f"TAAHC clustering completed - GEV: {best_gev:.4f}"
+                                "CLUSTERING", f"TAAHC clustering completed - GEV: {100 * best_gev:.3f}%"
                             )
                         else:
                             self.logger.processing_info(
-                                "CLUSTERING", f"New best GEV: {best_gev:.4f}"
+                                "CLUSTERING", f"New best GEV: {100 * best_gev:.3f}%"
                             )
 
                 # Step 8: Store best results
@@ -1796,7 +1634,7 @@ class COMET:
 
                     self.logger.processing_info(
                         "CLUSTERING",
-                        f"Best GEV: {best_gev:.4f}, Best residual: {best_residual:.6f}",
+                        f"Best GEV: {100 * best_gev:.3f}%, Best residual: {best_residual:.6f}",
                     )
                     self.logger.processing_success(
                         "CLUSTERING", "Clustering completed successfully!"
@@ -1846,7 +1684,7 @@ class COMET:
             partial_msg = f"Partial results saved from {completed_repetitions} completed clustering repetitions"
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.append_log(partial_msg, log_type="info")
-                self.LogWindow.append_log(f"Best GEV from partial results: {best_gev:.4f}")
+                self.LogWindow.append_log(f"Best GEV from partial results: {100 * best_gev:.3f}%%")
 
             # Save partial clustering results
             self._save_clustering_results()
@@ -1865,7 +1703,7 @@ class COMET:
 
     def _run_full_clustering_direct(self):
         """Run full clustering process directly (non-GUI mode)."""
-        return self._run_full_clustering_worker("full_clustering")
+        return self._run_full_clustering_worker("full_clustering", worker=None)
 
     def _run_clustering_repetition_worker(self, _task_name, init):
         """Worker function for running a single clustering repetition.
@@ -2316,21 +2154,57 @@ class COMET:
             )
             return
 
-        # Log feature extraction settings
-        feature_settings = {
-            "Features to Extract": ", ".join(self.feature_list),
-            "Feature Modes": ", ".join(self.feature_mode),
-            "Feature Types": ", ".join(self.feature_types),
+        # Log features to extract with full names and references
+        self.logger.processing_info("FEATURE_EXTRACTION", "Features to Extract:")
+        
+        # Define feature names and references
+        feature_info = {
+            "OCC": ("Microstate Occurrence (OCC)", "https://doi.org/10.1016/0013-4694%2887%2990025-3"),
+            "DUR": ("Microstate Duration (DUR)", "https://doi.org/10.1016/0013-4694%2887%2990025-3"),
+            "COV": ("Microstate Coverage (COV)", "https://doi.org/10.1016/0013-4694%2887%2990025-3"),
+            "GEV": ("Global Explained Variance (GEV)", "https://doi.org/10.1016/j.neuroimage.2012.05.060"),
+            "TP": ("Transition Probability (TP)", "https://doi.org/10.1016/j.pscychresns.2004.05.007"),
+            "HE": ("Hurst Exponent (HE)", "https://doi.org/10.1016/j.neuroimage.2016.07.050"),
+            "ER": ("Entropy Rate (ER)", "https://doi.org/10.3389/fncom.2018.00070"),
+            "LZC": ("Lempel-Ziv Complexity (LZC)", "https://doi.org/10.1038/s41598-020-74790-7"),
+            "ERR": ("Entropy Representation (ERR)", "https://doi.org/10.1016/j.neuroimage.2023.120196"),
+            "ROF": ("Relative Occurrence Frequency (ROF)", None),
+            "RTF": ("Relative Transition Frequency (RTF)", None)
         }
+        
+        # Log each feature with its full name and reference
+        # Group features that share the same reference
+        basic_features = ["OCC", "DUR", "COV"]
+        basic_features_present = [f for f in self.feature_list if f in basic_features]
+        
+        # Log basic features first (OCC, DUR, COV) without individual references
+        for feature in basic_features_present:
+            if feature in feature_info:
+                feature_name, _ = feature_info[feature]
+                self.logger.processing_info("FEATURE_EXTRACTION", feature_name)
+        
+        # Log single reference for basic features if any are present
+        if basic_features_present:
+            self.logger.reference("FEATURE_EXTRACTION", "https://doi.org/10.1016/0013-4694%2887%2990025-3")
+        
+        # Log other features with their individual references
+        for feature in self.feature_list:
+            if feature not in basic_features and feature in feature_info:
+                feature_name, reference_url = feature_info[feature]
+                self.logger.processing_info("FEATURE_EXTRACTION", feature_name)
+                if reference_url:
+                    self.logger.reference("FEATURE_EXTRACTION", reference_url)
+        
+        # Log other settings
+        self.logger.processing_info("FEATURE_EXTRACTION", f"Feature Modes: {', '.join(self.feature_mode)}")
+        self.logger.processing_info("FEATURE_EXTRACTION", f"Feature Types: {', '.join(self.feature_types)}")
 
         if "sliding" in self.feature_mode:
-            feature_settings["Sliding Window Size"] = self.sliding_window_size
+            self.logger.processing_info("FEATURE_EXTRACTION", f"Sliding Window Size: {self.sliding_window_size}")
             if hasattr(self, "pre_window_size"):
-                feature_settings["Pre-Window Size"] = self.pre_window_size
+                self.logger.processing_info("FEATURE_EXTRACTION", f"Pre-Window Size: {self.pre_window_size}")
             if hasattr(self, "post_window_size"):
-                feature_settings["Post-Window Size"] = self.post_window_size
-
-        self.logger.settings_info("FEATURE_EXTRACTION", feature_settings)
+                self.logger.processing_info("FEATURE_EXTRACTION", f"Post-Window Size: {self.post_window_size}")
 
         # Initialize shared storage for thread-safe feature extraction
         COMET._shared_feature_results = {}
@@ -3251,6 +3125,10 @@ class COMET:
         }
         self.logger.settings_info("SOURCE_LOCALIZATION", source_settings)
 
+        # Log reference for TESS method if selected
+        if self.source_localization_method == "tess":
+            self.logger.reference("SOURCE_LOCALIZATION", "https://doi.org/10.1016/j.neuroimage.2014.04.002")
+
         # Perform source identification on all files
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             self.logger.processing_start(
@@ -3295,11 +3173,7 @@ class COMET:
         self.config["preprocessing_config"]["auto_clean_data"] = str(self.auto_clean_data)
         self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
-        # Save user-specified channels to remove (not interpolated channels)
-        if isinstance(self.chan2rm, list):
-            self.config["preprocessing_config"]["ch2rm"] = ", ".join(self.chan2rm)
-        else:
-            self.config["preprocessing_config"]["ch2rm"] = str(self.chan2rm)
+        self.config["preprocessing_config"]["ch2rm"] = str(self.chan2rm)
         self.config["preprocessing_config"]["prep_data"] = str(self.prep_data)
 
         self.config["clustering_config"]["smoothing_gfp"] = str(self.smoothing_gfp)
@@ -3616,15 +3490,8 @@ class COMET:
         self.config["events_config"]["common_events"] = ", ".join(self.common_events)
         # --- END NEW ---
 
-        # Log completion with interpolation summary
-        total_missing, files_with_missing, all_missing_channels = self.get_missing_channels_stats()
-        if total_missing > 0:
-            montage_name = self.montage if hasattr(self, "montage") and self.montage else "standard_1020"
-            completion_msg = f"Preprocessing completed successfully. Interpolated {total_missing} missing channels across {files_with_missing} files using montage '{montage_name}'."
-        else:
-            completion_msg = "Preprocessing completed successfully. No channel interpolation was needed."
-        
-        self.logger.processing_success("PREPROCESSING", completion_msg)
+        # Log completion
+        self.logger.processing_success("PREPROCESSING", "Preprocessing completed successfully")
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes

@@ -91,6 +91,9 @@ class ClustererOptimizer:
         self.n_inits = n_inits
         self.kmin = kmin
         self.kmax = kmax
+        
+        # Store full dataset for GEV calculation (loaded on demand)
+        self._full_dataset = None
 
         # Validate k range
         if kmin < 2:
@@ -133,15 +136,28 @@ class ClustererOptimizer:
     def stop(self):
         """Stop the optimization process."""
         self._stopped = True
-        # Log stop request using the new logger format if available
-        if hasattr(self, "progress_callback") and self.progress_callback:
-            # Try to get the logger from the progress callback context
-            from contextlib import suppress
-
-            with suppress(BaseException):
-                # In GUI mode, the callback usually has access to a logger via its closure
-                pass
-        self._log_message("Optimization process stopped by user", level="warning")
+    
+    def _get_full_dataset(self):
+        """Load the full dataset for GEV calculation (lazy loading)."""
+        if self._full_dataset is None and self.preprocessed_data_path:
+            try:
+                from data_utils.data_initializer import DataInitializer
+                # Load entire dataset (100% of data)
+                self._full_dataset, _ = DataInitializer.generate_maps_and_peaks(
+                    preprocessed_folder=self.preprocessed_data_path,
+                    extension=self.extension,
+                    datatype=self.datatype,
+                    use_percentages=100,  # Use entire dataset
+                    min_dist=None,  # Not relevant for full dataset
+                )
+            except Exception as e:
+                print(f"Warning: Could not load full dataset for GEV calculation: {e}")
+                # Fallback to clustering subset
+                self._full_dataset = self.maps2use
+        elif self._full_dataset is None:
+            # Fallback to clustering subset if no path available
+            self._full_dataset = self.maps2use
+        return self._full_dataset
 
     def is_stopped(self):
         """Check if the optimization process has been stopped."""
@@ -298,8 +314,9 @@ class ClustererOptimizer:
             # Run modified K-means
             maps, residual = clusterer.modified_kmeans(self.maps2use, initial_maps, verbose=False)
 
-            # Calculate GEV for this result
-            gev = clusterer.compute_gev(self.maps2use, maps)
+            # Calculate GEV for this result using the full dataset
+            full_dataset = self._get_full_dataset()
+            gev = clusterer.compute_gev(full_dataset, maps)
 
             # Calculate final segmentation
             activation = maps.dot(self.maps2use)

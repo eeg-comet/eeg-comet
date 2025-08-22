@@ -78,34 +78,43 @@ class DataInitializer:
 
         Args:
             data (numpy.ndarray): EEG data array with shape (n_channels, n_timepoints)
-            use_percentages (float, optional): If provided, randomly selects this percentage
-                of timepoints instead of detecting peaks. Value should be between 0-100.
-                Defaults to None (use peak detection)
+            use_percentages (float, optional): If provided, selects timepoints based on percentage:
+                - None: Use GFP peak detection with min_dist
+                - 0-99: Randomly selects this percentage of timepoints 
+                - 100: Uses ALL timepoints (entire data)
+                Value should be between 0-100. Defaults to None (use peak detection)
             min_dist (int, optional): Minimum distance between peaks in samples.
-                If 0, no minimum distance is enforced. Defaults to None
+                If 0, no minimum distance is enforced. Only used when use_percentages is None
             random_seed (int, optional): Random seed for reproducible random sampling.
-                Only used when use_percentages is provided. Defaults to None
+                Only used when use_percentages is provided and < 100. Defaults to None
 
         Returns:
             tuple: Contains:
-                - maps (numpy.ndarray): Topographical maps at GFP peaks,
-                  shape (n_channels, n_peaks), normalized to unit length
-                - peaks (numpy.ndarray): Indices of GFP peaks in the original data
+                - maps (numpy.ndarray): Topographical maps at selected timepoints,
+                  shape (n_channels, n_selected_points), normalized to unit length
+                - peaks (numpy.ndarray): Indices of selected timepoints in the original data
 
         Notes:
-            When use_percentages is provided, peak detection is bypassed and random
-            timepoints are selected instead, which can be useful for large datasets.
+            Three data selection modes:
+            1. use_percentages=None: GFP peak detection (with min_dist constraint)
+            2. use_percentages<100: Random subset of data points 
+            3. use_percentages=100: All data points (entire dataset)
         """
         gfp = np.std(data, axis=0)
 
         if use_percentages is not None:
-            num_samples = int(data.shape[1] * (int(use_percentages) / 100))
-            if random_seed is not None:
-                # Set random seed for reproducible sampling
-                rng = np.random.RandomState(random_seed)
-                peaks = rng.choice(data.shape[1], size=num_samples, replace=False)
+            if use_percentages == 100:
+                # Use entire data - all time points for clustering
+                peaks = np.arange(data.shape[1])
             else:
-                peaks = np.random.choice(data.shape[1], size=num_samples, replace=False)
+                # Use random subset of data based on percentage
+                num_samples = int(data.shape[1] * (int(use_percentages) / 100))
+                if random_seed is not None:
+                    # Set random seed for reproducible sampling
+                    rng = np.random.RandomState(random_seed)
+                    peaks = rng.choice(data.shape[1], size=num_samples, replace=False)
+                else:
+                    peaks = np.random.choice(data.shape[1], size=num_samples, replace=False)
         else:
             if min_dist == 0:
                 min_dist = None

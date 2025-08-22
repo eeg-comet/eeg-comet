@@ -58,13 +58,6 @@ class MicrostateVisualizationWindow(QMainWindow):
 
         # Fix: Check if best_maps exists before copying
         if self.comet.best_maps is not None:
-            # Validate channel count consistency
-            if hasattr(self.comet, "eeg_info") and self.comet.eeg_info is not None:
-                expected_channels = len(self.comet.eeg_info["ch_names"])
-                actual_channels = self.comet.best_maps.shape[1]
-                if expected_channels != actual_channels:
-                    error_msg = f"Channel count mismatch: EEG info has {expected_channels} channels, but microstate maps have {actual_channels} channels. This may be due to interpolation. Please re-run preprocessing."
-                    raise ValueError(error_msg)
             self.current_order_maps = self.comet.best_maps.copy()
         else:
             # Initialize with an empty array of appropriate shape

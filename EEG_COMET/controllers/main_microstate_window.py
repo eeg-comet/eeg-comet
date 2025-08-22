@@ -1217,7 +1217,7 @@ class MainMicrostateWindow(QMainWindow):
             # Handle similarity metrics
             if (
                 self.comet.clustering_method
-                != "Modified K-Means Clustering (Pascual-Marqui et al. 1995)"
+                != "Modified K-Means Clustering"
             ):
                 self.widget_groups.set_group_status("similarity", WidgetMode.ENABLE)
             else:
@@ -1783,59 +1783,51 @@ class MainMicrostateWindow(QMainWindow):
 
         # Preprocessing
         if self.comet.done_preprocessing:
-            steps_status.append("✅ Data Preprocessing")
-            logger.processing_success("STUDY_STATUS", "Data Preprocessing - COMPLETED")
+            steps_status.append("✅ Preprocessing")
+            logger.processing_success("STUDY_STATUS", "Preprocessing\t✓ COMPLETED")
         else:
-            steps_status.append("❌ Data Preprocessing")
-            logger.warning("STUDY_STATUS", "Data Preprocessing - NOT COMPLETED")
+            steps_status.append("❌ Preprocessing")
+            logger.warning("STUDY_STATUS", "Preprocessing\t✕ NOT COMPLETED")
 
         # Clustering
         if self.comet.done_clustering:
-            steps_status.append("✅ Microstate Clustering")
-            logger.processing_success("STUDY_STATUS", "Microstate Clustering - COMPLETED")
+            steps_status.append("✅ Clustering")
+            logger.processing_success("STUDY_STATUS", "Clustering\t\t✓ COMPLETED")
         else:
-            steps_status.append("❌ Microstate Clustering")
-            logger.warning("STUDY_STATUS", "Microstate Clustering - NOT COMPLETED")
+            steps_status.append("❌ Clustering")
+            logger.warning("STUDY_STATUS", "Clustering\t\t✕ NOT COMPLETED")
 
         # Microstate Labeling
         if self.comet.done_microstate_labeling:
-            steps_status.append("✅ Microstate Labeling")
-            logger.processing_success("STUDY_STATUS", "Microstate Labeling - COMPLETED")
+            steps_status.append("✅ Labeling")
+            logger.processing_success("STUDY_STATUS", "Labeling\t\t✓ COMPLETED")
         else:
-            steps_status.append("❌ Microstate Labeling")
-            logger.warning("STUDY_STATUS", "Microstate Labeling - NOT COMPLETED")
+            steps_status.append("❌ Labeling")
+            logger.warning("STUDY_STATUS", "Labeling\t\t✕ NOT COMPLETED")
 
         # Backfitting
         if self.comet.done_backfitting:
-            steps_status.append("✅ Microstate Backfitting")
-            logger.processing_success("STUDY_STATUS", "Microstate Backfitting - COMPLETED")
+            steps_status.append("✅ Backfitting")
+            logger.processing_success("STUDY_STATUS", "Backfitting\t\t✓ COMPLETED")
         else:
-            steps_status.append("❌ Microstate Backfitting")
-            logger.warning("STUDY_STATUS", "Microstate Backfitting - NOT COMPLETED")
+            steps_status.append("❌ Backfitting")
+            logger.warning("STUDY_STATUS", "Backfitting\t\t✕ NOT COMPLETED")
 
         # Feature Extraction
         if self.comet.done_extracting_features:
             steps_status.append("✅ Feature Extraction")
-            logger.processing_success("STUDY_STATUS", "Feature Extraction - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Feature Extraction\t✓ COMPLETED")
         else:
             steps_status.append("❌ Feature Extraction")
-            logger.warning("STUDY_STATUS", "Feature Extraction - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Feature Extraction\t✕ NOT COMPLETED")
 
         # Source Localization
         if self.comet.done_source_localization:
             steps_status.append("✅ Source Localization")
-            logger.processing_success("STUDY_STATUS", "Source Localization - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Source Localization\t✓ COMPLETED")
         else:
             steps_status.append("❌ Source Localization")
-            logger.warning("STUDY_STATUS", "Source Localization - NOT COMPLETED")
-
-        # Source-Microstate Correlation
-        if self.comet.done_identifying_microstate_sources:
-            steps_status.append("✅ Source-Microstate Correlation")
-            logger.processing_success("STUDY_STATUS", "Source-Microstate Correlation - COMPLETED")
-        else:
-            steps_status.append("❌ Source-Microstate Correlation")
-            logger.warning("STUDY_STATUS", "Source-Microstate Correlation - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Source Localization\t✕ NOT COMPLETED")
 
         # Summary section removed - no longer needed
 
@@ -1851,59 +1843,51 @@ class MainMicrostateWindow(QMainWindow):
 
         # Preprocessing
         if self.comet.done_preprocessing:
-            steps_status.append("✅ Data Preprocessing")
-            logger.processing_success("STUDY_STATUS", "Data Preprocessing - COMPLETED")
+            steps_status.append("✅ Preprocessing")
+            logger.processing_success("STUDY_STATUS", "Preprocessing\t✓ COMPLETED")
         else:
-            steps_status.append("❌ Data Preprocessing")
-            logger.warning("STUDY_STATUS", "Data Preprocessing - NOT COMPLETED")
+            steps_status.append("❌ Preprocessing")
+            logger.warning("STUDY_STATUS", "Preprocessing\t✕ NOT COMPLETED")
 
         # Clustering
         if self.comet.done_clustering:
-            steps_status.append("✅ Microstate Clustering")
-            logger.processing_success("STUDY_STATUS", "Microstate Clustering - COMPLETED")
+            steps_status.append("✅ Clustering")
+            logger.processing_success("STUDY_STATUS", "Clustering\t\t✓ COMPLETED")
         else:
-            steps_status.append("❌ Microstate Clustering")
-            logger.warning("STUDY_STATUS", "Microstate Clustering - NOT COMPLETED")
+            steps_status.append("❌ Clustering")
+            logger.warning("STUDY_STATUS", "Clustering\t\t✕ NOT COMPLETED")
 
         # Microstate Labeling
         if self.comet.done_microstate_labeling:
-            steps_status.append("✅ Microstate Labeling")
-            logger.processing_success("STUDY_STATUS", "Microstate Labeling - COMPLETED")
+            steps_status.append("✅ Labeling")
+            logger.processing_success("STUDY_STATUS", "Labeling\t\t✓ COMPLETED")
         else:
-            steps_status.append("❌ Microstate Labeling")
-            logger.warning("STUDY_STATUS", "Microstate Labeling - NOT COMPLETED")
+            steps_status.append("❌ Labeling")
+            logger.warning("STUDY_STATUS", "Labeling\t\t✕ NOT COMPLETED")
 
         # Backfitting
         if self.comet.done_backfitting:
-            steps_status.append("✅ Microstate Backfitting")
-            logger.processing_success("STUDY_STATUS", "Microstate Backfitting - COMPLETED")
+            steps_status.append("✅ Backfitting")
+            logger.processing_success("STUDY_STATUS", "Backfitting\t\t✓ COMPLETED")
         else:
-            steps_status.append("❌ Microstate Backfitting")
-            logger.warning("STUDY_STATUS", "Microstate Backfitting - NOT COMPLETED")
+            steps_status.append("❌ Backfitting")
+            logger.warning("STUDY_STATUS", "Backfitting\t\t✕ NOT COMPLETED")
 
         # Feature Extraction
         if self.comet.done_extracting_features:
             steps_status.append("✅ Feature Extraction")
-            logger.processing_success("STUDY_STATUS", "Feature Extraction - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Feature Extraction\t✓ COMPLETED")
         else:
             steps_status.append("❌ Feature Extraction")
-            logger.warning("STUDY_STATUS", "Feature Extraction - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Feature Extraction\t✕ NOT COMPLETED")
 
         # Source Localization
         if self.comet.done_source_localization:
             steps_status.append("✅ Source Localization")
-            logger.processing_success("STUDY_STATUS", "Source Localization - COMPLETED")
+            logger.processing_success("STUDY_STATUS", "Source Localization\t✓ COMPLETED")
         else:
             steps_status.append("❌ Source Localization")
-            logger.warning("STUDY_STATUS", "Source Localization - NOT COMPLETED")
-
-        # Source-Microstate Correlation
-        if self.comet.done_identifying_microstate_sources:
-            steps_status.append("✅ Source-Microstate Correlation")
-            logger.processing_success("STUDY_STATUS", "Source-Microstate Correlation - COMPLETED")
-        else:
-            steps_status.append("❌ Source-Microstate Correlation")
-            logger.warning("STUDY_STATUS", "Source-Microstate Correlation - NOT COMPLETED")
+            logger.warning("STUDY_STATUS", "Source Localization\t✕ NOT COMPLETED")
 
         # Summary section removed - no longer needed
 
@@ -1923,12 +1907,15 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.min_distance_size = None
 
         # Data selection parameters
-        if self.ui.step2_use_percent_radio.isChecked():
+        if self.ui.step2_use_peaks_radio.isChecked():
+            # Use GFP peaks only - set use_percentages to None to trigger peak detection
+            self.comet.use_percentages = None
+        elif self.ui.step2_use_percent_radio.isChecked():
+            # Use percentage-based selection (random subset or entire data)
             self.comet.use_percentages = int(self.ui.step2_percent_slider.value())
         else:
-            self.comet.use_percentages = (
-                100  # Use 100% of data when percentage option is not selected
-            )
+            # Fallback - should not happen but default to GFP peaks
+            self.comet.use_percentages = None
 
         # Clustering parameters
         self.comet.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())

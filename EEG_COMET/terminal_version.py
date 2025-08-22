@@ -152,7 +152,7 @@ def configure_comet_for_clustering(comet, args):
     # Set clustering method
     if args.method:
         method_map = {
-            "kmeans": "Modified K-Means Clustering (Pascual-Marqui et al. 1995)",
+            "kmeans": "Modified K-Means Clustering",
             "similarity": "Modified K-Means Clustering with Spatial Similarity",
             "taahc": "Topographic Atomize and Agglomerate Hierarchical Clustering",
         }
