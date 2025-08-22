@@ -748,7 +748,17 @@ class COMET:
         consistent_channels, missing_channels = self.comet_data_io.check_chan2rm(
             self.list_eegs_path, datatype=self.datatype, montage=self.montage
         )
-        self.chan2rm = list(set(self.chan2rm).union(set(missing_channels)))
+        
+        # Convert chan2rm to list if it's a string
+        if isinstance(self.chan2rm, str):
+            current_channels = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()] if self.chan2rm else []
+        elif isinstance(self.chan2rm, list):
+            current_channels = self.chan2rm
+        else:
+            current_channels = []
+        
+        # Combine current channels with missing channels
+        self.chan2rm = list(set(current_channels).union(set(missing_channels)))
         self.ch_names = consistent_channels
 
     def save_eeg_info(self, eeg_info_path):
@@ -797,7 +807,14 @@ class COMET:
 
         # Remove channels if specified
         if hasattr(self, "chan2rm") and self.chan2rm:
-            channels_to_remove = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()]
+            # Handle both string (comma-separated) and list formats
+            if isinstance(self.chan2rm, str):
+                channels_to_remove = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()]
+            elif isinstance(self.chan2rm, list):
+                channels_to_remove = [ch.strip() for ch in self.chan2rm if ch and str(ch).strip()]
+            else:
+                channels_to_remove = []
+            
             if channels_to_remove:
                 eeg.drop_channels(channels_to_remove, on_missing="ignore")
 
