@@ -1325,8 +1325,8 @@ class COMET:
 
             # Use setup_progress_dialog for worker thread with correct total steps
             self.LogWindow.setup_progress_dialog(
-                window_title="Microstate Clustering...",
-                label_text="Initializing clustering process...",
+                window_title="Microstate Clustering ...",
+                label_text="Initializing clustering process ...",
                 tasks=clustering_steps,  # Pass only clustering steps
                 processing_func=self._run_full_clustering_worker,
             )
@@ -1482,7 +1482,7 @@ class COMET:
                     )
                     # Add the processing message with ⌛ emoji
                     self.LogWindow.append_log(
-                        f"⌛ Identifying {self.kmax - self.kmin + 1} optimal microstate maps..."
+                        f"⌛ Identifying {self.kmax - self.kmin + 1} optimal microstate maps ..."
                     )
                 if check_stop():
                     return self._handle_stopped_clustering("Starting automatic optimization")
@@ -1528,12 +1528,12 @@ class COMET:
                 if is_taahc:
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
                         self.LogWindow.append_log(
-                            "⌛ Running TAAHC clustering (deterministic algorithm)..."
+                            "⌛ Running TAAHC clustering (deterministic algorithm) ..."
                         )
                 else:
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
                         self.LogWindow.append_log(
-                            f"⌛ Running {clustering_repeats} clustering repetitions..."
+                            f"⌛ Running {clustering_repeats} clustering repetitions ..."
                         )
 
                 # Run clustering repetitions with progress updates
@@ -2154,21 +2154,57 @@ class COMET:
             )
             return
 
-        # Log feature extraction settings
-        feature_settings = {
-            "Features to Extract": ", ".join(self.feature_list),
-            "Feature Modes": ", ".join(self.feature_mode),
-            "Feature Types": ", ".join(self.feature_types),
+        # Log features to extract with full names and references
+        self.logger.processing_info("FEATURE_EXTRACTION", "Features to Extract:")
+        
+        # Define feature names and references
+        feature_info = {
+            "OCC": ("Microstate Occurrence (OCC)", "https://doi.org/10.1016/0013-4694%2887%2990025-3"),
+            "DUR": ("Microstate Duration (DUR)", "https://doi.org/10.1016/0013-4694%2887%2990025-3"),
+            "COV": ("Microstate Coverage (COV)", "https://doi.org/10.1016/0013-4694%2887%2990025-3"),
+            "GEV": ("Global Explained Variance (GEV)", "https://doi.org/10.1016/j.neuroimage.2012.05.060"),
+            "TP": ("Transition Probability (TP)", "https://doi.org/10.1016/j.pscychresns.2004.05.007"),
+            "HE": ("Hurst Exponent (HE)", "https://doi.org/10.1016/j.neuroimage.2016.07.050"),
+            "ER": ("Entropy Rate (ER)", "https://doi.org/10.3389/fncom.2018.00070"),
+            "LZC": ("Lempel-Ziv Complexity (LZC)", "https://doi.org/10.1038/s41598-020-74790-7"),
+            "ERR": ("Entropy Representation (ERR)", "https://doi.org/10.1016/j.neuroimage.2023.120196"),
+            "ROF": ("Relative Occurrence Frequency (ROF)", None),
+            "RTF": ("Relative Transition Frequency (RTF)", None)
         }
+        
+        # Log each feature with its full name and reference
+        # Group features that share the same reference
+        basic_features = ["OCC", "DUR", "COV"]
+        basic_features_present = [f for f in self.feature_list if f in basic_features]
+        
+        # Log basic features first (OCC, DUR, COV) without individual references
+        for feature in basic_features_present:
+            if feature in feature_info:
+                feature_name, _ = feature_info[feature]
+                self.logger.processing_info("FEATURE_EXTRACTION", feature_name)
+        
+        # Log single reference for basic features if any are present
+        if basic_features_present:
+            self.logger.reference("FEATURE_EXTRACTION", "https://doi.org/10.1016/0013-4694%2887%2990025-3")
+        
+        # Log other features with their individual references
+        for feature in self.feature_list:
+            if feature not in basic_features and feature in feature_info:
+                feature_name, reference_url = feature_info[feature]
+                self.logger.processing_info("FEATURE_EXTRACTION", feature_name)
+                if reference_url:
+                    self.logger.reference("FEATURE_EXTRACTION", reference_url)
+        
+        # Log other settings
+        self.logger.processing_info("FEATURE_EXTRACTION", f"Feature Modes: {', '.join(self.feature_mode)}")
+        self.logger.processing_info("FEATURE_EXTRACTION", f"Feature Types: {', '.join(self.feature_types)}")
 
         if "sliding" in self.feature_mode:
-            feature_settings["Sliding Window Size"] = self.sliding_window_size
+            self.logger.processing_info("FEATURE_EXTRACTION", f"Sliding Window Size: {self.sliding_window_size}")
             if hasattr(self, "pre_window_size"):
-                feature_settings["Pre-Window Size"] = self.pre_window_size
+                self.logger.processing_info("FEATURE_EXTRACTION", f"Pre-Window Size: {self.pre_window_size}")
             if hasattr(self, "post_window_size"):
-                feature_settings["Post-Window Size"] = self.post_window_size
-
-        self.logger.settings_info("FEATURE_EXTRACTION", feature_settings)
+                self.logger.processing_info("FEATURE_EXTRACTION", f"Post-Window Size: {self.post_window_size}")
 
         # Initialize shared storage for thread-safe feature extraction
         COMET._shared_feature_results = {}
@@ -3088,6 +3124,10 @@ class COMET:
             "Files to Process": len(self.zipped_eeg_files),
         }
         self.logger.settings_info("SOURCE_LOCALIZATION", source_settings)
+
+        # Log reference for TESS method if selected
+        if self.source_localization_method == "tess":
+            self.logger.reference("SOURCE_LOCALIZATION", "https://doi.org/10.1016/j.neuroimage.2014.04.002")
 
         # Perform source identification on all files
         if hasattr(self, "LogWindow") and self.LogWindow is not None:

@@ -161,10 +161,10 @@ class EEGCometLogger:
         """
         # Use ☄️ for "Starting" messages, step-specific prefix for others
         if message.lower().startswith("starting"):
-            full_message = f"☄️  [{step.replace('_', ' ').upper()}] {message}..."
+            full_message = f"☄️  [{step.replace('_', ' ').upper()}] {message} ..."
         else:
             prefix = self._get_step_prefix(step)
-            full_message = f"{prefix} {message}..."
+            full_message = f"{prefix} {message} ..."
 
         self._print_to_console(full_message)
         self._log_to_gui(message, log_type="process")
@@ -306,6 +306,21 @@ class EEGCometLogger:
 
         self._print_to_console(full_message)
         self._log_to_gui(message, log_type="file")
+
+    def reference(self, step: str, reference_url: str):
+        """Log scientific references.
+
+        Args:
+            step (str): Processing step.
+            reference_url (str): DOI or URL of the scientific reference.
+        """
+        prefix = self._get_step_prefix("REFERENCE")
+        message = f"{reference_url}"
+
+        full_message = f"{prefix} {message}"
+
+        self._print_to_console(full_message)
+        self._log_to_gui(message, log_type="reference")
 
 
 # Global logger instance

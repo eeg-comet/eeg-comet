@@ -162,7 +162,7 @@ class LogWindow(QWidget):
         Args:
           log (str): Log message body.
           log_type (str): One of {"settings", "success", "error", "warning",
-            "info", "process", "file", "section"}.
+            "info", "process", "file", "section", "reference"}.
 
         Returns:
           None
@@ -190,6 +190,8 @@ class LogWindow(QWidget):
         elif log_type == "section":
             separator = "-" * 50
             current_log_text = f"\n{separator}\n🔧 {log.upper()}\n{separator}\n"
+        elif log_type == "reference":
+            current_log_text = f"[{current_date} {current_time}]\n📝 REFERENCE: {log}\n"
         else:
             current_log_text = f"[{current_date} {current_time}]\n{log}\n"
 
