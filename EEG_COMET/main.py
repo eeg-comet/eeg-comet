@@ -3,7 +3,9 @@
 import os
 import sys
 import warnings
+import logging
 
+import mne
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication
 
@@ -14,6 +16,35 @@ from gui_utils.terminal_logger import get_logger
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Hide INFO and WARNING messages
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable oneDNN custom operations
 warnings.filterwarnings("ignore", category=UserWarning, module=".*tensorflow.*")
+
+# Suppress MNE warnings about electrode positions globally
+mne.set_log_level('ERROR')
+
+# Also suppress via Python's logging system
+class MNEWarningFilter(logging.Filter):
+    """Filter to suppress specific MNE warnings about electrode positions."""
+    def filter(self, record):
+        # Filter out electrode position warnings
+        try:
+            if hasattr(record, 'getMessage'):
+                message = record.getMessage()
+                if "Did not find any electrode locations" in message:
+                    return False
+                if "digitization points do not correspond" in message:
+                    return False
+            # Also check record.msg directly
+            if hasattr(record, 'msg') and isinstance(record.msg, str):
+                if "Did not find any electrode locations" in record.msg:
+                    return False
+                if "digitization points do not correspond" in record.msg:
+                    return False
+        except Exception:
+            # If anything goes wrong with filtering, allow the message through
+            pass
+        return True
+
+# Apply filter to root logger to catch all MNE warnings
+logging.getLogger().addFilter(MNEWarningFilter())
 
 # Initialize global logger
 logger = get_logger()

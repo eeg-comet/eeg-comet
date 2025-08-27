@@ -7,6 +7,7 @@ import warnings
 import cv2
 import matplotlib.pyplot as plt
 import mne
+from mne.utils import use_log_level
 import numpy as np
 import onnxruntime as ort
 import pandas as pd
@@ -49,15 +50,18 @@ class MicrostateLabeler:
 
         for i in range(self.microstate_maps.shape[0]):
             fig, ax = plt.subplots()
-            mne.viz.plot_topomap(
-                self.microstate_maps[i, :],
-                self.eeg_info,
-                contours=10,
-                sensors=False,
-                axes=ax,
-                show=False,
-                sphere="auto",
-            )
+            
+            # Suppress MNE warnings about electrode locations during visualization
+            with use_log_level('ERROR'):
+                mne.viz.plot_topomap(
+                    self.microstate_maps[i, :],
+                    self.eeg_info,
+                    contours=10,
+                    sensors=False,
+                    axes=ax,
+                    show=False,
+                    sphere="auto",
+                )
             with io.BytesIO() as buf:
                 fig.savefig(buf, dpi=200, bbox_inches="tight")
                 buf.seek(0)

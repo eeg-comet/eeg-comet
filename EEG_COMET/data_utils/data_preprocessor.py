@@ -98,6 +98,108 @@ class DataPreprocessor:
         return eeg
 
     @staticmethod
+    def remove_auxiliary_channels(eeg, verbose="ERROR"):
+        """Remove common auxiliary channels (EOG, EMG, ECG, etc.) from EEG data.
+        
+        This method removes commonly used auxiliary channel names that are not 
+        standard EEG electrodes. It uses pattern matching to identify channels
+        that are likely to be auxiliary recording channels.
+        
+        Args:
+            eeg (Raw or Epochs): MNE Raw or Epochs object containing EEG data
+            verbose (str): Logging verbosity level ('ERROR', 'WARNING', 'INFO', etc.)
+            
+        Returns:
+            Raw or Epochs: EEG data with auxiliary channels removed
+            list: Names of channels that were removed
+        """
+        with use_log_level(verbose):
+            # Get all current channel names
+            current_channels = eeg.ch_names.copy()
+            
+            # Define patterns for auxiliary channels (case-insensitive)
+            aux_patterns = [
+                # EOG (Electrooculography) channels
+                'EOG', 'HEOG', 'VEOG', 'EYE', 'LEOG', 'REOG',
+                'VPVA', 'VNVB', 'HPHL', 'HNHR', 'HOHL',  # Specific EOG electrode names
+                'ROC', 'LOC', 'RLC', 'LUC',  # Right/Left Outer/Upper Canthi
+                'PG1', 'PG2',  # EOG reference electrodes
+                
+                # ECG (Electrocardiography) channels
+                'ECG', 'EKG', 'HEART', 'CARD',
+                'Erbs',  # Specific ECG electrode
+                
+                # EMG (Electromyography) channels  
+                'EMG', 'LEMG', 'REMG', 'CHIN', 'JAW',
+                'OrbOcc', 'Mass',  # Specific EMG electrodes (orbicularis oculi, masseter)
+                
+                # Respiratory effort channels
+                'RESP', 'ABDOMEN', 'RESP ABDOMEN',  # Respiratory monitoring
+                
+                # Other physiological/auxiliary channels
+                'PHOTIC', 'IBI', 'BURSTS', 'SUPPR',  # Photic stimulation, inter-beat interval, burst suppression
+                
+                # Reference and technical channels
+                'REF', 'GND', 'TRIGGER', 'SYNC', 'STATUS',
+                
+                # Anatomical references that aren't EEG
+                'NOSE', 'NASION', 'LPA', 'RPA', 'A1', 'A2',
+                
+                # Common artifact/bad channels
+                'ARTF', 'ARTIFACT', 'BAD', 'NULL'
+            ]
+            
+            # Find channels to remove (case-insensitive matching)
+            channels_to_remove = []
+            for ch_name in current_channels:
+                ch_upper = ch_name.upper()
+                for pattern in aux_patterns:
+                    if pattern.upper() in ch_upper or ch_upper == pattern.upper():
+                        channels_to_remove.append(ch_name)
+                        break
+            
+            # Remove auxiliary channels
+            if channels_to_remove:
+                eeg = eeg.drop_channels(channels_to_remove, on_missing='ignore')
+                
+            return eeg, channels_to_remove
+    
+    @staticmethod
+    def ensure_montage_compatibility(eeg, montage_obj, verbose="ERROR"):
+        """Ensure EEG channels are compatible with the montage by keeping only matching channels.
+        
+        This method removes any remaining channels that don't exist in the montage to ensure
+        proper electrode positioning for visualization.
+        
+        Args:
+            eeg (Raw or Epochs): MNE Raw or Epochs object containing EEG data
+            montage_obj (mne.channels.DigMontage): Montage object with electrode positions
+            verbose (str): Logging verbosity level
+            
+        Returns:
+            Raw or Epochs: EEG data with only montage-compatible channels
+            list: Names of channels that were removed for montage compatibility
+        """
+        if montage_obj is None:
+            return eeg, []
+            
+        with use_log_level(verbose):
+            current_channels = eeg.ch_names.copy()
+            montage_channels = set(montage_obj.ch_names)
+            
+            # Find channels that are NOT in the montage
+            channels_to_remove = []
+            for ch_name in current_channels:
+                if ch_name not in montage_channels:
+                    channels_to_remove.append(ch_name)
+            
+            # Remove non-montage channels
+            if channels_to_remove:
+                eeg = eeg.drop_channels(channels_to_remove, on_missing='ignore')
+                
+            return eeg, channels_to_remove
+    
+    @staticmethod
     def spatial_smooth_eeg(eeg, min_neighbors=3, max_neighbors=8, verbose="ERROR"):
         """Apply spatial smoothing to EEG data by averaging signals with neighboring electrodes.
 
@@ -191,11 +293,13 @@ class DataPreprocessor:
         """Preprocess EEG data and optionally select event-specific segments.
 
         Pipeline (in order):
-        0) Event-based selection (if requested)
-        1) Temporal filtering (if enabled)
-        2) Resampling (if enabled and current sfreq != target)
-        3) Spatial smoothing (if enabled)
-        4) Average reference and projection apply
+        1) Event-based selection (if requested)
+        2) Temporal filtering (if enabled)
+        3) Resampling (if enabled and current sfreq != target)
+        4) Spatial smoothing (if enabled)
+        5) Average reference and projection apply
+        
+        Note: Auxiliary channels are removed in DataIO.load_eeg() before preprocessing.
 
         Event-based selection behavior:
         - Raw: concatenates continuous time windows for ``selected_event_label``.
@@ -220,7 +324,8 @@ class DataPreprocessor:
         Returns:
             Raw | Epochs: Preprocessed (and possibly event-selected) EEG.
         """
-        # 0) Event-based selection FIRST (before any filtering/resampling/reference)
+        # Auxiliary channels already removed in DataIO.load_eeg()
+        # 1) Event-based selection FIRST (before any filtering/resampling/reference)
         if select_events_only and selected_event_label:
             label = selected_event_label
             if datatype == "raw":
@@ -279,20 +384,20 @@ class DataPreprocessor:
                 if hasattr(eeg, "event_id") and isinstance(eeg.event_id, dict) and selected_event_label in eeg.event_id:
                     eeg = eeg[selected_event_label]
 
-        # 1) Temporal filtering
+        # 2) Temporal filtering
         if filter_bool:
             eeg = eeg.filter(
                 l_freq=lowcut, h_freq=highcut, method=filtermethod, phase="zero", verbose=verbose
             )
-        # 2) Resampling
+        # 3) Resampling
         if downsample_bool:
             sfreq = eeg.info["sfreq"]
             if sfreq != sampling_rate:
                 eeg = eeg.resample(sampling_rate, verbose=verbose)
-        # 3) Spatial smoothing
+        # 4) Spatial smoothing
         if spatial_smooth_bool:
             eeg = self.spatial_smooth_eeg(eeg=eeg, verbose=verbose)
-        # 4) Average reference
+        # 5) Average reference
         eeg.set_eeg_reference("average", projection=True, verbose=verbose)
         eeg.apply_proj(verbose=verbose)
 

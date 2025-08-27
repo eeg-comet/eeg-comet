@@ -22,6 +22,7 @@ from clustering_utils.microstate_visualizer import show_microstate
 from comet import COMET
 from features_utils.feature_io import FeatureIO
 from gui_utils.set_widgets_status import set_widgets_status
+from gui_utils.terminal_logger import get_logger
 
 
 class CompareStudiesWindow(QDialog):
@@ -998,7 +999,7 @@ class CompareStudiesWindow(QDialog):
             eeg_info: EEG info structure (e.g., MNE info) for plotting.
             ax: Target axes.
         """
-        show_microstate(microstate, eeg_info, ax)
+        show_microstate(microstate, eeg_info, ax, log_callback=None)  # No logging in comparison view
         ax.axis("off")
         ax.text(
             0.5,
@@ -2354,8 +2355,6 @@ class CompareStudiesWindow(QDialog):
             study_name: Label used in logging output.
         """
         try:
-            from gui_utils.terminal_logger import get_logger
-
             logger = get_logger()
 
             logger.section_header("STUDY_LOADING")

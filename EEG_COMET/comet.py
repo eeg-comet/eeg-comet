@@ -7,6 +7,7 @@ backfitting, feature extraction, source localization, and correlation routines.
 import contextlib
 import glob
 import os
+import time
 from configparser import ConfigParser
 
 import mne
@@ -20,7 +21,9 @@ from clustering_utils.clusterer_optimizer import ClustererOptimizer
 from clustering_utils.microstate_clusterer import MicrostateClusterer
 from clustering_utils.microstate_io import MicrostateIO
 from clustering_utils.microstate_labeler import MicrostateLabeler
+from clustering_utils.microstate_visualizer import reset_electrode_warning
 from controllers.logging_window import LogWindow
+from controllers.microstate_visualization_window import MicrostateVisualizationWindow
 from data_utils.data_initializer import DataInitializer
 from data_utils.data_io import DataIO
 from data_utils.data_preprocessor import DataPreprocessor
@@ -405,6 +408,9 @@ class COMET:
 
     def load_config_values(self):
         """Load configuration values from self.config into instance variables."""
+        # Reset electrode warning flag for new study
+        reset_electrode_warning()
+        
         # Input/Output Configs
         io_config = self.config["io_config"]
         self.study_name = io_config.get("study_name", "my_study")
@@ -773,9 +779,27 @@ class COMET:
         )
         eeg_info["description"] = self.study_name
 
-        # Set montage
-        montage = self.comet_data_io.load_montage(self.montage)
-        eeg_info.set_montage(montage, match_case=False, on_missing="warn")
+        # Set montage with better error handling and channel compatibility
+        if hasattr(self, "montage") and self.montage:
+            try:
+                montage = self.comet_data_io.load_montage(self.montage)
+                
+                # Filter montage to only include channels that exist in our data
+                temp_info = eeg_info.copy()
+                temp_info.set_montage(montage, match_case=False, on_missing="ignore")
+                
+                # Verify we have digitization points
+                if hasattr(temp_info, 'dig') and temp_info.dig is not None and len(temp_info.dig) > 0:
+                    eeg_info = temp_info
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(f"Applied montage '{self.montage}' with {len(temp_info.dig)} digitization points")
+                else:
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(f"Warning: No digitization points found after applying montage '{self.montage}'")
+                        
+            except Exception as e:
+                if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                    self.LogWindow.append_log(f"Failed to apply montage '{self.montage}': {e}")
 
         mne.io.write_info(eeg_info_path, eeg_info)
 
@@ -800,7 +824,8 @@ class COMET:
             file_info = f"{eeg_name} | Channels: {len(eeg.ch_names)} | Duration: {eeg.times[-1]:.1f}s | Sampling Rate: {eeg.info['sfreq']}Hz"
             self.LogWindow.append_log(f"Processing {file_info}", log_type="file")
 
-        # Apply montage if specified
+        # Apply montage if specified and track for channel filtering
+        montage_obj = None
         if hasattr(self, "montage") and self.montage:
             montage_obj = self.comet_data_io.load_montage(self.montage)
             eeg.set_montage(montage_obj, match_case=False, on_missing="warn")
@@ -852,7 +877,7 @@ class COMET:
                     log_type="warning"
                 )
         # --- END NEW ---
-
+        
         # Apply automatic bad channel detection and interpolation if requested
         if hasattr(self, "prep_data") and self.prep_data:
             eeg = self.comet_preprocessor.identify_bad_channels(eeg)
@@ -1094,7 +1119,7 @@ class COMET:
                 f"❌  [CLUSTERING] Stop Requested - Please Wait ...\n"
                 f"⚠️ Clustering stopped by user\n"
                 f"✓ Saved best maps found so far: {self.number_of_maps} microstates "
-                f"(GEV: {100 * best_gev:.3f}%%)"
+                f"(GEV: {100 * self.best_gev:.3f}%%)"
             )
 
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1636,11 +1661,11 @@ class COMET:
                         best_residual = residual
                         if is_taahc:
                             self.logger.processing_info(
-                                "CLUSTERING", f"TAAHC clustering completed - GEV: {100 * best_gev:.3f}%"
+                                "CLUSTERING", f"TAAHC clustering completed - GEV: {100 * self.best_gev:.3f}%"
                             )
                         else:
                             self.logger.processing_info(
-                                "CLUSTERING", f"New best GEV: {100 * best_gev:.3f}%"
+                                "CLUSTERING", f"New best GEV: {100 * self.best_gev:.3f}%"
                             )
 
                 # Step 8: Store best results
@@ -1651,7 +1676,7 @@ class COMET:
 
                     self.logger.processing_info(
                         "CLUSTERING",
-                        f"Best GEV: {100 * best_gev:.3f}%, Best residual: {best_residual:.6f}",
+                        f"Best GEV: {100 * self.best_gev:.3f}%, Best residual: {self.best_residual:.6f}",
                     )
                     self.logger.processing_success(
                         "CLUSTERING", "Clustering completed successfully!"
@@ -1701,7 +1726,7 @@ class COMET:
             partial_msg = f"Partial results saved from {completed_repetitions} completed clustering repetitions"
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.append_log(partial_msg, log_type="info")
-                self.LogWindow.append_log(f"Best GEV from partial results: {100 * best_gev:.3f}%%")
+                self.LogWindow.append_log(f"Best GEV from partial results: {100 * self.best_gev:.3f}%")
 
             # Save partial clustering results
             self._save_clustering_results()
@@ -3267,8 +3292,6 @@ class COMET:
         if "metadata" not in self.config:
             self.config.add_section("metadata")
 
-        import time
-
         self.config["metadata"]["last_saved"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
         # Ensure directory exists
@@ -3327,9 +3350,6 @@ class COMET:
     def _launch_microstate_labeling(self):
         """Launch the microstate labeling window after clustering completion."""
         try:
-            # Import the microstate labeling window
-            from controllers.microstate_visualization_window import MicrostateVisualizationWindow
-
             # Check if we have a context available
             if not hasattr(self, "context") or self.context is None:
                 self.logger.warning(
@@ -3614,3 +3634,4 @@ class COMET:
             and self.source_microstate_correlation_completed_callback is not None
         ):
             self.source_microstate_correlation_completed_callback()
+

@@ -8,6 +8,7 @@ import mne
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from mne.channels import get_builtin_montages, make_standard_montage
+from mne.utils import use_log_level
 from mne.viz import plot_topomap
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
@@ -955,12 +956,15 @@ class NewStudyWindow(QDialog):
             gs = fig.add_gridspec(2, len(time_points), height_ratios=[1, 2])
             for i, time_point in enumerate(time_points_sec):
                 ax_topo = fig.add_subplot(gs[0, i])
-                plot_topomap(
-                    avg_data[:, np.searchsorted(times, time_point)],
-                    eeg.info,
-                    axes=ax_topo,
-                    show=False,
-                )
+                
+                # Suppress MNE warnings about electrode locations during visualization
+                with use_log_level('ERROR'):
+                    plot_topomap(
+                        avg_data[:, np.searchsorted(times, time_point)],
+                        eeg.info,
+                        axes=ax_topo,
+                        show=False,
+                    )
                 ax_topo.set_title(f"{time_point * 1000:.0f} ms", fontsize=16)
             ax_main = fig.add_subplot(gs[1, :])
             for _i, channel_data in enumerate(avg_data):

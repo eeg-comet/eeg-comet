@@ -8,6 +8,7 @@ from typing import Any, Callable, Optional
 import numpy as np
 
 from clustering_utils.microstate_clusterer import MicrostateClusterer
+from data_utils.data_initializer import DataInitializer
 
 warnings.filterwarnings("ignore")
 
@@ -141,7 +142,6 @@ class ClustererOptimizer:
         """Load the full dataset for GEV calculation (lazy loading)."""
         if self._full_dataset is None and self.preprocessed_data_path:
             try:
-                from data_utils.data_initializer import DataInitializer
                 # Load entire dataset (100% of data)
                 self._full_dataset, _ = DataInitializer.generate_maps_and_peaks(
                     preprocessed_folder=self.preprocessed_data_path,

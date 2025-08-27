@@ -8,6 +8,7 @@ from fnmatch import fnmatch
 import mne
 import numpy as np
 from scipy.io import loadmat
+from data_utils.data_preprocessor import DataPreprocessor
 
 
 class DataIO:
@@ -438,6 +439,11 @@ class DataIO:
             elif datatype == "epoched":
                 eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=verbose)
                 # eeg = mne.io.read_epochs(eeg_path, verbose=False)
+            
+            # Remove auxiliary channels immediately after loading, before any other processing
+            eeg, removed_aux_channels = DataPreprocessor.remove_auxiliary_channels(eeg, verbose=verbose)
+            
+            # Apply montage
             montage = self.load_montage(montage)
             eeg.set_montage(montage, match_case=False, on_missing="warn")
             ch_names = eeg.info["ch_names"]

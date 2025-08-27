@@ -1,5 +1,7 @@
 """Microstate clustering algorithms and utilities (modified K-means, similarity, TAAHC)."""
 
+import time
+
 import numpy as np
 from scipy.spatial.distance import cdist
 
@@ -442,8 +444,6 @@ class MicrostateClusterer:
             for datasets where the number of GFP peaks is greater than the desired
             number of microstates.
         """
-        import time
-
         # Initialize timing reference
         start_time = time.time()
 

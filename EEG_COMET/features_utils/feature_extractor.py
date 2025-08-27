@@ -1,10 +1,12 @@
 """Feature extraction utilities for EEG-COMET microstate analyses."""
 
+import os
 from collections import Counter, defaultdict
 
 import numpy as np
 import pandas as pd
 
+from backfitting_utils.segmentation_io import SegmentationIO
 from clustering_utils.microstate_clusterer import MicrostateClusterer
 from features_utils.feature_helper import FeatureHelper
 
@@ -1296,11 +1298,6 @@ class FeatureExtractionCoordinator:
             # Check if original segmentation array is already provided
             if "original_segmentation_array" in segmentation:
                 return segmentation["original_segmentation_array"]
-
-            # Import here to avoid circular imports
-            import os
-
-            from backfitting_utils.segmentation_io import SegmentationIO
 
             filename = segmentation.get("filename", "")
             if not filename:

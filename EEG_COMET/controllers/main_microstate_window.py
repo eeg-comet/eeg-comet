@@ -1474,8 +1474,6 @@ class MainMicrostateWindow(QMainWindow):
 
     def _handle_sliding_window_options(self):
         """Handle sliding window option widgets based on sliding features checkbox."""
-        from gui_utils.set_widgets_status import set_widgets_status
-
         sliding_widgets = self._get_sliding_window_widgets()
 
         if self.ui.step4_sliding_features_checkbox.isChecked():
@@ -2595,8 +2593,6 @@ class MainMicrostateWindow(QMainWindow):
 
     def exit_msg(self):
         """Display confirmation before quitting."""
-        from gui_utils.terminal_logger import get_logger
-
         get_logger()
 
         reply = QMessageBox.question(
@@ -2623,8 +2619,6 @@ class MainMicrostateWindow(QMainWindow):
         Args:
           event (QCloseEvent): Close event.
         """
-        from gui_utils.terminal_logger import get_logger
-
         logger = get_logger()
 
         # Clear any callbacks

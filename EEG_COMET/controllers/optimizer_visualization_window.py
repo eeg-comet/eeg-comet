@@ -6,6 +6,7 @@ independent modified K-means and consolidated metrics implementations.
 """
 
 import time
+import traceback
 from typing import Any, Optional
 
 import numpy as np
@@ -94,8 +95,6 @@ class OptimizedOptimizerWorker(QThread):
             self.finished.emit(self.results)
 
         except Exception as e:
-            import traceback
-
             error_msg = f"Error in optimization: {str(e)}\n{traceback.format_exc()}"
             print(f"[ERROR] {error_msg}")
             self.error.emit(error_msg)
@@ -280,8 +279,6 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
         # Ensure we have a logger instance
         if logger is None:
-            from gui_utils.terminal_logger import get_logger
-
             logger = get_logger()
         self.logger = logger
 
@@ -300,8 +297,6 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         self.batch_size = batch_size
 
         if self.logger is None:
-            from gui_utils.terminal_logger import get_logger
-
             self.logger = get_logger()
         self.logger.processing_info(
             "CLUSTERING", f"Visualization optimizer ready (k={kmin}-{kmax})"

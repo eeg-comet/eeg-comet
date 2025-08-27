@@ -6,7 +6,9 @@ and export utilities.
 """
 
 import contextlib
+import datetime
 import os.path
+import traceback
 
 import mne
 import numpy as np
@@ -17,6 +19,12 @@ from pyvistaqt import QtInteractor
 
 from sourcelocalization_utils.source_io import SourceIO
 from sourcelocalization_utils.source_visualizer import SourceVisualizer
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
 
 
 class SourceVisualizationWindow(QDialog):
@@ -486,8 +494,6 @@ class SourceVisualizationWindow(QDialog):
 
         except Exception as e:
             print(f"Error in show_all_microstate_sources: {str(e)}")
-            import traceback
-
             traceback.print_exc()
 
     def _create_single_brain_image(self, microstate_data, microstate_label):
@@ -587,9 +593,7 @@ class SourceVisualizationWindow(QDialog):
 
             # Try to use PIL for better text rendering
             try:
-                from PIL import Image, ImageDraw, ImageFont
-
-                use_pil = True
+                use_pil = PIL_AVAILABLE
                 grid_pil = Image.fromarray(grid_image)
                 draw = ImageDraw.Draw(grid_pil)
 
@@ -1020,8 +1024,6 @@ class SourceVisualizationWindow(QDialog):
         """
         try:
             if filename is None:
-                import datetime
-
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"brain_view_{timestamp}.png"
 

@@ -2,7 +2,9 @@
 
 import contextlib
 import os.path
+import logging
 
+import mne
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -22,6 +24,7 @@ from PyQt5.QtWidgets import (
 
 from clustering_utils.microstate_io import MicrostateIO
 from clustering_utils.microstate_visualizer import show_microstate
+from gui_utils.terminal_logger import get_logger
 
 
 class MicrostateVisualizationWindow(QMainWindow):
@@ -48,6 +51,24 @@ class MicrostateVisualizationWindow(QMainWindow):
           tbx: COMET toolbox instance providing EEG info and microstate data.
         """
         super().__init__(parent)
+        
+        # Suppress MNE warnings for electrode positions in this window
+        mne.set_log_level('ERROR')
+        
+        # Add logging filter for this specific window
+        class LocalMNEWarningFilter(logging.Filter):
+            def filter(self, record):
+                if hasattr(record, 'getMessage'):
+                    message = record.getMessage()
+                    if "Did not find any electrode locations" in message:
+                        return False
+                    if "digitization points do not correspond" in message:
+                        return False
+                return True
+        
+        self._mne_filter = LocalMNEWarningFilter()
+        logging.getLogger().addFilter(self._mne_filter)
+        
         self.main_window = main_window
         self.comet = tbx
         self.current_order_labels = self.comet.micro_labels
@@ -73,6 +94,13 @@ class MicrostateVisualizationWindow(QMainWindow):
         self.create_label_widgets(self.comet.micro_labels)
         self.connect_ui()
         self.create_figure_and_canvas()
+
+    def closeEvent(self, event):
+        """Handle window close event and cleanup logging filter."""
+        # Remove the logging filter when window is closed
+        if hasattr(self, '_mne_filter'):
+            logging.getLogger().removeFilter(self._mne_filter)
+        super().closeEvent(event)
 
     def setup_ui(self, context):
         """Set up UI components.
@@ -277,6 +305,13 @@ class MicrostateVisualizationWindow(QMainWindow):
             widget.setText(sorted_labels[index])
             widget.setDisabled(True)
 
+    def _log_electrode_warning(self, message):
+        """Log electrode positioning warnings using the proper EEG-COMET logger format."""
+        if hasattr(self.comet, 'LogWindow') and self.comet.LogWindow:
+            # Use the proper logger format for warnings
+            logger = get_logger(self.comet.LogWindow)
+            logger.warning("VISUALIZATION", "Electrode positions not found. Applying standard montage for microstate visualization.")
+
     def plot_microstates_with_labels(self, microstate, micro_label, ax, polarity=1):
         """Plot a microstate topomap and its label on the provided axis.
 
@@ -302,6 +337,7 @@ class MicrostateVisualizationWindow(QMainWindow):
             sensors=settings["sensors"],
             contours=settings["contours"],
             cmap=settings["cmap"],
+            log_callback=self._log_electrode_warning,
         )
 
         # Label placement
@@ -321,6 +357,9 @@ class MicrostateVisualizationWindow(QMainWindow):
 
     def plot_maps(self):
         """Plot microstate maps on canvas."""
+        # Ensure MNE logging is suppressed for this entire plotting session
+        mne.set_log_level('ERROR')
+        
         micro_labels_texts = [
             getattr(self, f"micro_label_{i}").text() for i in range(self.comet.number_of_maps)
         ]

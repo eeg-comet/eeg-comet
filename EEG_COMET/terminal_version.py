@@ -11,6 +11,7 @@ import os
 import sys
 import traceback
 import warnings
+from collections import Counter
 from pathlib import Path
 
 # Add the parent directory to the path to allow imports
@@ -301,8 +302,6 @@ def show_optimization_results(optimization_results):
         )
 
         # Show vote breakdown
-        from collections import Counter
-
         vote_counts = Counter(majority_result.scores)
         logger.processing_info("OPTIMIZATION", "Vote breakdown:")
         for k_value, count in sorted(vote_counts.items()):
