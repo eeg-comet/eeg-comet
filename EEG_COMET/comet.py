@@ -264,6 +264,9 @@ class COMET:
         self.best_maps = None
         self.best_gev = 0.0
         self.best_residual = np.inf
+        
+        # Initialize EEG info preservation for digitization points
+        self._processed_eeg_info_captured = None
 
         # Properties are defined at the class level (see below)
 
@@ -354,6 +357,9 @@ class COMET:
         """Reset and recreate directory structure when critical parameters change.
         Call this whenever study_name or output_folder are changed.
         """
+        # Reset captured EEG info when directories are reset (new study)
+        self._processed_eeg_info_captured = None
+        
         # Set up the save_dir based on output_folder and study_name
         if self.output_folder and self.study_name:
             self.save_dir = os.path.join(self.output_folder, self.study_name)
@@ -773,33 +779,42 @@ class COMET:
         Args:
             eeg_info_path (str): Path where the EEG information will be saved
         """
-        # Create a basic Info object
-        eeg_info = mne.create_info(
-            ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sample_rate
-        )
-        eeg_info["description"] = self.study_name
+        # Use captured processed EEG info if available (preserves digitization points)
+        if hasattr(self, "_processed_eeg_info_captured") and self._processed_eeg_info_captured is not None:
+            eeg_info = self._processed_eeg_info_captured.copy()
+            eeg_info["description"] = self.study_name
+            
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                dig_count = len(eeg_info['dig']) if eeg_info.get('dig') else 0
+                self.LogWindow.append_log(f"Saving EEG info with {dig_count} digitization points from processed data", log_type="info")
+        else:
+            # Fallback: Create a basic Info object (legacy behavior)
+            eeg_info = mne.create_info(
+                ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sample_rate
+            )
+            eeg_info["description"] = self.study_name
 
-        # Set montage with better error handling and channel compatibility
-        if hasattr(self, "montage") and self.montage:
-            try:
-                montage = self.comet_data_io.load_montage(self.montage)
-                
-                # Filter montage to only include channels that exist in our data
-                temp_info = eeg_info.copy()
-                temp_info.set_montage(montage, match_case=False, on_missing="ignore")
-                
-                # Verify we have digitization points
-                if hasattr(temp_info, 'dig') and temp_info.dig is not None and len(temp_info.dig) > 0:
-                    eeg_info = temp_info
+            # Set montage with better error handling and channel compatibility
+            if hasattr(self, "montage") and self.montage:
+                try:
+                    montage = self.comet_data_io.load_montage(self.montage)
+                    
+                    # Filter montage to only include channels that exist in our data
+                    temp_info = eeg_info.copy()
+                    temp_info.set_montage(montage, match_case=False, on_missing="ignore")
+                    
+                    # Verify we have digitization points
+                    if temp_info.get('dig') is not None and len(temp_info['dig']) > 0:
+                        eeg_info = temp_info
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(f"Applied montage '{self.montage}' with {len(temp_info['dig'])} digitization points")
+                    else:
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(f"Warning: No digitization points found after applying montage '{self.montage}'")
+                            
+                except Exception as e:
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                        self.LogWindow.append_log(f"Applied montage '{self.montage}' with {len(temp_info.dig)} digitization points")
-                else:
-                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                        self.LogWindow.append_log(f"Warning: No digitization points found after applying montage '{self.montage}'")
-                        
-            except Exception as e:
-                if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                    self.LogWindow.append_log(f"Failed to apply montage '{self.montage}': {e}")
+                        self.LogWindow.append_log(f"Failed to apply montage '{self.montage}': {e}")
 
         mne.io.write_info(eeg_info_path, eeg_info)
 
@@ -897,6 +912,13 @@ class COMET:
             selected_event_label=getattr(self, "selected_event_label", None),
             datatype=self.datatype,
         )
+
+        # Store the processed EEG info from the first file to preserve digitization points
+        if not hasattr(self, "_processed_eeg_info_captured") or self._processed_eeg_info_captured is None:
+            self._processed_eeg_info_captured = preprocessed_eeg.info.copy()
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                dig_count = len(self._processed_eeg_info_captured['dig']) if self._processed_eeg_info_captured.get('dig') else 0
+                self.LogWindow.append_log(f"Captured EEG info with {dig_count} digitization points from {eeg_name}", log_type="info")
 
         # Save preprocessed data
         name = os.path.splitext(eeg_name)[0]
