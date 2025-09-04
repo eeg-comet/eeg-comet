@@ -2147,6 +2147,25 @@ class COMET:
         self.load_clean()
         self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
 
+        # Log backfitting process details before starting
+        backfit_target = "GFP peaks" if self.backfit_to == "peaks" else "all time points"
+        self.logger.processing_info("BACKFITTING", f"Backfitting microstates to {backfit_target}")
+        
+        # Log segment filtering details if enabled
+        if self.filter_segments and hasattr(self, 'filter_segments_less_than_ms'):
+            if self.filter_segments_option == "remove":
+                self.logger.processing_info("BACKFITTING", 
+                    f"Removing transient segments with durations less than {self.filter_segments_less_than_ms}ms")
+            elif self.filter_segments_option == "replace_high":
+                self.logger.processing_info("BACKFITTING", 
+                    f"Replacing segments less than {self.filter_segments_less_than_ms}ms with nearby dominant microstates")
+            elif self.filter_segments_option == "replace_half":
+                self.logger.processing_info("BACKFITTING", 
+                    f"Replacing segments less than {self.filter_segments_less_than_ms}ms using half-and-half method")
+            elif self.filter_segments_option == "smooth":
+                self.logger.processing_info("BACKFITTING", 
+                    f"Smoothing segments with window size {self.filter_segments_less_than_ms}ms and lambda {self.lamb}")
+
         # Perform backfitting on all files
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             self.LogWindow.setup_progress_dialog(
@@ -3550,25 +3569,6 @@ class COMET:
 
         # Log completion
         self.logger.processing_success("BACKFITTING", "Backfitting completed successfully")
-        
-        # Log backfitting process details
-        backfit_target = "GFP peaks" if self.backfit_to == "peaks" else "all time points"
-        self.logger.processing_info("BACKFITTING", f"Backfitting microstates to {backfit_target}")
-        
-        # Log segment filtering details if enabled
-        if self.filter_segments and hasattr(self, 'filter_segments_less_than_ms'):
-            if self.filter_segments_option == "remove":
-                self.logger.processing_info("BACKFITTING", 
-                    f"Removing transient segments with durations less than {self.filter_segments_less_than_ms}ms")
-            elif self.filter_segments_option == "replace_high":
-                self.logger.processing_info("BACKFITTING", 
-                    f"Replacing segments less than {self.filter_segments_less_than_ms}ms with nearby dominant microstates")
-            elif self.filter_segments_option == "replace_half":
-                self.logger.processing_info("BACKFITTING", 
-                    f"Replacing segments less than {self.filter_segments_less_than_ms}ms using half-and-half method")
-            elif self.filter_segments_option == "smooth":
-                self.logger.processing_info("BACKFITTING", 
-                    f"Smoothing segments with window size {self.filter_segments_less_than_ms}ms and lambda {self.lamb}")
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
