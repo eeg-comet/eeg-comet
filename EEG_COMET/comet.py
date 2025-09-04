@@ -22,6 +22,7 @@ from clustering_utils.microstate_clusterer import MicrostateClusterer
 from clustering_utils.microstate_io import MicrostateIO
 from clustering_utils.microstate_labeler import MicrostateLabeler
 from clustering_utils.microstate_visualizer import reset_electrode_warning
+from PyQt5.QtCore import Qt
 from controllers.logging_window import LogWindow
 from controllers.microstate_visualization_window import MicrostateVisualizationWindow
 from data_utils.data_initializer import DataInitializer
@@ -482,7 +483,11 @@ class COMET:
             "clustering_method", "Modified K-Means Clustering"
         )
         self.max_iterations = clustering_config.getint("max_iterations", 500)
-        self.clustering_tolerance = clustering_config.getfloat("clustering_tolerance", 1e-6)
+        try:
+            self.clustering_tolerance = clustering_config.getfloat("clustering_tolerance", 1e-6)
+        except (ValueError, TypeError):
+            # Handle case where clustering_tolerance is empty string or invalid
+            self.clustering_tolerance = 1e-6
         self.similarity_metric = (
             clustering_config.get("similarity_metric", "Spatial Correlation")
             if self.clustering_method != "Modified K-Means Clustering"
@@ -522,9 +527,19 @@ class COMET:
             self.filter_segments_less_than = 20
             self.filter_segments_option = "smooth"
 
-        self.epsilon = backfitting_config.getfloat("epsilon", 1e-6)
-        self.b = backfitting_config.getint("b", 3)
-        self.lamb = backfitting_config.getint("lamb", 5)
+        try:
+            self.epsilon = backfitting_config.getfloat("epsilon", 1e-6)
+        except (ValueError, TypeError):
+            # Handle case where epsilon is empty string or invalid
+            self.epsilon = 1e-6
+        try:
+            self.b = backfitting_config.getint("b", 3)
+        except (ValueError, TypeError):
+            self.b = 3
+        try:
+            self.lamb = backfitting_config.getint("lamb", 5)
+        except (ValueError, TypeError):
+            self.lamb = 5
 
         # Feature Extraction Configs
         features_config = self.config["features_config"]
@@ -583,7 +598,10 @@ class COMET:
         self.use_anatomy = source_config.get("use_anatomy", "fsaverage")
         self.bem_solver = source_config.get("bem_solver", "mne")
         self.inverse_method = source_config.get("inverse_method", "dSPM")
-        self.nperm = source_config.getint("nperm", 2000)
+        try:
+            self.nperm = source_config.getint("nperm", 2000)
+        except (ValueError, TypeError):
+            self.nperm = 2000
         self.spacing = source_config.get("spacing", "ico3")
         self.source_localization_method = source_config.get("source_localization_method", "tess")
         self.anatomy_subjects_dir = source_config.get("anatomy_subjects_dir", "")
@@ -2045,16 +2063,6 @@ class COMET:
         self.logger.section_header("BACKFITTING")
         self.logger.processing_start("BACKFITTING", "Starting microstate backfitting")
 
-        # Log key backfitting parameters
-        backfit_target = "GFP peaks" if self.backfit_to == "peaks" else "all time points"
-        self.logger.processing_info("BACKFITTING", f"Backfitting Target: {backfit_target}")
-
-        if self.filter_segments:
-            filter_info = f"Segment Filtering: {self.filter_segments_option} (< {self.filter_segments_less_than}ms)"
-        else:
-            filter_info = "Segment Filtering: disabled"
-        self.logger.processing_info("BACKFITTING", filter_info)
-
         # Check if best maps are available
         if self.best_maps is None:
             self.logger.error("BACKFITTING", "No microstate maps available for backfitting")
@@ -2087,13 +2095,16 @@ class COMET:
                 "BACKFITTING", "Identifying optimal smoothing window length"
             )
 
-            # Create progress dialog
+            # Set up progress bar manually (without Worker thread) for identify_short_window
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                self.LogWindow.setup_progress_dialog(
-                    window_title="Backfitting ...",
-                    label_text="Identifying the optimal length of the smoothing window ...",
-                    max_value=len(self.list_eegs_path),
+                self.LogWindow.setWindowFlags(Qt.WindowStaysOnTopHint)
+                self.LogWindow.show()
+                self.LogWindow.setWindowTitle("Backfitting ...")
+                self.LogWindow.ui.progress_label.setText(
+                    "Identifying the optimal length of the smoothing window ..."
                 )
+                self.LogWindow.ui.progress_bar.setValue(0)
+                self.LogWindow.ui.progress_bar.setRange(0, len(self.list_eegs_path))
 
             rm_max_len = 50
             len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
@@ -2132,49 +2143,6 @@ class COMET:
                 self.filter_segments_less_than_ms = self.filter_segments_less_than
             else:
                 self.filter_segments_less_than_ms = 0
-
-        # Log backfitting settings
-        if self.backfit_to == "peaks":
-            backfit_to_text = (
-                "Backfitting microstates to the local peaks of the global field power."
-            )
-        else:
-            backfit_to_text = "Backfitting microstates to all time points."
-
-        if self.filter_segments_option == "remove":
-            filter_segments_option_text = (
-                f"Removing segments with less than "
-                f"{self.filter_segments_less_than_ms}ms in duration."
-            )
-        elif self.filter_segments_option == "replace_high":
-            filter_segments_option_text = (
-                f"Replacing segments with less than {self.filter_segments_less_than_ms}ms"
-                f"by the nearby microstate with higher occurrence."
-            )
-        elif self.filter_segments_option == "replace_half":
-            filter_segments_option_text = (
-                f"Replacing segments with less than {self.filter_segments_less_than_ms}ms"
-                f"by half by the previous and half by the next dominant microstate."
-            )
-        elif self.filter_segments_option == "smooth":
-            filter_segments_option_text = (
-                f"Smoothing segments with window size {self.filter_segments_less_than_ms}ms"
-                f" and lambda {self.lamb}."
-            )
-        else:
-            filter_segments_option_text = "No filtering applied to short segments."
-
-        if hasattr(self, "LogWindow") and self.LogWindow is not None:
-            self.LogWindow.append_log(
-                f"Microstates Backfitting Settings:\n"
-                f"* {backfit_to_text}\n"
-                f"* {filter_segments_option_text}",
-                log_type="settings",
-            )
-        else:
-            self.logger.processing_info("BACKFITTING", "Microstates Backfitting Settings:")
-            self.logger.processing_info("BACKFITTING", f"* {backfit_to_text}")
-            self.logger.processing_info("BACKFITTING", f"* {filter_segments_option_text}")
 
         self.load_clean()
         self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
@@ -3582,6 +3550,25 @@ class COMET:
 
         # Log completion
         self.logger.processing_success("BACKFITTING", "Backfitting completed successfully")
+        
+        # Log backfitting process details
+        backfit_target = "GFP peaks" if self.backfit_to == "peaks" else "all time points"
+        self.logger.processing_info("BACKFITTING", f"Backfitting microstates to {backfit_target}")
+        
+        # Log segment filtering details if enabled
+        if self.filter_segments and hasattr(self, 'filter_segments_less_than_ms'):
+            if self.filter_segments_option == "remove":
+                self.logger.processing_info("BACKFITTING", 
+                    f"Removing transient segments with durations less than {self.filter_segments_less_than_ms}ms")
+            elif self.filter_segments_option == "replace_high":
+                self.logger.processing_info("BACKFITTING", 
+                    f"Replacing segments less than {self.filter_segments_less_than_ms}ms with nearby dominant microstates")
+            elif self.filter_segments_option == "replace_half":
+                self.logger.processing_info("BACKFITTING", 
+                    f"Replacing segments less than {self.filter_segments_less_than_ms}ms using half-and-half method")
+            elif self.filter_segments_option == "smooth":
+                self.logger.processing_info("BACKFITTING", 
+                    f"Smoothing segments with window size {self.filter_segments_less_than_ms}ms and lambda {self.lamb}")
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
