@@ -298,6 +298,8 @@ class LogWindow(QWidget):
                     log_type="section",
                 )
                 self.append_log("📋 Initializing clustering process...", log_type="info")
+        elif "Optimal Window" in window_title:
+            self.current_step = "BACKFITTING"
         elif "Backfitting" in window_title:
             self.current_step = "BACKFITTING"
         elif "Feature" in window_title:
