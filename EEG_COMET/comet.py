@@ -2095,55 +2095,151 @@ class COMET:
                 "BACKFITTING", "Identifying optimal smoothing window length"
             )
 
-            # Set up progress bar manually (without Worker thread) for identify_short_window
+            # Use worker thread for optimal window identification
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                self.LogWindow.setWindowFlags(Qt.WindowStaysOnTopHint)
-                self.LogWindow.show()
-                self.LogWindow.setWindowTitle("Backfitting ...")
-                self.LogWindow.ui.progress_label.setText(
-                    "Identifying the optimal length of the smoothing window ..."
+                # Create zipped file list for worker thread (same pattern as other processes)
+                zipped_files_for_window = list(zip(self.list_eegs_path, self.list_eegs))
+                self.LogWindow.setup_progress_dialog(
+                    window_title="Identifying Optimal Window ...",
+                    label_text="Identifying the optimal length of the smoothing window ...",
+                    tasks=zipped_files_for_window,
+                    processing_func=self._identify_optimal_window_worker,
                 )
-                self.LogWindow.ui.progress_bar.setValue(0)
-                self.LogWindow.ui.progress_bar.setRange(0, len(self.list_eegs_path))
-
-            rm_max_len = 50
-            len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
-            similarity_scores = np.empty((len(self.list_eegs_path), len(len_win2rm_list)))
-
-            # Iterate through EEG files
-            for eeg_idx, (eeg_path, eeg_name) in enumerate(
-                zip(self.list_eegs_path, self.list_eegs)
-            ):
-                if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                    self.LogWindow.update_progress(value=eeg_idx, text=f"{eeg_name}")
-                # Removed individual file processing print for cleaner output
-
-                eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
-
-                # Compute similarity scores for different segment removal lengths
-                for idx_win2rm, len_win2rm in enumerate(len_win2rm_list):
-                    similarity_scores[eeg_idx, idx_win2rm] = (
-                        self.comet_microstate_backfitter.get_similarity_score(
-                            eeg=eeg, rm_max_len=len_win2rm
-                        )
-                    )
-
-            # Identify optimal length filter
-            self.filter_segments_less_than_ms = (
-                self.comet_microstate_backfitter.identify_optimal_length_filter(
-                    similarity_scores=similarity_scores
-                )
-            )
-            self.logger.processing_success(
-                "BACKFITTING",
-                f"Optimal filter length determined: {self.filter_segments_less_than_ms} ms",
-            )
+                # Set callback to run when window identification worker thread finishes
+                self.LogWindow.process_finished_callback = self._on_window_identification_finished
+            else:
+                # Non-GUI mode - run directly
+                self._identify_optimal_window_direct()
         else:
             if self.filter_segments:
                 self.filter_segments_less_than_ms = self.filter_segments_less_than
             else:
                 self.filter_segments_less_than_ms = 0
 
+            # Continue with backfitting immediately if no window identification needed
+            self._continue_backfitting_process()
+
+    def _identify_optimal_window_worker(self, eeg_path, eeg_name, worker=None):
+        """Worker function for identifying optimal window length for a single file."""
+        if worker is not None and getattr(worker, "stopped", False):
+            return
+
+        # Log file processing start
+        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+            self.LogWindow.append_log(f"Analyzing optimal window for {eeg_name}", log_type="file")
+
+        eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+
+        # Initialize shared storage if not exists
+        if not hasattr(self, '_optimal_window_scores'):
+            self._optimal_window_scores = {}
+            self._optimal_window_params = {
+                'rm_max_len': 50,
+                'len_win2rm_list': list(range(0, 50, int(1000 / self.sample_rate)))
+            }
+
+        # Compute similarity scores for different segment removal lengths
+        file_scores = []
+        for len_win2rm in self._optimal_window_params['len_win2rm_list']:
+            score = self.comet_microstate_backfitter.get_similarity_score(
+                eeg=eeg, rm_max_len=len_win2rm
+            )
+            file_scores.append(score)
+
+        # Store results in shared storage
+        self._optimal_window_scores[eeg_name] = file_scores
+
+        # Log successful processing
+        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+            self.LogWindow.append_log(f"Successfully analyzed {eeg_name}", log_type="success")
+
+    def _identify_optimal_window_direct(self):
+        """Direct execution of optimal window identification (non-GUI mode)."""
+        rm_max_len = 50
+        len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
+        similarity_scores = np.empty((len(self.list_eegs_path), len(len_win2rm_list)))
+
+        # Iterate through EEG files
+        for eeg_idx, (eeg_path, eeg_name) in enumerate(
+            zip(self.list_eegs_path, self.list_eegs)
+        ):
+            eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+
+            # Compute similarity scores for different segment removal lengths
+            for idx_win2rm, len_win2rm in enumerate(len_win2rm_list):
+                similarity_scores[eeg_idx, idx_win2rm] = (
+                    self.comet_microstate_backfitter.get_similarity_score(
+                        eeg=eeg, rm_max_len=len_win2rm
+                    )
+                )
+
+        # Identify optimal length filter
+        self.filter_segments_less_than_ms = (
+            self.comet_microstate_backfitter.identify_optimal_length_filter(
+                similarity_scores=similarity_scores
+            )
+        )
+        self.logger.processing_success(
+            "BACKFITTING",
+            f"Optimal filter length determined: {self.filter_segments_less_than_ms} ms",
+        )
+
+        # Continue with backfitting process
+        self._continue_backfitting_process()
+
+    def _on_window_identification_finished(self, _message=None):
+        """Handle completion of optimal window identification."""
+        try:
+            # Collect results from all files
+            if hasattr(self, '_optimal_window_scores') and self._optimal_window_scores:
+                # Convert results to numpy array format
+                file_names = list(self._optimal_window_scores.keys())
+                similarity_scores = np.array([
+                    self._optimal_window_scores[name] for name in file_names
+                ])
+
+                # Identify optimal length filter
+                self.filter_segments_less_than_ms = (
+                    self.comet_microstate_backfitter.identify_optimal_length_filter(
+                        similarity_scores=similarity_scores
+                    )
+                )
+
+                self.logger.processing_success(
+                    "BACKFITTING",
+                    f"Optimal filter length determined: {self.filter_segments_less_than_ms} ms",
+                )
+
+                # Clean up shared storage
+                delattr(self, '_optimal_window_scores')
+                delattr(self, '_optimal_window_params')
+            else:
+                # Fallback if no results
+                self.filter_segments_less_than_ms = self.filter_segments_less_than
+                self.logger.warning(
+                    "BACKFITTING", 
+                    "No optimal window results available, using default value"
+                )
+
+            # Clear the callback
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.process_finished_callback = None
+
+            # Continue with backfitting process
+            self._continue_backfitting_process()
+
+        except Exception as e:
+            error_msg = f"Error in window identification completion: {str(e)}"
+            self.logger.error("BACKFITTING", error_msg)
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type="error")
+
+            # Fallback and continue
+            self.filter_segments_less_than_ms = self.filter_segments_less_than
+            self._continue_backfitting_process()
+
+    def _continue_backfitting_process(self):
+        """Continue with the main backfitting process after optimal window identification."""
         self.load_clean()
         self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
 
