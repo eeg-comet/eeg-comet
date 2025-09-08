@@ -2186,6 +2186,24 @@ class COMET:
             # Store threshold result
             self._optimal_threshold_result = optimal_threshold
             
+            # Create threshold optimization plot using the first EEG file
+            if eeg_data_list:
+                try:
+                    plot_path = self.comet_microstate_backfitter.plot_threshold_optimization(
+                        eeg_data_list[0].get_data()
+                    )
+                    if plot_path and hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(
+                            f"📊 Threshold optimization plot saved: {plot_path}", 
+                            log_type="info"
+                        )
+                except Exception as plot_err:
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(
+                            f"⚠️ Could not create threshold optimization plot: {plot_err}", 
+                            log_type="warning"
+                        )
+            
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.append_log(
                     f"✅ Optimal threshold determined: {optimal_threshold:.1f}ms", 
@@ -2255,6 +2273,22 @@ class COMET:
             self.filter_segments_less_than_ms = (
                 self.comet_microstate_backfitter.identify_optimal_length_filter(eeg_data_list)
             )
+            
+            # Create threshold optimization plot using the first EEG file
+            try:
+                plot_path = self.comet_microstate_backfitter.plot_threshold_optimization(
+                    eeg_data_list[0].get_data()
+                )
+                if plot_path:
+                    self.logger.processing_info(
+                        "BACKFITTING",
+                        f"Threshold optimization plot saved: {plot_path}"
+                    )
+            except Exception as plot_err:
+                self.logger.warning(
+                    "BACKFITTING", 
+                    f"Could not create threshold optimization plot: {plot_err}"
+                )
             
             # If smoothing is selected, also find optimal lambda
             if (hasattr(self, "filter_segments_option") and 

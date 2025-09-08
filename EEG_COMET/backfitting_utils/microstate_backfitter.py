@@ -4,6 +4,8 @@ from collections import Counter
 import numpy as np
 from scipy.signal import find_peaks
 from scipy import stats
+import matplotlib.pyplot as plt
+import os
 
 
 class MicrostateBackfitter:
@@ -453,7 +455,7 @@ class MicrostateBackfitter:
         else:
             return 5.0  # Default lambda value
 
-    def find_optimal_threshold(self, eeg_data):
+    def find_optimal_threshold(self, eeg_data, return_plot_data=False):
         """Find optimal threshold for filtering short microstate segments.
         
         This method focuses on the most important criteria:
@@ -463,16 +465,18 @@ class MicrostateBackfitter:
 
         Args:
             eeg_data (np.ndarray): EEG data (n_channels, n_timepoints)
+            return_plot_data (bool): If True, return plotting data along with optimal threshold
 
         Returns:
-            float: Optimal threshold in milliseconds
+            float or tuple: If return_plot_data is False, returns optimal threshold in milliseconds.
+                          If return_plot_data is True, returns (optimal_threshold_ms, test_thresholds_ms, quality_scores)
         """
         # Get initial segmentation
         correlation_matrix = self.compute_correlation_matrix(eeg_data)
         initial_segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
         
         # Test thresholds
-        test_thresholds_ms = np.linspace(5, 50, 10)
+        test_thresholds_ms = np.linspace(5, 50, 16)
         
         quality_scores = []
         
@@ -500,7 +504,84 @@ class MicrostateBackfitter:
         # Convert back to milliseconds based on actual sample count
         optimal_threshold_ms = optimal_samples * 1000 / self.sample_rate
         
+        if return_plot_data:
+            return optimal_threshold_ms, test_thresholds_ms, quality_scores
         return optimal_threshold_ms
+    
+    def plot_threshold_optimization(self, eeg_data, save_path=None):
+        """Plot quality scores for different thresholds with optimal value highlighted.
+        
+        Args:
+            eeg_data (np.ndarray): EEG data (n_channels, n_timepoints)
+            save_path (str, optional): Path to save the plot. If None, uses segmentation_path.
+            
+        Returns:
+            str: Path where the plot was saved
+        """
+        # Get plotting data
+        optimal_threshold, test_thresholds, quality_scores = self.find_optimal_threshold(
+            eeg_data, return_plot_data=True
+        )
+        
+        # Create the plot
+        plt.figure(figsize=(10, 6))
+        plt.plot(test_thresholds, quality_scores, 'b-o', linewidth=2, markersize=6, label='Quality Score')
+        
+        # Highlight the optimal threshold
+        optimal_idx = np.argmin(np.abs(test_thresholds - optimal_threshold))
+        plt.plot(test_thresholds[optimal_idx], quality_scores[optimal_idx], 
+                'ro', markersize=10, label=f'Optimal: {optimal_threshold:.1f}ms')
+        
+        # Formatting
+        plt.xlabel('Threshold Duration (ms)', fontsize=12)
+        plt.ylabel('Quality Score', fontsize=12)
+        plt.title('Automatic Short Window Length Detection\nQuality Score vs Threshold Duration', fontsize=14)
+        plt.grid(True, alpha=0.3)
+        plt.legend(fontsize=11)
+        
+        # Add text box with optimal value
+        textstr = f'Optimal Threshold: {optimal_threshold:.1f} ms\nQuality Score: {quality_scores[optimal_idx]:.3f}'
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+        plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
+                verticalalignment='top', bbox=props)
+        
+        plt.tight_layout()
+        
+        # Determine save path
+        if save_path is None:
+            # Try to use segmentation_path first
+            if hasattr(self, 'segmentation_path') and self.segmentation_path:
+                save_dir = self.segmentation_path
+            else:
+                # Fallback to current working directory
+                save_dir = os.getcwd()
+            
+            # Ensure directory exists
+            try:
+                os.makedirs(save_dir, exist_ok=True)
+                if not os.path.exists(save_dir):
+                    raise OSError(f"Failed to create directory: {save_dir}")
+            except Exception as e:
+                # Final fallback to current directory
+                save_dir = os.getcwd()
+                os.makedirs(save_dir, exist_ok=True)
+            
+            save_path = os.path.join(save_dir, 'threshold_optimization_plot.png')
+        
+        # Save the plot
+        try:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            # Verify the file was created
+            if os.path.exists(save_path):
+                return save_path
+            else:
+                return None
+                
+        except Exception as e:
+            plt.close()  # Ensure plot is closed even if save fails
+            return None
     
     def find_optimal_lambda(self, eeg_data, threshold_ms, test_range=(1, 10), n_tests=5):
         """Find optimal non-smoothness penalty (lambda) for smoothing.
