@@ -471,8 +471,8 @@ class MicrostateBackfitter:
         correlation_matrix = self.compute_correlation_matrix(eeg_data)
         initial_segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
         
-        # Test fewer thresholds for speed (10 instead of 20)
-        test_thresholds_ms = np.linspace(5, 60, 10)  # Focus on realistic range
+        # Test thresholds
+        test_thresholds_ms = np.linspace(5, 60, 10)
         
         quality_scores = []
         
