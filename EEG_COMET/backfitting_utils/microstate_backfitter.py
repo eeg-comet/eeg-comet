@@ -472,7 +472,7 @@ class MicrostateBackfitter:
         initial_segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
         
         # Test thresholds
-        test_thresholds_ms = np.linspace(5, 60, 10)
+        test_thresholds_ms = np.linspace(5, 50, 10)
         
         quality_scores = []
         
@@ -490,8 +490,8 @@ class MicrostateBackfitter:
         best_idx = np.argmax(quality_scores)
         optimal_threshold = test_thresholds_ms[best_idx]
         
-        # Ensure reasonable bounds (between 10-50ms typically)
-        optimal_threshold = max(10.0, min(50.0, optimal_threshold))
+        # Ensure reasonable bounds (between 10-40ms typically)
+        optimal_threshold = max(10.0, min(40.0, optimal_threshold))
         
         # Convert to valid sample count and back to ensure it's sampling-rate appropriate
         optimal_samples = int(round(optimal_threshold * self.sample_rate / 1000))
