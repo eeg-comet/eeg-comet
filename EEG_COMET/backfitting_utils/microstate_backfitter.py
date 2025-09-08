@@ -1,9 +1,9 @@
 """Backfitting algorithms for EEG microstates used by EEG-COMET."""
 
 from collections import Counter
-
 import numpy as np
 from scipy.signal import find_peaks
+from scipy import stats
 
 
 class MicrostateBackfitter:
@@ -296,32 +296,6 @@ class MicrostateBackfitter:
             correlation_matrix = np.dot(self.microstate_maps, data_2d) / denominator
         return np.nan_to_num(correlation_matrix, nan=0.0, posinf=0.0, neginf=0.0)
 
-    def goodness_fit_segmentation(self, eeg_data, labeled_segmentation):
-        """Calculate the goodness of fit for the labeled segmentation compared to the EEG data.
-
-        Args:
-            self: The MicrostateBackfitter instance.
-            eeg_data (numpy.ndarray): Array containing the EEG data.
-            labeled_segmentation (numpy.ndarray): Array containing the labeled segmentation.
-
-        Returns:
-            float: The mean similarity score between the microstate maps and the EEG data.
-        """
-        similarity_mean = 0
-        for m in range(len(self.microstate_labels)):
-            microstate_map = self.microstate_maps[m, :]
-            microstate_map_norm = np.linalg.norm(microstate_map)
-            data_indices = [
-                i for i, x in enumerate(labeled_segmentation) if x == self.microstate_labels[m]
-            ]
-            eeg_data_segment = eeg_data[:, data_indices]
-            eeg_data_segment_norm = np.linalg.norm(eeg_data_segment, axis=0)
-            # Compute the dot product
-            dot_product = np.dot(microstate_map, eeg_data_segment)
-            # Compute the cosine similarity
-            similarity = abs(dot_product / (microstate_map_norm * eeg_data_segment_norm))
-            similarity_mean = similarity_mean + similarity.mean()
-        return similarity_mean / len(self.microstate_labels)
 
     @staticmethod
     def mark_short_segments(segmentation, min_occurrence):
@@ -361,98 +335,302 @@ class MicrostateBackfitter:
 
         return np.asarray(new_segmentation)
 
-    @staticmethod
-    def find_optimal_index(values, threshold=0.001):
-        """Find the index of the last value in the list where the rate of change is below the given threshold.
+
+
+    def identify_optimal_length_filter(self, eeg_files_data, progress_callback=None):
+        """Identify the optimal length filter using simplified and efficient approach.
 
         Args:
-            values (list or numpy.ndarray): List of values.
-            threshold (float, optional): Threshold for the rate of change. Defaults to 0.001.
+            eeg_files_data (list): List of EEG data arrays or file paths to analyze.
+            progress_callback (callable, optional): Callback for progress updates.
 
         Returns:
-            int: Index of the last value where the rate of change is below the threshold.
+            int: The optimal length filter in milliseconds.
         """
-        for i in range(1, len(values)):
-            rate_of_change = values[i] - values[i - 1]
-            if rate_of_change < threshold:
-                return i - 1
-        return len(values) - 1
-
-    def get_similarity_score(self, eeg, rm_max_len=50):
-        """Calculate the similarity score between the microstate maps and the EEG data.
-
-        Args:
-            eeg (numpy.ndarray): Array containing the EEG data.
-            rm_max_len (int, optional): Maximum length of segments to remove. Defaults to 50.
-
-        Returns:
-            float: The similarity score between the microstate maps and the EEG data.
-        """
-        # Load EEG data
-        eeg_data = eeg.get_data()
-
-        # Ensure data is 2D: (n_channels, n_samples). If epoched, concatenate across epochs.
-        if eeg_data.ndim == 3:
-            # Concatenate epochs along the time axis: (n_epochs, n_channels, n_times) -> (n_channels, n_epochs*n_times)
-            data_2d = np.concatenate([eeg_data[i] for i in range(eeg_data.shape[0])], axis=1)
+        optimal_thresholds = []
+        total_files = len(eeg_files_data)
+        
+        for file_idx, eeg_data in enumerate(eeg_files_data):
+            if progress_callback:
+                progress_callback(file_idx, total_files, f"Analyzing data file {file_idx + 1}/{total_files}")
+            
+            try:
+                # Handle different input types
+                if isinstance(eeg_data, str):
+                    continue  # Skip file paths for now
+                elif hasattr(eeg_data, 'get_data'):
+                    data_array = eeg_data.get_data()
+                elif isinstance(eeg_data, np.ndarray):
+                    data_array = eeg_data
+                else:
+                    continue
+                
+                # Ensure 2D format
+                if data_array.ndim == 3:
+                    data_2d = np.concatenate([data_array[i] for i in range(data_array.shape[0])], axis=1)
+                else:
+                    data_2d = data_array
+                
+                if data_2d.size == 0:
+                    continue
+                
+                # Find optimal threshold for this file
+                optimal_threshold = self.find_optimal_threshold(data_2d)
+                optimal_thresholds.append(optimal_threshold)
+                
+            except Exception:
+                continue
+        
+        if optimal_thresholds:
+            median_threshold = np.median(optimal_thresholds)
+            
+            # Convert to valid sample count and back to ensure sampling-rate alignment
+            optimal_samples = int(round(median_threshold * self.sample_rate / 1000))
+            optimal_samples = max(1, optimal_samples)  # At least 1 sample
+            final_threshold_ms = optimal_samples * 1000 / self.sample_rate
+            
+            if progress_callback:
+                progress_callback(total_files, total_files, f"Optimal threshold: {final_threshold_ms:.1f}ms ({optimal_samples} samples)")
+            return final_threshold_ms
         else:
-            data_2d = eeg_data
+            # Default 20ms threshold, also adjusted for sampling rate
+            default_samples = max(1, int(round(20 * self.sample_rate / 1000)))
+            default_threshold_ms = default_samples * 1000 / self.sample_rate
+            return default_threshold_ms
+    
+    def find_optimal_lambda_for_files(self, eeg_files_data, threshold_ms, progress_callback=None):
+        """Find optimal lambda (non-smoothness penalty) across multiple files.
+        
+        Args:
+            eeg_files_data (list): List of EEG data arrays to analyze
+            threshold_ms (float): Threshold duration in milliseconds to use
+            progress_callback (callable, optional): Callback for progress updates
+            
+        Returns:
+            float: Optimal lambda value
+        """
+        optimal_lambdas = []
+        total_files = len(eeg_files_data)
+        
+        for file_idx, eeg_data in enumerate(eeg_files_data):
+            if progress_callback:
+                progress_callback(total_files + file_idx + 1, total_files * 2, f"Optimizing smoothing parameter for file {file_idx + 1}/{total_files}")
+            
+            try:
+                # Handle different input types
+                if isinstance(eeg_data, str):
+                    continue  # Skip file paths for now
+                elif hasattr(eeg_data, 'get_data'):
+                    data_array = eeg_data.get_data()
+                elif isinstance(eeg_data, np.ndarray):
+                    data_array = eeg_data
+                else:
+                    continue
+                
+                # Ensure 2D format
+                if data_array.ndim == 3:
+                    data_2d = np.concatenate([data_array[i] for i in range(data_array.shape[0])], axis=1)
+                else:
+                    data_2d = data_array
+                
+                if data_2d.size == 0:
+                    continue
+                
+                # Find optimal lambda for this file
+                optimal_lambda = self.find_optimal_lambda(data_2d, threshold_ms)
+                optimal_lambdas.append(optimal_lambda)
+                
+            except Exception:
+                continue
+        
+        if optimal_lambdas:
+            median_lambda = np.median(optimal_lambdas)
+            final_lambda = round(median_lambda, 1)
+            
+            if progress_callback:
+                progress_callback(total_files * 2, total_files * 2, f"Optimal smoothing parameter: λ={final_lambda}")
+            return final_lambda
+        else:
+            return 5.0  # Default lambda value
 
-        # Handle empty data defensively
-        if data_2d.size == 0 or data_2d.shape[1] == 0:
-            return 0.0
-
-        # Compute base segmentation once on the full (possibly concatenated) data
-        correlation_matrix = self.compute_correlation_matrix(data_2d)
-        segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
-
-        # Convert rm_max_len (ms) to a number of samples threshold
-        ms_per_sample = 1000.0 / float(self.sample_rate)
-        samples_threshold = int(round(rm_max_len / ms_per_sample))
-        if samples_threshold < 0:
-            samples_threshold = 0
-
-        # Mark short segments for removal
-        segmentation_marked = self.mark_short_segments(segmentation, samples_threshold)
-
-        # Label segments
-        labeled_segmentation = self.label_segments(np.array(segmentation_marked))
-
-        # Calculate similarity score
-        similarity_score = self.goodness_fit_segmentation(data_2d, labeled_segmentation)
-
-        return similarity_score
-
-    @staticmethod
-    def identify_optimal_length_filter(similarity_scores):
-        """Identify the optimal length filter based on the similarity scores.
+    def find_optimal_threshold(self, eeg_data):
+        """Find optimal threshold for filtering short microstate segments.
+        
+        This method focuses on the most important criteria:
+        1. Segment duration distribution analysis
+        2. Template correlation quality
+        3. Stability of segmentation
 
         Args:
-            similarity_scores (list or numpy.ndarray): List of similarity scores.
+            eeg_data (np.ndarray): EEG data (n_channels, n_timepoints)
 
         Returns:
-            int: The optimal length filter.
+            float: Optimal threshold in milliseconds
         """
-        # Convert similarity scores to numpy array
-        similarity_scores = np.array(similarity_scores)
+        # Get initial segmentation
+        correlation_matrix = self.compute_correlation_matrix(eeg_data)
+        initial_segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+        
+        # Test fewer thresholds for speed (10 instead of 20)
+        test_thresholds_ms = np.linspace(5, 60, 10)  # Focus on realistic range
+        
+        quality_scores = []
+        
+        for thresh_ms in test_thresholds_ms:
+            thresh_samples = int(thresh_ms * self.sample_rate / 1000)
+            
+            # Simple approach: mark short segments and compute quality
+            filtered_segmentation = self._filter_short_segments(initial_segmentation, thresh_samples)
+            
+            # Compute quality metrics
+            quality = self._compute_quality(eeg_data, filtered_segmentation)
+            quality_scores.append(quality)
+        
+        # Find the threshold with best quality score
+        best_idx = np.argmax(quality_scores)
+        optimal_threshold = test_thresholds_ms[best_idx]
+        
+        # Ensure reasonable bounds (between 10-50ms typically)
+        optimal_threshold = max(10.0, min(50.0, optimal_threshold))
+        
+        # Convert to valid sample count and back to ensure it's sampling-rate appropriate
+        optimal_samples = int(round(optimal_threshold * self.sample_rate / 1000))
+        optimal_samples = max(1, optimal_samples)  # At least 1 sample
+        
+        # Convert back to milliseconds based on actual sample count
+        optimal_threshold_ms = optimal_samples * 1000 / self.sample_rate
+        
+        return optimal_threshold_ms
+    
+    def find_optimal_lambda(self, eeg_data, threshold_ms, test_range=(1, 10), n_tests=5):
+        """Find optimal non-smoothness penalty (lambda) for smoothing.
+        
+        Args:
+            eeg_data (np.ndarray): EEG data (n_channels, n_timepoints)
+            threshold_ms (float): Threshold duration in milliseconds to use for smoothing
+            test_range (tuple): Range of lambda values to test (min, max)
+            n_tests (int): Number of lambda values to test
+            
+        Returns:
+            float: Optimal lambda value
+        """
+        # Get initial segmentation
+        correlation_matrix = self.compute_correlation_matrix(eeg_data)
+        initial_segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+        
+        # Convert threshold to samples
+        threshold_samples = int(threshold_ms * self.sample_rate / 1000)
+        
+        # Test different lambda values
+        test_lambdas = np.linspace(test_range[0], test_range[1], n_tests)
+        quality_scores = []
+        
+        for lamb in test_lambdas:
+            try:
+                # Apply smoothing with this lambda
+                smoothed_segmentation = self.segmentation_smooth(
+                    eeg_data, self.microstate_maps, len(self.microstate_maps),
+                    epsilon=1e-6, b=threshold_samples, lamb=lamb
+                )
+                
+                # Compute quality of smoothed segmentation
+                quality = self._compute_quality(eeg_data, smoothed_segmentation)
+                quality_scores.append(quality)
+                
+            except Exception:
+                # If smoothing fails, assign low quality
+                quality_scores.append(0.0)
+        
+        # Find lambda with best quality
+        if any(score > 0 for score in quality_scores):
+            best_idx = np.argmax(quality_scores)
+            optimal_lambda = test_lambdas[best_idx]
+            
+            # Round to reasonable precision
+            return round(optimal_lambda, 1)
+        else:
+            # Fallback to default if all failed
+            return 5.0
+    
+    def _compute_quality(self, eeg_data, segmentation):
+        """Compute quality metric focusing on key aspects.
 
-        # Initialize list to store optimal indices
-        optimal_indices = []
+        Args:
+            eeg_data (np.ndarray): EEG data (n_channels, n_timepoints)
+            segmentation (np.ndarray): Segmentation labels
 
-        # Loop through each row in the 2D array of similarity scores
-        for row in similarity_scores:
-            # Compute derivative of the row
-            derivative = np.diff(row)
+        Returns:
+            float: Quality score (higher is better)
+        """
+        valid_indices = segmentation != -1
+        if not np.any(valid_indices):
+            return 0.0
+        
+        valid_data = eeg_data[:, valid_indices]
+        valid_labels = segmentation[valid_indices]
+        
+        # 1. Template correlation quality (most important)
+        template_correlations = []
+        unique_labels = np.unique(valid_labels)
+        
+        for label in unique_labels:
+            if 0 <= label < len(self.microstate_maps):
+                label_mask = valid_labels == label
+                if np.any(label_mask):
+                    label_data = valid_data[:, label_mask]
+                    template = self.microstate_maps[label]
+                    
+                    # Compute correlations for this microstate
+                    corrs = []
+                    for t in range(label_data.shape[1]):
+                        corr = np.corrcoef(template, label_data[:, t])[0, 1]
+                        if not np.isnan(corr):
+                            corrs.append(abs(corr))
+                    
+                    if corrs:
+                        template_correlations.append(np.mean(corrs))
+        
+        template_quality = np.mean(template_correlations) if template_correlations else 0.0
+        
+        # 2. Segment stability (penalize too many transitions)
+        n_transitions = np.sum(np.diff(valid_labels) != 0)
+        stability_score = 1.0 / (1.0 + n_transitions / len(valid_labels))
+        
+        # 3. Data coverage (penalize removing too much data)
+        coverage_score = len(valid_labels) / len(segmentation)
+        
+        # Combine with appropriate weights
+        quality_score = (0.6 * template_quality + 
+                        0.3 * stability_score + 
+                        0.1 * coverage_score)
+        
+        return quality_score
 
-            # Find peaks in the derivative
-            peaks, _ = find_peaks(derivative)
-
-            # If peaks exist, select the first peak, otherwise use the length of the row
-            inflection_point = peaks[0] + 1 if len(peaks) > 0 else len(row)
-            # Append inflection point to optimal indices
-            optimal_indices.append(inflection_point)
-
-        return int(np.median(optimal_indices))
+    @staticmethod
+    def _filter_short_segments(segmentation, min_samples):
+        """Filter segments shorter than min_samples."""
+        if len(segmentation) == 0:
+            return segmentation
+            
+        filtered_seg = segmentation.copy()
+        current_label = filtered_seg[0]
+        start_idx = 0
+        
+        for i in range(1, len(filtered_seg)):
+            if filtered_seg[i] != current_label:
+                # Check if previous segment was too short
+                if i - start_idx < min_samples:
+                    # Mark as invalid (can be handled different ways)
+                    filtered_seg[start_idx:i] = -1
+                
+                start_idx = i
+                current_label = filtered_seg[i]
+        
+        # Check final segment
+        if len(filtered_seg) - start_idx < min_samples:
+            filtered_seg[start_idx:] = -1
+        
+        return filtered_seg
 
     def backfit2all(self, data, filter_segments_less_than):
         """Perform segmentation by backfitting microstate maps to all time points in the data.
@@ -534,9 +712,5 @@ class MicrostateBackfitter:
                 else self.backfit2all(eeg_data, filter_segments_less_than)
             )
             labeled_segmentation_array = self.label_segments(segmentation)
-
-        # TODO update this
-        # similarity_metric = self.goodness_fit_segmentation(trial_data, labeled_segmentation_array)
-        # segmentation_fit += similarity_metric
 
         return labeled_segmentation_array, segmentation_fit

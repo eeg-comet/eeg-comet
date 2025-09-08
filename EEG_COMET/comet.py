@@ -2095,15 +2095,23 @@ class COMET:
                 "BACKFITTING", "Identifying optimal smoothing window length"
             )
 
-            # Use worker thread for optimal window identification
+            # Use worker thread for optimal window identification to keep GUI responsive
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                # Create zipped file list for worker thread (same pattern as other processes)
-                zipped_files_for_window = list(zip(self.list_eegs_path, self.list_eegs))
+                # Calculate total progress steps: files + analysis + optional lambda optimization
+                n_files = len(self.list_eegs_path)
+                # If smoothing is selected, add steps for lambda optimization
+                if (hasattr(self, "filter_segments_option") and 
+                    self.filter_segments_option == "smooth"):
+                    total_steps = n_files * 2 + 1  # Threshold analysis + lambda optimization + final
+                else:
+                    total_steps = n_files + 1  # Just threshold analysis + final
+                
+                # Set up progress dialog for window identification
                 self.LogWindow.setup_progress_dialog(
                     window_title="Identifying Optimal Window ...",
-                    label_text="Identifying the optimal length of the smoothing window ...",
-                    tasks=zipped_files_for_window,
-                    processing_func=self._identify_optimal_window_worker,
+                    label_text="Analyzing optimal parameters for segment filtering ...",
+                    tasks=total_steps,
+                    processing_func=self._identify_optimal_window_worker_with_progress,
                 )
                 # Set callback to run when window identification worker thread finishes
                 self.LogWindow.process_finished_callback = self._on_window_identification_finished
@@ -2119,109 +2127,200 @@ class COMET:
             # Continue with backfitting immediately if no window identification needed
             self._continue_backfitting_process()
 
-    def _identify_optimal_window_worker(self, eeg_path, eeg_name, worker=None):
-        """Worker function for identifying optimal window length for a single file."""
+    def _identify_optimal_window_worker_with_progress(self, _step_mode, worker=None):
+        """Worker function for identifying optimal window length with simplified approach.
+        
+        Args:
+            _step_mode: Unused parameter (LogWindow passes "step_based_processing")
+            worker: Worker thread instance for progress updates and stop checking
+        """
         if worker is not None and getattr(worker, "stopped", False):
             return
 
-        # Log file processing start
+        n_files = len(self.list_eegs_path)
+        
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
-            self.LogWindow.append_log(f"Analyzing optimal window for {eeg_name}", log_type="file")
-
-        eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
-
-        # Initialize shared storage if not exists
-        if not hasattr(self, '_optimal_window_scores'):
-            self._optimal_window_scores = {}
-            self._optimal_window_params = {
-                'rm_max_len': 50,
-                'len_win2rm_list': list(range(0, 50, int(1000 / self.sample_rate)))
-            }
-
-        # Compute similarity scores for different segment removal lengths
-        file_scores = []
-        for len_win2rm in self._optimal_window_params['len_win2rm_list']:
-            score = self.comet_microstate_backfitter.get_similarity_score(
-                eeg=eeg, rm_max_len=len_win2rm
+            self.LogWindow.append_log("Starting optimal threshold analysis...", log_type="info")
+        
+        # Create progress callback for the backfitter
+        def progress_callback(current, total, message):
+            if worker is not None and getattr(worker, "stopped", False):
+                return False
+            
+            # Update progress with actual computation status
+            if hasattr(worker, 'progress_updated'):
+                worker.progress_updated.emit(current, message)
+                
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(message, log_type="info")
+                
+            return True
+        
+        try:
+            # Load EEG data one at a time (more memory efficient)
+            eeg_data_list = []
+            for i, eeg_path in enumerate(self.list_eegs_path):
+                if worker is not None and getattr(worker, "stopped", False):
+                    return
+                    
+                try:
+                    eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+                    eeg_data_list.append(eeg)
+                    
+                except Exception as e:
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(f"Failed to load {eeg_path}: {str(e)}", log_type="warning")
+                    continue
+            
+            if not eeg_data_list:
+                self._optimal_threshold_result = self.filter_segments_less_than
+                if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                    self.LogWindow.append_log("No data loaded, using default threshold", log_type="warning")
+                return
+            
+            # Find optimal threshold for filtering short segments
+            optimal_threshold = self.comet_microstate_backfitter.identify_optimal_length_filter(
+                eeg_data_list, progress_callback=progress_callback
             )
-            file_scores.append(score)
+            
+            # Store threshold result
+            self._optimal_threshold_result = optimal_threshold
+            
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(
+                    f"✅ Optimal threshold determined: {optimal_threshold:.1f}ms", 
+                    log_type="success"
+                )
+            
+            # If smoothing is selected, also find optimal lambda (non-smoothness penalty)
+            if (hasattr(self, "filter_segments_option") and 
+                self.filter_segments_option == "smooth"):
+                
+                if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                    self.LogWindow.append_log(
+                        "Finding optimal smoothing parameter (λ) for segment filtering...", 
+                        log_type="info"
+                    )
+                
+                optimal_lambda = self.comet_microstate_backfitter.find_optimal_lambda_for_files(
+                    eeg_data_list, optimal_threshold, progress_callback=progress_callback
+                )
+                
+                # Store lambda result
+                self._optimal_lambda_result = optimal_lambda
+                
+                if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                    self.LogWindow.append_log(
+                        f"✅ Optimal smoothing parameter determined: λ={optimal_lambda}", 
+                        log_type="success"
+                    )
+                
+                # Final progress update with both parameters
+                progress_callback(
+                    n_files * 2 + 1, n_files * 2 + 1, 
+                    f"Analysis complete - threshold: {optimal_threshold:.1f}ms, λ={optimal_lambda}"
+                )
+            else:
+                # Final progress update with just threshold
+                progress_callback(
+                    n_files + 1, n_files + 1, 
+                    f"Analysis complete - optimal threshold: {optimal_threshold:.1f}ms"
+                )
+            
+        except Exception as e:
+            # Handle any errors
+            error_msg = f"Error in optimal threshold analysis: {str(e)}"
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.append_log(error_msg, log_type="error")
+            
+            # Set fallback result
+            self._optimal_threshold_result = self.filter_segments_less_than
 
-        # Store results in shared storage
-        self._optimal_window_scores[eeg_name] = file_scores
 
-        # Log successful processing
-        if hasattr(self, "LogWindow") and self.LogWindow is not None:
-            self.LogWindow.append_log(f"Successfully analyzed {eeg_name}", log_type="success")
 
     def _identify_optimal_window_direct(self):
-        """Direct execution of optimal window identification (non-GUI mode)."""
-        rm_max_len = 50
-        len_win2rm_list = list(range(0, rm_max_len, int(1000 / self.sample_rate)))
-        similarity_scores = np.empty((len(self.list_eegs_path), len(len_win2rm_list)))
-
-        # Iterate through EEG files
-        for eeg_idx, (eeg_path, eeg_name) in enumerate(
-            zip(self.list_eegs_path, self.list_eegs)
-        ):
-            eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
-
-            # Compute similarity scores for different segment removal lengths
-            for idx_win2rm, len_win2rm in enumerate(len_win2rm_list):
-                similarity_scores[eeg_idx, idx_win2rm] = (
-                    self.comet_microstate_backfitter.get_similarity_score(
-                        eeg=eeg, rm_max_len=len_win2rm
-                    )
-                )
-
-        # Identify optimal length filter
-        self.filter_segments_less_than_ms = (
-            self.comet_microstate_backfitter.identify_optimal_length_filter(
-                similarity_scores=similarity_scores
+        """Direct execution of optimal window identification using simplified method."""
+        eeg_data_list = []
+        
+        # Load EEG data
+        for eeg_path in self.list_eegs_path:
+            try:
+                eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+                eeg_data_list.append(eeg)
+            except Exception:
+                continue  # Skip files that can't be loaded
+        
+        if eeg_data_list:
+            # Find optimal threshold for filtering short segments
+            self.filter_segments_less_than_ms = (
+                self.comet_microstate_backfitter.identify_optimal_length_filter(eeg_data_list)
             )
-        )
-        self.logger.processing_success(
-            "BACKFITTING",
-            f"Optimal filter length determined: {self.filter_segments_less_than_ms} ms",
-        )
+            
+            # If smoothing is selected, also find optimal lambda
+            if (hasattr(self, "filter_segments_option") and 
+                self.filter_segments_option == "smooth"):
+                
+                self.lamb = self.comet_microstate_backfitter.find_optimal_lambda_for_files(
+                    eeg_data_list, self.filter_segments_less_than_ms
+                )
+                
+                # Log both parameters
+                self.logger.processing_success(
+                    "BACKFITTING",
+                    f"Optimal parameters determined: {self.filter_segments_less_than_ms:.1f}ms, λ={self.lamb}",
+                )
+            else:
+                # Log just threshold
+                self.logger.processing_success(
+                    "BACKFITTING",
+                    f"Optimal filter length determined: {self.filter_segments_less_than_ms:.1f}ms",
+                )
+        else:
+            # Fallback if no data could be loaded
+            self.filter_segments_less_than_ms = self.filter_segments_less_than
+            self.logger.warning(
+                "BACKFITTING", 
+                "No EEG data could be loaded, using default filter value"
+            )
 
         # Continue with backfitting process
         self._continue_backfitting_process()
 
     def _on_window_identification_finished(self, _message=None):
-        """Handle completion of optimal window identification."""
+        """Handle completion of optimal window identification worker."""
         try:
-            # Collect results from all files
-            if hasattr(self, '_optimal_window_scores') and self._optimal_window_scores:
-                # Convert results to numpy array format
-                file_names = list(self._optimal_window_scores.keys())
-                similarity_scores = np.array([
-                    self._optimal_window_scores[name] for name in file_names
-                ])
-
-                # Identify optimal length filter
-                self.filter_segments_less_than_ms = (
-                    self.comet_microstate_backfitter.identify_optimal_length_filter(
-                        similarity_scores=similarity_scores
-                    )
-                )
-
-                self.logger.processing_success(
-                    "BACKFITTING",
-                    f"Optimal filter length determined: {self.filter_segments_less_than_ms} ms",
-                )
-
-                # Clean up shared storage
-                delattr(self, '_optimal_window_scores')
-                delattr(self, '_optimal_window_params')
+            # Get threshold result from worker
+            if hasattr(self, '_optimal_threshold_result'):
+                self.filter_segments_less_than_ms = self._optimal_threshold_result
+                # Clean up temporary result
+                delattr(self, '_optimal_threshold_result')
             else:
-                # Fallback if no results
+                # Fallback if no result available
                 self.filter_segments_less_than_ms = self.filter_segments_less_than
                 self.logger.warning(
                     "BACKFITTING", 
-                    "No optimal window results available, using default value"
+                    "No threshold result from worker, using default filter value"
+                )
+            
+            # Get lambda result from worker if smoothing was optimized
+            if hasattr(self, '_optimal_lambda_result'):
+                self.lamb = self._optimal_lambda_result
+                # Clean up temporary result
+                delattr(self, '_optimal_lambda_result')
+                
+                # Log both results
+                self.logger.processing_success(
+                    "BACKFITTING",
+                    f"Optimal parameters determined: {self.filter_segments_less_than_ms:.1f}ms, λ={self.lamb}",
+                )
+            else:
+                # Log just threshold result
+                self.logger.processing_success(
+                    "BACKFITTING",
+                    f"Optimal filter length determined: {self.filter_segments_less_than_ms:.1f}ms",
                 )
 
-            # Clear the callback
+            # Clear the callback (worker cleanup handled by LogWindow)
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.process_finished_callback = None
 
@@ -2233,6 +2332,7 @@ class COMET:
             self.logger.error("BACKFITTING", error_msg)
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type="error")
+                self.LogWindow.process_finished_callback = None
 
             # Fallback and continue
             self.filter_segments_less_than_ms = self.filter_segments_less_than
