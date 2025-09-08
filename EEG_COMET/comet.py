@@ -1125,6 +1125,9 @@ class COMET:
                 self.comet_microstate_io.export_microstates(
                     self.best_maps, self.eeg_info, self.microstate_maps_path
                 )
+                
+                # Update micro_labels to match the new number of states
+                self.load_maps()
 
                 # Additional logging for best result updates
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1150,6 +1153,14 @@ class COMET:
         if self.best_maps is not None:
             # Compute final GEV
             self.best_gev = self.compute_gev_all_data()
+
+            # Ensure micro_labels are updated for the new number of states
+            try:
+                self.load_maps()
+            except Exception as e:
+                self.logger.warning("CLUSTERING", f"Could not load maps after clustering stop: {e}")
+                # Generate default labels if loading fails
+                self.micro_labels = [f"Microstate {i+1}" for i in range(self.number_of_maps)]
 
             # Mark clustering as completed (even if stopped early)
             self.done_clustering = True
@@ -1335,6 +1346,9 @@ class COMET:
         """Perform clustering on preprocessed EEG data with automatic or manual k selection
         Enhanced with proper TAAHC progress tracking and batch processing support.
         """
+        # Reset microstate labeling flag since new clustering will invalidate previous labels
+        self.done_microstate_labeling = False
+        
         # Log section header
         self.logger.section_header("CLUSTERING")
 
@@ -1714,6 +1728,14 @@ class COMET:
                     self.best_gev = best_gev
                     self.best_residual = best_residual
 
+                    # Ensure micro_labels are updated for the new number of states
+                    try:
+                        self.load_maps()
+                    except Exception as e:
+                        self.logger.warning("CLUSTERING", f"Could not load maps after clustering: {e}")
+                        # Generate default labels if loading fails
+                        self.micro_labels = [f"Microstate {i+1}" for i in range(self.number_of_maps)]
+
                     self.logger.processing_info(
                         "CLUSTERING",
                         f"Best GEV: {100 * self.best_gev:.3f}%, Best residual: {self.best_residual:.6f}",
@@ -1762,6 +1784,14 @@ class COMET:
             self.best_maps = best_maps
             self.best_gev = best_gev
             self.best_residual = best_residual
+
+            # Ensure micro_labels are updated for the new number of states
+            try:
+                self.load_maps()
+            except Exception as e:
+                self.logger.warning("CLUSTERING", f"Could not load maps after partial clustering: {e}")
+                # Generate default labels if loading fails
+                self.micro_labels = [f"Microstate {i+1}" for i in range(self.number_of_maps)]
 
             partial_msg = f"Partial results saved from {completed_repetitions} completed clustering repetitions"
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
