@@ -10,6 +10,7 @@ dependencies:
     - h5py==3.14.0
     - invertmeeg==0.1.0
     - mne==1.8.0
+    - mne-bids==0.16.0
     - mne-qt-browser==0.6.3
     - onnxruntime==1.19.0
     - opencv-python==4.11.0.86

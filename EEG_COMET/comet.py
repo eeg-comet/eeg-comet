@@ -742,15 +742,35 @@ class COMET:
         return False
 
     def load_raw(self):
-        """Locate EEG file paths."""
+        """Locate EEG file paths, with BIDS support."""
         # Check if load_all_files attribute exists, set it to True if not
         if not hasattr(self, "load_all_files"):
             self.load_all_files = True
 
         self.pattern = "*" if self.load_all_files else "*" + self.pattern_content + "*"
-        self.list_eegs_path, self.list_eegs = self.comet_data_io.find_data(
-            input_folder=self.input_folder, extension=self.extension, pattern=self.pattern
+        
+        # Check if we should exclude derivatives folder for BIDS raw data
+        exclude_derivatives = (
+            hasattr(self, 'bids_dataset') and self.bids_dataset and
+            hasattr(self, 'bids_choice') and self.bids_choice == 'raw'
         )
+        
+        # Use regular data loading (input_folder is already set correctly for BIDS)
+        self.list_eegs_path, self.list_eegs = self.comet_data_io.find_data(
+            input_folder=self.input_folder, 
+            extension=self.extension, 
+            pattern=self.pattern,
+            exclude_derivatives=exclude_derivatives
+        )
+        
+        # Log BIDS info if applicable
+        if hasattr(self, 'bids_dataset') and self.bids_dataset:
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                bids_type = "Derivatives" if hasattr(self, 'bids_choice') and self.bids_choice == 'derivative' else "Raw"
+                self.LogWindow.append_log(
+                    f"Loaded BIDS {bids_type} data: {len(self.list_eegs_path)} files found", 
+                    log_type="info"
+                )
 
     def load_clean(self):
         """Locate EEG file paths that were automatically cleaned."""
@@ -878,9 +898,46 @@ class COMET:
 
         # --- NEW: Extract event information and store for later use ---
         try:
+            # Try to get events from annotations first
             events, event_id = mne.events_from_annotations(eeg)
         except Exception:
             events, event_id = None, {}
+            
+        # If no events found in annotations and this is a BIDS dataset, try to find BIDS events
+        if (events is None or len(events) == 0) and hasattr(self, 'bids_dataset') and self.bids_dataset:
+            bids_events_file = self._find_bids_events_file(eeg_path, eeg_name)
+            if bids_events_file:
+                try:
+                    import pandas as pd
+                    # Load BIDS events file
+                    events_df = pd.read_csv(bids_events_file, sep='\t')
+                    
+                    if 'onset' in events_df.columns and 'trial_type' in events_df.columns:
+                        # Convert BIDS events to MNE annotations
+                        onset = events_df['onset'].values
+                        duration = events_df.get('duration', [0] * len(onset)).values
+                        description = events_df['trial_type'].values
+                        
+                        # Create annotations from BIDS events
+                        annotations = mne.Annotations(onset=onset, duration=duration, description=description)
+                        eeg.set_annotations(annotations)
+                        
+                        # Get events from the new annotations
+                        events, event_id = mne.events_from_annotations(eeg)
+                        
+                        if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                            self.LogWindow.append_log(
+                                f"Loaded BIDS events for {eeg_name}: {list(event_id.keys())}",
+                                log_type="info"
+                            )
+                            
+                except Exception as e:
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log(
+                            f"Failed to load BIDS events for {eeg_name}: {str(e)}",
+                            log_type="warning"
+                        )
+        
         if events is not None and len(events) > 0:
             # Build a dictionary {event_name: [onset_times_in_sec, ...]}
             event_info = {}
@@ -951,6 +1008,45 @@ class COMET:
         # Log successful processing
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             self.LogWindow.append_log(f"Successfully preprocessed {eeg_name}", log_type="success")
+
+    def _find_bids_events_file(self, eeg_path, eeg_name):
+        """Find the corresponding BIDS events file for an EEG file.
+        
+        Args:
+            eeg_path (str): Full path to the EEG file
+            eeg_name (str): Name of the EEG file
+            
+        Returns:
+            str or None: Path to events file if found, None otherwise
+        """
+        try:
+            # Get the directory containing the EEG file
+            eeg_dir = os.path.dirname(eeg_path)
+            
+            # Extract the base name without extension
+            eeg_stem = os.path.splitext(eeg_name)[0]
+            
+            # Look for events file with same base name
+            events_file = os.path.join(eeg_dir, f"{eeg_stem}_events.tsv")
+            if os.path.exists(events_file):
+                return events_file
+            
+            # If in derivatives, also check the corresponding raw data folder
+            if 'derivatives' in eeg_path and hasattr(self, 'bids_choice') and self.bids_choice == 'derivative':
+                # Try to find the original BIDS root
+                parts = eeg_path.split(os.sep)
+                if 'derivatives' in parts:
+                    deriv_idx = parts.index('derivatives')
+                    # Reconstruct path to raw data
+                    raw_parts = parts[:deriv_idx] + parts[deriv_idx+2:]  # Skip 'derivatives' and next folder
+                    raw_eeg_dir = os.path.join(*raw_parts[:-1])  # Remove filename
+                    raw_events_file = os.path.join(raw_eeg_dir, f"{eeg_stem}_events.tsv")
+                    if os.path.exists(raw_events_file):
+                        return raw_events_file
+            
+            return None
+        except Exception:
+            return None
 
     def get_preprocessed_eeg(self, subject_name):
         """Load a preprocessed EEG file on demand instead of keeping it in memory."""

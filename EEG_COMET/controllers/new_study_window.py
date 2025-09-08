@@ -2,9 +2,10 @@
 
 import os.path
 import re
-
 import numpy as np
 import mne
+import mne_bids
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from mne.channels import get_builtin_montages, make_standard_montage
@@ -400,8 +401,259 @@ class NewStudyWindow(QDialog):
         self.input_folder = QFileDialog.getExistingDirectory(
             self, "Select the folder containing raw data"
         )
-        self.ui.step1_input_path_lineedit.setText(self.input_folder)
-        self.newstudy_controller()
+        
+        if self.input_folder:
+            # Check if this is a BIDS dataset
+            if self._is_bids_dataset(self.input_folder):
+                # Ask user if they want to load raw or derivative data
+                bids_choice = self._show_bids_choice_dialog()
+                if bids_choice is None:  # User cancelled
+                    return
+                
+                # Store the BIDS choice for later use
+                self.bids_dataset = True
+                self.bids_choice = bids_choice
+                
+                # Set the appropriate folder based on choice
+                if bids_choice == "derivative":
+                    derivatives_folder = self._find_derivatives_folder(self.input_folder)
+                    if derivatives_folder:
+                        self.input_folder = derivatives_folder
+                        self.ui.step1_input_path_lineedit.setText(f"{self.input_folder} (BIDS Derivatives)")
+                        # Automatically load derivative data
+                        self._auto_load_bids_data()
+                        return  # Early return to avoid the general auto-load below
+                    else:
+                        # Show fallback message and quality warning
+                        fallback_response = self._show_derivatives_fallback_warning()
+                        if fallback_response == QMessageBox.Yes:
+                            self.bids_choice = "raw"
+                            self.ui.step1_input_path_lineedit.setText(f"{self.input_folder} (BIDS Raw)")
+                            # Automatically load fallback raw data
+                            self._auto_load_bids_data()
+                            return  # Early return to avoid the general auto-load below
+                        else:
+                            # User chose not to proceed with raw data fallback
+                            return
+                else:
+                    # For raw data, keep the original BIDS root folder
+                    self.ui.step1_input_path_lineedit.setText(f"{self.input_folder} (BIDS Raw)")
+                
+                # Automatically load data after BIDS choice is confirmed
+                self._auto_load_bids_data()
+            else:
+                # Not a BIDS dataset, proceed normally
+                self.bids_dataset = False
+                self.ui.step1_input_path_lineedit.setText(self.input_folder)
+            
+            self.newstudy_controller()
+
+    def _is_bids_dataset(self, folder_path):
+        """Check if the given folder is a BIDS dataset.
+        
+        Args:
+            folder_path (str): Path to the folder to check
+            
+        Returns:
+            bool: True if it's a BIDS dataset, False otherwise
+        """
+        try:
+            # Check for dataset_description.json file
+            dataset_description = os.path.join(folder_path, "dataset_description.json")
+            if not os.path.exists(dataset_description):
+                return False
+            
+            # Check for participants.tsv (optional but common)
+            participants_file = os.path.join(folder_path, "participants.tsv")
+            
+            # Check for subject directories
+            has_subjects = False
+            for item in os.listdir(folder_path):
+                item_path = os.path.join(folder_path, item)
+                if os.path.isdir(item_path) and item.startswith('sub-'):
+                    has_subjects = True
+                    break
+            
+            # Check for EEG files in subject directories
+            if has_subjects:
+                try:
+                    # Get list of subjects using mne-bids
+                    subjects = mne_bids.get_entity_vals(folder_path, 'subject')
+                    if subjects:
+                        return True
+                except Exception:
+                    pass
+            
+            return False
+        except Exception:
+            # If any error occurs, it's likely not a proper BIDS dataset
+            return False
+    
+    def _show_bids_choice_dialog(self):
+        """Show dialog asking user to choose between raw and derivative BIDS data.
+        
+        Returns:
+            str or None: "raw" or "derivative" if user chose, None if cancelled
+        """
+        from PyQt5.QtWidgets import QDialogButtonBox, QVBoxLayout, QLabel
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("BIDS Dataset Detected")
+        dialog.setModal(True)
+        
+        layout = QVBoxLayout()
+        
+        # Add informative text
+        label = QLabel(
+            "A BIDS (Brain Imaging Data Structure) dataset has been detected.\n\n"
+            "Would you like to load:\n"
+            "• Raw data: Original unprocessed EEG files\n"
+            "• Derivative data: Preprocessed EEG files (if available)\n\n"
+            "Choose the type of data you want to import:"
+        )
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        
+        # Add buttons
+        button_box = QDialogButtonBox()
+        raw_button = button_box.addButton("Raw Data", QDialogButtonBox.AcceptRole)
+        derivative_button = button_box.addButton("Derivative Data", QDialogButtonBox.AcceptRole)
+        cancel_button = button_box.addButton("Cancel", QDialogButtonBox.RejectRole)
+        
+        layout.addWidget(button_box)
+        dialog.setLayout(layout)
+        
+        result = None
+        
+        def on_button_clicked(button):
+            nonlocal result
+            if button == raw_button:
+                # Show data quality warning for raw BIDS data
+                warning_response = self._show_raw_data_warning()
+                if warning_response == QMessageBox.Yes:
+                    result = "raw"
+                    dialog.accept()
+                else:
+                    # User chose not to proceed with raw data
+                    result = None
+            elif button == derivative_button:
+                result = "derivative"
+                dialog.accept()
+            else:
+                result = None
+                dialog.reject()
+        
+        button_box.clicked.connect(on_button_clicked)
+        
+        dialog.exec_()
+        return result
+    
+    def _show_raw_data_warning(self):
+        """Show warning dialog about raw BIDS data quality considerations.
+        
+        Returns:
+            int: QMessageBox.Yes if user wants to proceed, QMessageBox.No otherwise
+        """
+        warning_msg = QMessageBox(self)
+        warning_msg.setIcon(QMessageBox.Warning)
+        warning_msg.setWindowTitle("Raw BIDS Data - Quality Check Required")
+        warning_msg.setText(
+            "<b>Important: Raw Data Quality Considerations</b>"
+        )
+        warning_msg.setInformativeText(
+            "You have selected <b>raw BIDS data</b> which typically contains unprocessed EEG recordings.\n\n"
+            "<b>⚠️ Critical Notice:</b>\n"
+            "Microstate analysis results are <b>directly dependent on properly artifact-rejected data</b>. "
+            "Raw data containing artifacts (eye movements, muscle activity, line noise, bad channels) "
+            "will produce unreliable microstate maps and invalid analysis outcomes.\n\n"
+            "<b>Recommendation:</b> Use preprocessed derivative data if available, or ensure your raw data "
+            "has been thoroughly cleaned and artifact-free before proceeding.\n\n"
+            "Do you want to proceed with raw data analysis?"
+        )
+        warning_msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        warning_msg.setDefaultButton(QMessageBox.No)
+        
+        # Style the buttons for clarity
+        yes_button = warning_msg.button(QMessageBox.Yes)
+        no_button = warning_msg.button(QMessageBox.No)
+        yes_button.setText("Proceed with Raw Data")
+        no_button.setText("Go Back")
+        
+        return warning_msg.exec_()
+    
+    def _show_derivatives_fallback_warning(self):
+        """Show warning when derivatives are requested but not found, falling back to raw data.
+        
+        Returns:
+            int: QMessageBox.Yes if user wants to proceed with raw data, QMessageBox.No otherwise
+        """
+        warning_msg = QMessageBox(self)
+        warning_msg.setIcon(QMessageBox.Warning)
+        warning_msg.setWindowTitle("Derivatives Not Found - Raw Data Fallback")
+        warning_msg.setText(
+            "<b>No Derivative Data Found</b>"
+        )
+        warning_msg.setInformativeText(
+            "No preprocessed derivative data was found in this BIDS dataset. "
+            "The system will fall back to using <b>raw data</b> instead.\n\n"
+            "<b>⚠️ Critical Notice:</b>\n"
+            "Microstate analysis results are <b>directly dependent on properly artifact-rejected data</b>. "
+            "Raw data containing artifacts (eye movements, muscle activity, line noise, bad channels) "
+            "will produce unreliable microstate maps and invalid analysis outcomes.\n\n"
+            "<b>Recommendation:</b> Ensure your raw data has been thoroughly cleaned and "
+            "artifact-free before proceeding.\n\n"
+            "Do you want to proceed with raw data analysis?"
+        )
+        warning_msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        warning_msg.setDefaultButton(QMessageBox.No)
+        
+        # Style the buttons for clarity
+        yes_button = warning_msg.button(QMessageBox.Yes)
+        no_button = warning_msg.button(QMessageBox.No)
+        yes_button.setText("Proceed with Raw Data")
+        no_button.setText("Cancel")
+        
+        return warning_msg.exec_()
+    
+    def _auto_load_bids_data(self):
+        """Automatically load BIDS data after user confirms their choice.
+        
+        This method replicates the functionality of the load_raw button
+        to provide a seamless user experience after BIDS selection.
+        """
+        try:
+            # Update controller state first
+            self.newstudy_controller()
+            
+            # Automatically trigger the load_raw functionality
+            self.load_raw()
+            
+        except Exception as e:
+            # If auto-loading fails, show error and let user use manual button
+            QMessageBox.warning(
+                self,
+                "Auto-Load Failed",
+                f"Automatic data loading failed: {str(e)}\n\n"
+                "Please use the 'Import Raw Data' button to load files manually."
+            )
+    
+    def _find_derivatives_folder(self, bids_root):
+        """Find the derivatives folder in a BIDS dataset.
+        
+        Args:
+            bids_root (str): Root path of the BIDS dataset
+            
+        Returns:
+            str or None: Path to derivatives folder if found, None otherwise
+        """
+        derivatives_path = os.path.join(bids_root, "derivatives")
+        if os.path.exists(derivatives_path):
+            # Check if derivatives folder contains any EEG files
+            for root, dirs, files in os.walk(derivatives_path):
+                for file in files:
+                    if any(file.endswith(ext) for ext in ['.vhdr', '.edf', '.bdf', '.set', '.fif', '.dat']):
+                        return derivatives_path
+        return None
 
     def load_custom_montage(self):
         """Load custom montage file(s) and set the channel location path.
@@ -479,9 +731,23 @@ class NewStudyWindow(QDialog):
         if current_item is None:
             return
         filename = current_item.text()
-        eeg = DataIO().load_eeg(filename, self.comet.datatype, montage=None)  # Don't force montage
-        data_channel_names = eeg.info["ch_names"]
-        self.ui.step2_ch2rm_combobox.addItems(data_channel_names)
+        try:
+            eeg = DataIO().load_eeg(filename, self.comet.datatype, montage=None)  # Don't force montage
+            data_channel_names = eeg.info["ch_names"]
+            self.ui.step2_ch2rm_combobox.addItems(data_channel_names)
+        except ValueError as e:
+            # Check if this is a data format mismatch error
+            if "Data format mismatch" in str(e):
+                QMessageBox.warning(
+                    self,
+                    "Data Format Mismatch",
+                    str(e),
+                    QMessageBox.Ok
+                )
+                return
+            else:
+                # Re-raise other ValueErrors
+                raise
 
         # Check user's montage choice
         user_wants_default = self.ui.step2_default_montage_radio.isChecked()
@@ -530,6 +796,13 @@ class NewStudyWindow(QDialog):
         self.comet.input_folder = self.input_folder
         self.comet.extension = self.get_extension()
         self.comet.datatype = self.get_data_type()
+        
+        # Transfer BIDS information to COMET instance BEFORE loading raw data
+        if hasattr(self, 'bids_dataset'):
+            self.comet.bids_dataset = self.bids_dataset
+        if hasattr(self, 'bids_choice'):
+            self.comet.bids_choice = self.bids_choice
+            
         self.comet.load_raw()
         for i in range(len(self.comet.list_eegs_path)):
             self.ui.loaded_selected_files_list.addItem(str(self.comet.list_eegs_path[i]))
@@ -666,6 +939,12 @@ class NewStudyWindow(QDialog):
         self.comet.study_name = self.study_name
         self.comet.input_folder = self.ui.step1_input_path_lineedit.text()
         self.comet.output_folder = save_parent_dir
+        
+        # Transfer BIDS information to COMET instance if available
+        if hasattr(self, 'bids_dataset'):
+            self.comet.bids_dataset = self.bids_dataset
+        if hasattr(self, 'bids_choice'):
+            self.comet.bids_choice = self.bids_choice
 
         # Set preprocessing parameters
         self.temporal_filter_data = self.ui.step2_temporal_filter_option_checkbox.isChecked()
@@ -695,8 +974,20 @@ class NewStudyWindow(QDialog):
             if self.comet.list_eegs_path:
                 # Load the first EEG file to get its sampling frequency
                 first_eeg_path = self.comet.list_eegs_path[0]
-                temp_eeg = DataIO().load_eeg(first_eeg_path, self.comet.datatype, montage=None)
-                self.sample_rate = temp_eeg.info["sfreq"]
+                try:
+                    temp_eeg = DataIO().load_eeg(first_eeg_path, self.comet.datatype, montage=None)
+                    self.sample_rate = temp_eeg.info["sfreq"]
+                except ValueError as e:
+                    if "Data format mismatch" in str(e):
+                        QMessageBox.warning(
+                            self,
+                            "Data Format Mismatch",
+                            str(e),
+                            QMessageBox.Ok
+                        )
+                        return
+                    else:
+                        raise
             else:
                 self.sample_rate = ""
         self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
@@ -808,6 +1099,19 @@ class NewStudyWindow(QDialog):
         try:
             # Load EEG without forcing montage to preserve existing channel locations
             eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+        except ValueError as e:
+            if "Data format mismatch" in str(e):
+                QMessageBox.warning(
+                    self,
+                    "Data Format Mismatch",
+                    str(e),
+                    QMessageBox.Ok
+                )
+                return
+            else:
+                raise
+        
+        try:
 
             # Check user's montage choice
             user_wants_default = self.ui.step2_default_montage_radio.isChecked()
@@ -908,7 +1212,19 @@ class NewStudyWindow(QDialog):
             return
 
         # Load EEG without forcing montage to preserve existing channel locations
-        eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+        try:
+            eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+        except ValueError as e:
+            if "Data format mismatch" in str(e):
+                QMessageBox.warning(
+                    self,
+                    "Data Format Mismatch",
+                    str(e),
+                    QMessageBox.Ok
+                )
+                return
+            else:
+                raise
 
         # Check user's montage choice
         user_wants_default = self.ui.step2_default_montage_radio.isChecked()
@@ -1009,7 +1325,19 @@ class NewStudyWindow(QDialog):
             return
 
         # Load EEG without forcing montage to preserve existing channel locations
-        eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None, preload=False)
+        try:
+            eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None, preload=False)
+        except ValueError as e:
+            if "Data format mismatch" in str(e):
+                QMessageBox.warning(
+                    self,
+                    "Data Format Mismatch",
+                    str(e),
+                    QMessageBox.Ok
+                )
+                return
+            else:
+                raise
 
         # Check user's montage choice
         user_wants_default = self.ui.step2_default_montage_radio.isChecked()

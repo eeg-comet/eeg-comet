@@ -140,13 +140,16 @@ class DataIO:
         # Fallback: return original positions unchanged
         return {k: np.asarray(v, dtype=float) for k, v in ch_pos.items()}
     @staticmethod
-    def find_data(input_folder, extension, pattern="*"):
+    def find_data(input_folder, extension, pattern="*", exclude_derivatives=False):
         """Recursively search for data files within a folder based on extension and pattern.
 
         Args:
             input_folder (str): The folder to search for data files.
             extension (str): The file extension to match. If 'auto', load all eeg files with valid formats.
             pattern (str, optional): The pattern to match against the file name. Defaults to '*'.
+            exclude_derivatives (bool, optional): If True, exclude any folders or paths containing 
+                'derivatives' (case-insensitive) from search. Useful for BIDS datasets when only 
+                raw data is desired. Defaults to False.
 
         Returns:
             tuple: A tuple containing the list of matching file paths and the list of matching file names.
@@ -167,13 +170,29 @@ class DataIO:
                 ".nxe",
                 ".lay",
             ]
-            for path, _subdirs, files in os.walk(input_folder):
+            for path, subdirs, files in os.walk(input_folder):
+                # Skip derivatives folder if exclude_derivatives is True
+                if exclude_derivatives:
+                    # Skip if current path contains derivatives
+                    if 'derivatives' in path.lower():
+                        continue
+                    # Remove any derivatives folders from subdirectories to explore
+                    subdirs[:] = [d for d in subdirs if 'derivatives' not in d.lower()]
+                
                 for name in files:
                     if os.path.splitext(name)[1] in valid_eeg_formats and fnmatch(name, pattern):
                             list_path.append(os.path.join(path, name))
                             list_filename.append(os.path.splitext(name)[0])
         else:
-            for path, _subdirs, files in os.walk(input_folder):
+            for path, subdirs, files in os.walk(input_folder):
+                # Skip derivatives folder if exclude_derivatives is True
+                if exclude_derivatives:
+                    # Skip if current path contains derivatives
+                    if 'derivatives' in path.lower():
+                        continue
+                    # Remove any derivatives folders from subdirectories to explore
+                    subdirs[:] = [d for d in subdirs if 'derivatives' not in d.lower()]
+                    
                 for name in files:
                     if fnmatch(name, pattern + extension):
                         list_path.append(os.path.join(path, name))
@@ -435,7 +454,18 @@ class DataIO:
         with mne.use_log_level(verbose):
             warnings.filterwarnings("ignore")
             if datatype == "raw":
-                eeg = mne.io.read_raw(eeg_path, preload=preload, verbose=verbose)
+                try:
+                    eeg = mne.io.read_raw(eeg_path, preload=preload, verbose=verbose)
+                except TypeError as e:
+                    # Check if error is about trying to read epoched data as raw
+                    if "trials" in str(e) and "raw files" in str(e):
+                        raise ValueError(
+                            "Data format mismatch: The selected file contains epoched data, but you chose 'Import Raw Data'. "
+                            "Please select 'Import Epoched Data' instead, or choose a raw EEG file."
+                        ) from e
+                    else:
+                        # Re-raise other TypeErrors as-is
+                        raise
             elif datatype == "epoched":
                 eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=verbose)
                 # eeg = mne.io.read_epochs(eeg_path, verbose=False)
