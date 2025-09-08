@@ -437,7 +437,7 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-1163</y>
+               <y>0</y>
                <width>1153</width>
                <height>1630</height>
               </rect>
@@ -1923,8 +1923,8 @@ background-color: rgb(0, 0, 0);</string>
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>0</y>
-               <width>353</width>
+               <y>-240</y>
+               <width>1153</width>
                <height>800</height>
               </rect>
              </property>
@@ -2560,7 +2560,7 @@ background-color: rgb(0, 0, 0);</string>
                    <string>Automatically Identify Optimal Smoothing Length</string>
                   </property>
                   <property name="checked">
-                   <bool>false</bool>
+                   <bool>true</bool>
                   </property>
                  </widget>
                 </item>
@@ -5120,13 +5120,13 @@ background-color: rgb(0, 0, 0);</string>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_7"/>
-  <buttongroup name="buttonGroup_8"/>
   <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup_4"/>
   <buttongroup name="buttonGroup_5"/>
   <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_7"/>
+  <buttongroup name="buttonGroup_8"/>
  </buttongroups>
 </ui>
