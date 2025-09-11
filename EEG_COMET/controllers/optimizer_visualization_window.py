@@ -114,8 +114,14 @@ class OptimizedOptimizerWorker(QThread):
         metric_map = {
             "gev": "gev",
             "db": "davies_bouldin",
-            "cv": "cross_validation_criterion",
-            "kl": "krzanowski_lai_criterion",
+            "cv": "cv_score",
+            "kl": "kl_score",
+            "sil": "silhouette_score",
+            "dunn": "dunn_index",
+            "ch": "calinski_harabasz_index",
+            "gap": "gap_statistic",
+            "aic": "aic_score",
+            "bic": "bic_score",
         }
 
         metric_key = metric_map.get(method)
@@ -154,6 +160,30 @@ class OptimizedOptimizerWorker(QThread):
             # Krzanowski-Lai - higher is better
             max_idx = np.argmax(scores)
             return k_values[max_idx]
+        if method == "sil":
+            # Silhouette coefficient - higher is better
+            max_idx = np.argmax(scores)
+            return k_values[max_idx]
+        if method == "dunn":
+            # Dunn Index - higher is better
+            max_idx = np.argmax(scores)
+            return k_values[max_idx]
+        if method == "ch":
+            # Calinski-Harabasz Index - higher is better
+            max_idx = np.argmax(scores)
+            return k_values[max_idx]
+        if method == "gap":
+            # Gap Statistic - higher is better
+            max_idx = np.argmax(scores)
+            return k_values[max_idx]
+        if method == "aic":
+            # AIC - lower is better
+            min_idx = np.argmin(scores)
+            return k_values[min_idx]
+        if method == "bic":
+            # BIC - lower is better
+            min_idx = np.argmin(scores)
+            return k_values[min_idx]
         # Default to first k value
         return k_values[0]
 
@@ -197,7 +227,7 @@ class OptimizedOptimizerWorker(QThread):
         Returns:
           bool: True if higher scores are better.
         """
-        return method in ["gev", "kl"]
+        return method in ["gev", "kl", "sil", "dunn", "ch", "gap"]
 
     @staticmethod
     def _get_method_display_name(method):
@@ -214,6 +244,12 @@ class OptimizedOptimizerWorker(QThread):
             "db": "Davies-Bouldin Criterion",
             "cv": "Cross Validation Criterion",
             "kl": "Krzanowski-Lai Criterion",
+            "sil": "Silhouette Coefficient",
+            "dunn": "Dunn Index",
+            "ch": "Calinski-Harabasz Index",
+            "gap": "Gap Statistic",
+            "aic": "Akaike Information Criterion",
+            "bic": "Bayesian Information Criterion",
         }
         return name_map.get(method, method)
 
@@ -403,67 +439,122 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
           best_gev (float): Global explained variance of the best solution.
           best_residual (float): Residual variance of the best solution.
         """
+        # Store maps for metric computation
+        maps = clustering_result.get("centers")  # shape: (k, n_channels)
+        
         # 1. Global Explained Variance (PRIMARY metric for microstates)
         clustering_result["gev"] = best_gev
 
         # 2. Residual Variance
         clustering_result["residual_variance"] = best_residual
 
-        # 3. Prepare data matrix for metrics: shape (n_samples, n_features)
-        #    self.eeg_data is (n_channels × n_samples), so transpose to (n_samples × n_channels)
-        sample_features = self.eeg_data.T
-
-        # 4. Silhouette Score (if k > 1) - USING CONSOLIDATED METHOD
-        if k > 1:
-            clustering_result["silhouette"] = self.compute_custom_silhouette(
-                data=sample_features, labels=best_labels, maps=clustering_result.get("centers")
-            )
-        else:
-            clustering_result["silhouette"] = 0.0
-
-        # 5. Calinski-Harabasz Index - USING CONSOLIDATED METHOD
-        try:
-            maps = clustering_result.get("centers")  # shape: (k, n_channels)
-
-            # Ensure that required data are present
-            if maps is not None and maps.shape[0] == k:
-                ch_score = self.compute_custom_calinski_harabasz(
-                    data=self.eeg_data,  # (n_channels × n_samples)
-                    maps=maps,  # (k × n_channels)
-                    segmentation=best_labels,  # (n_samples,)
-                    k=k,
+        # 3. Davies-Bouldin Index - USING CONSOLIDATED METHOD
+        if k >= 2:
+            try:
+                db_score = self.compute_custom_davies_bouldin(
+                    data=self.eeg_data, labels=best_labels, maps=maps
                 )
-            else:
-                raise ValueError(
-                    "Cluster centers missing or have unexpected shape for CH computation"
-                )
-
-            clustering_result["calinski_harabasz"] = ch_score
-        except Exception as e:
-            print(f"        Warning: CH computation failed for k={k}: {str(e)}")
-            clustering_result["calinski_harabasz"] = 0.0
-
-        # 6. Davies-Bouldin Index (if k > 1) - USING CONSOLIDATED METHOD
-        if k > 1:
-            clustering_result["davies_bouldin"] = self.compute_custom_davies_bouldin(
-                data=self.eeg_data,  # (n_channels × n_samples)
-                labels=best_labels,  # (n_samples,)
-                maps=clustering_result.get("centers"),  # (k × n_channels)
-            )
+                clustering_result["davies_bouldin"] = db_score
+            except Exception as e:
+                print(f"        Warning: Davies-Bouldin computation failed for k={k}: {str(e)}")
+                clustering_result["davies_bouldin"] = np.nan
         else:
-            clustering_result["davies_bouldin"] = 0.0
+            clustering_result["davies_bouldin"] = np.nan
 
-        # 7. Cross Validation Score (classical microstate CV criterion)
+        # 4. Cross-Validation Score - USING CONSOLIDATED METHOD
         try:
             cv_score = self._compute_cross_validation_criterion_vectorized(
-                self.eeg_data,  # (n_channels × n_samples)
-                clustering_result.get("centers"),  # (k × n_channels)
-                best_labels,  # (n_samples,)
+                self.eeg_data, maps, best_labels
             )
-            clustering_result["cross_validation_criterion"] = cv_score
+            clustering_result["cv_score"] = cv_score
         except Exception as e:
             print(f"        Warning: CV computation failed for k={k}: {str(e)}")
-            clustering_result["cross_validation_criterion"] = np.nan
+            clustering_result["cv_score"] = np.nan
+
+        # 5. Silhouette Score - USING CONSOLIDATED METHOD
+        if k >= 2:
+            try:
+                sil_score = self.silhouette_coefficient_correlation(
+                    data=self.eeg_data, labels=best_labels
+                )
+                clustering_result["silhouette_score"] = sil_score
+            except Exception as e:
+                print(f"        Warning: Silhouette computation failed for k={k}: {str(e)}")
+                clustering_result["silhouette_score"] = np.nan
+        else:
+            clustering_result["silhouette_score"] = -1.0
+
+        # 6. Dunn Index - USING CONSOLIDATED METHOD
+        if k >= 2:
+            try:
+                dunn_score = self.compute_dunn_index(
+                    data=self.eeg_data, labels=best_labels, maps=maps
+                )
+                clustering_result["dunn_index"] = dunn_score
+            except Exception as e:
+                print(f"        Warning: Dunn Index computation failed for k={k}: {str(e)}")
+                clustering_result["dunn_index"] = np.nan
+        else:
+            clustering_result["dunn_index"] = 0.0
+
+        # 7. Calinski-Harabasz Index - USING CONSOLIDATED METHOD
+        if k >= 2:
+            try:
+                ch_score = self.compute_calinski_harabasz_index(
+                    data=self.eeg_data, labels=best_labels, maps=maps
+                )
+                clustering_result["calinski_harabasz_index"] = ch_score
+            except Exception as e:
+                print(f"        Warning: Calinski-Harabasz computation failed for k={k}: {str(e)}")
+                clustering_result["calinski_harabasz_index"] = np.nan
+        else:
+            clustering_result["calinski_harabasz_index"] = 0.0
+
+        # 8. Gap Statistic - USING CONSOLIDATED METHOD
+        try:
+            gap_score, gap_std = self.compute_gap_statistic(
+                data=self.eeg_data, labels=best_labels, maps=maps
+            )
+            clustering_result["gap_statistic"] = gap_score
+            clustering_result["gap_std"] = gap_std
+        except Exception as e:
+            print(f"        Warning: Gap Statistic computation failed for k={k}: {str(e)}")
+            clustering_result["gap_statistic"] = np.nan
+            clustering_result["gap_std"] = np.nan
+
+        # 9. AIC - USING CONSOLIDATED METHOD
+        try:
+            aic_score = self.compute_information_criteria(
+                data=self.eeg_data, labels=best_labels, maps=maps, criterion='AIC'
+            )
+            clustering_result["aic_score"] = aic_score
+        except Exception as e:
+            print(f"        Warning: AIC computation failed for k={k}: {str(e)}")
+            clustering_result["aic_score"] = np.nan
+
+        # 10. BIC - USING CONSOLIDATED METHOD
+        try:
+            bic_score = self.compute_information_criteria(
+                data=self.eeg_data, labels=best_labels, maps=maps, criterion='BIC'
+            )
+            clustering_result["bic_score"] = bic_score
+        except Exception as e:
+            print(f"        Warning: BIC computation failed for k={k}: {str(e)}")
+            clustering_result["bic_score"] = np.nan
+
+        # 11. KL criterion components (for consistency)
+        try:
+            W_q = self._compute_W_q(self.eeg_data, best_labels, maps)
+            n_channels = self.eeg_data.shape[0]
+            M_q = W_q * (k ** (2.0 / n_channels))
+            clustering_result["W_q"] = W_q
+            clustering_result["M_q"] = M_q
+            clustering_result["kl_score"] = np.nan  # Will be computed when adjacent k values are available
+        except Exception as e:
+            print(f"        Warning: KL components computation failed for k={k}: {str(e)}")
+            clustering_result["W_q"] = np.nan
+            clustering_result["M_q"] = np.nan
+            clustering_result["kl_score"] = np.nan
 
     def get_microstate_maps(self, k):
         """Get the final microstate maps for a specific k value.
@@ -493,9 +584,14 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             "k": k,
             "gev": result["gev"],
             "residual_variance": result["residual_variance"],
-            "silhouette": result["silhouette"],
-            "calinski_harabasz": result["calinski_harabasz"],
             "davies_bouldin": result["davies_bouldin"],
+            "cv_score": result["cv_score"],
+            "silhouette_score": result["silhouette_score"],
+            "dunn_index": result["dunn_index"],
+            "calinski_harabasz_index": result["calinski_harabasz_index"],
+            "gap_statistic": result["gap_statistic"],
+            "aic_score": result["aic_score"],
+            "bic_score": result["bic_score"],
             "microstate_maps": result["centers"],
             "segmentation": result["labels"],
         }
@@ -504,15 +600,15 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             print(f"\nMicrostate Metrics for k={k}:")
             print(f"  Global Explained Variance: {metrics['gev']:.4f}")
             print(f"  Residual Variance: {metrics['residual_variance']:.6f}")
-            print(
-                f"  Silhouette Score: {metrics['silhouette']:.4f} (consolidated polarity-invariant)"
-            )
-            print(
-                f"  Calinski-Harabasz: {metrics['calinski_harabasz']:.2f} (consolidated polarity-invariant)"
-            )
-            print(
-                f"  Davies-Bouldin: {metrics['davies_bouldin']:.4f} (consolidated polarity-invariant)"
-            )
+            print(f"  Davies-Bouldin Index: {metrics['davies_bouldin']:.4f}")
+            print(f"  Cross-Validation Score: {metrics['cv_score']:.4f}")
+            print(f"  Silhouette Score: {metrics['silhouette_score']:.4f}")
+            print(f"  Dunn Index: {metrics['dunn_index']:.4f}")
+            print(f"  Calinski-Harabasz Index: {metrics['calinski_harabasz_index']:.2f}")
+            print(f"  Gap Statistic: {metrics['gap_statistic']:.4f}")
+            print(f"  AIC Score: {metrics['aic_score']:.4f}")
+            print(f"  BIC Score: {metrics['bic_score']:.4f}")
+            print("  All metrics computed using polarity-invariant spatial correlation")
 
         return metrics
 
@@ -819,7 +915,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             return
 
         # Try to select GEV as default, or the first available method
-        preferred_order = ["gev", "db", "cv", "kl"]
+        preferred_order = ["gev", "db", "cv", "kl", "sil", "dunn", "ch", "gap", "aic", "bic"]
 
         for method_code in preferred_order:
             if method_code in self.results_cache:
@@ -1082,7 +1178,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         )
 
         # Get all methods to run
-        all_methods = ["gev", "db", "cv", "kl"]
+        all_methods = ["gev", "db", "cv", "kl", "sil", "dunn", "ch", "gap", "aic", "bic"]
 
         # Get parameters from UI for methods that need them
         parameters = self._get_method_parameters()
@@ -1729,6 +1825,12 @@ class OptimizerVisualizationWindow(QMainWindow):
             "Davies-Bouldin Criterion": "db",
             "Cross Validation Criterion": "cv",
             "Krzanowski-Lai Criterion": "kl",
+            "Silhouette Coefficient": "sil",
+            "Dunn Index": "dunn",
+            "Calinski-Harabasz Index": "ch",
+            "Gap Statistic": "gap",
+            "Akaike Information Criterion": "aic",
+            "Bayesian Information Criterion": "bic",
         }
         return method_map.get(method_name, "gev")
 
@@ -1747,6 +1849,12 @@ class OptimizerVisualizationWindow(QMainWindow):
             "db": "Davies-Bouldin Criterion",
             "cv": "Cross Validation Criterion",
             "kl": "Krzanowski-Lai Criterion",
+            "sil": "Silhouette Coefficient",
+            "dunn": "Dunn Index",
+            "ch": "Calinski-Harabasz Index",
+            "gap": "Gap Statistic",
+            "aic": "Akaike Information Criterion",
+            "bic": "Bayesian Information Criterion",
         }
         return name_map.get(method_code, method_code)
 
@@ -1762,6 +1870,12 @@ class OptimizerVisualizationWindow(QMainWindow):
             "db": "Davies-Bouldin Criterion",
             "cv": "Cross Validation Criterion",
             "kl": "Krzanowski-Lai Criterion",
+            "sil": "Silhouette Coefficient",
+            "dunn": "Dunn Index",
+            "ch": "Calinski-Harabasz Index",
+            "gap": "Gap Statistic",
+            "aic": "Akaike Information Criterion",
+            "bic": "Bayesian Information Criterion",
         }
 
     @staticmethod
@@ -1779,5 +1893,11 @@ class OptimizerVisualizationWindow(QMainWindow):
             "Davies-Bouldin Criterion": "Davies-Bouldin Index",
             "Cross Validation Criterion": "Cross-Validation Score",
             "Krzanowski-Lai Criterion": "Krzanowski-Lai Score",
+            "Silhouette Coefficient": "Silhouette Score",
+            "Dunn Index": "Dunn Index",
+            "Calinski-Harabasz Index": "Calinski-Harabasz Index",
+            "Gap Statistic": "Gap Statistic",
+            "Akaike Information Criterion": "AIC Score",
+            "Bayesian Information Criterion": "BIC Score",
         }
         return labels.get(method_name, "Score")

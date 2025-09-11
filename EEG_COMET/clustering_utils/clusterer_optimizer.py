@@ -1,11 +1,42 @@
-"""Optimization utilities for selecting microstate cluster counts (K)."""
+"""Optimization utilities for selecting microstate cluster counts (K).
+
+This module implements comprehensive statistical validation techniques for 
+objectively determining the optimal number of microstate clusters. All methods
+use spatial correlation as the primary similarity metric to ensure polarity-
+invariant topographic relationships are preserved.
+
+Available validation methods:
+- Cross-Validation (CV): Balances explanatory power against parsimony
+- Global Explained Variance (GEV): Identifies elbow point for efficiency  
+- Silhouette Analysis: Measures clustering consistency
+- Dunn Index: Quantifies cluster compactness and separation
+- Davies-Bouldin Index: Assesses cluster distinctiveness
+- Calinski-Harabasz Index: Evaluates variance ratios
+- Gap Statistic: Compares to random distributions
+- Information Criteria (AIC/BIC): Model selection principles
+- Krzanowski-Lai Criterion: Evaluates relative improvement
+
+Example usage:
+    optimizer = ClustererOptimizer(maps2use, kmin=2, kmax=10)
+    
+    # Single method
+    result = optimizer.compute_silhouette()
+    
+    # Multiple methods in batch
+    methods = ['gev', 'db', 'cv', 'kl', 'sil', 'dunn', 'ch', 'gap', 'aic', 'bic']
+    results = optimizer.compute_methods_batch(methods)
+    
+    # Majority vote across all methods
+    optimal_k = optimizer.find_optimal_k_majority_vote()
+"""
 
 import time
 import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
+from scipy.stats import pearsonr
 
 from clustering_utils.microstate_clusterer import MicrostateClusterer
 from data_utils.data_initializer import DataInitializer
@@ -15,7 +46,15 @@ warnings.filterwarnings("ignore")
 
 @dataclass(init=False)
 class OptimizationResult:
-    """Container for optimization results."""
+    """Container for optimization results.
+    
+    Attributes:
+        k_values: List of k values evaluated.
+        scores: List of scores for each k value.
+        optimal_k: Optimal k value selected by the method.
+        method_name: Name of the optimization method.
+        higher_is_better: Whether higher scores indicate better clustering.
+    """
 
     k_values: list[int]
     scores: list[float]
@@ -31,6 +70,15 @@ class OptimizationResult:
         method_name: str,
         higher_is_better: bool = True,
     ) -> None:
+        """Initialize OptimizationResult.
+        
+        Args:
+            k_values: List of k values evaluated.
+            scores: List of scores for each k value.
+            optimal_k: Optimal k value selected by the method.
+            method_name: Name of the optimization method.
+            higher_is_better: Whether higher scores indicate better clustering.
+        """
         self.k_values = k_values
         self.scores = scores
         self.optimal_k = optimal_k
@@ -40,14 +88,17 @@ class OptimizationResult:
 
 class ClustererOptimizer:
     """Optimized clusterer for finding the optimal number of microstate clusters.
-    This is the SINGLE SOURCE OF TRUTH for all clustering metrics implementations.
+    
+    This is the single source of truth for all clustering metrics implementations.
+    All methods use spatial correlation as the similarity metric to ensure
+    polarity-invariant topographic relationships are preserved.
     """
 
     def __init__(
         self,
         maps2use: np.ndarray,
         min_dist: Optional[int] = None,
-        n_inits: int = 1,  # Single repeat per k for auto-k selection
+        n_inits: int = 1,
         kmin: int = 2,
         kmax: int = 10,
         preprocessed_data_path: str = None,
@@ -62,19 +113,19 @@ class ClustererOptimizer:
         """Initialize the clusterer optimizer.
 
         Args:
-            maps2use (np.ndarray): Data to cluster (n_channels x n_timepoints).
-            min_dist (int | None): Minimum distance for peak detection.
-            n_inits (int): Number of clustering initializations (set to 1 for single repeat).
-            kmin (int): Minimum number of clusters.
-            kmax (int): Maximum number of clusters.
-            preprocessed_data_path (str | None): Path to preprocessed data.
-            extension (str): File extension.
-            datatype (str): Data type.
-            tolerance (float): Convergence tolerance.
-            max_iter (int): Maximum iterations.
-            batch_size (int | None): Batch size for clustering.
-            progress_callback (Callable[[int, int, str], None] | None): Callback for progress updates.
-            logger (object | None): Logger instance for consistent formatting.
+            maps2use: Data to cluster (n_channels x n_timepoints).
+            min_dist: Minimum distance for peak detection.
+            n_inits: Number of clustering initializations (set to 1 for single repeat).
+            kmin: Minimum number of clusters.
+            kmax: Maximum number of clusters.
+            preprocessed_data_path: Path to preprocessed data.
+            extension: File extension.
+            datatype: Data type.
+            tolerance: Convergence tolerance.
+            max_iter: Maximum iterations.
+            batch_size: Batch size for clustering.
+            progress_callback: Callback for progress updates.
+            logger: Logger instance for consistent formatting.
         """
         # Validate and ensure correct data format
         if maps2use.ndim != 2:
@@ -83,7 +134,8 @@ class ClustererOptimizer:
         # Ensure data is in (n_channels, n_timepoints) format
         if maps2use.shape[0] > maps2use.shape[1]:
             print(
-                "Warning: Data appears to be in (n_timepoints, n_channels) format. Transposing to (n_channels, n_timepoints)"
+                "Warning: Data appears to be in (n_timepoints, n_channels) format. "
+                "Transposing to (n_channels, n_timepoints)"
             )
             maps2use = maps2use.T
 
@@ -102,7 +154,8 @@ class ClustererOptimizer:
             self.kmin = 2
         if kmax <= kmin:
             print(
-                f"Warning: kmax {kmax} is not greater than kmin {kmin}, setting kmax to {kmin + 1}"
+                f"Warning: kmax {kmax} is not greater than kmin {kmin}, "
+                f"setting kmax to {kmin + 1}"
             )
             self.kmax = kmin + 1
 
@@ -110,7 +163,8 @@ class ClustererOptimizer:
         max_possible_k = min(self.maps2use.shape[1], 20)  # Limit to 20 for practical reasons
         if self.kmax > max_possible_k:
             print(
-                f"Warning: kmax {self.kmax} exceeds maximum possible k {max_possible_k}, setting to {max_possible_k}"
+                f"Warning: kmax {self.kmax} exceeds maximum possible k {max_possible_k}, "
+                f"setting to {max_possible_k}"
             )
             self.kmax = max_possible_k
 
@@ -129,7 +183,7 @@ class ClustererOptimizer:
         self._clustering_cache: dict[int, dict] = {}
 
         # Majority vote results storage (populated in find_optimal_k_majority_vote)
-        self.majority_vote_results: dict[str, Any] | None = None
+        self.majority_vote_results: Union[dict[str, Any], None] = None
 
         # Stop functionality
         self._stopped = False
@@ -139,7 +193,11 @@ class ClustererOptimizer:
         self._stopped = True
     
     def _get_full_dataset(self):
-        """Load the full dataset for GEV calculation (lazy loading)."""
+        """Load the full dataset for GEV calculation (lazy loading).
+        
+        Returns:
+            np.ndarray: Full dataset for GEV calculation.
+        """
         if self._full_dataset is None and self.preprocessed_data_path:
             try:
                 # Load entire dataset (100% of data)
@@ -160,40 +218,56 @@ class ClustererOptimizer:
         return self._full_dataset
 
     def is_stopped(self):
-        """Check if the optimization process has been stopped."""
+        """Check if the optimization process has been stopped.
+        
+        Returns:
+            bool: True if stopped, False otherwise.
+        """
         return self._stopped
 
     def _check_stop(self):
-        """Check if the process should stop and raise exception if so."""
+        """Check if the process should stop and raise exception if so.
+        
+        Raises:
+            RuntimeError: If optimization process stopped by user.
+        """
         if self._stopped:
             raise RuntimeError("Optimization process stopped by user")
 
     def _update_progress(self, current: int, total: int, message: str):
-        """Update progress if callback is provided."""
+        """Update progress if callback is provided.
+        
+        Args:
+            current: Current progress value.
+            total: Total progress value.
+            message: Progress message.
+        """
         if self.progress_callback:
             self.progress_callback(current, total, message)
 
-    def _filter_valid_scores(self, scores: list[float], exclude_inf: bool = False) -> list[tuple[int, float]]:
+    def _filter_valid_scores(
+        self, scores: list[float], exclude_inf: bool = False
+    ) -> list[tuple[int, float]]:
         """Pair k values with scores and filter out invalid entries.
 
         Args:
-            scores (list[float]): Scores aligned with `self.k_range`.
-            exclude_inf (bool): If True, also exclude float("inf").
+            scores: Scores aligned with `self.k_range`.
+            exclude_inf: If True, also exclude np.inf.
 
         Returns:
             list[tuple[int, float]]: Valid (k, score) pairs.
         """
         pairs = list(zip(self.k_range, scores))
         if exclude_inf:
-            return [(k, s) for k, s in pairs if not np.isnan(s) and s != float("inf")]
+            return [(k, s) for k, s in pairs if not np.isnan(s) and s != np.inf]
         return [(k, s) for k, s in pairs if not np.isnan(s)]
 
     def _compute_M_q(self, k: int, result: Optional[dict] = None) -> tuple[float, float]:
         """Compute W_q and M_q for a given k.
 
         Args:
-            k (int): Number of clusters.
-            result (dict | None): Optional cached clustering result.
+            k: Number of clusters.
+            result: Optional cached clustering result.
 
         Returns:
             tuple[float, float]: (W_q, M_q) values.
@@ -211,7 +285,7 @@ class ClustererOptimizer:
         """Compute KL scores given M values across k.
 
         Args:
-            M_values (dict[int, float]): Mapping from k to M_q value.
+            M_values: Mapping from k to M_q value.
 
         Returns:
             list[float]: KL scores aligned with `self.k_range`.
@@ -243,8 +317,8 @@ class ClustererOptimizer:
         """Log a message with consistent formatting.
 
         Args:
-            message (str): Message to log.
-            level (str): Log level ('info', 'warning', 'error').
+            message: Message to log.
+            level: Log level ('info', 'warning', 'error').
         """
         # Use the logger instance if available for consistent emoji formatting
         if self.logger is not None:
@@ -263,14 +337,11 @@ class ClustererOptimizer:
             else:
                 print(f"[INFO] {message}")
 
-        # If progress callback is available, it might be connected to a log window
-        # The progress callback can handle additional logging if needed
-
     def _get_clustering_result(self, k: int) -> dict:
         """Get clustering result for k clusters, using cache if available.
 
         Args:
-            k (int): Number of clusters.
+            k: Number of clusters.
 
         Returns:
             dict: Contains all metrics computed like optimizer window.
@@ -296,8 +367,8 @@ class ClustererOptimizer:
             """Generate normalized random maps (rows unit-norm).
 
             Args:
-                num_clusters (int): Number of clusters/maps to generate.
-                num_channels (int): Number of channels per map.
+                num_clusters: Number of clusters/maps to generate.
+                num_channels: Number of channels per map.
 
             Returns:
                 np.ndarray: Array of shape (num_clusters, num_channels).
@@ -350,11 +421,11 @@ class ClustererOptimizer:
         Ensures consistency between auto-k selection and optimizer visualization.
 
         Args:
-            clustering_result (dict): Cache entry to update with computed metrics.
-            k (int): Number of clusters.
-            best_labels (np.ndarray): Segmentation labels for each sample.
-            best_gev (float): Global explained variance score.
-            best_residual (float): Residual error from clustering.
+            clustering_result: Cache entry to update with computed metrics.
+            k: Number of clusters.
+            best_labels: Segmentation labels for each sample.
+            best_gev: Global explained variance score.
+            best_residual: Residual error from clustering.
         """
         # Store basic metrics
         clustering_result["gev"] = best_gev
@@ -404,6 +475,119 @@ class ClustererOptimizer:
             clustering_result["M_q"] = np.nan
             clustering_result["kl_score"] = np.nan
 
+        # Compute Silhouette score
+        if k >= 2:
+            try:
+                sil_score = self.silhouette_coefficient_correlation(
+                    data=self.maps2use, labels=best_labels
+                )
+                clustering_result["silhouette_score"] = sil_score
+            except Exception as e:
+                self._log_message(
+                    f"Error computing Silhouette for k={k}: {str(e)}", level="error"
+                )
+                clustering_result["silhouette_score"] = np.nan
+        else:
+            clustering_result["silhouette_score"] = -1.0  # Worst possible score for k=1
+
+        # Compute Dunn Index
+        if k >= 2:
+            try:
+                dunn_score = self.compute_dunn_index(
+                    data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
+                )
+                clustering_result["dunn_index"] = dunn_score
+            except Exception as e:
+                self._log_message(
+                    f"Error computing Dunn Index for k={k}: {str(e)}", level="error"
+                )
+                clustering_result["dunn_index"] = np.nan
+        else:
+            clustering_result["dunn_index"] = 0.0
+
+        # Compute Calinski-Harabasz Index
+        if k >= 2:
+            try:
+                ch_score = self.compute_calinski_harabasz_index(
+                    data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
+                )
+                clustering_result["calinski_harabasz_index"] = ch_score
+            except Exception as e:
+                self._log_message(
+                    f"Error computing Calinski-Harabasz for k={k}: {str(e)}", level="error"
+                )
+                clustering_result["calinski_harabasz_index"] = np.nan
+        else:
+            clustering_result["calinski_harabasz_index"] = 0.0
+
+        # Compute Gap Statistic
+        try:
+            gap_score, gap_std = self.compute_gap_statistic(
+                data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
+            )
+            clustering_result["gap_statistic"] = gap_score
+            clustering_result["gap_std"] = gap_std
+        except Exception as e:
+            self._log_message(
+                f"Error computing Gap Statistic for k={k}: {str(e)}", level="error"
+            )
+            clustering_result["gap_statistic"] = np.nan
+            clustering_result["gap_std"] = np.nan
+
+        # Compute AIC
+        try:
+            aic_score = self.compute_information_criteria(
+                data=self.maps2use, labels=best_labels, maps=clustering_result["maps"], criterion='AIC'
+            )
+            clustering_result["aic_score"] = aic_score
+        except Exception as e:
+            self._log_message(
+                f"Error computing AIC for k={k}: {str(e)}", level="error"
+            )
+            clustering_result["aic_score"] = np.nan
+
+        # Compute BIC
+        try:
+            bic_score = self.compute_information_criteria(
+                data=self.maps2use, labels=best_labels, maps=clustering_result["maps"], criterion='BIC'
+            )
+            clustering_result["bic_score"] = bic_score
+        except Exception as e:
+            self._log_message(
+                f"Error computing BIC for k={k}: {str(e)}", level="error"
+            )
+            clustering_result["bic_score"] = np.nan
+
+    # ============================================================================
+    # UTILITY METHODS FOR SPATIAL CORRELATION
+    # ============================================================================
+    
+    @staticmethod
+    def _spatial_correlation(X, Y):
+        """Calculate spatial correlation between topographic maps.
+        
+        Args:
+            X: First set of maps (n_maps, n_channels) or (n_channels,).
+            Y: Second set of maps (n_maps, n_channels) or (n_channels,).
+            
+        Returns:
+            np.ndarray: Correlation matrix of shape (X.shape[0], Y.shape[0]).
+        """
+        # Handle both 1D and 2D inputs
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+        if Y.ndim == 1:
+            Y = Y.reshape(1, -1)
+        
+        # Calculate correlations
+        correlations = np.zeros((X.shape[0], Y.shape[0]))
+        for i in range(X.shape[0]):
+            for j in range(Y.shape[0]):
+                corr_coeff = np.corrcoef(X[i], Y[j])[0, 1]
+                correlations[i, j] = np.abs(corr_coeff) if not np.isnan(corr_coeff) else 0.0
+        
+        return correlations
+
     # ============================================================================
     # MAIN METRIC COMPUTATION METHODS - SINGLE SOURCE OF TRUTH
     # ============================================================================
@@ -426,9 +610,9 @@ class ClustererOptimizer:
         This implementation uses correlation-based distances for polarity invariance.
 
         Args:
-            data (np.ndarray): Data matrix of shape (n_channels, n_samples).
-            labels (np.ndarray): Cluster labels for each sample.
-            maps (np.ndarray): Cluster centers of shape (n_clusters, n_channels).
+            data: Data matrix of shape (n_channels, n_samples).
+            labels: Cluster labels for each sample.
+            maps: Cluster centers of shape (n_clusters, n_channels).
 
         Returns:
             float: Davies-Bouldin Index (lower is better).
@@ -511,9 +695,9 @@ class ClustererOptimizer:
         where σ̂²_μ = [ Σ_{t=1}^{tmax} (||u(t)||² - (T_t ⋅ u(t))²) ] / [ tmax ⋅ (n - 1) ].
 
         Args:
-            data (np.ndarray): EEG data (n_channels, n_timepoints); this is u(t).
-            maps (np.ndarray): Template maps (n_clusters, n_channels); these are T_k.
-            segmentation (np.ndarray): Cluster assignments per timepoint; selects T_t.
+            data: EEG data (n_channels, n_timepoints); this is u(t).
+            maps: Template maps (n_clusters, n_channels); these are T_k.
+            segmentation: Cluster assignments per timepoint; selects T_t.
 
         Returns:
             float: Cross-validation criterion score.
@@ -550,6 +734,344 @@ class ClustererOptimizer:
             cv_score = sigma_mu_squared * factor
 
         return cv_score
+
+    @staticmethod
+    def silhouette_coefficient_correlation(data: np.ndarray, labels: np.ndarray) -> float:
+        """Calculate silhouette coefficient using absolute correlation coefficient as similarity measure.
+        
+        The silhouette coefficient is a measure of how similar an object is to its own 
+        cluster compared to other clusters. It ranges from -1 to 1, where higher values 
+        indicate better clustering. This implementation uses correlation-based distances 
+        for polarity-invariant microstate clustering.
+        
+        The silhouette coefficient for a point i is defined as:
+        s(i) = (b(i) - a(i)) / max(a(i), b(i))
+        
+        Where:
+        - a(i): mean distance from point i to all other points in the same cluster
+        - b(i): minimum mean distance from point i to points in any other cluster
+        - Distance is computed as 1 - |correlation coefficient|
+        
+        Args:
+            data: The input data where each column is a time point/sample 
+                with shape (n_channels, n_samples).
+            labels: Cluster labels for each data point with shape (n_samples,).
+        
+        Returns:
+            float: Average silhouette coefficient across all data points. Higher values 
+                indicate better clustering quality.
+        
+        Raises:
+            ValueError: If data and labels have mismatched dimensions.
+        """
+        data = np.array(data)
+        labels = np.array(labels)
+        
+        # Ensure data is in correct format (n_channels, n_samples)
+        if data.shape[1] != labels.shape[0]:
+            raise ValueError(
+                f"Data samples ({data.shape[1]}) must match labels length ({labels.shape[0]})"
+            )
+        
+        n_samples = data.shape[1]
+        
+        # Check if we have valid clustering
+        unique_labels = np.unique(labels)
+        n_clusters = len(unique_labels)
+        
+        if n_clusters <= 1:
+            return 0.0  # Silhouette coefficient is undefined for single cluster
+        
+        silhouette_scores = []
+        
+        for i in range(n_samples):
+            current_label = labels[i]
+            current_data = data[:, i]
+            
+            # Calculate a(i): average distance within same cluster
+            same_cluster_mask = (labels == current_label) & (np.arange(n_samples) != i)
+            same_cluster_indices = np.where(same_cluster_mask)[0]
+            
+            if len(same_cluster_indices) == 0:
+                # If point is alone in cluster, a(i) = 0
+                a_i = 0.0
+            else:
+                # Calculate 1 - |correlation| as distance measure
+                correlations = []
+                for j in same_cluster_indices:
+                    corr, _ = pearsonr(current_data, data[:, j])
+                    distance = 1 - np.abs(corr)
+                    correlations.append(distance)
+                a_i = np.mean(correlations)
+            
+            # Calculate b(i): minimum average distance to other clusters
+            b_i = np.inf
+            
+            for other_label in unique_labels:
+                if other_label == current_label:
+                    continue
+                    
+                other_cluster_mask = (labels == other_label)
+                other_cluster_indices = np.where(other_cluster_mask)[0]
+                
+                # Calculate average distance to this other cluster
+                correlations = []
+                for j in other_cluster_indices:
+                    corr, _ = pearsonr(current_data, data[:, j])
+                    distance = 1 - np.abs(corr)
+                    correlations.append(distance)
+                
+                avg_distance_to_cluster = np.mean(correlations)
+                b_i = min(b_i, avg_distance_to_cluster)
+            
+            # Calculate silhouette coefficient for point i
+            if max(a_i, b_i) == 0:
+                s_i = 0.0  # Handle division by zero
+            else:
+                s_i = (b_i - a_i) / max(a_i, b_i)
+            
+            silhouette_scores.append(s_i)
+        
+        return np.mean(silhouette_scores)
+
+    @staticmethod
+    def compute_dunn_index(data: np.ndarray, labels: np.ndarray, maps: np.ndarray) -> float:
+        """Compute Dunn Index using spatial correlation distances.
+        
+        The Dunn Index is the ratio of minimum inter-cluster to maximum intra-cluster distance.
+        Higher values indicate better clustering (compact clusters with clear separation).
+        
+        Args:
+            data: Data matrix of shape (n_channels, n_samples).
+            labels: Cluster labels for each sample.
+            maps: Cluster centers of shape (n_clusters, n_channels).
+            
+        Returns:
+            float: Dunn Index (higher is better).
+        """
+        unique_labels = np.unique(labels)
+        n_clusters = len(unique_labels)
+        
+        if n_clusters < 2:
+            return 0.0
+        
+        # Calculate minimum inter-cluster distance
+        min_inter = np.inf
+        for i in range(n_clusters):
+            for j in range(i + 1, n_clusters):
+                # Distance between cluster centers using spatial correlation
+                corr = ClustererOptimizer._spatial_correlation(
+                    maps[i].reshape(1, -1), maps[j].reshape(1, -1)
+                )[0, 0]
+                dist = 1 - corr
+                min_inter = min(min_inter, dist)
+        
+        # Calculate maximum intra-cluster distance
+        max_intra = 0.0
+        for i, label in enumerate(unique_labels):
+            cluster_mask = labels == label
+            if np.sum(cluster_mask) > 1:
+                cluster_data = data[:, cluster_mask]
+                correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
+                # Set diagonal to 1 to ignore self-correlations
+                np.fill_diagonal(correlations, 1.0)
+                distances = 1 - correlations
+                max_intra = max(max_intra, np.max(distances))
+        
+        # Dunn index
+        return min_inter / max_intra if max_intra > 0 else 0.0
+
+    @staticmethod
+    def compute_calinski_harabasz_index(data: np.ndarray, labels: np.ndarray, maps: np.ndarray) -> float:
+        """Compute Calinski-Harabasz Index using spatial correlation.
+        
+        The Calinski-Harabasz Index is the ratio of between-cluster to within-cluster variance.
+        Higher values indicate better clustering.
+        
+        Args:
+            data: Data matrix of shape (n_channels, n_samples).
+            labels: Cluster labels for each sample.
+            maps: Cluster centers of shape (n_clusters, n_channels).
+            
+        Returns:
+            float: Calinski-Harabasz Index (higher is better).
+        """
+        n_samples = data.shape[1]
+        unique_labels = np.unique(labels)
+        n_clusters = len(unique_labels)
+        
+        if n_clusters == 1:
+            return 0.0
+        
+        # Global centroid
+        global_centroid = np.mean(data, axis=1)
+        
+        # Between-cluster variance
+        between_var = 0.0
+        for i, label in enumerate(unique_labels):
+            n_k = np.sum(labels == label)
+            if n_k > 0:
+                corr = ClustererOptimizer._spatial_correlation(
+                    maps[i].reshape(1, -1), global_centroid.reshape(1, -1)
+                )[0, 0]
+                dist = 1 - corr
+                between_var += n_k * (dist ** 2)
+        
+        # Within-cluster variance
+        within_var = 0.0
+        for i, label in enumerate(unique_labels):
+            cluster_mask = labels == label
+            cluster_data = data[:, cluster_mask]
+            if cluster_data.shape[1] > 0:
+                correlations = ClustererOptimizer._spatial_correlation(
+                    cluster_data.T, maps[i].reshape(1, -1)
+                )
+                distances = 1 - correlations.flatten()
+                within_var += np.sum(distances ** 2)
+        
+        # CH index
+        if within_var > 0:
+            ch_index = (between_var / (n_clusters - 1)) / (within_var / (n_samples - n_clusters))
+        else:
+            ch_index = 0.0
+        
+        return ch_index
+
+    @staticmethod
+    def compute_gap_statistic(data: np.ndarray, labels: np.ndarray, maps: np.ndarray, n_refs: int = 10) -> tuple[float, float]:
+        """Compute Gap Statistic using spatial correlation.
+        
+        The Gap Statistic compares clustering quality to random reference distribution.
+        Maximum gap indicates optimal number of clusters.
+        
+        Args:
+            data: Data matrix of shape (n_channels, n_samples).
+            labels: Cluster labels for each sample.
+            maps: Cluster centers of shape (n_clusters, n_channels).
+            n_refs: Number of reference datasets to generate.
+            
+        Returns:
+            tuple[float, float]: (gap_statistic, gap_std).
+        """
+        unique_labels = np.unique(labels)
+        n_clusters = len(unique_labels)
+        
+        # Calculate within-cluster dispersion for actual data
+        W_k = 0.0
+        for i, label in enumerate(unique_labels):
+            cluster_mask = labels == label
+            cluster_data = data[:, cluster_mask]
+            if cluster_data.shape[1] > 1:
+                correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
+                distances = 1 - correlations
+                # Remove diagonal (self-correlations)
+                np.fill_diagonal(distances, 0.0)
+                W_k += np.sum(distances) / (2 * cluster_data.shape[1])
+        
+        # Generate reference datasets and calculate expected dispersion
+        W_k_refs = []
+        for _ in range(n_refs):
+            # Create random reference data preserving topographic structure
+            ref_data = np.random.randn(*data.shape)
+            # Normalize to maintain similar properties to EEG data
+            norms = np.linalg.norm(ref_data, axis=0, keepdims=True)
+            norms[norms == 0] = 1.0  # Avoid division by zero
+            ref_data = ref_data / norms
+            
+            # Simple clustering on reference data using modified k-means
+            try:
+                # Initialize clusterer for reference data
+                clusterer = MicrostateClusterer(
+                    n_states=n_clusters,
+                    n_inits=1,
+                    max_iter=50,  # Reduced for efficiency
+                    tolerance=1e-4
+                )
+                
+                # Generate random initial maps
+                ref_initial_maps = np.random.randn(n_clusters, data.shape[0])
+                ref_initial_maps = ref_initial_maps / np.linalg.norm(ref_initial_maps, axis=1, keepdims=True)
+                
+                # Run clustering
+                ref_maps, _ = clusterer.modified_kmeans(ref_data, ref_initial_maps, verbose=False)
+                
+                # Calculate segmentation
+                ref_activation = ref_maps.dot(ref_data)
+                ref_labels = np.argmax(np.abs(ref_activation), axis=0)
+                
+                W_k_ref = 0.0
+                for k in range(n_clusters):
+                    cluster_mask = ref_labels == k
+                    if np.sum(cluster_mask) > 1:
+                        cluster_data = ref_data[:, cluster_mask]
+                        correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
+                        distances = 1 - correlations
+                        np.fill_diagonal(distances, 0.0)
+                        W_k_ref += np.sum(distances) / (2 * cluster_data.shape[1])
+                W_k_refs.append(W_k_ref)
+            except Exception:
+                # If clustering fails, use a default value
+                W_k_refs.append(W_k)
+        
+        # Calculate gap statistic
+        if W_k > 0 and W_k_refs:
+            gap = np.mean(np.log(W_k_refs)) - np.log(W_k)
+            gap_std = np.std(np.log(W_k_refs))
+        else:
+            gap = 0.0
+            gap_std = 0.0
+        
+        return gap, gap_std
+
+    @staticmethod
+    def compute_information_criteria(data: np.ndarray, labels: np.ndarray, maps: np.ndarray, criterion: str = 'AIC') -> float:
+        """Compute Information Criteria (AIC/BIC) using spatial correlation.
+        
+        Information Criteria balance model fit with complexity.
+        Lower values indicate better models.
+        
+        Args:
+            data: Data matrix of shape (n_channels, n_samples).
+            labels: Cluster labels for each sample.
+            maps: Cluster centers of shape (n_clusters, n_channels).
+            criterion: Either 'AIC' or 'BIC'.
+            
+        Returns:
+            float: Information criterion value (lower is better).
+        """
+        n_samples = data.shape[1]
+        n_features = data.shape[0]
+        unique_labels = np.unique(labels)
+        n_clusters = len(unique_labels)
+        n_params = n_clusters * n_features  # Parameters for centroids
+        
+        # Calculate residual variance using spatial correlation
+        residual_var = 0.0
+        for i, label in enumerate(unique_labels):
+            cluster_mask = labels == label
+            cluster_data = data[:, cluster_mask]
+            if cluster_data.shape[1] > 0:
+                correlations = ClustererOptimizer._spatial_correlation(
+                    cluster_data.T, maps[i].reshape(1, -1)
+                )
+                distances = 1 - correlations.flatten()
+                residual_var += np.sum(distances ** 2)
+        
+        # Approximate log-likelihood
+        if residual_var > 0:
+            log_likelihood = -n_samples * np.log(residual_var / n_samples)
+        else:
+            log_likelihood = 0.0
+        
+        # Calculate criterion
+        if criterion.upper() == 'AIC':
+            ic_value = -2 * log_likelihood + 2 * n_params
+        elif criterion.upper() == 'BIC':
+            ic_value = -2 * log_likelihood + n_params * np.log(n_samples)
+        else:
+            raise ValueError("Criterion must be 'AIC' or 'BIC'")
+        
+        return ic_value
 
     # ============================================================================
     # OPTIMIZATION METHODS - USING CONSOLIDATED METRICS
@@ -600,7 +1122,7 @@ class ClustererOptimizer:
             self._update_progress(i + 1, total_steps, f"Computing Davies-Bouldin for k={k}")
 
             if k < 2:  # DB requires at least 2 clusters
-                scores.append(float("inf"))
+                scores.append(np.inf)
                 continue
 
             result = self._get_clustering_result(k)
@@ -733,6 +1255,218 @@ class ClustererOptimizer:
             higher_is_better=True,
         )
 
+    def compute_silhouette(self) -> OptimizationResult:
+        """Compute silhouette coefficient using correlation-based distances.
+        
+        The silhouette coefficient measures how similar a data point is to its own 
+        cluster compared to other clusters. Higher values indicate better clustering.
+        This implementation uses correlation-based distances for polarity-invariant 
+        microstate clustering.
+        
+        Returns:
+            OptimizationResult: Result including scores and selected k.
+        """
+        scores = []
+        total_steps = len(self.k_range)
+        
+        for i, k in enumerate(self.k_range):
+            # Check if process should stop
+            self._check_stop()
+            
+            self._update_progress(i + 1, total_steps, f"Computing Silhouette for k={k}")
+            
+            if k < 2:  # Silhouette requires at least 2 clusters
+                scores.append(-1.0)  # Worst possible silhouette score
+                continue
+            
+            result = self._get_clustering_result(k)
+            
+            # Use correlation-based silhouette score
+            score = self.silhouette_coefficient_correlation(
+                data=self.maps2use, labels=result["segmentation"]
+            )
+            scores.append(score)
+        
+        # Find optimal k (higher silhouette score is better)
+        valid_scores = self._filter_valid_scores(scores)
+        optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        
+        return OptimizationResult(
+            k_values=self.k_range.copy(),
+            scores=scores,
+            optimal_k=optimal_k,
+            method_name="Silhouette Coefficient",
+            higher_is_better=True,
+        )
+
+    def compute_dunn_index_optimization(self) -> OptimizationResult:
+        """Compute Dunn Index for all k values.
+        
+        Returns:
+            OptimizationResult: Result including scores and selected k.
+        """
+        scores = []
+        total_steps = len(self.k_range)
+        
+        for i, k in enumerate(self.k_range):
+            self._check_stop()
+            self._update_progress(i + 1, total_steps, f"Computing Dunn Index for k={k}")
+            
+            if k < 2:
+                scores.append(0.0)
+                continue
+            
+            result = self._get_clustering_result(k)
+            
+            score = self.compute_dunn_index(
+                data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+            )
+            scores.append(score)
+        
+        # Find optimal k (higher Dunn index is better)
+        valid_scores = self._filter_valid_scores(scores)
+        optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        
+        return OptimizationResult(
+            k_values=self.k_range.copy(),
+            scores=scores,
+            optimal_k=optimal_k,
+            method_name="Dunn Index",
+            higher_is_better=True,
+        )
+
+    def compute_calinski_harabasz_optimization(self) -> OptimizationResult:
+        """Compute Calinski-Harabasz Index for all k values.
+        
+        Returns:
+            OptimizationResult: Result including scores and selected k.
+        """
+        scores = []
+        total_steps = len(self.k_range)
+        
+        for i, k in enumerate(self.k_range):
+            self._check_stop()
+            self._update_progress(i + 1, total_steps, f"Computing Calinski-Harabasz for k={k}")
+            
+            if k < 2:
+                scores.append(0.0)
+                continue
+            
+            result = self._get_clustering_result(k)
+            
+            score = self.compute_calinski_harabasz_index(
+                data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+            )
+            scores.append(score)
+        
+        # Find optimal k (higher CH index is better)
+        valid_scores = self._filter_valid_scores(scores)
+        optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        
+        return OptimizationResult(
+            k_values=self.k_range.copy(),
+            scores=scores,
+            optimal_k=optimal_k,
+            method_name="Calinski-Harabasz Index",
+            higher_is_better=True,
+        )
+
+    def compute_gap_statistic_optimization(self) -> OptimizationResult:
+        """Compute Gap Statistic for all k values.
+        
+        Returns:
+            OptimizationResult: Result including scores and selected k.
+        """
+        scores = []
+        total_steps = len(self.k_range)
+        
+        for i, k in enumerate(self.k_range):
+            self._check_stop()
+            self._update_progress(i + 1, total_steps, f"Computing Gap Statistic for k={k}")
+            
+            result = self._get_clustering_result(k)
+            
+            gap_score, _ = self.compute_gap_statistic(
+                data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+            )
+            scores.append(gap_score)
+        
+        # Find optimal k (maximum gap is better)
+        valid_scores = self._filter_valid_scores(scores)
+        optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        
+        return OptimizationResult(
+            k_values=self.k_range.copy(),
+            scores=scores,
+            optimal_k=optimal_k,
+            method_name="Gap Statistic",
+            higher_is_better=True,
+        )
+
+    def compute_aic_optimization(self) -> OptimizationResult:
+        """Compute AIC for all k values.
+        
+        Returns:
+            OptimizationResult: Result including scores and selected k.
+        """
+        scores = []
+        total_steps = len(self.k_range)
+        
+        for i, k in enumerate(self.k_range):
+            self._check_stop()
+            self._update_progress(i + 1, total_steps, f"Computing AIC for k={k}")
+            
+            result = self._get_clustering_result(k)
+            
+            aic_score = self.compute_information_criteria(
+                data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='AIC'
+            )
+            scores.append(aic_score)
+        
+        # Find optimal k (lower AIC is better)
+        valid_scores = self._filter_valid_scores(scores)
+        optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        
+        return OptimizationResult(
+            k_values=self.k_range.copy(),
+            scores=scores,
+            optimal_k=optimal_k,
+            method_name="Akaike Information Criterion",
+            higher_is_better=False,
+        )
+
+    def compute_bic_optimization(self) -> OptimizationResult:
+        """Compute BIC for all k values.
+        
+        Returns:
+            OptimizationResult: Result including scores and selected k.
+        """
+        scores = []
+        total_steps = len(self.k_range)
+        
+        for i, k in enumerate(self.k_range):
+            self._check_stop()
+            self._update_progress(i + 1, total_steps, f"Computing BIC for k={k}")
+            
+            result = self._get_clustering_result(k)
+            
+            bic_score = self.compute_information_criteria(
+                data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='BIC'
+            )
+            scores.append(bic_score)
+        
+        # Find optimal k (lower BIC is better)
+        valid_scores = self._filter_valid_scores(scores)
+        optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        
+        return OptimizationResult(
+            k_values=self.k_range.copy(),
+            scores=scores,
+            optimal_k=optimal_k,
+            method_name="Bayesian Information Criterion",
+            higher_is_better=False,
+        )
+
     def compute_methods_batch(
         self, methods: list[str], parameters: Optional[dict[str, float]] = None
     ) -> dict[str, OptimizationResult]:
@@ -742,8 +1476,8 @@ class ClustererOptimizer:
         exact metric definitions.
 
         Args:
-            methods (list[str]): Method codes to compute. Supported: ['gev', 'db', 'cv', 'kl'].
-            parameters (dict[str, float] | None): Optional parameters per method (e.g., {'gev': 5.0}).
+            methods: Method codes to compute. Supported: ['gev', 'db', 'cv', 'kl', 'sil', 'dunn', 'ch', 'gap', 'aic', 'bic'].
+            parameters: Optional parameters per method (e.g., {'gev': 5.0}).
 
         Returns:
             dict[str, OptimizationResult]: Mapping from method code to result.
@@ -754,6 +1488,12 @@ class ClustererOptimizer:
         gev_scores: list[float] = []
         db_scores: list[float] = []
         cv_scores: list[float] = []
+        sil_scores: list[float] = []
+        dunn_scores: list[float] = []
+        ch_scores: list[float] = []
+        gap_scores: list[float] = []
+        aic_scores: list[float] = []
+        bic_scores: list[float] = []
 
         # For KL we need M_q values across adjacent k
         M_values: dict[int, float] = {}
@@ -769,7 +1509,7 @@ class ClustererOptimizer:
             gev_scores.append(result.get("gev", np.nan))
 
             if k < 2:
-                db_scores.append(float("inf"))
+                db_scores.append(np.inf)
             else:
                 try:
                     db_val = self.compute_custom_davies_bouldin(
@@ -780,6 +1520,70 @@ class ClustererOptimizer:
                 db_scores.append(db_val)
 
             cv_scores.append(result.get("cv_score", np.nan))
+
+            # Compute silhouette score
+            if k < 2:
+                sil_scores.append(-1.0)  # Worst possible silhouette score
+            else:
+                try:
+                    sil_val = self.silhouette_coefficient_correlation(
+                        data=self.maps2use, labels=result["segmentation"]
+                    )
+                except Exception:
+                    sil_val = np.nan
+                sil_scores.append(sil_val)
+
+            # Compute new metrics if requested
+            if 'dunn' in methods:
+                if k < 2:
+                    dunn_scores.append(0.0)
+                else:
+                    try:
+                        dunn_val = self.compute_dunn_index(
+                            data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                        )
+                    except Exception:
+                        dunn_val = np.nan
+                    dunn_scores.append(dunn_val)
+            
+            if 'ch' in methods:
+                if k < 2:
+                    ch_scores.append(0.0)
+                else:
+                    try:
+                        ch_val = self.compute_calinski_harabasz_index(
+                            data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                        )
+                    except Exception:
+                        ch_val = np.nan
+                    ch_scores.append(ch_val)
+            
+            if 'gap' in methods:
+                try:
+                    gap_val, _ = self.compute_gap_statistic(
+                        data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                    )
+                except Exception:
+                    gap_val = np.nan
+                gap_scores.append(gap_val)
+            
+            if 'aic' in methods:
+                try:
+                    aic_val = self.compute_information_criteria(
+                        data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='AIC'
+                    )
+                except Exception:
+                    aic_val = np.nan
+                aic_scores.append(aic_val)
+            
+            if 'bic' in methods:
+                try:
+                    bic_val = self.compute_information_criteria(
+                        data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='BIC'
+                    )
+                except Exception:
+                    bic_val = np.nan
+                bic_scores.append(bic_val)
 
             # Prepare M_q for KL using the same formulation as in compute_krzanowski_lai
             try:
@@ -813,7 +1617,7 @@ class ClustererOptimizer:
                 valid_scores = [
                     (k_val, score)
                     for k_val, score in zip(self.k_range, db_scores)
-                    if score != float("inf") and not np.isnan(score)
+                    if score != np.inf and not np.isnan(score)
                 ]
                 optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
                 return OptimizationResult(
@@ -847,6 +1651,66 @@ class ClustererOptimizer:
                     method_name="Krzanowski-Lai Criterion",
                     higher_is_better=True,
                 )
+            if method == "sil":
+                valid_scores = self._filter_valid_scores(sil_scores)
+                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=sil_scores,
+                    optimal_k=optimal_k,
+                    method_name="Silhouette Coefficient",
+                    higher_is_better=True,
+                )
+            if method == "dunn":
+                valid_scores = self._filter_valid_scores(dunn_scores)
+                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=dunn_scores,
+                    optimal_k=optimal_k,
+                    method_name="Dunn Index",
+                    higher_is_better=True,
+                )
+            if method == "ch":
+                valid_scores = self._filter_valid_scores(ch_scores)
+                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=ch_scores,
+                    optimal_k=optimal_k,
+                    method_name="Calinski-Harabasz Index",
+                    higher_is_better=True,
+                )
+            if method == "gap":
+                valid_scores = self._filter_valid_scores(gap_scores)
+                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=gap_scores,
+                    optimal_k=optimal_k,
+                    method_name="Gap Statistic",
+                    higher_is_better=True,
+                )
+            if method == "aic":
+                valid_scores = self._filter_valid_scores(aic_scores)
+                optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=aic_scores,
+                    optimal_k=optimal_k,
+                    method_name="Akaike Information Criterion",
+                    higher_is_better=False,
+                )
+            if method == "bic":
+                valid_scores = self._filter_valid_scores(bic_scores)
+                optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                return OptimizationResult(
+                    k_values=self.k_range.copy(),
+                    scores=bic_scores,
+                    optimal_k=optimal_k,
+                    method_name="Bayesian Information Criterion",
+                    higher_is_better=False,
+                )
             # Fallback (should not occur with validated inputs)
             return OptimizationResult(
                 k_values=self.k_range.copy(),
@@ -870,9 +1734,9 @@ class ClustererOptimizer:
         Uses correlation-based distance to respect polarity invariance of microstates.
 
         Args:
-            data (np.ndarray): Data matrix (n_channels, n_samples).
-            segmentation (np.ndarray): Cluster labels for each sample.
-            maps (np.ndarray): Cluster centers (n_clusters, n_channels).
+            data: Data matrix (n_channels, n_samples).
+            segmentation: Cluster labels for each sample.
+            maps: Cluster centers (n_clusters, n_channels).
 
         Returns:
             float: W_q value.
@@ -916,8 +1780,8 @@ class ClustererOptimizer:
         """Find optimal k using specified optimization method.
 
         Args:
-            optimizer_mode (str): Optimization method ('gev', 'db', 'cv', 'kl', 'majority_vote').
-            parameter_value (float | None): Parameter value for the method (e.g., n_folds for CV).
+            optimizer_mode: Optimization method ('gev', 'db', 'cv', 'kl', 'majority_vote').
+            parameter_value: Parameter value for the method (e.g., n_folds for CV).
 
         Returns:
             tuple[int, list[int], list[float]]: (optimal_k, k_values, scores).
@@ -928,6 +1792,12 @@ class ClustererOptimizer:
             "db": ("compute_davies_bouldin", None),
             "cv": ("compute_cross_validation", None),
             "kl": ("compute_krzanowski_lai", None),
+            "sil": ("compute_silhouette", None),
+            "dunn": ("compute_dunn_index_optimization", None),
+            "ch": ("compute_calinski_harabasz_optimization", None),
+            "gap": ("compute_gap_statistic_optimization", None),
+            "aic": ("compute_aic_optimization", None),
+            "bic": ("compute_bic_optimization", None),
             "majority_vote": ("find_optimal_k_majority_vote", None),
         }
 
@@ -959,13 +1829,13 @@ class ClustererOptimizer:
         Computes all metrics for each k value, then uses majority vote.
 
         Args:
-            methods (list[str] | None): Methods to use. If None, uses all available methods.
+            methods: Methods to use. If None, uses all available methods.
 
         Returns:
             int: Optimal k based on majority vote.
         """
         if methods is None:
-            methods = ["gev", "db", "cv", "kl"]
+            methods = ["gev", "db", "cv", "kl", "sil", "dunn", "ch", "gap", "aic", "bic"]
 
         self._log_message(
             f"Starting majority vote optimization for k range {self.kmin} to {self.kmax}"
@@ -1000,6 +1870,12 @@ class ClustererOptimizer:
                     "db": "davies_bouldin",
                     "cv": "cv_score",
                     "kl": "kl_score",
+                    "sil": "silhouette_score",
+                    "dunn": "dunn_index",
+                    "ch": "calinski_harabasz_index",
+                    "gap": "gap_statistic",
+                    "aic": "aic_score",
+                    "bic": "bic_score",
                 }
 
                 for metric in methods:
@@ -1014,14 +1890,17 @@ class ClustererOptimizer:
                 db_val = clustering_result.get("davies_bouldin", "N/A")
                 cv_val = clustering_result.get("cv_score", "N/A")
                 kl_val = clustering_result.get("kl_score", "N/A")
+                sil_val = clustering_result.get("silhouette_score", "N/A")
 
                 gev_str = f"{gev_val:.4f}" if isinstance(gev_val, (int, float)) else str(gev_val)
                 db_str = f"{db_val:.4f}" if isinstance(db_val, (int, float)) else str(db_val)
                 cv_str = f"{cv_val:.4f}" if isinstance(cv_val, (int, float)) else str(cv_val)
                 kl_str = f"{kl_val:.4f}" if isinstance(kl_val, (int, float)) else str(kl_val)
+                sil_str = f"{sil_val:.4f}" if isinstance(sil_val, (int, float)) else str(sil_val)
 
                 self._log_message(
-                    f"k={k} metrics - GEV: {gev_str}, Davies-Bouldin: {db_str}, CV: {cv_str}, KL: {kl_str}"
+                    f"k={k} metrics - GEV: {gev_str}, Davies-Bouldin: {db_str}, "
+                    f"CV: {cv_str}, KL: {kl_str}, Silhouette: {sil_str}"
                 )
 
             except Exception as e:
@@ -1101,9 +1980,9 @@ class ClustererOptimizer:
         """Find optimal k for a specific metric.
 
         Args:
-            metric (str): Metric name ('gev', 'db', 'cv', 'kl').
-            k_values (list[int]): List of k values.
-            scores (list[float]): Scores for each k value.
+            metric: Metric name ('gev', 'db', 'cv', 'kl').
+            k_values: List of k values.
+            scores: Scores for each k value.
 
         Returns:
             int: Optimal k value.
@@ -1128,6 +2007,30 @@ class ClustererOptimizer:
             # Krzanowski-Lai - higher is better
             max_idx = np.argmax(scores)
             return k_values[max_idx]
+        if metric == "sil":
+            # Silhouette coefficient - higher is better
+            max_idx = np.argmax(scores)
+            return k_values[max_idx]
+        if metric == "dunn":
+            # Dunn Index - higher is better
+            max_idx = np.argmax(scores)
+            return k_values[max_idx]
+        if metric == "ch":
+            # Calinski-Harabasz Index - higher is better
+            max_idx = np.argmax(scores)
+            return k_values[max_idx]
+        if metric == "gap":
+            # Gap Statistic - higher is better
+            max_idx = np.argmax(scores)
+            return k_values[max_idx]
+        if metric == "aic":
+            # AIC - lower is better
+            min_idx = np.argmin(scores)
+            return k_values[min_idx]
+        if metric == "bic":
+            # BIC - lower is better
+            min_idx = np.argmin(scores)
+            return k_values[min_idx]
         # Default to first k value
         return k_values[0]
 
@@ -1144,7 +2047,7 @@ class ClustererOptimizer:
         """Normalize data for clustering metrics.
 
         Args:
-            data (np.ndarray): Input data (n_channels, n_samples).
+            data: Input data (n_channels, n_samples).
 
         Returns:
             np.ndarray: Normalized data.
@@ -1156,9 +2059,9 @@ class ClustererOptimizer:
         """Compute within-cluster sum of squares using correlation distance.
 
         Args:
-            data (np.ndarray): Data matrix (n_channels, n_samples).
-            maps (np.ndarray): Cluster centers (n_clusters, n_channels).
-            segmentation (np.ndarray): Cluster labels for each sample.
+            data: Data matrix (n_channels, n_samples).
+            maps: Cluster centers (n_clusters, n_channels).
+            segmentation: Cluster labels for each sample.
 
         Returns:
             float: Within-cluster sum of squares.
@@ -1190,10 +2093,10 @@ class ClustererOptimizer:
         """Find elbow point using threshold method for percentage change.
 
         Args:
-            x_values (list[int]): K values evaluated.
-            y_values (list[float]): Corresponding metric scores.
-            threshold (float): Percentage improvement threshold.
-            higher_is_better (bool): Direction of optimization for context.
+            x_values: K values evaluated.
+            y_values: Corresponding metric scores.
+            threshold: Percentage improvement threshold.
+            higher_is_better: Direction of optimization for context.
 
         Returns:
             int: Selected elbow k value.

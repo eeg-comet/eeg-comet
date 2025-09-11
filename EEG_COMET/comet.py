@@ -1467,6 +1467,22 @@ class COMET:
         self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neubiorev.2014.12.010 ")
         self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neuroimage.2017.11.062")
         
+        # Log validation methods information if using auto-k selection
+        if self.number_of_maps == "auto":
+            self.logger.processing_info("CLUSTERING", "Statistical validation techniques for optimal k selection:")
+            self.logger.processing_info("CLUSTERING", "• Cross-Validation: Balances explanatory power against parsimony")
+            self.logger.processing_info("CLUSTERING", "• Global Explained Variance: Identifies elbow point for efficiency")
+            self.logger.processing_info("CLUSTERING", "• Silhouette Analysis: Measures clustering consistency")
+            self.logger.processing_info("CLUSTERING", "• Dunn Index: Quantifies cluster compactness and separation")
+            self.logger.processing_info("CLUSTERING", "• Davies-Bouldin Index: Assesses cluster distinctiveness")
+            self.logger.processing_info("CLUSTERING", "• Calinski-Harabasz Index: Evaluates variance ratios")
+            self.logger.processing_info("CLUSTERING", "• Gap Statistic: Compares to random distributions")
+            self.logger.processing_info("CLUSTERING", "• Information Criteria (AIC/BIC): Model selection principles")
+            self.logger.processing_info("CLUSTERING", "• Krzanowski-Lai: Evaluates relative improvement")
+            self.logger.reference("CLUSTERING", "https://doi.org/10.1111/j.2517-6161.1995.tb02031.x")  # Pascual-Marqui CV
+            self.logger.reference("CLUSTERING", "https://doi.org/10.1016/0031-3203(87)90066-7")  # Silhouette
+            self.logger.reference("CLUSTERING", "https://doi.org/10.1007/BF01553939")  # Davies-Bouldin
+        
         self.logger.settings_info("CLUSTERING", clustering_settings)
 
         # Provide concise, high-signal details about the upcoming clustering
