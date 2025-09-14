@@ -371,7 +371,10 @@ class COMET:
                 self.save_dir, f"{self.study_name}_preprocessed_data"
             )
             self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.fif")
-            self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
+            # Create clustering results directory and set microstate_maps_path
+            clustering_results_path = self.get_clustering_results_path()
+            os.makedirs(clustering_results_path, exist_ok=True)
+            self.microstate_maps_path = os.path.join(clustering_results_path, "microstate_maps.csv")
             self.extracted_features_path = os.path.join(
                 self.save_dir, f"{self.study_name}_extracted_features"
             )
@@ -699,7 +702,10 @@ class COMET:
             self.save_dir, f"{self.study_name}_preprocessed_data"
         )
         self.eeg_info_path = os.path.join(self.save_dir, "eeg_info.fif")
-        self.microstate_maps_path = os.path.join(self.save_dir, "microstate_maps.csv")
+        # Create clustering results directory and set microstate_maps_path
+        clustering_results_path = self.get_clustering_results_path()
+        os.makedirs(clustering_results_path, exist_ok=True)
+        self.microstate_maps_path = os.path.join(clustering_results_path, "microstate_maps.csv")
         self.extracted_features_path = os.path.join(
             self.save_dir, f"{self.study_name}_extracted_features"
         )
@@ -1453,12 +1459,7 @@ class COMET:
         clustering_settings["Clustering Method"] = getattr(self, "clustering_method", "Unknown")
         clustering_settings["Number of Maps"] = getattr(self, "number_of_maps", "Unknown")
         clustering_settings["Number of Repeats"] = getattr(self, "number_of_repeats", "Unknown")
-
-        if getattr(self, "number_of_maps", None) == "auto":
-            clustering_settings["K Range"] = (
-                f"{getattr(self, 'kmin', 'Unknown')} to {getattr(self, 'kmax', 'Unknown')}"
-            )
-            clustering_settings["Stopping Mode"] = getattr(self, "stopping_mode", "Unknown")
+        # Note: K Range and Stopping Mode are logged separately below for better formatting
 
         # Start clustering
         self.logger.processing_start("CLUSTERING", "Starting Microstate Clustering")
@@ -1467,62 +1468,74 @@ class COMET:
         self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neubiorev.2014.12.010 ")
         self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neuroimage.2017.11.062")
         
-        # Log validation methods information if using auto-k selection
+        # Log optimization method information if using auto-k selection
         if self.number_of_maps == "auto":
-            self.logger.processing_info("CLUSTERING", "Statistical validation techniques for optimal k selection:")
-            self.logger.processing_info("CLUSTERING", "• Cross-Validation: Balances explanatory power against parsimony")
-            self.logger.processing_info("CLUSTERING", "• Global Explained Variance: Identifies elbow point for efficiency")
-            self.logger.processing_info("CLUSTERING", "• Silhouette Analysis: Measures clustering consistency")
-            self.logger.processing_info("CLUSTERING", "• Dunn Index: Quantifies cluster compactness and separation")
-            self.logger.processing_info("CLUSTERING", "• Davies-Bouldin Index: Assesses cluster distinctiveness")
-            self.logger.processing_info("CLUSTERING", "• Calinski-Harabasz Index: Evaluates variance ratios")
-            self.logger.processing_info("CLUSTERING", "• Gap Statistic: Compares to random distributions")
-            self.logger.processing_info("CLUSTERING", "• Information Criteria (AIC/BIC): Model selection principles")
-            self.logger.processing_info("CLUSTERING", "• Krzanowski-Lai: Evaluates relative improvement")
+            if getattr(self, 'stopping_mode', 'majority_vote') == "majority_vote":
+                self.logger.processing_info("CLUSTERING", "Optimization Strategy: Ensemble method (majority vote across 10 criteria)")
+                self.logger.processing_info("CLUSTERING", "Methods: GEV, Davies-Bouldin, Cross-Validation, Krzanowski-Lai, Silhouette, Dunn, Calinski-Harabasz, Gap, AIC, BIC")
+            else:
+                # Single method optimization
+                method_descriptions = {
+                    "gev": "Global Explained Variance (elbow point detection)",
+                    "db": "Davies-Bouldin Index (cluster distinctiveness)", 
+                    "cv": "Cross-Validation (explanatory power vs parsimony)",
+                    "kl": "Krzanowski-Lai Criterion (relative improvement)",
+                    "sil": "Silhouette Coefficient (clustering consistency)",
+                    "dunn": "Dunn Index (cluster compactness and separation)",
+                    "ch": "Calinski-Harabasz Index (variance ratios)",
+                    "gap": "Gap Statistic (comparison to random distributions)",
+                    "aic": "Akaike Information Criterion (model selection)",
+                    "bic": "Bayesian Information Criterion (model selection)"
+                }
+                method_name = method_descriptions.get(getattr(self, 'stopping_mode', 'gev'), f"Single method: {getattr(self, 'stopping_mode', 'gev')}")
+                self.logger.processing_info("CLUSTERING", f"Optimization Strategy: {method_name}")
+            
+            # Add key references for optimization methods
             self.logger.reference("CLUSTERING", "https://doi.org/10.1111/j.2517-6161.1995.tb02031.x")  # Pascual-Marqui CV
             self.logger.reference("CLUSTERING", "https://doi.org/10.1016/0031-3203(87)90066-7")  # Silhouette
-            self.logger.reference("CLUSTERING", "https://doi.org/10.1007/BF01553939")  # Davies-Bouldin
         
-        self.logger.settings_info("CLUSTERING", clustering_settings)
+        # Note: clustering_settings will be logged later right before actual clustering starts
 
-        # Provide concise, high-signal details about the upcoming clustering
+        # Provide concise clustering details
         try:
-            # K selection message
+            # K range and input details
             if self.number_of_maps == "auto":
-                k_selection_msg = (
-                    f"K Selection: Automatic (kmin={getattr(self, 'kmin', 'Unknown')}, "
-                    f"kmax={getattr(self, 'kmax', 'Unknown')}, "
-                    f"stopping={getattr(self, 'stopping_mode', 'Unknown')})"
-                )
+                kmin = getattr(self, 'kmin', 2)
+                kmax = getattr(self, 'kmax', 10)
+                
+                # Determine optimization mode description
+                if getattr(self, 'stopping_mode', 'majority_vote') == "majority_vote":
+                    opt_mode = "ensemble voting"
+                else:
+                    opt_mode = f"single method ({getattr(self, 'stopping_mode', 'gev')})"
+                
+                self.logger.processing_info("CLUSTERING", f"K Range: {kmin} to {kmax} (optimization: {opt_mode})")
+                self.logger.processing_info("CLUSTERING", "Clustering Input: GFP peaks (auto-k enforced)")
             else:
-                k_selection_msg = f"Extracting {self.number_of_maps} Microstates based on user input ..."
-
-            # Input selection message
-            if self.number_of_maps == "auto":
-                input_msg = "Clustering Input: GFP peaks (auto-k enforced)"
-            else:
+                self.logger.processing_info("CLUSTERING", f"K Value: {self.number_of_maps} (user-defined)")
+                
+                # Input selection message for user-defined k
                 use_pct = getattr(self, "use_percentages", None)
                 if use_pct is None:
-                    input_msg = "Analyzing GFP peaks only"
+                    input_msg = "Clustering Input: GFP peaks only"
                 elif use_pct >= 100:
-                    input_msg = "Analyzing entire recordings"
+                    input_msg = "Clustering Input: Entire recordings"
                 else:
-                    input_msg = f"Analyzing a random {use_pct}% of the data per repeat"
+                    input_msg = f"Clustering Input: Random {use_pct}% of data per repeat"
+                self.logger.processing_info("CLUSTERING", input_msg)
 
-            # Effective repetitions (TAAHC is deterministic → 1)
+            # Effective repetitions (simplified)
             is_taahc = (
                 getattr(self, "clustering_method", "")
                 == "Topographic Atomize and Agglomerate Hierarchical Clustering"
             )
             effective_repeats = 1 if is_taahc else getattr(self, "number_of_repeats", 1)
-            repeats_msg = (
-                f"Repeating analysis {effective_repeats} times"
-            )
-
-            # Log messages
-            self.logger.processing_info("CLUSTERING", repeats_msg)
-            self.logger.processing_info("CLUSTERING", input_msg)
-            self.logger.processing_info("CLUSTERING", k_selection_msg)
+            
+            if self.number_of_maps == "auto":
+                self.logger.processing_info("CLUSTERING", "Auto-k selection: Using single repeat (n_inits=1) for optimization")
+            else:
+                self.logger.processing_info("CLUSTERING", f"Repeating analysis {effective_repeats} times")
+                
         except Exception:
             # Logging should never break the flow
             pass
@@ -1545,13 +1558,19 @@ class COMET:
             # Non-GUI mode - run directly
             self._run_full_clustering_direct()
 
+    def get_clustering_results_path(self):
+        """Get the path to the clustering results directory.
+        
+        Returns:
+            str: Path to the clustering results directory.
+        """
+        return os.path.join(self.save_dir, f"{self.study_name}_clustering_results")
+
     def _save_clustering_results(self):
         """Save clustering results to files."""
         try:
             # Create clustering results directory with proper naming convention
-            clustering_results_path = os.path.join(
-                self.save_dir, f"{self.study_name}_clustering_results"
-            )
+            clustering_results_path = self.get_clustering_results_path()
             os.makedirs(clustering_results_path, exist_ok=True)
 
             # Save microstate maps
@@ -1696,10 +1715,43 @@ class COMET:
                     return self._handle_stopped_clustering("Starting automatic optimization")
 
                 # Run automatic optimization with progress updates
-                self._run_automatic_optimization_core_with_progress(update_progress, check_stop)
+                optimization_success = self._run_automatic_optimization_core_with_progress(update_progress, check_stop)
+                
+                # If optimization was stopped or failed, reset state and return early
+                if not optimization_success:
+                    self.logger.warning("CLUSTERING", "❌ Auto-k optimization was stopped or failed")
+                    
+                    # Reset clustering state to allow restart
+                    self.done_clustering = False
+                    
+                    # Clear any partial results
+                    self.best_maps = None
+                    self.best_gev = 0.0
+                    self.best_residual = np.inf
+                    
+                    # Update UI message and call callback to reset main window
+                    if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                        self.LogWindow.append_log("🔄 Clustering ready to restart with new parameters", log_type="info")
+                        # Reset progress UI
+                        self.LogWindow.ui.progress_label.setText("Ready for clustering")
+                        self.LogWindow.ui.progress_stop_button.setEnabled(False)
+                    
+                    # Call clustering completion callback to update main window UI
+                    if self.clustering_completed_callback is not None:
+                        self.clustering_completed_callback()
+                    
+                    return False
 
             # Step 7: After determining number_of_maps, perform actual clustering
             if self.number_of_maps and self.number_of_maps != "auto":
+                # Log clustering method and settings right before actual clustering starts
+                clustering_settings = {
+                    "Clustering Method": getattr(self, "clustering_method", "Unknown"),
+                    "Number of Maps": str(self.number_of_maps),
+                    "Number of Repeats": str(getattr(self, "number_of_repeats", "Unknown"))
+                }
+                self.logger.settings_info("CLUSTERING", clustering_settings)
+                
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
                     self.LogWindow.log_clustering_setup_step(
                         "Starting clustering",
@@ -1953,6 +2005,7 @@ class COMET:
                 self.LogWindow.append_log(f"Optimization progress: {message}", log_type="process")
 
         # Initialize optimizer
+        clustering_results_path = self.get_clustering_results_path()
         self.comet_clusterer_optimizer = ClustererOptimizer(
             maps2use=self.maps2use,
             min_dist=self.min_distance_size,
@@ -1966,6 +2019,7 @@ class COMET:
             max_iter=self.max_iterations,
             progress_callback=progress_callback,
             logger=self.logger,
+            clustering_results_path=clustering_results_path,
         )
 
         # Run automatic optimization
@@ -1976,10 +2030,8 @@ class COMET:
         # Initialize optimizer without progress callback
         # For auto-k selection, use only 1 repeat and force GFP peaks
         auto_k_n_inits = 1  # Force single repeat for auto-k selection
-        self.logger.processing_info(
-            "CLUSTERING", "Auto-k selection: Using single repeat (n_inits=1) for optimization"
-        )
 
+        clustering_results_path = self.get_clustering_results_path()
         self.comet_clusterer_optimizer = ClustererOptimizer(
             maps2use=self.maps2use,
             min_dist=self.min_distance_size,
@@ -1992,6 +2044,7 @@ class COMET:
             tolerance=self.clustering_tolerance,
             max_iter=self.max_iterations,
             logger=self.logger,
+            clustering_results_path=clustering_results_path,
         )
 
         # Run automatic optimization
@@ -2018,10 +2071,8 @@ class COMET:
             # Initialize optimizer with progress callback
             # For auto-k selection, use only 1 repeat and force GFP peaks
             auto_k_n_inits = 1  # Force single repeat for auto-k selection
-            self.logger.processing_info(
-                "CLUSTERING", "Auto-k selection: Using single repeat (n_inits=1) for optimization"
-            )
 
+            clustering_results_path = self.get_clustering_results_path()
             self.comet_clusterer_optimizer = ClustererOptimizer(
                 maps2use=self.maps2use,
                 min_dist=self.min_distance_size,
@@ -2035,6 +2086,7 @@ class COMET:
                 max_iter=self.max_iterations,
                 progress_callback=progress_callback,
                 logger=self.logger,
+                clustering_results_path=clustering_results_path,
             )
 
             # Connect LogWindow stop functionality to the optimizer
@@ -2069,34 +2121,48 @@ class COMET:
                                 f"  {result.method_name}: k = {result.optimal_k}"
                             )
             else:
-                # Fallback to single method (for backward compatibility)
+                # Single method optimization
                 optimal_k, k_values, scores = self.comet_clusterer_optimizer.find_optimal_k(
                     optimizer_mode=self.stopping_mode, parameter_value=self.stopping_parameter
+                )
+                
+                # Log to both console and GUI window
+                self.logger.processing_success(
+                    "CLUSTERING", f"Optimal k selected: {optimal_k}"
                 )
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")
 
             self.number_of_maps = optimal_k
 
-            # Don't update progress here - only update when clustering repetitions are completed
-            # if update_progress_func:
-            #     update_progress_func(1, f"Automatic optimization completed - optimal k: {optimal_k}")
+            # Return True to indicate successful completion
+            return True
 
         except RuntimeError as e:
             if "stopped by user" in str(e):
                 # Handle user-initiated stop
-                self.logger.stop_requested("CLUSTERING")
-                stop_msg = "Auto-k optimization stopped by user"
+                stop_msg = "⏹️ Auto-k optimization stopped by user"
+                self.logger.warning("CLUSTERING", stop_msg)
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
                     self.LogWindow.append_log(stop_msg, log_type="warning")
-                # Fallback to default
-                self.number_of_maps = 4
+                    self.LogWindow.append_log("💡 You can adjust parameters and restart clustering", log_type="info")
+                
+                # Reset to allow user to try again - don't set a default number_of_maps
+                # Keep it as "auto" so user can restart optimization
+                self.choose_number_of_maps = "user"  # Reset to user mode to prevent auto-retry
+                self.number_of_maps = 4  # Fallback default
+                
+                # Clean up optimizer reference
+                if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                    self.LogWindow.current_optimizer = None
+                    self.LogWindow.current_step = None
+                
                 self.logger.warning(
-                    "CLUSTERING", f"Using fallback number of maps: {self.number_of_maps}"
+                    "CLUSTERING", f"Reset to user-defined mode with k={self.number_of_maps} (you can change this)"
                 )
-                # Don't update progress here - only update when clustering repetitions are completed
-                # if update_progress_func:
-                #     update_progress_func(1, "Auto-k optimization stopped by user")
+                
+                # Return False to indicate optimization was stopped
+                return False
             else:
                 raise
         except Exception as e:
@@ -2104,14 +2170,22 @@ class COMET:
             self.logger.error("CLUSTERING", error_msg)
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type="error")
+                self.LogWindow.append_log("💡 You can adjust parameters and restart clustering", log_type="info")
+            
+            # Clean up optimizer reference
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                self.LogWindow.current_optimizer = None
+                self.LogWindow.current_step = None
+            
             # Fallback to default
+            self.choose_number_of_maps = "user"  # Reset to user mode 
             self.number_of_maps = 4
             self.logger.warning(
-                "CLUSTERING", f"Using fallback number of maps: {self.number_of_maps}"
+                "CLUSTERING", f"Reset to user-defined mode with k={self.number_of_maps} (you can change this)"
             )
-            # Don't update progress here - only update when clustering repetitions are completed
-            # if update_progress_func:
-            #     update_progress_func(1, f"Automatic optimization failed: {str(e)}")
+            
+            # Return False to indicate optimization failed
+            return False
 
     def _run_automatic_optimization_core(self):
         """Core automatic optimization logic using majority vote."""
@@ -2139,9 +2213,14 @@ class COMET:
                                 f"  {result.method_name}: k = {result.optimal_k}"
                             )
             else:
-                # Fallback to single method (for backward compatibility)
+                # Single method optimization
                 optimal_k, k_values, scores = self.comet_clusterer_optimizer.find_optimal_k(
                     optimizer_mode=self.stopping_mode, parameter_value=self.stopping_parameter
+                )
+                
+                # Log to both console and GUI window
+                self.logger.processing_success(
+                    "CLUSTERING", f"Optimal k selected: {optimal_k}"
                 )
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")

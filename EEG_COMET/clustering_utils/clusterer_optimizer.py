@@ -30,6 +30,7 @@ Example usage:
     optimal_k = optimizer.find_optimal_k_majority_vote()
 """
 
+import os
 import time
 import warnings
 from dataclasses import dataclass
@@ -92,6 +93,11 @@ class ClustererOptimizer:
     This is the single source of truth for all clustering metrics implementations.
     All methods use spatial correlation as the similarity metric to ensure
     polarity-invariant topographic relationships are preserved.
+    
+    **Reproducibility Note:**
+    Results are deterministic by default (random_seed=42). To get different results:
+    - Use set_random_seed(new_seed) to change the seed
+    - Use clear_cache() to force recomputation with the same seed
     """
 
     def __init__(
@@ -109,6 +115,7 @@ class ClustererOptimizer:
         batch_size: Optional[int] = None,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
         logger=None,
+        clustering_results_path: str = None,
     ):
         """Initialize the clusterer optimizer.
 
@@ -126,6 +133,7 @@ class ClustererOptimizer:
             batch_size: Batch size for clustering.
             progress_callback: Callback for progress updates.
             logger: Logger instance for consistent formatting.
+            clustering_results_path: Path to save clustering results and plots.
         """
         # Validate and ensure correct data format
         if maps2use.ndim != 2:
@@ -177,6 +185,7 @@ class ClustererOptimizer:
         self.batch_size = batch_size
         self.progress_callback = progress_callback
         self.logger = logger
+        self.clustering_results_path = clustering_results_path
 
         # Results storage
         self.results: dict[str, OptimizationResult] = {}
@@ -187,10 +196,28 @@ class ClustererOptimizer:
 
         # Stop functionality
         self._stopped = False
+        
+        # Random seed for reproducibility (can be changed by user)
+        self.random_seed = 42
 
     def stop(self):
         """Stop the optimization process."""
         self._stopped = True
+    
+    def clear_cache(self):
+        """Clear the clustering cache to force re-computation of all k values."""
+        self._clustering_cache.clear()
+        self._log_message("Clustering cache cleared - next optimization will recompute all k values")
+    
+    def set_random_seed(self, seed: int):
+        """Set the random seed for reproducible results.
+        
+        Args:
+            seed: Random seed value. Use different seeds to get different results.
+        """
+        self.random_seed = seed
+        self.clear_cache()  # Clear cache since seed change affects results
+        self._log_message(f"Random seed set to {seed} - cache cleared for fresh results")
     
     def _get_full_dataset(self):
         """Load the full dataset for GEV calculation (lazy loading).
@@ -318,7 +345,7 @@ class ClustererOptimizer:
 
         Args:
             message: Message to log.
-            level: Log level ('info', 'warning', 'error').
+            level: Log level ('info', 'warning', 'error', 'success').
         """
         # Use the logger instance if available for consistent emoji formatting
         if self.logger is not None:
@@ -326,6 +353,8 @@ class ClustererOptimizer:
                 self.logger.error("CLUSTERING", message)
             elif level == "warning":
                 self.logger.warning("CLUSTERING", message)
+            elif level == "success":
+                self.logger.processing_success("CLUSTERING", message)
             else:
                 self.logger.processing_info("CLUSTERING", message)
         else:
@@ -334,10 +363,12 @@ class ClustererOptimizer:
                 print(f"[ERROR] {message}")
             elif level == "warning":
                 print(f"[WARNING] {message}")
+            elif level == "success":
+                print(f"[SUCCESS] {message}")
             else:
                 print(f"[INFO] {message}")
 
-    def _get_clustering_result(self, k: int) -> dict:
+    def _get_clustering_result(self, k: int, compute_all_metrics: bool = True) -> dict:
         """Get clustering result for k clusters, using cache if available.
 
         Args:
@@ -352,64 +383,84 @@ class ClustererOptimizer:
         # Clustering timing start
         start_time = time.time()
 
-        # Initialize the MicrostateClusterer for this K (same as optimizer window)
+        # Initialize the MicrostateClusterer for this K (same as main clustering workflow)
         clusterer = MicrostateClusterer(
             n_states=k,
             batch_size=self.batch_size,
-            n_inits=1,  # Force single repeat for auto-k selection
+            n_inits=1,  # We handle repetitions manually
             max_iter=self.max_iter,
             tolerance=self.tolerance,
         )
 
-        n_channels = self.maps2use.shape[0]
+        # For optimization, we need speed over perfect clustering quality
+        # Use single initialization with proper method but avoid expensive repeated operations
+        best_maps = None
+        best_residual = np.inf
+        best_labels = None
 
-        def _generate_normalized_random_maps(num_clusters: int, num_channels: int) -> np.ndarray:
-            """Generate normalized random maps (rows unit-norm).
-
-            Args:
-                num_clusters: Number of clusters/maps to generate.
-                num_channels: Number of channels per map.
-
-            Returns:
-                np.ndarray: Array of shape (num_clusters, num_channels).
-            """
-            random_maps = np.random.randn(num_clusters, num_channels)
-            row_norms = np.linalg.norm(random_maps, axis=1, keepdims=True) + 1e-12
-            return random_maps / row_norms
-
-        # Run single initialization (same as optimizer window but with n_inits=1)
         try:
-            # Random initialization of maps
-            initial_maps = _generate_normalized_random_maps(k, n_channels)
+            # Check if process should stop
+            self._check_stop()
+            
+            # Set reproducible random seed based on k value for consistent results
+            np.random.seed(self.random_seed + k)  # Different seed per k, but reproducible
+            
+            # Initialize cluster centers using proper method (single initialization for speed)
+            initial_maps = DataInitializer.initialize_cluster_centers(
+                maps2use=self.maps2use, 
+                n_states=k, 
+                initializer="K-Means++"  # Use K-Means++ for better initialization
+            )
 
-            # Run modified K-means
-            maps, residual = clusterer.modified_kmeans(self.maps2use, initial_maps, verbose=False)
+            # Run modified K-means (single run for optimization speed)
+            maps, residual = clusterer.modified_kmeans(
+                data=self.maps2use,
+                initial_maps=initial_maps,
+                verbose=False
+            )
 
-            # Calculate GEV for this result using the full dataset
-            full_dataset = self._get_full_dataset()
-            gev = clusterer.compute_gev(full_dataset, maps)
-
-            # Calculate final segmentation
-            activation = maps.dot(self.maps2use)
-            labels = np.argmax(np.abs(activation), axis=0)
+            # Store results
+            best_maps = maps.copy()
+            best_residual = residual
+            
+            # Calculate segmentation for the result
+            activation = best_maps.dot(self.maps2use)
+            best_labels = np.argmax(np.abs(activation), axis=0)
 
         except Exception as err:
+            # Import traceback for detailed error logging
+            import traceback
+            
             self._log_message(
-                f"Warning: Initialization failed for k={k}: {err}", level="warning"
+                f"❌ Clustering failed for k={k}: {str(err)}", level="error"
             )
-            raise RuntimeError(f"Clustering failed for k={k}") from err
+            self._log_message(
+                f"Full traceback for k={k}: {traceback.format_exc()}", level="error"
+            )
+            raise RuntimeError(f"Clustering failed for k={k}: {str(err)}") from err
 
-        # Cache the result
+        # Ensure we have valid results
+        if best_maps is None:
+            raise RuntimeError(f"No valid clustering results obtained for k={k}")
+
+        # Calculate GEV for this result using GFP peaks (optimization dataset)
+        # All optimization metrics should use GFP peaks for speed and consistency
+        best_gev = clusterer.compute_gev(self.maps2use, best_maps)
+
+        # Cache the result with basic metrics first
         self._clustering_cache[k] = {
-            "maps": maps.copy(),
-            "segmentation": labels,
-            "gev": gev,
-            "residual": residual,
+            "maps": best_maps.copy(),
+            "segmentation": best_labels,
+            "gev": best_gev,
+            "residual": best_residual,
             "computation_time": time.time() - start_time,
         }
 
-        # Compute additional metrics for this clustering result
-        self._compute_all_metrics_exact(self._clustering_cache[k], k, labels, gev, residual)
+        # Compute all additional metrics only if requested (for ensemble optimization)
+        if compute_all_metrics:
+            self._compute_all_metrics_exact(
+                self._clustering_cache[k], k, best_labels, best_gev, best_residual
+            )
 
         return self._clustering_cache[k]
 
@@ -438,6 +489,7 @@ class ClustererOptimizer:
                     data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["davies_bouldin"] = db_score
+                self._log_message(f"k={k}: Davies-Bouldin = {db_score:.4f}")
             except Exception as e:
                 self._log_message(
                     f"Error computing Davies-Bouldin for k={k}: {str(e)}", level="error"
@@ -452,6 +504,7 @@ class ClustererOptimizer:
                 self.maps2use, clustering_result["maps"], best_labels
             )
             clustering_result["cv_score"] = cv_score
+            self._log_message(f"k={k}: Cross-Validation = {cv_score:.4f}")
         except Exception as e:
             self._log_message(
                 f"Error computing Cross-Validation for k={k}: {str(e)}", level="error"
@@ -482,6 +535,7 @@ class ClustererOptimizer:
                     data=self.maps2use, labels=best_labels
                 )
                 clustering_result["silhouette_score"] = sil_score
+                self._log_message(f"k={k}: Silhouette = {sil_score:.4f}")
             except Exception as e:
                 self._log_message(
                     f"Error computing Silhouette for k={k}: {str(e)}", level="error"
@@ -497,6 +551,7 @@ class ClustererOptimizer:
                     data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["dunn_index"] = dunn_score
+                self._log_message(f"k={k}: Dunn Index = {dunn_score:.4f}")
             except Exception as e:
                 self._log_message(
                     f"Error computing Dunn Index for k={k}: {str(e)}", level="error"
@@ -512,6 +567,7 @@ class ClustererOptimizer:
                     data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["calinski_harabasz_index"] = ch_score
+                self._log_message(f"k={k}: Calinski-Harabasz = {ch_score:.4f}")
             except Exception as e:
                 self._log_message(
                     f"Error computing Calinski-Harabasz for k={k}: {str(e)}", level="error"
@@ -527,6 +583,7 @@ class ClustererOptimizer:
             )
             clustering_result["gap_statistic"] = gap_score
             clustering_result["gap_std"] = gap_std
+            self._log_message(f"k={k}: Gap Statistic = {gap_score:.4f}")
         except Exception as e:
             self._log_message(
                 f"Error computing Gap Statistic for k={k}: {str(e)}", level="error"
@@ -540,6 +597,7 @@ class ClustererOptimizer:
                 data=self.maps2use, labels=best_labels, maps=clustering_result["maps"], criterion='AIC'
             )
             clustering_result["aic_score"] = aic_score
+            self._log_message(f"k={k}: AIC = {aic_score:.4f}")
         except Exception as e:
             self._log_message(
                 f"Error computing AIC for k={k}: {str(e)}", level="error"
@@ -552,11 +610,527 @@ class ClustererOptimizer:
                 data=self.maps2use, labels=best_labels, maps=clustering_result["maps"], criterion='BIC'
             )
             clustering_result["bic_score"] = bic_score
+            self._log_message(f"k={k}: BIC = {bic_score:.4f}")
         except Exception as e:
             self._log_message(
                 f"Error computing BIC for k={k}: {str(e)}", level="error"
             )
             clustering_result["bic_score"] = np.nan
+
+    # ============================================================================
+    # PLOT GENERATION METHODS
+    # ============================================================================
+    
+    def _generate_gev_plot(self, k_values: list[int], gev_scores: list[float]):
+        """Generate and save GEV optimization plot.
+        
+        Args:
+            k_values: List of k values evaluated.
+            gev_scores: List of GEV scores for each k.
+        """
+        try:
+            import matplotlib.pyplot as plt
+            
+            # Filter out NaN values
+            valid_pairs = [(k, score) for k, score in zip(k_values, gev_scores) if not np.isnan(score)]
+            if not valid_pairs:
+                self._log_message("No valid GEV scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            # Create the plot
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'bo-', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Global Explained Variance (GEV)', fontsize=12)
+            plt.title('GEV Optimization Results', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            # Add score annotations on points
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.3f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            # Find and highlight the elbow point
+            if len(valid_pairs) > 1:
+                elbow_k = self._find_elbow_point(k_values, gev_scores, higher_is_better=True)
+                elbow_score = None
+                for k, score in valid_pairs:
+                    if k == elbow_k:
+                        elbow_score = score
+                        break
+                if elbow_score is not None:
+                    plt.plot(elbow_k, elbow_score, 'gs', markersize=12, markerfacecolor='lightgreen', 
+                            markeredgecolor='green', markeredgewidth=2, label=f'Elbow Point (k={elbow_k})')
+                    plt.legend()
+            
+            # Save the plot
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                # Fallback to current directory
+                output_dir = '.'
+                
+            # Ensure directory exists
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'global_explained_variance_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("GEV optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping plot generation", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating GEV plot: {str(e)}", level="error")
+
+    def _generate_aic_plot(self, k_values: list[int], aic_scores: list[float]):
+        """Generate and save AIC optimization plot.
+        
+        Args:
+            k_values: List of k values evaluated.
+            aic_scores: List of AIC scores for each k.
+        """
+        try:
+            import matplotlib.pyplot as plt
+            
+            # Filter out NaN values
+            valid_pairs = [(k, score) for k, score in zip(k_values, aic_scores) if not np.isnan(score)]
+            if not valid_pairs:
+                self._log_message("No valid AIC scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            # Create the plot
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'ro-', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Akaike Information Criterion (AIC)', fontsize=12)
+            plt.title('AIC Optimization Results (Lower is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            # Add score annotations on points
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.0f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            # Find and highlight the elbow point
+            if len(valid_pairs) > 1:
+                elbow_k = self._find_elbow_point(k_values, aic_scores, higher_is_better=False)
+                elbow_score = None
+                for k, score in valid_pairs:
+                    if k == elbow_k:
+                        elbow_score = score
+                        break
+                if elbow_score is not None:
+                    plt.plot(elbow_k, elbow_score, 'gs', markersize=12, markerfacecolor='lightgreen', 
+                            markeredgecolor='green', markeredgewidth=2, label=f'Elbow Point (k={elbow_k})')
+                    plt.legend()
+            
+            # Save the plot
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                # Fallback to current directory
+                output_dir = '.'
+                
+            # Ensure directory exists
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'akaike_information_criterion_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("AIC optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping AIC plot generation", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating AIC plot: {str(e)}", level="error")
+
+    def _generate_bic_plot(self, k_values: list[int], bic_scores: list[float]):
+        """Generate and save BIC optimization plot.
+        
+        Args:
+            k_values: List of k values evaluated.
+            bic_scores: List of BIC scores for each k.
+        """
+        try:
+            import matplotlib.pyplot as plt
+            
+            # Filter out NaN values
+            valid_pairs = [(k, score) for k, score in zip(k_values, bic_scores) if not np.isnan(score)]
+            if not valid_pairs:
+                self._log_message("No valid BIC scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            # Create the plot
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'mo-', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Bayesian Information Criterion (BIC)', fontsize=12)
+            plt.title('BIC Optimization Results (Lower is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            # Add score annotations on points
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.0f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            # Find and highlight the elbow point
+            if len(valid_pairs) > 1:
+                elbow_k = self._find_elbow_point(k_values, bic_scores, higher_is_better=False)
+                elbow_score = None
+                for k, score in valid_pairs:
+                    if k == elbow_k:
+                        elbow_score = score
+                        break
+                if elbow_score is not None:
+                    plt.plot(elbow_k, elbow_score, 'gs', markersize=12, markerfacecolor='lightgreen', 
+                            markeredgecolor='green', markeredgewidth=2, label=f'Elbow Point (k={elbow_k})')
+                    plt.legend()
+            
+            # Save the plot
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                # Fallback to current directory
+                output_dir = '.'
+                
+            # Ensure directory exists
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'bayesian_information_criterion_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("BIC optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping BIC plot generation", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating BIC plot: {str(e)}", level="error")
+
+    def _generate_davies_bouldin_plot(self, k_values: list[int], db_scores: list[float]):
+        """Generate and save Davies-Bouldin optimization plot."""
+        try:
+            import matplotlib.pyplot as plt
+            
+            valid_pairs = [(k, score) for k, score in zip(k_values, db_scores) if not np.isnan(score) and score != np.inf]
+            if not valid_pairs:
+                self._log_message("No valid Davies-Bouldin scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'co-', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Davies-Bouldin Index', fontsize=12)
+            plt.title('Davies-Bouldin Index Results (Lower is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.3f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                output_dir = '.'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'davies_bouldin_index_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("Davies-Bouldin optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping Davies-Bouldin plot", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating Davies-Bouldin plot: {str(e)}", level="error")
+
+    def _generate_cross_validation_plot(self, k_values: list[int], cv_scores: list[float]):
+        """Generate and save Cross-Validation optimization plot."""
+        try:
+            import matplotlib.pyplot as plt
+            
+            valid_pairs = [(k, score) for k, score in zip(k_values, cv_scores) if not np.isnan(score)]
+            if not valid_pairs:
+                self._log_message("No valid CV scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'go-', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Cross-Validation Score', fontsize=12)
+            plt.title('Cross-Validation Results (Lower is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.3f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            # Find and highlight the elbow point
+            if len(valid_pairs) > 1:
+                elbow_k = self._find_elbow_point(k_values, cv_scores, higher_is_better=False)
+                elbow_score = None
+                for k, score in valid_pairs:
+                    if k == elbow_k:
+                        elbow_score = score
+                        break
+                if elbow_score is not None:
+                    plt.plot(elbow_k, elbow_score, 'gs', markersize=12, markerfacecolor='lightgreen', 
+                            markeredgecolor='green', markeredgewidth=2, label=f'Elbow Point (k={elbow_k})')
+                    plt.legend()
+            
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                output_dir = '.'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'cross_validation_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("Cross-Validation optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping Cross-Validation plot", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating Cross-Validation plot: {str(e)}", level="error")
+
+    def _generate_krzanowski_lai_plot(self, k_values: list[int], kl_scores: list[float]):
+        """Generate and save Krzanowski-Lai optimization plot."""
+        try:
+            import matplotlib.pyplot as plt
+            
+            valid_pairs = [(k, score) for k, score in zip(k_values, kl_scores) if not np.isnan(score) and score > 0]
+            if not valid_pairs:
+                self._log_message("No valid KL scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'yo-', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Krzanowski-Lai Criterion', fontsize=12)
+            plt.title('Krzanowski-Lai Criterion Results (Higher is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.3f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                output_dir = '.'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'krzanowski_lai_criterion_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("Krzanowski-Lai optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping Krzanowski-Lai plot", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating Krzanowski-Lai plot: {str(e)}", level="error")
+
+    def _generate_silhouette_plot(self, k_values: list[int], sil_scores: list[float]):
+        """Generate and save Silhouette optimization plot."""
+        try:
+            import matplotlib.pyplot as plt
+            
+            valid_pairs = [(k, score) for k, score in zip(k_values, sil_scores) if not np.isnan(score)]
+            if not valid_pairs:
+                self._log_message("No valid Silhouette scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'o-', color='purple', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Silhouette Coefficient', fontsize=12)
+            plt.title('Silhouette Coefficient Results (Higher is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.3f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                output_dir = '.'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'silhouette_coefficient_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("Silhouette optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping Silhouette plot", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating Silhouette plot: {str(e)}", level="error")
+
+    def _generate_dunn_index_plot(self, k_values: list[int], dunn_scores: list[float]):
+        """Generate and save Dunn Index optimization plot."""
+        try:
+            import matplotlib.pyplot as plt
+            
+            valid_pairs = [(k, score) for k, score in zip(k_values, dunn_scores) if not np.isnan(score)]
+            if not valid_pairs:
+                self._log_message("No valid Dunn Index scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'o-', color='orange', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Dunn Index', fontsize=12)
+            plt.title('Dunn Index Results (Higher is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.3f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                output_dir = '.'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'dunn_index_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("Dunn Index optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping Dunn Index plot", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating Dunn Index plot: {str(e)}", level="error")
+
+    def _generate_calinski_harabasz_plot(self, k_values: list[int], ch_scores: list[float]):
+        """Generate and save Calinski-Harabasz optimization plot."""
+        try:
+            import matplotlib.pyplot as plt
+            
+            valid_pairs = [(k, score) for k, score in zip(k_values, ch_scores) if not np.isnan(score)]
+            if not valid_pairs:
+                self._log_message("No valid Calinski-Harabasz scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'o-', color='brown', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Calinski-Harabasz Index', fontsize=12)
+            plt.title('Calinski-Harabasz Index Results (Higher is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.0f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            # Find and highlight the elbow point
+            if len(valid_pairs) > 1:
+                elbow_k = self._find_elbow_point(k_values, ch_scores, higher_is_better=True)
+                elbow_score = None
+                for k, score in valid_pairs:
+                    if k == elbow_k:
+                        elbow_score = score
+                        break
+                if elbow_score is not None:
+                    plt.plot(elbow_k, elbow_score, 'gs', markersize=12, markerfacecolor='lightgreen', 
+                            markeredgecolor='green', markeredgewidth=2, label=f'Elbow Point (k={elbow_k})')
+                    plt.legend()
+            
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                output_dir = '.'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'calinski_harabasz_index_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("Calinski-Harabasz optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping Calinski-Harabasz plot", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating Calinski-Harabasz plot: {str(e)}", level="error")
+
+    def _generate_gap_statistic_plot(self, k_values: list[int], gap_scores: list[float]):
+        """Generate and save Gap Statistic optimization plot."""
+        try:
+            import matplotlib.pyplot as plt
+            
+            valid_pairs = [(k, score) for k, score in zip(k_values, gap_scores) if not np.isnan(score)]
+            if not valid_pairs:
+                self._log_message("No valid Gap Statistic scores to plot", level="warning")
+                return
+            
+            valid_k, valid_scores = zip(*valid_pairs)
+            
+            plt.figure(figsize=(10, 6))
+            plt.plot(valid_k, valid_scores, 'o-', color='pink', linewidth=2, markersize=8)
+            plt.xlabel('Number of Clusters (K)', fontsize=12)
+            plt.ylabel('Gap Statistic', fontsize=12)
+            plt.title('Gap Statistic Results (Higher is Better)', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.xticks(valid_k)
+            
+            for k, score in valid_pairs:
+                plt.annotate(f'{score:.3f}', (k, score), textcoords="offset points", 
+                           xytext=(0,10), ha='center', fontsize=9)
+            
+            if self.clustering_results_path:
+                output_dir = self.clustering_results_path
+            else:
+                output_dir = '.'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            plot_path = os.path.join(output_dir, 'gap_statistic_optimization_results.png')
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self._log_message("Gap Statistic optimization plot saved successfully!", level="success")
+            
+        except ImportError:
+            self._log_message("Matplotlib not available - skipping Gap Statistic plot", level="warning")
+        except Exception as e:
+            self._log_message(f"Error generating Gap Statistic plot: {str(e)}", level="error")
 
     # ============================================================================
     # UTILITY METHODS FOR SPATIAL CORRELATION
@@ -782,11 +1356,15 @@ class ClustererOptimizer:
         if n_clusters <= 1:
             return 0.0  # Silhouette coefficient is undefined for single cluster
         
+        # Pre-compute correlation matrix for efficiency (O(n²) but vectorized)
+        # This is much faster than individual pearsonr calls
+        correlation_matrix = ClustererOptimizer._spatial_correlation(data.T, data.T)
+        distance_matrix = 1 - np.abs(correlation_matrix)
+        
         silhouette_scores = []
         
         for i in range(n_samples):
             current_label = labels[i]
-            current_data = data[:, i]
             
             # Calculate a(i): average distance within same cluster
             same_cluster_mask = (labels == current_label) & (np.arange(n_samples) != i)
@@ -796,13 +1374,8 @@ class ClustererOptimizer:
                 # If point is alone in cluster, a(i) = 0
                 a_i = 0.0
             else:
-                # Calculate 1 - |correlation| as distance measure
-                correlations = []
-                for j in same_cluster_indices:
-                    corr, _ = pearsonr(current_data, data[:, j])
-                    distance = 1 - np.abs(corr)
-                    correlations.append(distance)
-                a_i = np.mean(correlations)
+                # Use pre-computed distances
+                a_i = np.mean(distance_matrix[i, same_cluster_indices])
             
             # Calculate b(i): minimum average distance to other clusters
             b_i = np.inf
@@ -814,15 +1387,10 @@ class ClustererOptimizer:
                 other_cluster_mask = (labels == other_label)
                 other_cluster_indices = np.where(other_cluster_mask)[0]
                 
-                # Calculate average distance to this other cluster
-                correlations = []
-                for j in other_cluster_indices:
-                    corr, _ = pearsonr(current_data, data[:, j])
-                    distance = 1 - np.abs(corr)
-                    correlations.append(distance)
-                
-                avg_distance_to_cluster = np.mean(correlations)
-                b_i = min(b_i, avg_distance_to_cluster)
+                if len(other_cluster_indices) > 0:
+                    # Use pre-computed distances
+                    avg_distance_to_cluster = np.mean(distance_matrix[i, other_cluster_indices])
+                    b_i = min(b_i, avg_distance_to_cluster)
             
             # Calculate silhouette coefficient for point i
             if max(a_i, b_i) == 0:
@@ -855,28 +1423,51 @@ class ClustererOptimizer:
         if n_clusters < 2:
             return 0.0
         
-        # Calculate minimum inter-cluster distance
+        # Calculate minimum inter-cluster distance (between actual data points)
         min_inter = np.inf
         for i in range(n_clusters):
             for j in range(i + 1, n_clusters):
-                # Distance between cluster centers using spatial correlation
-                corr = ClustererOptimizer._spatial_correlation(
-                    maps[i].reshape(1, -1), maps[j].reshape(1, -1)
-                )[0, 0]
-                dist = 1 - corr
-                min_inter = min(min_inter, dist)
+                # Get data points from each cluster
+                cluster_i_mask = labels == unique_labels[i]
+                cluster_j_mask = labels == unique_labels[j]
+                
+                cluster_i_data = data[:, cluster_i_mask]
+                cluster_j_data = data[:, cluster_j_mask]
+                
+                # Calculate minimum distance between any two points from different clusters
+                if cluster_i_data.shape[1] > 0 and cluster_j_data.shape[1] > 0:
+                    # Use correlation-based distance
+                    correlations = ClustererOptimizer._spatial_correlation(
+                        cluster_i_data.T, cluster_j_data.T
+                    )
+                    distances = 1 - correlations
+                    min_inter = min(min_inter, np.min(distances))
         
         # Calculate maximum intra-cluster distance
         max_intra = 0.0
-        for i, label in enumerate(unique_labels):
+        for label in unique_labels:
             cluster_mask = labels == label
-            if np.sum(cluster_mask) > 1:
+            cluster_size = np.sum(cluster_mask)
+            
+            if cluster_size > 1:
                 cluster_data = data[:, cluster_mask]
-                correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
-                # Set diagonal to 1 to ignore self-correlations
-                np.fill_diagonal(correlations, 1.0)
-                distances = 1 - correlations
-                max_intra = max(max_intra, np.max(distances))
+                
+                # For small clusters, compute full correlation matrix
+                if cluster_size <= 50:  # Increased threshold for better accuracy
+                    correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
+                    np.fill_diagonal(correlations, 1.0)
+                    distances = 1 - correlations
+                    max_intra = max(max_intra, np.max(distances))
+                else:
+                    # For large clusters, use sampling but with more samples
+                    n_samples = min(50, cluster_size)  # Increased sample size
+                    sample_indices = np.random.choice(cluster_size, n_samples, replace=False)
+                    sample_data = cluster_data[:, sample_indices]
+                    
+                    correlations = ClustererOptimizer._spatial_correlation(sample_data.T, sample_data.T)
+                    np.fill_diagonal(correlations, 1.0)
+                    distances = 1 - correlations
+                    max_intra = max(max_intra, np.max(distances))
         
         # Dunn index
         return min_inter / max_intra if max_intra > 0 else 0.0
@@ -938,7 +1529,7 @@ class ClustererOptimizer:
         return ch_index
 
     @staticmethod
-    def compute_gap_statistic(data: np.ndarray, labels: np.ndarray, maps: np.ndarray, n_refs: int = 10) -> tuple[float, float]:
+    def compute_gap_statistic(data: np.ndarray, labels: np.ndarray, maps: np.ndarray, n_refs: int = 5) -> tuple[float, float]:
         """Compute Gap Statistic using spatial correlation.
         
         The Gap Statistic compares clustering quality to random reference distribution.
@@ -978,24 +1569,28 @@ class ClustererOptimizer:
             norms[norms == 0] = 1.0  # Avoid division by zero
             ref_data = ref_data / norms
             
-            # Simple clustering on reference data using modified k-means
+            # Use simplified clustering for reference data (much faster)
             try:
-                # Initialize clusterer for reference data
-                clusterer = MicrostateClusterer(
-                    n_states=n_clusters,
-                    n_inits=1,
-                    max_iter=50,  # Reduced for efficiency
-                    tolerance=1e-4
-                )
-                
                 # Generate random initial maps
                 ref_initial_maps = np.random.randn(n_clusters, data.shape[0])
                 ref_initial_maps = ref_initial_maps / np.linalg.norm(ref_initial_maps, axis=1, keepdims=True)
                 
-                # Run clustering
-                ref_maps, _ = clusterer.modified_kmeans(ref_data, ref_initial_maps, verbose=False)
+                # Simple k-means without full MicrostateClusterer overhead
+                # Just do a few iterations for reference data
+                ref_maps = ref_initial_maps.copy()
+                for _ in range(10):  # Reduced iterations
+                    # Calculate segmentation
+                    ref_activation = ref_maps.dot(ref_data)
+                    ref_labels = np.argmax(np.abs(ref_activation), axis=0)
+                    
+                    # Update cluster centers
+                    for k in range(n_clusters):
+                        cluster_mask = ref_labels == k
+                        if np.sum(cluster_mask) > 0:
+                            ref_maps[k] = np.mean(ref_data[:, cluster_mask], axis=1)
+                            ref_maps[k] = ref_maps[k] / np.linalg.norm(ref_maps[k])
                 
-                # Calculate segmentation
+                # Calculate final segmentation
                 ref_activation = ref_maps.dot(ref_data)
                 ref_labels = np.argmax(np.abs(ref_activation), axis=0)
                 
@@ -1004,6 +1599,11 @@ class ClustererOptimizer:
                     cluster_mask = ref_labels == k
                     if np.sum(cluster_mask) > 1:
                         cluster_data = ref_data[:, cluster_mask]
+                        # Use sampling for large clusters
+                        if cluster_data.shape[1] > 20:
+                            sample_indices = np.random.choice(cluster_data.shape[1], 20, replace=False)
+                            cluster_data = cluster_data[:, sample_indices]
+                        
                         correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
                         distances = 1 - correlations
                         np.fill_diagonal(distances, 0.0)
@@ -1087,16 +1687,38 @@ class ClustererOptimizer:
         total_steps = len(self.k_range)
 
         for i, k in enumerate(self.k_range):
-            # Check if process should stop
-            self._check_stop()
+            try:
+                # Check if process should stop
+                self._check_stop()
 
-            self._update_progress(i + 1, total_steps, f"Computing GEV for k={k}")
-            result = self._get_clustering_result(k)
-            scores.append(result["gev"])
+                self._log_message(f"Processing k={k} ({i+1}/{total_steps})")
+                self._update_progress(i + 1, total_steps, f"Computing GEV for k={k}")
+                
+                result = self._get_clustering_result(k, compute_all_metrics=False)
+                gev_score = result["gev"]
+                scores.append(gev_score)
+                
+                self._log_message(f"k={k}: GEV = {gev_score:.4f}")
 
-        optimal_k = self._find_elbow_point(
-            self.k_range, scores, threshold=5.0, higher_is_better=True
-        )
+            except Exception as e:
+                error_msg = f"Failed to compute GEV for k={k}: {str(e)}"
+                self._log_message(error_msg, level="error")
+                # Add NaN score and continue to next k
+                scores.append(np.nan)
+                continue
+
+        # Generate and save GEV plot
+        self._generate_gev_plot(self.k_range, scores)
+
+        # Filter out NaN scores for optimal k selection
+        valid_scores = [(self.k_range[i], score) for i, score in enumerate(scores) if not np.isnan(score)]
+        if not valid_scores:
+            self._log_message("No valid GEV scores found, using default k=5", level="warning")
+            optimal_k = 5
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=True
+            )
 
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1119,23 +1741,34 @@ class ClustererOptimizer:
             # Check if process should stop
             self._check_stop()
 
+            self._log_message(f"Processing k={k} ({i+1}/{total_steps})")
             self._update_progress(i + 1, total_steps, f"Computing Davies-Bouldin for k={k}")
 
             if k < 2:  # DB requires at least 2 clusters
                 scores.append(np.inf)
                 continue
 
-            result = self._get_clustering_result(k)
+            result = self._get_clustering_result(k, compute_all_metrics=False)
 
             # Use custom polarity-invariant Davies-Bouldin score
             score = self.compute_custom_davies_bouldin(
                 data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(score)
+            
+            self._log_message(f"k={k}: Davies-Bouldin = {score:.4f}")
 
-        # Find optimal k (excluding k=1)
+        # Generate and save Davies-Bouldin plot
+        self._generate_davies_bouldin_plot(self.k_range, scores)
+
+        # Find optimal k using intelligent selection (lower Davies-Bouldin is better)
         valid_scores = self._filter_valid_scores(scores, exclude_inf=True)
-        optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        if not valid_scores:
+            optimal_k = self.kmin
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=False
+            )
 
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1160,15 +1793,30 @@ class ClustererOptimizer:
         for idx, k in enumerate(self.k_range):
             # Check stop flag
             self._check_stop()
+            self._log_message(f"Processing k={k} ({idx+1}/{total_steps})")
             self._update_progress(idx + 1, total_steps, f"Computing CV for k={k}")
 
-            # Retrieve (or compute) clustering result – this already contains the CV score
-            result = self._get_clustering_result(k)
-            scores.append(result.get("cv_score", np.nan))
+            # Get clustering result and compute CV score directly
+            result = self._get_clustering_result(k, compute_all_metrics=False)
+            cv_score = self._compute_cross_validation_criterion_vectorized(
+                data=self.maps2use, maps=result["maps"], segmentation=result["segmentation"]
+            )
+            scores.append(cv_score)
+            
+            self._log_message(f"k={k}: Cross-Validation = {cv_score:.4f}")
 
-        # Optimal k = argmin CV
+        # Generate and save Cross-Validation plot
+        self._generate_cross_validation_plot(self.k_range, scores)
+
+        # Find optimal k using elbow method (lower CV is better)
         valid_scores = self._filter_valid_scores(scores)
-        optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        if not valid_scores:
+            self._log_message("No valid CV scores found, using default k=5", level="warning")
+            optimal_k = 5
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=False
+            )
 
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1197,13 +1845,13 @@ class ClustererOptimizer:
         # Need at least 3 k values for KL criterion (q-1, q, q+1)
         if len(self.k_range) < 3:
             self._log_message(
-                "Warning: Need at least 3 k values for KL criterion, using default k=4",
+                "Warning: Need at least 3 k values for KL criterion, using default k=5",
                 level="warning",
             )
             return OptimizationResult(
                 k_values=self.k_range.copy(),
                 scores=[np.nan] * len(self.k_range),
-                optimal_k=4,
+                optimal_k=5,
                 method_name="Krzanowski-Lai Method",
                 higher_is_better=True,
             )
@@ -1224,8 +1872,6 @@ class ClustererOptimizer:
                 W_q, M_q = self._compute_M_q(k)
                 M_values[k] = M_q
 
-                self._log_message(f"k={k}: W_q={W_q:.6f}, M_q={M_q:.6f}")
-
             except Exception as e:
                 self._log_message(
                     f"Error computing KL criterion for k={k}: {str(e)}", level="error"
@@ -1234,15 +1880,28 @@ class ClustererOptimizer:
 
         # Compute KL scores
         kl_scores = self._compute_kl_scores_from_M_values(M_values)
+        
+        # Log the actual KL scores used for optimization
+        for i, k in enumerate(self.k_range):
+            kl_score = kl_scores[i]
+            if not np.isnan(kl_score):
+                self._log_message(f"k={k}: KL = {kl_score:.4f}")
+            else:
+                self._log_message(f"k={k}: KL = N/A (boundary)")
 
         # Find optimal k (higher KL score is better)
+        # Generate and save Krzanowski-Lai plot
+        self._generate_krzanowski_lai_plot(self.k_range, kl_scores)
+
         valid_scores = [
             (k_val, score)
             for k_val, score in zip(self.k_range, kl_scores)
             if not np.isnan(score) and score > 0
         ]
         if valid_scores:
-            optimal_k = max(valid_scores, key=lambda x: x[1])[0]
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, kl_scores, higher_is_better=True
+            )
         else:
             optimal_k = self.kmin
             self._log_message("No valid KL scores found, using default k", level="warning")
@@ -1273,23 +1932,34 @@ class ClustererOptimizer:
             # Check if process should stop
             self._check_stop()
             
+            self._log_message(f"Processing k={k} ({i+1}/{total_steps})")
             self._update_progress(i + 1, total_steps, f"Computing Silhouette for k={k}")
             
             if k < 2:  # Silhouette requires at least 2 clusters
                 scores.append(-1.0)  # Worst possible silhouette score
                 continue
             
-            result = self._get_clustering_result(k)
+            result = self._get_clustering_result(k, compute_all_metrics=False)
             
             # Use correlation-based silhouette score
             score = self.silhouette_coefficient_correlation(
                 data=self.maps2use, labels=result["segmentation"]
             )
             scores.append(score)
+            
+            self._log_message(f"k={k}: Silhouette = {score:.4f}")
         
-        # Find optimal k (higher silhouette score is better)
+        # Generate and save Silhouette plot
+        self._generate_silhouette_plot(self.k_range, scores)
+        
+        # Find optimal k using intelligent selection (higher silhouette score is better)
         valid_scores = self._filter_valid_scores(scores)
-        optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        if not valid_scores:
+            optimal_k = self.kmin
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=True
+            )
         
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1310,22 +1980,34 @@ class ClustererOptimizer:
         
         for i, k in enumerate(self.k_range):
             self._check_stop()
+            self._log_message(f"Processing k={k} ({i+1}/{total_steps})")
             self._update_progress(i + 1, total_steps, f"Computing Dunn Index for k={k}")
             
             if k < 2:
                 scores.append(0.0)
                 continue
             
-            result = self._get_clustering_result(k)
+            result = self._get_clustering_result(k, compute_all_metrics=False)
             
             score = self.compute_dunn_index(
                 data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(score)
+            
+            self._log_message(f"k={k}: Dunn Index = {score:.4f}")
         
-        # Find optimal k (higher Dunn index is better)
+        # Generate and save Dunn Index plot
+        self._generate_dunn_index_plot(self.k_range, scores)
+        
+        # Find optimal k using elbow method (Dunn index can be monotonic)
         valid_scores = self._filter_valid_scores(scores)
-        optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        if not valid_scores:
+            self._log_message("No valid Dunn Index scores found, using default k=5", level="warning")
+            optimal_k = 5
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=True
+            )
         
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1346,22 +2028,34 @@ class ClustererOptimizer:
         
         for i, k in enumerate(self.k_range):
             self._check_stop()
+            self._log_message(f"Processing k={k} ({i+1}/{total_steps})")
             self._update_progress(i + 1, total_steps, f"Computing Calinski-Harabasz for k={k}")
             
             if k < 2:
                 scores.append(0.0)
                 continue
             
-            result = self._get_clustering_result(k)
+            result = self._get_clustering_result(k, compute_all_metrics=False)
             
             score = self.compute_calinski_harabasz_index(
                 data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(score)
+            
+            self._log_message(f"k={k}: Calinski-Harabasz = {score:.4f}")
         
-        # Find optimal k (higher CH index is better)
+        # Generate and save Calinski-Harabasz plot
+        self._generate_calinski_harabasz_plot(self.k_range, scores)
+        
+        # Find optimal k using elbow method (higher CH index is better)
         valid_scores = self._filter_valid_scores(scores)
-        optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        if not valid_scores:
+            self._log_message("No valid Calinski-Harabasz scores found, using default k=5", level="warning")
+            optimal_k = 5
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=True
+            )
         
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1384,16 +2078,24 @@ class ClustererOptimizer:
             self._check_stop()
             self._update_progress(i + 1, total_steps, f"Computing Gap Statistic for k={k}")
             
-            result = self._get_clustering_result(k)
+            result = self._get_clustering_result(k, compute_all_metrics=False)
             
             gap_score, _ = self.compute_gap_statistic(
                 data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(gap_score)
         
-        # Find optimal k (maximum gap is better)
+        # Generate and save Gap Statistic plot
+        self._generate_gap_statistic_plot(self.k_range, scores)
+        
+        # Find optimal k using intelligent selection (maximum gap is better)
         valid_scores = self._filter_valid_scores(scores)
-        optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        if not valid_scores:
+            optimal_k = self.kmin
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=True
+            )
         
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1404,7 +2106,7 @@ class ClustererOptimizer:
         )
 
     def compute_aic_optimization(self) -> OptimizationResult:
-        """Compute AIC for all k values.
+        """Compute AIC for all k values using elbow method.
         
         Returns:
             OptimizationResult: Result including scores and selected k.
@@ -1413,19 +2115,39 @@ class ClustererOptimizer:
         total_steps = len(self.k_range)
         
         for i, k in enumerate(self.k_range):
-            self._check_stop()
-            self._update_progress(i + 1, total_steps, f"Computing AIC for k={k}")
-            
-            result = self._get_clustering_result(k)
-            
-            aic_score = self.compute_information_criteria(
-                data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='AIC'
-            )
-            scores.append(aic_score)
+            try:
+                self._check_stop()
+                self._log_message(f"Processing k={k} ({i+1}/{total_steps})")
+                self._update_progress(i + 1, total_steps, f"Computing AIC for k={k}")
+                
+                result = self._get_clustering_result(k, compute_all_metrics=False)
+                
+                aic_score = self.compute_information_criteria(
+                    data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='AIC'
+                )
+                scores.append(aic_score)
+                
+                self._log_message(f"k={k}: AIC = {aic_score:.4f}")
+                
+            except Exception as e:
+                error_msg = f"Failed to compute AIC for k={k}: {str(e)}"
+                self._log_message(error_msg, level="error")
+                # Add NaN score and continue to next k
+                scores.append(np.nan)
+                continue
         
-        # Find optimal k (lower AIC is better)
-        valid_scores = self._filter_valid_scores(scores)
-        optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        # Generate and save AIC plot
+        self._generate_aic_plot(self.k_range, scores)
+        
+        # Filter out NaN scores for optimal k selection
+        valid_scores = [(self.k_range[i], score) for i, score in enumerate(scores) if not np.isnan(score)]
+        if not valid_scores:
+            self._log_message("No valid AIC scores found, using default k=5", level="warning")
+            optimal_k = 5
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=False
+            )
         
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1436,7 +2158,7 @@ class ClustererOptimizer:
         )
 
     def compute_bic_optimization(self) -> OptimizationResult:
-        """Compute BIC for all k values.
+        """Compute BIC for all k values using elbow method.
         
         Returns:
             OptimizationResult: Result including scores and selected k.
@@ -1445,19 +2167,39 @@ class ClustererOptimizer:
         total_steps = len(self.k_range)
         
         for i, k in enumerate(self.k_range):
-            self._check_stop()
-            self._update_progress(i + 1, total_steps, f"Computing BIC for k={k}")
-            
-            result = self._get_clustering_result(k)
-            
-            bic_score = self.compute_information_criteria(
-                data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='BIC'
-            )
-            scores.append(bic_score)
+            try:
+                self._check_stop()
+                self._log_message(f"Processing k={k} ({i+1}/{total_steps})")
+                self._update_progress(i + 1, total_steps, f"Computing BIC for k={k}")
+                
+                result = self._get_clustering_result(k, compute_all_metrics=False)
+                
+                bic_score = self.compute_information_criteria(
+                    data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='BIC'
+                )
+                scores.append(bic_score)
+                
+                self._log_message(f"k={k}: BIC = {bic_score:.4f}")
+                
+            except Exception as e:
+                error_msg = f"Failed to compute BIC for k={k}: {str(e)}"
+                self._log_message(error_msg, level="error")
+                # Add NaN score and continue to next k
+                scores.append(np.nan)
+                continue
         
-        # Find optimal k (lower BIC is better)
-        valid_scores = self._filter_valid_scores(scores)
-        optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+        # Generate and save BIC plot
+        self._generate_bic_plot(self.k_range, scores)
+        
+        # Filter out NaN scores for optimal k selection
+        valid_scores = [(self.k_range[i], score) for i, score in enumerate(scores) if not np.isnan(score)]
+        if not valid_scores:
+            self._log_message("No valid BIC scores found, using default k=5", level="warning")
+            optimal_k = 5
+        else:
+            optimal_k = self._intelligent_k_selection(
+                self.k_range, scores, higher_is_better=False
+            )
         
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -1503,7 +2245,27 @@ class ClustererOptimizer:
             self._check_stop()
             self._update_progress(step_index + 1, total_steps, f"Computing metrics for k={k}")
 
-            result = self._get_clustering_result(k)
+            try:
+                result = self._get_clustering_result(k)
+            except Exception as e:
+                self._log_message(f"Failed to compute clustering for k={k}: {str(e)}", level="error")
+                # Fill with NaN values for all metrics for this k
+                gev_scores.append(np.nan)
+                db_scores.append(np.nan)
+                cv_scores.append(np.nan)
+                sil_scores.append(np.nan)
+                if 'dunn' in methods:
+                    dunn_scores.append(np.nan)
+                if 'ch' in methods:
+                    ch_scores.append(np.nan)
+                if 'gap' in methods:
+                    gap_scores.append(np.nan)
+                if 'aic' in methods:
+                    aic_scores.append(np.nan)
+                if 'bic' in methods:
+                    bic_scores.append(np.nan)
+                M_values[k] = np.nan
+                continue  # Skip to next k value
 
             # Extract scores from cached result
             gev_scores.append(result.get("gev", np.nan))
@@ -1602,10 +2364,14 @@ class ClustererOptimizer:
         # Helper to construct OptimizationResult per metric
         def build_result(method: str) -> OptimizationResult:
             if method == "gev":
-                threshold = float(parameters.get("gev", 5.0))
-                optimal_k = self._find_elbow_point(
-                    self.k_range, gev_scores, threshold, higher_is_better=True
-                )
+                valid_scores = self._filter_valid_scores(gev_scores)
+                if not valid_scores:
+                    self._log_message("No valid GEV scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, gev_scores, higher_is_better=True
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=gev_scores,
@@ -1619,7 +2385,13 @@ class ClustererOptimizer:
                     for k_val, score in zip(self.k_range, db_scores)
                     if score != np.inf and not np.isnan(score)
                 ]
-                optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid Davies-Bouldin scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, db_scores, higher_is_better=False
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=db_scores,
@@ -1629,7 +2401,13 @@ class ClustererOptimizer:
                 )
             if method == "cv":
                 valid_scores = self._filter_valid_scores(cv_scores)
-                optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid Cross-Validation scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, cv_scores, higher_is_better=False
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=cv_scores,
@@ -1643,7 +2421,13 @@ class ClustererOptimizer:
                     for k_val, score in zip(self.k_range, kl_scores)
                     if not np.isnan(score) and score > 0
                 ]
-                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid Krzanowski-Lai scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, kl_scores, higher_is_better=True
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=kl_scores,
@@ -1653,7 +2437,13 @@ class ClustererOptimizer:
                 )
             if method == "sil":
                 valid_scores = self._filter_valid_scores(sil_scores)
-                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid Silhouette scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, sil_scores, higher_is_better=True
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=sil_scores,
@@ -1663,7 +2453,13 @@ class ClustererOptimizer:
                 )
             if method == "dunn":
                 valid_scores = self._filter_valid_scores(dunn_scores)
-                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid Dunn Index scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, dunn_scores, higher_is_better=True
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=dunn_scores,
@@ -1673,7 +2469,13 @@ class ClustererOptimizer:
                 )
             if method == "ch":
                 valid_scores = self._filter_valid_scores(ch_scores)
-                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid Calinski-Harabasz scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, ch_scores, higher_is_better=True
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=ch_scores,
@@ -1683,7 +2485,13 @@ class ClustererOptimizer:
                 )
             if method == "gap":
                 valid_scores = self._filter_valid_scores(gap_scores)
-                optimal_k = max(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid Gap Statistic scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, gap_scores, higher_is_better=True
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=gap_scores,
@@ -1693,7 +2501,13 @@ class ClustererOptimizer:
                 )
             if method == "aic":
                 valid_scores = self._filter_valid_scores(aic_scores)
-                optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid AIC scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, aic_scores, higher_is_better=False
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=aic_scores,
@@ -1703,7 +2517,13 @@ class ClustererOptimizer:
                 )
             if method == "bic":
                 valid_scores = self._filter_valid_scores(bic_scores)
-                optimal_k = min(valid_scores, key=lambda x: x[1])[0] if valid_scores else self.kmin
+                if not valid_scores:
+                    self._log_message("No valid BIC scores found in ensemble", level="warning")
+                    optimal_k = self.kmin
+                else:
+                    optimal_k = self._intelligent_k_selection(
+                        self.k_range, bic_scores, higher_is_better=False
+                    )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=bic_scores,
@@ -1812,10 +2632,24 @@ class ClustererOptimizer:
         # Call method with parameter if applicable
         if param_name and parameter_value is not None:
             kwargs = {param_name: int(parameter_value)}
-            self._log_message(f"Calling {method_name} with parameters")
+            self._log_message(f"Computing {optimizer_mode.upper()} optimization...")
             result = method(**kwargs)
         else:
-            self._log_message(f"Calling {method_name}")
+            # Get friendly method name for single method optimization
+            method_names = {
+                "gev": "Global Explained Variance",
+                "db": "Davies-Bouldin Index", 
+                "cv": "Cross-Validation",
+                "kl": "Krzanowski-Lai Criterion",
+                "sil": "Silhouette Coefficient",
+                "dunn": "Dunn Index",
+                "ch": "Calinski-Harabasz Index",
+                "gap": "Gap Statistic",
+                "aic": "Akaike Information Criterion",
+                "bic": "Bayesian Information Criterion"
+            }
+            friendly_name = method_names.get(optimizer_mode, optimizer_mode)
+            self._log_message(f"Computing {friendly_name} optimization...")
             result = method()
 
         # Store result
@@ -1838,9 +2672,8 @@ class ClustererOptimizer:
             methods = ["gev", "db", "cv", "kl", "sil", "dunn", "ch", "gap", "aic", "bic"]
 
         self._log_message(
-            f"Starting majority vote optimization for k range {self.kmin} to {self.kmax}"
+            f"Computing ensemble optimization (k={self.kmin}-{self.kmax}, {len(methods)} methods)..."
         )
-        self._log_message(f"Using optimization methods: {', '.join(methods)}")
 
         # Store results for each k value
         k_results = {}
@@ -1855,11 +2688,13 @@ class ClustererOptimizer:
             current_step = step_idx + 1
             self._update_progress(current_step, total_steps, f"Computing all metrics for k={k}")
 
-            self._log_message(f"Computing all metrics for k={k} ({current_step}/{total_steps})")
+            # Only log progress every few steps to reduce verbosity
+            if current_step == 1 or current_step == total_steps or current_step % 3 == 0:
+                self._log_message(f"Processing k={k} ({current_step}/{total_steps})")
 
             try:
                 # Perform clustering once for this k
-                clustering_result = self._get_clustering_result(k)
+                clustering_result = self._get_clustering_result(k, compute_all_metrics=True)
 
                 # Store all metrics for this k
                 k_results[k] = clustering_result
@@ -1885,29 +2720,35 @@ class ClustererOptimizer:
                     else:
                         metric_votes[metric]["scores"].append(np.nan)
 
-                # Safe formatting for debug output (use exact keys from optimizer window)
-                gev_val = clustering_result.get("gev", "N/A")
-                db_val = clustering_result.get("davies_bouldin", "N/A")
-                cv_val = clustering_result.get("cv_score", "N/A")
-                kl_val = clustering_result.get("kl_score", "N/A")
-                sil_val = clustering_result.get("silhouette_score", "N/A")
-
-                gev_str = f"{gev_val:.4f}" if isinstance(gev_val, (int, float)) else str(gev_val)
-                db_str = f"{db_val:.4f}" if isinstance(db_val, (int, float)) else str(db_val)
-                cv_str = f"{cv_val:.4f}" if isinstance(cv_val, (int, float)) else str(cv_val)
-                kl_str = f"{kl_val:.4f}" if isinstance(kl_val, (int, float)) else str(kl_val)
-                sil_str = f"{sil_val:.4f}" if isinstance(sil_val, (int, float)) else str(sil_val)
-
-                self._log_message(
-                    f"k={k} metrics - GEV: {gev_str}, Davies-Bouldin: {db_str}, "
-                    f"CV: {cv_str}, KL: {kl_str}, Silhouette: {sil_str}"
-                )
+                # Skip detailed metric logging for each k to reduce verbosity
+                # Detailed results will be shown in final summary
 
             except Exception as e:
                 self._log_message(f"Error computing metrics for k={k}: {str(e)}", level="error")
                 # Add NaN values for this k
                 for metric in methods:
                     metric_votes[metric]["scores"].append(np.nan)
+
+        # Special handling for KL scores - need to compute from M_q values
+        if "kl" in methods:
+            try:
+                self._log_message("Computing KL scores from M_q values...")
+                M_values = {}
+                for k in self.k_range:
+                    if k in k_results and "M_q" in k_results[k]:
+                        M_values[k] = k_results[k]["M_q"]
+                    else:
+                        M_values[k] = np.nan
+                
+                kl_scores = self._compute_kl_scores_from_M_values(M_values)
+                
+                # Update the kl scores in metric_votes
+                for i, score in enumerate(kl_scores):
+                    metric_votes["kl"]["scores"][i] = score
+                    
+                self._log_message("KL scores computed successfully")
+            except Exception as e:
+                self._log_message(f"Error computing KL scores: {str(e)}", level="error")
 
         # Find optimal k for each metric
         k_votes = {k: 0 for k in self.k_range}
@@ -1949,8 +2790,8 @@ class ClustererOptimizer:
 
         # Find k with most votes
         if not any(k_votes.values()):
-            self._log_message("No valid votes found, using default k=4", level="warning")
-            return 4
+            self._log_message("No valid votes found, using default k=5", level="warning")
+            return 5
 
         optimal_k = max(k_votes, key=k_votes.get)
         vote_count = k_votes[optimal_k]
@@ -1997,8 +2838,7 @@ class ClustererOptimizer:
             return k_values[min_idx]
         if metric == "gev":
             # Global Explained Variance - use elbow method
-            threshold = 5.0  # Default threshold
-            return self._find_elbow_point(k_values, scores, threshold, higher_is_better=True)
+            return self._find_elbow_point(k_values, scores, higher_is_better=True)
         if metric == "cv":
             # Cross validation - typically lower is better
             min_idx = np.argmin(scores)
@@ -2084,38 +2924,237 @@ class ClustererOptimizer:
         return wss
 
     @staticmethod
+    def _is_monotonic(scores: list[float], increasing: bool = True) -> bool:
+        """Check if scores are monotonically increasing or decreasing.
+        
+        Args:
+            scores: List of scores to check.
+            increasing: True for monotonic increasing, False for decreasing.
+            
+        Returns:
+            bool: True if monotonic within tolerance.
+        """
+        if len(scores) < 3:
+            return True  # Too few points to determine pattern
+        
+        valid_scores = [s for s in scores if not np.isnan(s)]
+        if len(valid_scores) < 3:
+            return True
+        
+        if increasing:
+            # Check if generally increasing with tolerance for small fluctuations
+            differences = np.diff(valid_scores)
+            increasing_count = np.sum(differences > 0)
+            return increasing_count >= len(differences) * 0.7  # 70% threshold
+        else:
+            # Check if generally decreasing
+            differences = np.diff(valid_scores)
+            decreasing_count = np.sum(differences < 0)
+            return decreasing_count >= len(differences) * 0.7  # 70% threshold
+
+    @staticmethod
+    def _find_local_optima(
+        k_values: list[int], 
+        scores: list[float], 
+        higher_is_better: bool = True
+    ) -> int:
+        """Find the most significant local optimum (maximum or minimum).
+        
+        Args:
+            k_values: List of k values.
+            scores: List of corresponding scores.
+            higher_is_better: True for local maxima, False for local minima.
+            
+        Returns:
+            int: k value at the most significant local optimum.
+        """
+        valid_pairs = [(k, score) for k, score in zip(k_values, scores) if not np.isnan(score)]
+        if len(valid_pairs) < 3:
+            # Not enough points for local optima, return best value
+            if higher_is_better:
+                return max(valid_pairs, key=lambda x: x[1])[0]
+            else:
+                return min(valid_pairs, key=lambda x: x[1])[0]
+        
+        valid_k, valid_scores = zip(*valid_pairs)
+        valid_scores = list(valid_scores)
+        
+        # Find local optima (peaks or valleys)
+        optima_indices = []
+        for i in range(1, len(valid_scores) - 1):
+            if higher_is_better:
+                # Look for local maxima
+                if valid_scores[i] > valid_scores[i-1] and valid_scores[i] > valid_scores[i+1]:
+                    optima_indices.append(i)
+            else:
+                # Look for local minima
+                if valid_scores[i] < valid_scores[i-1] and valid_scores[i] < valid_scores[i+1]:
+                    optima_indices.append(i)
+        
+        if not optima_indices:
+            # No local optima found, return global optimum
+            if higher_is_better:
+                return max(valid_pairs, key=lambda x: x[1])[0]
+            else:
+                return min(valid_pairs, key=lambda x: x[1])[0]
+        
+        # Return the most extreme local optimum
+        if higher_is_better:
+            best_idx = max(optima_indices, key=lambda i: valid_scores[i])
+        else:
+            best_idx = min(optima_indices, key=lambda i: valid_scores[i])
+        
+        return valid_k[best_idx]
+
+    @staticmethod
+    def _has_global_optimum(
+        k_values: list[int], 
+        scores: list[float], 
+        higher_is_better: bool = True
+    ) -> tuple[bool, int]:
+        """Check if there's a global optimum not at the endpoints.
+        
+        Args:
+            k_values: List of k values.
+            scores: List of corresponding scores.
+            higher_is_better: True for global max, False for global min.
+            
+        Returns:
+            tuple: (has_global_optimum, optimal_k)
+        """
+        valid_pairs = [(k, score) for k, score in zip(k_values, scores) if not np.isnan(score)]
+        if len(valid_pairs) < 3:
+            return False, None
+        
+        valid_k, valid_scores = zip(*valid_pairs)
+        
+        # Find global optimum
+        if higher_is_better:
+            global_optimum_idx = np.argmax(valid_scores)
+            global_optimum_value = max(valid_scores)
+        else:
+            global_optimum_idx = np.argmin(valid_scores)
+            global_optimum_value = min(valid_scores)
+        
+        # Check if global optimum is not at endpoints (avoid boundary effects)
+        is_not_endpoint = 0 < global_optimum_idx < len(valid_scores) - 1
+        
+        if is_not_endpoint:
+            return True, valid_k[global_optimum_idx]
+        else:
+            # Global optimum is at endpoint, check if it's significantly better
+            if higher_is_better:
+                # For max: check if endpoint is much better than second-best
+                sorted_scores = sorted(valid_scores, reverse=True)
+                if len(sorted_scores) >= 2:
+                    improvement = (sorted_scores[0] - sorted_scores[1]) / abs(sorted_scores[1])
+                    if improvement > 0.05:  # 5% improvement threshold
+                        return True, valid_k[global_optimum_idx]
+            else:
+                # For min: check if endpoint is much better than second-best
+                sorted_scores = sorted(valid_scores)
+                if len(sorted_scores) >= 2:
+                    improvement = (sorted_scores[1] - sorted_scores[0]) / abs(sorted_scores[1])
+                    if improvement > 0.05:  # 5% improvement threshold
+                        return True, valid_k[global_optimum_idx]
+        
+        return False, None
+
+    @staticmethod
+    def _intelligent_k_selection(
+        k_values: list[int],
+        scores: list[float],
+        higher_is_better: bool = True
+    ) -> int:
+        """Intelligently select optimal k using global optima, local optima, or elbow method.
+        
+        Strategy:
+        - If scores are monotonic: use elbow method
+        - If non-monotonic with global optimum: choose global optimum
+        - If non-monotonic without clear global optimum: choose local optimum
+        
+        Args:
+            k_values: List of k values.
+            scores: List of corresponding scores.
+            higher_is_better: True for metrics where higher is better.
+            
+        Returns:
+            int: Optimal k value.
+        """
+        # Check if monotonic
+        is_monotonic = ClustererOptimizer._is_monotonic(scores, increasing=higher_is_better)
+        
+        if is_monotonic:
+            # Use elbow method for monotonic data
+            return ClustererOptimizer._find_elbow_point(k_values, scores, higher_is_better=higher_is_better)
+        else:
+            # Data is non-monotonic, check for global optimum first
+            has_global_opt, global_k = ClustererOptimizer._has_global_optimum(k_values, scores, higher_is_better)
+            
+            if has_global_opt:
+                # Use global optimum for non-monotonic data
+                return global_k
+            else:
+                # Fall back to local optima for non-monotonic data
+                return ClustererOptimizer._find_local_optima(k_values, scores, higher_is_better=higher_is_better)
+
+    @staticmethod
     def _find_elbow_point(
         x_values: list[int],
         y_values: list[float],
-        threshold: float = 5.0,
+        threshold: float = None,
         higher_is_better: bool = True,
     ) -> int:
-        """Find elbow point using threshold method for percentage change.
+        """Find elbow point using automatic threshold detection (Kneedle algorithm).
 
         Args:
             x_values: K values evaluated.
             y_values: Corresponding metric scores.
-            threshold: Percentage improvement threshold.
+            threshold: Deprecated - kept for backward compatibility.
             higher_is_better: Direction of optimization for context.
 
         Returns:
             int: Selected elbow k value.
         """
-        if len(y_values) < 2:
-            return x_values[0]
-
-        # Adjust series based on optimization direction so that "improvement" is positive
-        series = y_values if higher_is_better else [-v for v in y_values]
-
-        # Vectorized percentage change computation
-        s = np.asarray(series, dtype=float)
-        prev = s[:-1]
-        curr = s[1:]
-        with np.errstate(divide="ignore", invalid="ignore"):
-            change_percent = np.where(prev != 0, np.abs((curr - prev) / prev) * 100.0, 100.0)
-        matches = np.where(change_percent < threshold)[0]
-        if matches.size > 0:
-            return x_values[int(matches[0]) + 1]
-
-        # If no elbow found, return the last K
-        return x_values[-1]
+        if len(y_values) < 3:
+            return x_values[0] if x_values else 2
+            
+        # Filter out NaN values
+        valid_pairs = [(x, y) for x, y in zip(x_values, y_values) if not np.isnan(y)]
+        if len(valid_pairs) < 3:
+            return x_values[0] if x_values else 2
+            
+        x_vals, y_vals = zip(*valid_pairs)
+        x_vals = np.array(x_vals)
+        y_vals = np.array(y_vals)
+        
+        # Normalize data to [0, 1] range for consistent processing
+        x_norm = (x_vals - x_vals.min()) / (x_vals.max() - x_vals.min()) if x_vals.max() != x_vals.min() else np.zeros_like(x_vals)
+        y_norm = (y_vals - y_vals.min()) / (y_vals.max() - y_vals.min()) if y_vals.max() != y_vals.min() else np.zeros_like(y_vals)
+        
+        # Adjust for optimization direction
+        if not higher_is_better:
+            y_norm = 1 - y_norm
+        
+        # Kneedle algorithm: find maximum distance from line connecting start to end
+        start_point = np.array([x_norm[0], y_norm[0]])
+        end_point = np.array([x_norm[-1], y_norm[-1]])
+        
+        # Calculate distances from each point to the line
+        distances = []
+        for i in range(len(x_norm)):
+            point = np.array([x_norm[i], y_norm[i]])
+            # Distance from point to line
+            if np.linalg.norm(end_point - start_point) > 0:
+                distance = np.abs(np.cross(end_point - start_point, start_point - point)) / np.linalg.norm(end_point - start_point)
+            else:
+                distance = 0
+            distances.append(distance)
+        
+        # Find point with maximum distance (elbow point)
+        if distances:
+            elbow_idx = np.argmax(distances)
+            return x_vals[elbow_idx]
+        
+        # Fallback to midpoint if no clear elbow
+        return x_vals[len(x_vals) // 2]

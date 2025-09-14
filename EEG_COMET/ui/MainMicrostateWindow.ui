@@ -437,19 +437,16 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>0</y>
+               <y>-840</y>
                <width>1153</width>
-               <height>1630</height>
+               <height>1740</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
               <item row="46" column="0">
                <layout class="QGridLayout" name="clustering_GLayout">
-                <item row="25" column="2" colspan="2">
-                 <widget class="QLineEdit" name="step2_kernel_size_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
+                <item row="24" column="0" colspan="5">
+                 <widget class="Line" name="step2_line3">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                     <horstretch>0</horstretch>
@@ -459,316 +456,15 @@
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>0</height>
                    </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="inputMethodHints">
-                   <set>Qt::ImhDigitsOnly</set>
-                  </property>
-                  <property name="text">
-                   <string>20</string>
-                  </property>
-                  <property name="maxLength">
-                   <number>4</number>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="23" column="0" colspan="5">
-                 <widget class="QLabel" name="step2_select_times_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>60</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>100</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                    <weight>75</weight>
-                    <bold>true</bold>
-                   </font>
-                  </property>
-                  <property name="styleSheet">
-                   <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
-                  </property>
-                  <property name="text">
-                   <string>     Clustering Input</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="30" column="2" colspan="2">
-                 <widget class="QLineEdit" name="step2_batch_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="inputMethodHints">
-                   <set>Qt::ImhDigitsOnly</set>
-                  </property>
-                  <property name="text">
-                   <string>1000</string>
-                  </property>
-                  <property name="maxLength">
-                   <number>6</number>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="20" column="2" colspan="2">
-                 <widget class="QSpinBox" name="step2_auto_range_kmax_spinbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="minimum">
-                   <number>3</number>
-                  </property>
-                  <property name="maximum">
-                   <number>15</number>
-                  </property>
-                  <property name="value">
-                   <number>10</number>
-                  </property>
-                 </widget>
-                </item>
-                <item row="16" column="1" colspan="3">
-                 <widget class="QRadioButton" name="step2_user_k_radio">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>User-defined</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_2</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item row="19" column="2" colspan="2">
-                 <widget class="QSpinBox" name="step2_auto_range_kmin_spinbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="minimum">
-                   <number>2</number>
-                  </property>
-                  <property name="maximum">
-                   <number>14</number>
-                  </property>
-                 </widget>
-                </item>
-                <item row="28" column="2" colspan="2">
-                 <widget class="QSlider" name="step2_percent_slider">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="minimum">
-                   <number>20</number>
-                  </property>
-                  <property name="maximum">
-                   <number>100</number>
-                  </property>
-                  <property name="singleStep">
-                   <number>10</number>
-                  </property>
-                  <property name="pageStep">
-                   <number>20</number>
-                  </property>
-                  <property name="value">
-                   <number>40</number>
                   </property>
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
                 </item>
-                <item row="18" column="1" colspan="3">
-                 <widget class="QRadioButton" name="step2_auto_k_radio">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Auto-detect</string>
-                  </property>
-                  <property name="checked">
-                   <bool>false</bool>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_2</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item row="21" column="1" colspan="3">
+                <item row="23" column="1" colspan="3">
                  <widget class="QPushButton" name="step2_numberofmaps_elbow_button">
                   <property name="enabled">
                    <bool>false</bool>
@@ -850,55 +546,7 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="24" column="1" colspan="3">
-                 <widget class="QRadioButton" name="step2_use_peaks_radio">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Utilize only the peaks of the global field power for clustering&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                  </property>
-                  <property name="text">
-                   <string>Use GFP Peaks Only - Min Peak Distance (ms)</string>
-                  </property>
-                  <property name="iconSize">
-                   <size>
-                    <width>16</width>
-                    <height>16</height>
-                   </size>
-                  </property>
-                  <property name="checked">
-                   <bool>false</bool>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_5</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item row="27" column="2" colspan="2">
+                <item row="29" column="2" colspan="2">
                  <widget class="QLineEdit" name="step2_percent_input">
                   <property name="enabled">
                    <bool>false</bool>
@@ -943,27 +591,8 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="22" column="0" colspan="5">
-                 <widget class="Line" name="step2_line3">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
                 <item row="26" column="1" colspan="3">
-                 <widget class="QRadioButton" name="step2_use_percent_radio">
+                 <widget class="QRadioButton" name="step2_use_peaks_radio">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -991,21 +620,27 @@ background-color: rgb(0, 0, 0);</string>
                    </font>
                   </property>
                   <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Utilize specific timepoints in the dataset for clustering&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Utilize only the peaks of the global field power for clustering&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                   </property>
                   <property name="text">
-                   <string>Use Random Subset of Data - Subset Fraction (%)</string>
+                   <string>Use GFP Peaks Only - Min Peak Distance (ms)</string>
+                  </property>
+                  <property name="iconSize">
+                   <size>
+                    <width>16</width>
+                    <height>16</height>
+                   </size>
                   </property>
                   <property name="checked">
-                   <bool>true</bool>
+                   <bool>false</bool>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_5</string>
+                   <string notr="true">InputGroup</string>
                   </attribute>
                  </widget>
                 </item>
-                <item row="29" column="1" colspan="3">
-                 <widget class="QCheckBox" name="step2_batch_checkbox">
+                <item row="25" column="0" colspan="5">
+                 <widget class="QLabel" name="step2_select_times_label">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1024,480 +659,28 @@ background-color: rgb(0, 0, 0);</string>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>100</height>
                    </size>
                   </property>
                   <property name="font">
                    <font>
                     <family>Calibri</family>
                     <pointsize>14</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
+                    <weight>75</weight>
+                    <bold>true</bold>
                    </font>
                   </property>
                   <property name="styleSheet">
-                   <string notr="true"/>
+                   <string notr="true">color: rgb(255, 255, 255);
+background-color: rgb(0, 0, 0);</string>
                   </property>
                   <property name="text">
-                   <string>Batch Processing - Batch Size (samples)</string>
+                   <string>     Clustering Input</string>
                   </property>
                  </widget>
                 </item>
-                <item row="3" column="2" colspan="2">
-                 <widget class="QLabel" name="step2_similarity_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Similarity Metric:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="1" colspan="3">
-                 <widget class="QComboBox" name="step2_clustermethod_combobox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <item>
-                   <property name="text">
-                    <string>Modified K-Means Clustering</string>
-                   </property>
-                  </item>
-                  <item>
-                   <property name="text">
-                    <string>Modified K-Means Clustering with Spatial Similarity</string>
-                   </property>
-                  </item>
-                  <item>
-                   <property name="text">
-                    <string>Topographic Atomize and Agglomerate Hierarchical Clustering</string>
-                   </property>
-                  </item>
-                 </widget>
-                </item>
-                <item row="10" column="2" colspan="2">
-                 <widget class="QLabel" name="step2_maxiter_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Maximum Iterations:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="5" column="2" colspan="2">
-                 <widget class="QLabel" name="step2_initializer_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Map Initializer Method:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="17" column="1">
-                 <spacer name="step2_HSpacer1_13">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="25" column="1">
-                 <spacer name="step2_HSpacer1_17">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="30" column="1">
-                 <spacer name="step2_HSpacer1_21">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="24" column="0" rowspan="7">
-                 <spacer name="step2_HSpacer3">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>10</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="16" column="0" rowspan="6">
-                 <spacer name="step2_HSpacer2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>10</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="19" column="1" rowspan="2">
-                 <spacer name="step2_HSpacer1_15">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="11" column="2">
-                 <spacer name="step2_HSpacer1_11">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>2</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="13" column="3">
-                 <widget class="QLineEdit" name="step2_stopcondition_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>1E-6</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="11" column="3">
-                 <widget class="QLineEdit" name="step2_maxiter_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>500</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="4" column="2">
-                 <spacer name="step2_HSpacer1_5">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>2</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="6" column="3">
-                 <widget class="QRadioButton" name="step2_random_initializer_radio">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Random</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item row="6" column="2" rowspan="2">
-                 <spacer name="step2_HSpacer1_7">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>2</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="7" column="3">
-                 <widget class="QRadioButton" name="step2_kmeans_initializer_radio">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>K-Means++</string>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item row="9" column="2">
-                 <spacer name="step2_HSpacer1_9">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>2</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="9" column="3">
-                 <widget class="QLineEdit" name="step2_numberofrepeats_input">
+                <item row="27" column="2" colspan="2">
+                 <widget class="QLineEdit" name="step2_kernel_size_input">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1528,7 +711,7 @@ background-color: rgb(0, 0, 0);</string>
                    <set>Qt::ImhDigitsOnly</set>
                   </property>
                   <property name="text">
-                   <string>5</string>
+                   <string>20</string>
                   </property>
                   <property name="maxLength">
                    <number>4</number>
@@ -1538,40 +721,8 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="13" column="2">
-                 <spacer name="step2_HSpacer1_23">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>2</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="27" column="1" rowspan="2">
-                 <spacer name="step2_HSpacer1_19">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="4" column="3">
-                 <widget class="QComboBox" name="step2_similarity_combobox">
+                <item row="32" column="2" colspan="2">
+                 <widget class="QLineEdit" name="step2_batch_input">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1598,16 +749,178 @@ background-color: rgb(0, 0, 0);</string>
                     <pointsize>14</pointsize>
                    </font>
                   </property>
-                  <item>
-                   <property name="text">
-                    <string>Spatial Correlation</string>
-                   </property>
-                  </item>
-                  <item>
-                   <property name="text">
-                    <string>Cosine Similarity</string>
-                   </property>
-                  </item>
+                  <property name="inputMethodHints">
+                   <set>Qt::ImhDigitsOnly</set>
+                  </property>
+                  <property name="text">
+                   <string>1000</string>
+                  </property>
+                  <property name="maxLength">
+                   <number>6</number>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="22" column="2" colspan="2">
+                 <widget class="QSpinBox" name="step2_auto_range_kmax_spinbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                  <property name="minimum">
+                   <number>3</number>
+                  </property>
+                  <property name="maximum">
+                   <number>15</number>
+                  </property>
+                  <property name="value">
+                   <number>10</number>
+                  </property>
+                 </widget>
+                </item>
+                <item row="16" column="1" colspan="3">
+                 <widget class="QRadioButton" name="step2_user_k_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>User-defined</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">NstatesGroup</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item row="30" column="2" colspan="2">
+                 <widget class="QSlider" name="step2_percent_slider">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="minimum">
+                   <number>20</number>
+                  </property>
+                  <property name="maximum">
+                   <number>100</number>
+                  </property>
+                  <property name="singleStep">
+                   <number>10</number>
+                  </property>
+                  <property name="pageStep">
+                   <number>20</number>
+                  </property>
+                  <property name="value">
+                   <number>40</number>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="18" column="1" colspan="3">
+                 <widget class="QRadioButton" name="step2_auto_k_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Auto-detect</string>
+                  </property>
+                  <property name="checked">
+                   <bool>false</bool>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">NstatesGroup</string>
+                  </attribute>
                  </widget>
                 </item>
                 <item row="1" column="0" rowspan="2">
@@ -1692,7 +1005,7 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="24" column="4" rowspan="7">
+                <item row="26" column="4" rowspan="7">
                  <spacer name="step2_HSpacer3_2">
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>
@@ -1707,6 +1020,46 @@ background-color: rgb(0, 0, 0);</string>
                    </size>
                   </property>
                  </spacer>
+                </item>
+                <item row="4" column="3">
+                 <widget class="QComboBox" name="step2_similarity_combobox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <item>
+                   <property name="text">
+                    <string>Spatial Correlation</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Cosine Similarity</string>
+                   </property>
+                  </item>
+                 </widget>
                 </item>
                 <item row="15" column="0" colspan="5">
                  <widget class="QLabel" name="step2_number_maps_label">
@@ -1746,38 +1099,6 @@ background-color: rgb(0, 0, 0);</string>
                    <string>     Number of Microstates</string>
                   </property>
                  </widget>
-                </item>
-                <item row="16" column="4" rowspan="6">
-                 <spacer name="step2_HSpacer2_2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>10</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="1" column="4" rowspan="2">
-                 <spacer name="step2_HSpacer1_2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>10</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
                 </item>
                 <item row="0" column="0" colspan="5">
                  <widget class="QLabel" name="step2_clustermethod_combo_label">
@@ -1819,6 +1140,38 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
+                <item row="1" column="4" rowspan="2">
+                 <spacer name="step2_HSpacer1_2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>10</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="16" column="4" rowspan="8">
+                 <spacer name="step2_HSpacer2_2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>10</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
                 <item row="14" column="0" colspan="5">
                  <widget class="Line" name="step2_line2">
                   <property name="sizePolicy">
@@ -1837,6 +1190,739 @@ background-color: rgb(0, 0, 0);</string>
                    <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
+                </item>
+                <item row="6" column="2" rowspan="2">
+                 <spacer name="step2_HSpacer1_7">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>2</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="7" column="3">
+                 <widget class="QRadioButton" name="step2_kmeans_initializer_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>K-Means++</string>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">InitializersGroup</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item row="9" column="2">
+                 <spacer name="step2_HSpacer1_9">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>2</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="13" column="2">
+                 <spacer name="step2_HSpacer1_23">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>2</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="9" column="3">
+                 <widget class="QLineEdit" name="step2_numberofrepeats_input">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="inputMethodHints">
+                   <set>Qt::ImhDigitsOnly</set>
+                  </property>
+                  <property name="text">
+                   <string>5</string>
+                  </property>
+                  <property name="maxLength">
+                   <number>4</number>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="29" column="1" rowspan="2">
+                 <spacer name="step2_HSpacer1_19">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="21" column="2" colspan="2">
+                 <widget class="QSpinBox" name="step2_auto_range_kmin_spinbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                  <property name="minimum">
+                   <number>4</number>
+                  </property>
+                  <property name="maximum">
+                   <number>14</number>
+                  </property>
+                 </widget>
+                </item>
+                <item row="20" column="2" colspan="2">
+                 <widget class="QComboBox" name="step2_optimizer_combobox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="currentIndex">
+                   <number>7</number>
+                  </property>
+                  <property name="maxVisibleItems">
+                   <number>10</number>
+                  </property>
+                  <item>
+                   <property name="text">
+                    <string>Akaike Information Criterion (AIC)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Bayesian Information Criterion (BIC)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Calinski-Harabasz Index (CH)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Cross-Validation (CV)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Davies-Bouldin Index (DB)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Dunn Index (DUNN)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Gap Statistic (GAP)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Global Explained Variance (GEV)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Krzanowski-Lai Criterion (KL)</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Silhouette Coefficient (SIL)</string>
+                   </property>
+                  </item>
+                 </widget>
+                </item>
+                <item row="3" column="2" colspan="2">
+                 <widget class="QLabel" name="step2_similarity_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Similarity Metric:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="28" column="1" colspan="3">
+                 <widget class="QRadioButton" name="step2_use_percent_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="toolTip">
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Utilize specific timepoints in the dataset for clustering&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  </property>
+                  <property name="text">
+                   <string>Use Random Subset of Data - Subset Fraction (%)</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">InputGroup</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item row="31" column="1" colspan="3">
+                 <widget class="QCheckBox" name="step2_batch_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>60</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                   </font>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
+                  <property name="text">
+                   <string>Batch Processing - Batch Size (samples)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="17" column="1">
+                 <spacer name="step2_HSpacer1_13">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="1" column="1" colspan="3">
+                 <widget class="QComboBox" name="step2_clustermethod_combobox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <item>
+                   <property name="text">
+                    <string>Modified K-Means Clustering</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Modified K-Means Clustering with Spatial Similarity</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Topographic Atomize and Agglomerate Hierarchical Clustering</string>
+                   </property>
+                  </item>
+                 </widget>
+                </item>
+                <item row="10" column="2" colspan="2">
+                 <widget class="QLabel" name="step2_maxiter_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Maximum Iterations:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="27" column="1">
+                 <spacer name="step2_HSpacer1_17">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="5" column="2" colspan="2">
+                 <widget class="QLabel" name="step2_initializer_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Map Initializer Method:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="32" column="1">
+                 <spacer name="step2_HSpacer1_21">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="11" column="2">
+                 <spacer name="step2_HSpacer1_11">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>2</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="11" column="3">
+                 <widget class="QLineEdit" name="step2_maxiter_input">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>500</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="13" column="3">
+                 <widget class="QLineEdit" name="step2_stopcondition_input">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>1E-6</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="2">
+                 <spacer name="step2_HSpacer1_5">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>2</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="16" column="0" rowspan="8">
+                 <spacer name="step2_HSpacer2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>10</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="26" column="0" rowspan="7">
+                 <spacer name="step2_HSpacer3">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>10</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="6" column="3">
+                 <widget class="QRadioButton" name="step2_random_initializer_radio">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Random</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">InitializersGroup</string>
+                  </attribute>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <spacer name="step2_HSpacer1_3">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
                 </item>
                 <item row="2" column="2" colspan="2">
                  <widget class="QCheckBox" name="step2_show_advanced_checkbox">
@@ -1866,8 +1952,8 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="2" column="1">
-                 <spacer name="step2_HSpacer1_3">
+                <item row="19" column="1" rowspan="4">
+                 <spacer name="step2_HSpacer1_15">
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>
                   </property>
@@ -1881,6 +1967,88 @@ background-color: rgb(0, 0, 0);</string>
                    </size>
                   </property>
                  </spacer>
+                </item>
+                <item row="19" column="2" colspan="2">
+                 <layout class="QHBoxLayout" name="horizontalLayout">
+                  <item>
+                   <widget class="QRadioButton" name="step2_ensemble_optimizer_radio">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>0</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>16777215</width>
+                      <height>80</height>
+                     </size>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>14</pointsize>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Ensemble Method</string>
+                    </property>
+                    <property name="checked">
+                     <bool>true</bool>
+                    </property>
+                    <attribute name="buttonGroup">
+                     <string notr="true">OptimizerGroup</string>
+                    </attribute>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QRadioButton" name="step2_single_optimizer_radio">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>0</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>16777215</width>
+                      <height>80</height>
+                     </size>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>14</pointsize>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Single Method</string>
+                    </property>
+                    <property name="checked">
+                     <bool>false</bool>
+                    </property>
+                    <attribute name="buttonGroup">
+                     <string notr="true">OptimizerGroup</string>
+                    </attribute>
+                   </widget>
+                  </item>
+                 </layout>
                 </item>
                </layout>
               </item>
@@ -1923,8 +2091,8 @@ background-color: rgb(0, 0, 0);</string>
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-240</y>
-               <width>1153</width>
+               <y>0</y>
+               <width>353</width>
                <height>800</height>
               </rect>
              </property>
@@ -1963,7 +2131,7 @@ background-color: rgb(0, 0, 0);</string>
                    <string>GFP Peaks</string>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_4</string>
+                   <string notr="true">BackfitGroup</string>
                   </attribute>
                  </widget>
                 </item>
@@ -2038,7 +2206,7 @@ background-color: rgb(0, 0, 0);</string>
                    <bool>true</bool>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_4</string>
+                   <string notr="true">BackfitGroup</string>
                   </attribute>
                  </widget>
                 </item>
@@ -3668,7 +3836,7 @@ background-color: rgb(0, 0, 0);</string>
                      <string>Data Event Triggers</string>
                     </property>
                     <attribute name="buttonGroup">
-                     <string notr="true">buttonGroup_8</string>
+                     <string notr="true">SlidingGroup</string>
                     </attribute>
                    </widget>
                   </item>
@@ -3702,7 +3870,7 @@ background-color: rgb(0, 0, 0);</string>
                      <bool>true</bool>
                     </property>
                     <attribute name="buttonGroup">
-                     <string notr="true">buttonGroup_8</string>
+                     <string notr="true">SlidingGroup</string>
                     </attribute>
                    </widget>
                   </item>
@@ -3966,7 +4134,7 @@ background-color: rgb(0, 0, 0);</string>
                    <string>Use Individual Anatomies</string>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_3</string>
+                   <string notr="true">AnatomyGroup</string>
                   </attribute>
                  </widget>
                 </item>
@@ -4005,7 +4173,7 @@ background-color: rgb(0, 0, 0);</string>
                    <bool>true</bool>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_3</string>
+                   <string notr="true">AnatomyGroup</string>
                   </attribute>
                  </widget>
                 </item>
@@ -4271,7 +4439,7 @@ background-color: rgb(0, 0, 0);</string>
                    <bool>true</bool>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_6</string>
+                   <string notr="true">SourceGroup</string>
                   </attribute>
                  </widget>
                 </item>
@@ -4575,7 +4743,7 @@ background-color: rgb(0, 0, 0);</string>
                    <bool>true</bool>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_7</string>
+                   <string notr="true">BEMGroup</string>
                   </attribute>
                  </widget>
                 </item>
@@ -4649,7 +4817,7 @@ background-color: rgb(0, 0, 0);</string>
                    <string>OpenMEEG Solver</string>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_7</string>
+                   <string notr="true">BEMGroup</string>
                   </attribute>
                  </widget>
                 </item>
@@ -4723,7 +4891,7 @@ background-color: rgb(0, 0, 0);</string>
                    <string>Calculate Average Source Times Across Microstate Segments</string>
                   </property>
                   <attribute name="buttonGroup">
-                   <string notr="true">buttonGroup_6</string>
+                   <string notr="true">SourceGroup</string>
                   </attribute>
                  </widget>
                 </item>
@@ -5120,13 +5288,14 @@ background-color: rgb(0, 0, 0);</string>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_6"/>
-  <buttongroup name="buttonGroup_5"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_7"/>
-  <buttongroup name="buttonGroup_8"/>
+  <buttongroup name="InputGroup"/>
+  <buttongroup name="OptimizerGroup"/>
+  <buttongroup name="SlidingGroup"/>
+  <buttongroup name="BEMGroup"/>
+  <buttongroup name="BackfitGroup"/>
+  <buttongroup name="AnatomyGroup"/>
+  <buttongroup name="SourceGroup"/>
+  <buttongroup name="InitializersGroup"/>
+  <buttongroup name="NstatesGroup"/>
  </buttongroups>
 </ui>

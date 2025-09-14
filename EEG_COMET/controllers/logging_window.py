@@ -435,23 +435,38 @@ class LogWindow(QWidget):
         if self.current_step and self.comet_instance and hasattr(self.comet_instance, "logger"):
             self.comet_instance.logger.stop_requested(self.current_step)
 
-        # Log stop action in the log window
+        # Log stop action in the log window with more informative message
         if self.current_step == "CLUSTERING":
-            self.append_log("⏹️ Clustering process stopped by user", log_type="warning")
-            self.append_log("💾 Partial results will be saved if available", log_type="info")
+            self.append_log("⏹️ Stopping clustering process...", log_type="warning")
+            self.append_log("💾 Saving partial results if available", log_type="info")
+        else:
+            self.append_log(f"⏹️ Stopping {self.current_step or 'process'}...", log_type="warning")
 
         # Stop the worker thread if running
         if self.worker_thread and self.worker_thread.isRunning():
             self.worker_thread.stop()
-            # Optionally wait for the thread to finish.
-            self.worker_thread.wait()
+            # Wait a reasonable time for the thread to finish
+            if not self.worker_thread.wait(3000):  # Wait up to 3 seconds
+                self.append_log("⚠️ Worker thread did not stop gracefully", log_type="warning")
 
         # Stop the optimizer if it's running
         if hasattr(self, "current_optimizer") and self.current_optimizer is not None:
-            self.current_optimizer.stop()
-            self.current_optimizer = None
+            try:
+                self.current_optimizer.stop()
+                self.append_log("✓ Optimization process stopped", log_type="info")
+            except Exception as e:
+                self.append_log(f"⚠️ Error stopping optimizer: {str(e)}", log_type="warning")
+            finally:
+                self.current_optimizer = None
 
+        # Reset UI state
         self.ui.progress_stop_button.setEnabled(False)
+        self.ui.progress_label.setText("Process stopped by user")
+        
+        # Reset current step
+        self.current_step = None
+        
+        self.append_log("🔄 Ready for new operations", log_type="success")
 
     def show_hide_log_window(self):
         """Toggle the visibility of the log window.

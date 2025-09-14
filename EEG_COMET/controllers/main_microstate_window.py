@@ -256,7 +256,13 @@ class WidgetGroups:
 
     def _get_auto_k_widgets(self):
         """Get auto-k related widgets."""
-        return [self.ui.step2_auto_range_kmin_spinbox, self.ui.step2_auto_range_kmax_spinbox]
+        return [
+            self.ui.step2_auto_range_kmin_spinbox, 
+            self.ui.step2_auto_range_kmax_spinbox,
+            self.ui.step2_ensemble_optimizer_radio,
+            self.ui.step2_single_optimizer_radio,
+            self.ui.step2_optimizer_combobox
+        ]
 
     def _get_convergence_widgets(self):
         """Get convergence-related widgets."""
@@ -802,6 +808,18 @@ class MainMicrostateWindow(QMainWindow):
                 "Plot objective criteria (e.g., GEV, residual variance) across a range "
                 "of map numbers to assist in choosing an optimal k."
             ),
+            "step2_ensemble_optimizer_radio": (
+                "Use ensemble optimization: Combine results from all 10 optimization methods "
+                "and select the k value that most methods agree on (majority vote)."
+            ),
+            "step2_single_optimizer_radio": (
+                "Use single optimization method: Select one specific optimization criterion "
+                "from the dropdown to determine the optimal number of clusters."
+            ),
+            "step2_optimizer_combobox": (
+                "Select a specific optimization method for determining the optimal number of "
+                "clusters. Each method uses different statistical criteria to evaluate clustering quality."
+            ),
             # ── Backfitting tab ────────────────────────────────────────────────
             "step3_backfit_button": (
                 "Project the derived microstate maps back onto the EEG time-series to "
@@ -962,6 +980,9 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_clustermethod_combobox: self._update_ui_state,
             self.ui.step2_auto_range_kmin_spinbox: self._update_ui_state,
             self.ui.step2_auto_range_kmax_spinbox: self._update_ui_state,
+            self.ui.step2_ensemble_optimizer_radio: self._update_ui_state,
+            self.ui.step2_single_optimizer_radio: self._update_ui_state,
+            self.ui.step2_optimizer_combobox: self._update_ui_state,
             self.ui.step2_percent_slider: self._update_ui_state,
             self.ui.step2_batch_checkbox: self._update_ui_state,
             self.ui.step3_backfit_all_radio: self._update_ui_state,
@@ -1235,10 +1256,25 @@ class MainMicrostateWindow(QMainWindow):
             if kmax <= kmin:
                 self.ui.step2_auto_range_kmax_spinbox.setValue(kmin + 1)
 
-                # Auto-k selection now uses majority vote across all methods
+            # Handle optimizer selection settings
+            self._handle_optimizer_selection_settings()
         else:
             self.widget_groups.set_group_status("user_k", WidgetMode.ENABLE)
             self.widget_groups.set_group_status("auto_k", WidgetMode.DISABLE)
+
+    def _handle_optimizer_selection_settings(self):
+        """Handle optimizer selection UI settings."""
+        # Ensure at least one radio button is selected (default to ensemble)
+        if not (self.ui.step2_ensemble_optimizer_radio.isChecked() or 
+                self.ui.step2_single_optimizer_radio.isChecked()):
+            self.ui.step2_ensemble_optimizer_radio.setChecked(True)
+            
+        if self.ui.step2_ensemble_optimizer_radio.isChecked():
+            # Ensemble mode - disable combobox, use majority vote across all methods
+            self.ui.step2_optimizer_combobox.setEnabled(False)
+        else:
+            # Single optimizer mode - enable combobox for method selection
+            self.ui.step2_optimizer_combobox.setEnabled(True)
 
     def _update_auto_k_parameter_label(self):
         """Update auto-k parameter label - now uses majority vote across all methods."""
@@ -2031,13 +2067,26 @@ class MainMicrostateWindow(QMainWindow):
 
     def _on_clustering_finished(self):
         """Called when clustering is finished to update UI state."""
-        # Set flag to indicate clustering just completed (for auto-opening visualization)
-        self._clustering_just_finished = True
+        # Check if clustering actually completed successfully
+        if self.comet.done_clustering:
+            # Set flag to indicate clustering just completed (for auto-opening visualization)
+            self._clustering_just_finished = True
 
-        # Print study status after clustering completion
-        self._print_study_status()
+            # Print study status after clustering completion
+            self._print_study_status()
+        else:
+            # Clustering was stopped or failed - reset UI appropriately
+            self._clustering_just_finished = False
+            self._microstate_labeling_just_finished = False
+            
+            # Reset button styling to indicate it can be retried
+            self.ui.step2_clustering_button.setStyleSheet("background-color: none")
+            
+            # Log that clustering is ready to restart
+            if hasattr(self.comet, "LogWindow") and self.comet.LogWindow is not None:
+                self.comet.LogWindow.append_log("🔄 Clustering can be restarted with modified parameters", log_type="info")
 
-        # Update the UI state now that clustering is complete
+        # Update the UI state regardless of success/failure
         self._update_ui_state()
 
     def _on_backfitting_finished(self):
@@ -2085,13 +2134,31 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.choose_number_of_maps = "auto"
         self.comet.number_of_maps = "auto"
 
-        # Auto-k selection now uses majority vote across all methods
-        self.comet.stopping_mode = "majority_vote"
-        self.comet.stopping_parameter = None  # Not needed for majority vote
+        # Check optimizer selection mode
+        if self.ui.step2_ensemble_optimizer_radio.isChecked():
+            # Ensemble mode - use majority vote across all methods
+            self.comet.stopping_mode = "majority_vote"
+            self.comet.stopping_parameter = None
+        else:
+            # Single optimizer mode - use selected method
+            selected_text = self.ui.step2_optimizer_combobox.currentText()
+            # Extract method code from the display text
+            method_mapping = {
+                "Global Explained Variance (GEV)": "gev",
+                "Davies-Bouldin Index (DB)": "db", 
+                "Cross-Validation (CV)": "cv",
+                "Krzanowski-Lai Criterion (KL)": "kl",
+                "Silhouette Coefficient (SIL)": "sil",
+                "Dunn Index (DUNN)": "dunn",
+                "Calinski-Harabasz Index (CH)": "ch",
+                "Gap Statistic (GAP)": "gap",
+                "Akaike Information Criterion (AIC)": "aic",
+                "Bayesian Information Criterion (BIC)": "bic"
+            }
+            self.comet.stopping_mode = method_mapping.get(selected_text, "gev")
+            self.comet.stopping_parameter = None
 
         # Force GFP peaks for auto-k selection (ignore use_percentages setting)
-        # Don't log this redundant information
-        # print("[CLUSTERING] Auto-k selection: Will use GFP peaks for optimization")
 
     def _set_user_k_parameters(self):
         """Set parameters for user-defined k."""
@@ -2122,8 +2189,10 @@ class MainMicrostateWindow(QMainWindow):
         else:
             self.comet.batch_size = None
 
-        # Paths
-        self.comet.microstate_maps_path = os.path.join(self.comet.save_dir, "microstate_maps.csv")
+        # Paths - Save microstate_maps.csv in clustering results directory
+        clustering_results_path = self.comet.get_clustering_results_path()
+        os.makedirs(clustering_results_path, exist_ok=True)
+        self.comet.microstate_maps_path = os.path.join(clustering_results_path, "microstate_maps.csv")
 
     def _auto_open_microstate_visualization(self):
         """Automatically open microstate visualization window after clustering."""
