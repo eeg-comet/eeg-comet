@@ -437,7 +437,7 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-840</y>
+               <y>-803</y>
                <width>1153</width>
                <height>1740</height>
               </rect>
@@ -1365,7 +1365,7 @@ background-color: rgb(0, 0, 0);</string>
                    <set>Qt::AlignCenter</set>
                   </property>
                   <property name="minimum">
-                   <number>4</number>
+                   <number>2</number>
                   </property>
                   <property name="maximum">
                    <number>14</number>
@@ -5288,14 +5288,14 @@ background-color: rgb(0, 0, 0);</string>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="InputGroup"/>
-  <buttongroup name="OptimizerGroup"/>
-  <buttongroup name="SlidingGroup"/>
-  <buttongroup name="BEMGroup"/>
-  <buttongroup name="BackfitGroup"/>
-  <buttongroup name="AnatomyGroup"/>
   <buttongroup name="SourceGroup"/>
+  <buttongroup name="InputGroup"/>
   <buttongroup name="InitializersGroup"/>
+  <buttongroup name="BackfitGroup"/>
+  <buttongroup name="SlidingGroup"/>
   <buttongroup name="NstatesGroup"/>
+  <buttongroup name="BEMGroup"/>
+  <buttongroup name="AnatomyGroup"/>
+  <buttongroup name="OptimizerGroup"/>
  </buttongroups>
 </ui>
