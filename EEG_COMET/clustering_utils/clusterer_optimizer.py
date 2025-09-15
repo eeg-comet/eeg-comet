@@ -443,9 +443,9 @@ class ClustererOptimizer:
         if best_maps is None:
             raise RuntimeError(f"No valid clustering results obtained for k={k}")
 
-        # Calculate GEV for this result using GFP peaks (optimization dataset)
-        # All optimization metrics should use GFP peaks for speed and consistency
-        best_gev = clusterer.compute_gev(self.maps2use, best_maps)
+        # Calculate GEV for this result using all data
+        all_data = self._get_full_dataset()
+        best_gev = clusterer.compute_gev(all_data, best_maps)
 
         # Cache the result with basic metrics first
         self._clustering_cache[k] = {
