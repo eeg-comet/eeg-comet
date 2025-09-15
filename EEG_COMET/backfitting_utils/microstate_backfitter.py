@@ -457,7 +457,7 @@ class MicrostateBackfitter:
 
     def find_optimal_threshold(self, eeg_data, return_plot_data=False):
         """Find optimal threshold for filtering short microstate segments.
-        
+
         This method focuses on the most important criteria:
         1. Segment duration distribution analysis
         2. Template correlation quality
@@ -474,113 +474,234 @@ class MicrostateBackfitter:
         # Get initial segmentation
         correlation_matrix = self.compute_correlation_matrix(eeg_data)
         initial_segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+
+        # Test thresholds - generate based on integer sample counts for meaningful thresholds
+        # Generate sample counts from 2 to 60ms, ensuring integer sample counts
+        min_samples = max(1, int(2 * self.sample_rate / 1000))  # At least 1 sample
+        max_samples = int(60 * self.sample_rate / 1000)
         
-        # Test thresholds
-        test_thresholds_ms = np.linspace(5, 50, 16)
+        # Create sample counts with reasonable spacing
+        if max_samples - min_samples <= 20:
+            sample_counts = np.arange(min_samples, max_samples + 1)
+        else:
+            # Use fewer points for wider ranges
+            sample_counts = np.linspace(min_samples, max_samples, 20, dtype=int)
         
+        # Convert sample counts back to milliseconds
+        test_thresholds_ms = sample_counts * 1000 / self.sample_rate
+
         quality_scores = []
-        
+
         for thresh_ms in test_thresholds_ms:
             thresh_samples = int(thresh_ms * self.sample_rate / 1000)
-            
+
             # Simple approach: mark short segments and compute quality
             filtered_segmentation = self._filter_short_segments(initial_segmentation, thresh_samples)
-            
+
             # Compute quality metrics
             quality = self._compute_quality(eeg_data, filtered_segmentation)
             quality_scores.append(quality)
-        
+
         # Find the threshold with best quality score
         best_idx = np.argmax(quality_scores)
-        optimal_threshold = test_thresholds_ms[best_idx]
+        raw_optimal_threshold = test_thresholds_ms[best_idx]
+
+        # Apply constraints based on integer sample counts
+        # Most microstate segments should be between 60-120ms, so very short filters
+        # (< 5ms) or very long ones (> 50ms) are probably not optimal
+        min_samples = max(1, int(5 * self.sample_rate / 1000))  # At least 5ms in samples
+        max_samples = int(50 * self.sample_rate / 1000)  # At most 50ms in samples
         
-        # Ensure reasonable bounds (between 10-40ms typically)
-        optimal_threshold = max(10.0, min(40.0, optimal_threshold))
+        # Convert raw optimal to sample count
+        raw_optimal_samples = int(round(raw_optimal_threshold * self.sample_rate / 1000))
         
-        # Convert to valid sample count and back to ensure it's sampling-rate appropriate
-        optimal_samples = int(round(optimal_threshold * self.sample_rate / 1000))
-        optimal_samples = max(1, optimal_samples)  # At least 1 sample
-        
+        # Apply constraints using integer sample counts
+        if raw_optimal_samples < min_samples:
+            optimal_samples = min_samples
+            constraint_applied = True
+        elif raw_optimal_samples > max_samples:
+            optimal_samples = max_samples
+            constraint_applied = True
+        else:
+            optimal_samples = raw_optimal_samples
+            constraint_applied = False
+
+        # Ensure at least 1 sample
+        optimal_samples = max(1, optimal_samples)
+
         # Convert back to milliseconds based on actual sample count
         optimal_threshold_ms = optimal_samples * 1000 / self.sample_rate
-        
+
         if return_plot_data:
-            return optimal_threshold_ms, test_thresholds_ms, quality_scores
+            # Return additional info for plotting
+            return optimal_threshold_ms, test_thresholds_ms, quality_scores, {
+                'raw_optimal': raw_optimal_threshold,
+                'constraint_applied': constraint_applied,
+                'best_idx': best_idx
+            }
         return optimal_threshold_ms
-    
+
     def plot_threshold_optimization(self, eeg_data, save_path=None):
         """Plot quality scores for different thresholds with optimal value highlighted.
-        
+
         Args:
             eeg_data (np.ndarray): EEG data (n_channels, n_timepoints)
             save_path (str, optional): Path to save the plot. If None, uses segmentation_path.
-            
+
         Returns:
             str: Path where the plot was saved
         """
-        # Get plotting data
-        optimal_threshold, test_thresholds, quality_scores = self.find_optimal_threshold(
-            eeg_data, return_plot_data=True
-        )
-        
-        # Create the plot
-        plt.figure(figsize=(10, 6))
-        plt.plot(test_thresholds, quality_scores, 'b-o', linewidth=2, markersize=6, label='Quality Score')
-        
-        # Highlight the optimal threshold
-        optimal_idx = np.argmin(np.abs(test_thresholds - optimal_threshold))
-        plt.plot(test_thresholds[optimal_idx], quality_scores[optimal_idx], 
-                'ro', markersize=10, label=f'Optimal: {optimal_threshold:.1f}ms')
-        
-        # Formatting
-        plt.xlabel('Threshold Duration (ms)', fontsize=12)
-        plt.ylabel('Quality Score', fontsize=12)
-        plt.title('Automatic Short Window Length Detection\nQuality Score vs Threshold Duration', fontsize=14)
-        plt.grid(True, alpha=0.3)
-        plt.legend(fontsize=11)
-        
-        # Add text box with optimal value
-        textstr = f'Optimal Threshold: {optimal_threshold:.1f} ms\nQuality Score: {quality_scores[optimal_idx]:.3f}'
-        props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-        plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
-                verticalalignment='top', bbox=props)
-        
-        plt.tight_layout()
-        
-        # Determine save path
-        if save_path is None:
-            # Try to use segmentation_path first
-            if hasattr(self, 'segmentation_path') and self.segmentation_path:
-                save_dir = self.segmentation_path
-            else:
-                # Fallback to current working directory
-                save_dir = os.getcwd()
-            
-            # Ensure directory exists
-            try:
-                os.makedirs(save_dir, exist_ok=True)
-                if not os.path.exists(save_dir):
-                    raise OSError(f"Failed to create directory: {save_dir}")
-            except Exception as e:
-                # Final fallback to current directory
-                save_dir = os.getcwd()
-                os.makedirs(save_dir, exist_ok=True)
-            
-            save_path = os.path.join(save_dir, 'threshold_optimization_plot.png')
-        
-        # Save the plot
         try:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            plt.close()
+            # Get plotting data with additional info
+            result = self.find_optimal_threshold(eeg_data, return_plot_data=True)
+
+            if len(result) == 4:  # New format with additional info
+                optimal_threshold, test_thresholds, quality_scores, info = result
+                raw_optimal = info['raw_optimal']
+                constraint_applied = info['constraint_applied']
+                best_idx = info['best_idx']
+            else:  # Fallback to old format
+                optimal_threshold, test_thresholds, quality_scores = result
+                best_idx = np.argmax(quality_scores)
+                raw_optimal = test_thresholds[best_idx]
+                constraint_applied = abs(optimal_threshold - raw_optimal) > 0.5
+
+            # Validate data before plotting
+            if len(test_thresholds) == 0 or len(quality_scores) == 0:
+                print("[ERROR] No threshold data available for plotting")
+                return None
             
-            # Verify the file was created
-            if os.path.exists(save_path):
-                return save_path
+            if best_idx >= len(test_thresholds) or best_idx >= len(quality_scores):
+                print("[ERROR] Invalid best_idx in threshold optimization data")
+                return None
+
+            # Create the plot
+            plt.figure(figsize=(12, 8))
+
+            # Main plot
+            plt.subplot(2, 1, 1)
+            plt.plot(test_thresholds, quality_scores, 'b-o', linewidth=2, markersize=6, label='Quality Score')
+
+            # Highlight the actual maximum in quality scores
+            plt.plot(test_thresholds[best_idx], quality_scores[best_idx],
+                     'go', markersize=12, label=f'Quality Maximum: {raw_optimal:.1f}ms')
+
+            # If constrained, show the final optimal too
+            if constraint_applied:
+                optimal_idx = np.argmin(np.abs(test_thresholds - optimal_threshold))
+                if optimal_idx < len(test_thresholds) and optimal_idx < len(quality_scores):
+                    plt.plot(test_thresholds[optimal_idx], quality_scores[optimal_idx],
+                             'ro', markersize=10, label=f'Final Optimal: {optimal_threshold:.1f}ms')
+
+            plt.xlabel('Threshold Duration (ms)', fontsize=12)
+            plt.ylabel('Quality Score', fontsize=12)
+            plt.title('Threshold Optimization: Quality Score vs Duration', fontsize=14)
+            plt.grid(True, alpha=0.3)
+            plt.legend(fontsize=11)
+            
+            # Format x-axis to show integer-based thresholds (only if we have data)
+            if len(test_thresholds) > 0:
+                # Limit number of ticks to avoid overcrowding
+                if len(test_thresholds) <= 20:
+                    plt.xticks(test_thresholds, [f'{t:.1f}' for t in test_thresholds], rotation=45)
+                else:
+                    # Show every nth tick for better readability
+                    step = max(1, len(test_thresholds) // 10)
+                    tick_indices = range(0, len(test_thresholds), step)
+                    plt.xticks(test_thresholds[tick_indices], 
+                              [f'{test_thresholds[i]:.1f}' for i in tick_indices], rotation=45)
+
+            # Add secondary plot showing the effect of filtering
+            plt.subplot(2, 1, 2)
+
+            # Show how much data is retained at different thresholds
+            correlation_matrix = self.compute_correlation_matrix(eeg_data)
+            initial_segmentation = np.argmax(np.abs(correlation_matrix), axis=0)
+
+            retention_rates = []
+            for thresh_ms in test_thresholds:
+                thresh_samples = int(thresh_ms * self.sample_rate / 1000)
+                filtered_seg = self._filter_short_segments(initial_segmentation, thresh_samples)
+                retention_rate = np.sum(filtered_seg != -1) / len(filtered_seg) * 100
+                retention_rates.append(retention_rate)
+
+            plt.plot(test_thresholds, retention_rates, 'purple', linewidth=2, label='Data Retention %')
+            plt.axvline(x=optimal_threshold, color='red', linestyle='--', alpha=0.7,
+                        label=f'Selected: {optimal_threshold:.1f}ms')
+            plt.xlabel('Threshold Duration (ms)', fontsize=12)
+            plt.ylabel('Data Retention (%)', fontsize=12)
+            plt.title('Data Retention vs Threshold Duration', fontsize=12)
+            plt.grid(True, alpha=0.3)
+            plt.legend(fontsize=11)
+            
+            # Format x-axis to show integer-based thresholds (only if we have data)
+            if len(test_thresholds) > 0:
+                # Limit number of ticks to avoid overcrowding
+                if len(test_thresholds) <= 20:
+                    plt.xticks(test_thresholds, [f'{t:.1f}' for t in test_thresholds], rotation=45)
+                else:
+                    # Show every nth tick for better readability
+                    step = max(1, len(test_thresholds) // 10)
+                    tick_indices = range(0, len(test_thresholds), step)
+                    plt.xticks(test_thresholds[tick_indices], 
+                              [f'{test_thresholds[i]:.1f}' for i in tick_indices], rotation=45)
+
+            plt.tight_layout()
+
+            # Add comprehensive text box
+            if constraint_applied:
+                optimal_idx = np.argmin(np.abs(test_thresholds - optimal_threshold))
+                if optimal_idx < len(retention_rates):
+                    retention_text = f'{retention_rates[optimal_idx]:.1f}%'
+                else:
+                    retention_text = 'N/A'
+                textstr = (f'Quality Maximum: {raw_optimal:.1f}ms (score: {quality_scores[best_idx]:.3f})\n'
+                           f'Final Optimal: {optimal_threshold:.1f}ms\n'
+                           f'Constraint: Applied (sampling rate + bounds)\n'
+                           f'Data Retention: {retention_text}')
             else:
+                if best_idx < len(retention_rates):
+                    retention_text = f'{retention_rates[best_idx]:.1f}%'
+                else:
+                    retention_text = 'N/A'
+                textstr = (f'Optimal Threshold: {optimal_threshold:.1f}ms\n'
+                           f'Quality Score: {quality_scores[best_idx]:.3f}\n'
+                           f'Data Retention: {retention_text}\n'
+                           f'No constraints applied')
+
+            props = dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
+            plt.figtext(0.02, 0.02, textstr, fontsize=10, bbox=props)
+
+            # Determine save path
+            if save_path is None:
+                if hasattr(self, 'segmentation_path') and self.segmentation_path:
+                    save_dir = self.segmentation_path
+                else:
+                    save_dir = os.getcwd()
+
+                try:
+                    os.makedirs(save_dir, exist_ok=True)
+                except Exception:
+                    save_dir = os.getcwd()
+
+                save_path = os.path.join(save_dir, 'threshold_optimization_detailed.png')
+
+            # Save the plot
+            try:
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                return save_path if os.path.exists(save_path) else None
+            except Exception as e:
+                print(f"[ERROR] Failed to save plot: {str(e)}")
+                plt.close()
                 return None
                 
         except Exception as e:
-            plt.close()  # Ensure plot is closed even if save fails
+            print(f"[ERROR] Failed to create threshold optimization plot: {str(e)}")
+            try:
+                plt.close()
+            except:
+                pass
             return None
     
     def find_optimal_lambda(self, eeg_data, threshold_ms, test_range=(1, 10), n_tests=5):
