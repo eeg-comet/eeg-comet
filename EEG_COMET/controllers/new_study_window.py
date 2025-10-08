@@ -249,7 +249,7 @@ class NewStudyWindow(QDialog):
             self.ui.step1_import_format_label,
             self.ui.step1_import_type_label,
             self.ui.step1_import_pattern_label,
-            self.ui.step1_study_name_lineedit,
+            # self.ui.step1_study_name_lineedit,
             self.ui.step1_input_path_lineedit,
             self.ui.step1_import_format_combobox,
             self.ui.step1_import_raw_radio,
@@ -310,7 +310,7 @@ class NewStudyWindow(QDialog):
                 self.ui.step1_import_pattern_lineedit,
                 "enable" if self.ui.step1_load_pattern_radio.isChecked() else "disable",
             )
-            if self.ui.step1_study_name_lineedit.text() and self.ui.step1_input_path_lineedit:
+            if self.ui.step1_input_path_lineedit:
                 widgets_to_enable = [
                     self.ui.step1_import_raw_button,
                     self.ui.loaded_remove_file_button,
@@ -393,7 +393,7 @@ class NewStudyWindow(QDialog):
             self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
             set_widgets_status(
                 self.ui.step2_preprocess_data_button,
-                "enable" if self.ui.step2_save_path_lineedit.text() else "disable",
+                "enable" if self.ui.step2_save_path_lineedit.text() and self.ui.step1_study_name_lineedit.text()  else "disable",
             )
 
     def choose_input(self):
