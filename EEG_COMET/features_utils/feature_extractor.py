@@ -1165,6 +1165,10 @@ class FeatureExtractionCoordinator:
         post_start_idx = max(0, post_start_idx)
         post_end_idx = min(len(time_array), post_end_idx)
 
+        # Filter out ROF and RTF from feature list for per-trial extraction
+        # ROF and RTF require all trials together and should only be in averaged mode
+        filtered_feature_list = [f for f in feature_list if f not in ["ROF", "RTF"]]
+        
         # Process each feature type
         for feature_type in feature_types:
             results[feature_type] = []
@@ -1194,7 +1198,7 @@ class FeatureExtractionCoordinator:
                     else:
                         pre_input_sequence = pre_labels
 
-                    # Extract features for pre-TMS window
+                    # Extract features for pre-TMS window (excluding ROF and RTF)
                     if len(pre_input_sequence) > 0:
                         pre_extractor = FeatureExtractor(
                             input_sequence=pre_input_sequence,
@@ -1203,24 +1207,18 @@ class FeatureExtractionCoordinator:
                         )
 
                         pre_df = pre_extractor.extract_microstate_features(
-                            filename=f"{filename}_trial{trial_idx+1}_preTMS",
-                            feature_list=feature_list,
+                            filename=f"{filename}_trial{trial_idx+1}_Pre",
+                            feature_list=filtered_feature_list,  # Use filtered list without ROF/RTF
                             eeg_data=pre_eeg,
                             microstate_maps=microstate_maps,
                             microstate_labels=microstate_labels,
                             min_samples=min_samples,
-                            time_array=(
-                                time_array[pre_start_idx:pre_end_idx]
-                                if "ROF" in feature_list
-                                else None
-                            ),
-                            epoched_labels=getattr(
-                                pre_extractor, "_rof_epoched_labels", None
-                            ),  # Pass epoched_labels to extractor
+                            time_array=None,  # Not needed for per-trial features
+                            epoched_labels=None,  # Not needed for per-trial features
                         )
 
                         # Add window type and trial info
-                        pre_df["Window_Type"] = "PreTMS"
+                        pre_df["Window_Type"] = "Pre"
                         pre_df["Trial"] = trial_idx + 1
                         pre_df["Time_Start_ms"] = pre_tms_start
                         pre_df["Time_End_ms"] = pre_tms_end
@@ -1246,7 +1244,7 @@ class FeatureExtractionCoordinator:
                     else:
                         post_input_sequence = post_labels
 
-                    # Extract features for post-TMS window
+                    # Extract features for post-TMS window (excluding ROF and RTF)
                     if len(post_input_sequence) > 0:
                         post_extractor = FeatureExtractor(
                             input_sequence=post_input_sequence,
@@ -1255,24 +1253,18 @@ class FeatureExtractionCoordinator:
                         )
 
                         post_df = post_extractor.extract_microstate_features(
-                            filename=f"{filename}_trial{trial_idx+1}_postTMS",
-                            feature_list=feature_list,
+                            filename=f"{filename}_trial{trial_idx+1}_Post",
+                            feature_list=filtered_feature_list,  # Use filtered list without ROF/RTF
                             eeg_data=post_eeg,
                             microstate_maps=microstate_maps,
                             microstate_labels=microstate_labels,
                             min_samples=min_samples,
-                            time_array=(
-                                time_array[post_start_idx:post_end_idx]
-                                if "ROF" in feature_list
-                                else None
-                            ),
-                            epoched_labels=getattr(
-                                post_extractor, "_rof_epoched_labels", None
-                            ),  # Pass epoched_labels to extractor
+                            time_array=None,  # Not needed for per-trial features
+                            epoched_labels=None,  # Not needed for per-trial features
                         )
 
                         # Add window type and trial info
-                        post_df["Window_Type"] = "PostTMS"
+                        post_df["Window_Type"] = "Post"
                         post_df["Trial"] = trial_idx + 1
                         post_df["Time_Start_ms"] = post_tms_start
                         post_df["Time_End_ms"] = post_tms_end

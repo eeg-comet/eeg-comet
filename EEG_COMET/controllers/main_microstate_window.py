@@ -7,6 +7,7 @@ from dataclasses import dataclass, fields
 from enum import Enum
 from typing import Any, cast
 
+import pandas as pd
 from PyQt5 import QtCore, uic
 from PyQt5.QtCore import QEvent, QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QFont, QImage, QKeySequence, QPixmap
@@ -561,6 +562,9 @@ class MainMicrostateWindow(QMainWindow):
         self._clustering_just_finished = False
         self._microstate_labeling_just_finished = False
         self._loading_study = False
+        
+        # Initialize epoched features flag
+        self._epoched_features_initialized = False
 
     def toggle_theme(self, checked: bool):
         """Toggle application-wide theme.
@@ -1430,8 +1434,11 @@ class MainMicrostateWindow(QMainWindow):
     def _handle_data_type_features(self):
         """Handle features based on data type."""
         if self.comet.datatype == "epoched":
+            # Update sliding features checkbox text for epoched data
+            # Note: For epoched data, "sliding" mode extracts pre/post event features
+            # instead of regular time-based sliding windows
             self.ui.step4_sliding_features_checkbox.setText(
-                "Extract Features Before and After TMS per Subject"
+                "Extract Pre/Post Event Features (per trial)"
             )
 
             # Enable epoched-specific features
@@ -1441,10 +1448,23 @@ class MainMicrostateWindow(QMainWindow):
                 self.ui.step4_feature_rtf_checkbox,
             ]
             set_widgets_status(epoched_widgets, mode="enable")
-            self.ui.step4_feature_rof_checkbox.setChecked(True)
-            self.ui.step4_feature_rtf_checkbox.setChecked(True)
+            
+            # Only check ROF/RTF checkboxes on first load, not on every UI update
+            # This allows users to uncheck them if desired
+            if not hasattr(self, '_epoched_features_initialized') or not self._epoched_features_initialized:
+                self.ui.step4_feature_rof_checkbox.setChecked(True)
+                self.ui.step4_feature_rtf_checkbox.setChecked(True)
+                self._epoched_features_initialized = True
 
         else:
+            # Reset the initialization flag when switching to non-epoched data
+            self._epoched_features_initialized = False
+            
+            # Reset sliding features checkbox text for non-epoched data
+            self.ui.step4_sliding_features_checkbox.setText(
+                "Extract Sliding Window Features"
+            )
+            
             # Disable epoched-specific features
             epoched_widgets = [
                 self.ui.step4_features_epoched_label,
@@ -1484,6 +1504,58 @@ class MainMicrostateWindow(QMainWindow):
             extracted_modes.append("sliding")
             
         return extracted_modes
+
+    def _get_extracted_features(self):
+        """Get list of features that have been actually extracted (by reading feature file columns).
+        
+        Returns:
+          list[str]: List of available feature codes (e.g., ["OCC", "DUR", "COV", "GEV", "ROF", "RTF"]).
+        """
+        extracted_features = set()
+        
+        if not hasattr(self.comet, "extracted_features_path") or not self.comet.extracted_features_path:
+            return list(extracted_features)
+            
+        if not hasattr(self.comet, "export_format") or not self.comet.export_format:
+            return list(extracted_features)
+            
+        # Check averaged features file for extracted feature columns
+        averaged_path = os.path.join(
+            self.comet.extracted_features_path, f"real_averaged_features{self.comet.export_format}"
+        )
+        if os.path.exists(averaged_path):
+            try:
+                # Load just the header to check columns
+                if self.comet.export_format == ".csv":
+                    df = pd.read_csv(averaged_path, nrows=0)
+                elif self.comet.export_format == ".pkl":
+                    df = pd.read_pickle(averaged_path)
+                elif self.comet.export_format == ".hdf":
+                    df = pd.read_hdf(averaged_path, key="features")
+                else:
+                    df = None
+                
+                if df is not None:
+                    # Extract feature codes from column names
+                    for col in df.columns:
+                        if col == "Filename":
+                            continue
+                        # Extract feature code from column name (e.g., "COV_1" -> "COV", "TP_1_2" -> "TP")
+                        feature_code = col.split("_")[0]
+                        extracted_features.add(feature_code)
+            except Exception as e:
+                print(f"Warning: Could not read feature columns from {averaged_path}: {e}")
+        
+        # Also check for special ROF and RTF files
+        rof_path = os.path.join(self.comet.extracted_features_path, f"ROF_timeseries{self.comet.export_format}")
+        if os.path.exists(rof_path):
+            extracted_features.add("ROF")
+            
+        rtf_path = os.path.join(self.comet.extracted_features_path, f"RTF_averages{self.comet.export_format}")
+        if os.path.exists(rtf_path):
+            extracted_features.add("RTF")
+            
+        return sorted(list(extracted_features))
 
     def _handle_feature_extraction_settings(self):
         """Handle feature extraction UI settings."""
@@ -1650,6 +1722,9 @@ class MainMicrostateWindow(QMainWindow):
         self._clustering_just_finished = False
         self._microstate_labeling_just_finished = False
         self._loading_study = False
+        
+        # Reset epoched features initialization flag
+        self._epoched_features_initialized = False
 
         # Set up preprocessing completion callback
         self.comet.preprocessing_completed_callback = self._on_preprocessing_finished
@@ -1705,6 +1780,9 @@ class MainMicrostateWindow(QMainWindow):
         self._clustering_just_finished = False
         self._microstate_labeling_just_finished = False
         self._loading_study = False
+        
+        # Reset epoched features initialization flag
+        self._epoched_features_initialized = False
 
         # Set up preprocessing completion callback
         self.comet.preprocessing_completed_callback = self._on_preprocessing_finished
@@ -1782,6 +1860,9 @@ class MainMicrostateWindow(QMainWindow):
             self._clustering_just_finished = False
             self._microstate_labeling_just_finished = False
             self._loading_study = False
+            
+            # Reset epoched features initialization flag
+            self._epoched_features_initialized = False
 
             # Set up preprocessing completion callback
             self.comet.preprocessing_completed_callback = self._on_preprocessing_finished
@@ -2522,12 +2603,18 @@ class MainMicrostateWindow(QMainWindow):
         viz_window.export_format = self.comet.export_format
         # Pass the actually extracted feature modes instead of the configured ones
         viz_window.feature_mode = self._get_extracted_feature_modes()
+        
+        # Update radio button text based on data type
+        viz_window.update_radio_text_for_datatype()
+        
         if hasattr(viz_window, "feature_combo"):
             viz_window.feature_combo.clear()  # type: ignore[attr-defined]
+            # Get features that were actually extracted by checking the feature files
+            extracted_feature_codes = self._get_extracted_features()
             # Use full feature names from dictionary instead of short codes
             full_feature_names = [
                 self.comet.feature_list_dictionary.get(feat, feat)
-                for feat in self.comet.feature_list
+                for feat in extracted_feature_codes
             ]
             viz_window.feature_combo.addItems(full_feature_names)  # type: ignore[attr-defined]
         viz_window.list_eegs = self.comet.list_eegs

@@ -63,8 +63,27 @@ class FeatureVisualizationWindow(QMainWindow):
         self.setup_window()
         self.setup_style_actions()
         self.bind_events()
+        
+        # Update radio button text for epoched data
+        self.update_radio_text_for_datatype()
+        
         self.feature_visualization_controller()
 
+    def update_radio_text_for_datatype(self):
+        """Update radio button text based on data type.
+        
+        Returns:
+          None
+        """
+        if hasattr(self.comet, "datatype") and self.comet.datatype == "epoched":
+            # For epoched data, "sliding" mode shows pre/post event features per trial
+            if hasattr(self.ui, "dynamic_radio"):
+                self.ui.dynamic_radio.setText("Pre/Post Event Features")
+        else:
+            # For non-epoched data, use standard text
+            if hasattr(self.ui, "dynamic_radio"):
+                self.ui.dynamic_radio.setText("Windowed Features")
+    
     def get_selected_feature_code(self):
         """Return the short code for the selected feature full name.
 
@@ -288,6 +307,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         self.current_colormap = colormap_name
         self._maybe_refresh_rof_plot()
+        self._maybe_refresh_rtf_plot()
 
     def change_font_family(self, font_name):
         """Handle font family change from menu actions.
@@ -300,6 +320,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         self.current_font_family = font_name
         self._maybe_refresh_rof_plot()
+        self._maybe_refresh_rtf_plot()
 
     def change_display_option(self, option_name, checked):
         """Handle display option change from menu actions.
@@ -313,6 +334,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         # print(f"Display option '{option_name}' set to: {checked}")
         self._maybe_refresh_rof_plot()
+        self._maybe_refresh_rtf_plot()
 
     def change_font_size_category(self, category, font_size):
         """Handle font size change for a specific category.
@@ -331,6 +353,7 @@ class FeatureVisualizationWindow(QMainWindow):
             self.ui.label_size_input.setText(str(font_size))
 
         self._maybe_refresh_rof_plot()
+        self._maybe_refresh_rtf_plot()
 
     def _maybe_refresh_rof_plot(self):
         """Replot ROF immediately if selected and visible.
@@ -341,6 +364,16 @@ class FeatureVisualizationWindow(QMainWindow):
         if hasattr(self.ui, "plot_rof_button") and self.get_selected_feature_code() == "ROF":
             # Directly call plot function so updates are instant
             self.plot_rof_timeseries()
+    
+    def _maybe_refresh_rtf_plot(self):
+        """Replot RTF immediately if selected and visible.
+
+        Returns:
+          None
+        """
+        if hasattr(self.ui, "plot_rtf_button") and self.get_selected_feature_code() == "RTF":
+            # Directly call plot function so updates are instant
+            self.plot_rtf_heatmap()
 
     # ------------------------- Button highlighting -------------------------
     def _reset_plot_button_styles(self):
@@ -355,6 +388,7 @@ class FeatureVisualizationWindow(QMainWindow):
             "plot_all_dynamic_button",
             "plot_heatmap_button",
             "plot_rof_button",
+            "plot_rtf_button",
         ]:
             if hasattr(self.ui, btn_name):
                 getattr(self.ui, btn_name).setStyleSheet("")
@@ -515,6 +549,10 @@ class FeatureVisualizationWindow(QMainWindow):
         # Bind ROF plot button if exists in UI
         if hasattr(self.ui, "plot_rof_button"):
             self.ui.plot_rof_button.clicked.connect(self.plot_rof_timeseries)
+        
+        # Bind RTF plot button if exists in UI
+        if hasattr(self.ui, "plot_rtf_button"):
+            self.ui.plot_rtf_button.clicked.connect(self.plot_rtf_heatmap)
 
         # Trigger controller when feature selection changes
         if hasattr(self.ui, "feature_combo"):
@@ -589,24 +627,34 @@ class FeatureVisualizationWindow(QMainWindow):
         # Determine current visualization mode based on radio buttons
         static_mode = hasattr(self.ui, "static_radio") and self.ui.static_radio.isChecked()
         dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
+        
+        # Check if this is epoched data
+        is_epoched = hasattr(self.comet, "datatype") and self.comet.datatype == "epoched"
 
         # Adjust list selection behavior
         if dynamic_mode:
-            # Only a single file can be selected for dynamic (windowed) features
-            self.ui.all_files_list.setSelectionMode(QAbstractItemView.SingleSelection)
+            # For epoched data pre/post event features, allow multiple selections
+            # For non-epoched time-series, only single file
+            if is_epoched:
+                self.ui.all_files_list.setSelectionMode(QAbstractItemView.MultiSelection)
+            else:
+                self.ui.all_files_list.setSelectionMode(QAbstractItemView.SingleSelection)
         else:
             # Allow multiple selections for global (averaged) features
             self.ui.all_files_list.setSelectionMode(QAbstractItemView.MultiSelection)
 
         # Enable/disable selection helper widgets based on mode
+        # For epoched data pre/post event features, allow selection helpers in dynamic mode too
+        enable_selection_helpers = static_mode or (dynamic_mode and is_epoched)
+        
         if hasattr(self.ui, "select_all_checkbox"):
-            self.ui.select_all_checkbox.setEnabled(static_mode)
+            self.ui.select_all_checkbox.setEnabled(enable_selection_helpers)
         if hasattr(self.ui, "select_pattern_checkbox"):
-            self.ui.select_pattern_checkbox.setEnabled(static_mode)
+            self.ui.select_pattern_checkbox.setEnabled(enable_selection_helpers)
         if hasattr(self.ui, "select_pattern_input"):
-            self.ui.select_pattern_input.setEnabled(static_mode)
-            # If switching to dynamic mode, clear pattern selection and unchecked boxes
-            if not static_mode:
+            self.ui.select_pattern_input.setEnabled(enable_selection_helpers)
+            # If switching to non-epoched dynamic mode, clear pattern selection
+            if dynamic_mode and not is_epoched:
                 self.ui.select_pattern_input.clear()
                 if hasattr(self.ui, "select_all_checkbox"):
                     self.ui.select_all_checkbox.setChecked(False)
@@ -632,18 +680,34 @@ class FeatureVisualizationWindow(QMainWindow):
 
         # --- Dynamic button ---
         dynamic_available = "sliding" in self.feature_mode
-        self.ui.plot_all_dynamic_button.setEnabled(
-            dynamic_mode and single_selection and dynamic_available
-        )
+        # For epoched data, allow multiple selections for pre/post event features
+        # For non-epoched data, require single selection for time-series
+        if is_epoched:
+            self.ui.plot_all_dynamic_button.setEnabled(
+                dynamic_mode and has_selection and dynamic_available
+            )
+        else:
+            self.ui.plot_all_dynamic_button.setEnabled(
+                dynamic_mode and single_selection and dynamic_available
+            )
 
-        # Enable/disable ROF time-series plot button
+        # Enable/disable ROF time-series plot button (always enabled when ROF is selected)
         if hasattr(self.ui, "plot_rof_button"):
             if self.get_selected_feature_code() == "ROF":
-                set_widgets_status(self.ui.plot_rof_button, mode="enable")
+                self.ui.plot_rof_button.setEnabled(True)
                 set_widgets_status(self.ui.plot_rof_button, mode="show")
             else:
-                set_widgets_status(self.ui.plot_rof_button, mode="disable")
+                self.ui.plot_rof_button.setEnabled(False)
                 set_widgets_status(self.ui.plot_rof_button, mode="show")
+        
+        # Enable/disable RTF heatmap plot button (always enabled when RTF is selected)
+        if hasattr(self.ui, "plot_rtf_button"):
+            if self.get_selected_feature_code() == "RTF":
+                self.ui.plot_rtf_button.setEnabled(True)
+                set_widgets_status(self.ui.plot_rtf_button, mode="show")
+            else:
+                self.ui.plot_rtf_button.setEnabled(False)
+                set_widgets_status(self.ui.plot_rtf_button, mode="show")
 
         # Update comparison widgets status based on list contents
         count_group_a = self.ui.group_a_files_list.count()
@@ -655,8 +719,8 @@ class FeatureVisualizationWindow(QMainWindow):
         self.ui.reset_groups_button.setEnabled(count_group_a > 0 or count_group_b > 0)
         self.ui.plot_groups_button.setEnabled(count_group_a > 0 and count_group_b > 0)
 
-        # Enable/disable other plot buttons based on ROF selection
-        if self.get_selected_feature_code() == "ROF":
+        # Enable/disable other plot buttons based on ROF or RTF selection
+        if self.get_selected_feature_code() in ["ROF", "RTF"]:
             # Disable unrelated plot buttons
             for btn_name in [
                 "plot_static_violin_plot_button",
@@ -681,8 +745,9 @@ class FeatureVisualizationWindow(QMainWindow):
         # Automatically draw plot for newly selected feature
         self.auto_plot_selected_feature()
 
-        # Refresh ROF plot if relevant
+        # Refresh ROF/RTF plots if relevant
         self._maybe_refresh_rof_plot()
+        self._maybe_refresh_rtf_plot()
 
         # Update selected file display
         self.update_selected_file_lineedit()
@@ -786,6 +851,8 @@ class FeatureVisualizationWindow(QMainWindow):
 
         if feature_code == "ROF":
             self.plot_rof_timeseries()
+        elif feature_code == "RTF":
+            self.plot_rtf_heatmap()
         elif feature_code == "TP":
             # If at least one file selected
             if self.ui.all_files_list.selectedItems():
@@ -796,7 +863,8 @@ class FeatureVisualizationWindow(QMainWindow):
             dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
 
             if dynamic_mode and "sliding" in self.feature_mode:
-                if self.ui.all_files_list.currentItem():
+                # For epoched data or any selection
+                if self.ui.all_files_list.selectedItems():
                     self.show_dynamic_line_all()
             elif static_mode and self.ui.all_files_list.selectedItems():
                 self.show_static_box_plot()
@@ -962,12 +1030,41 @@ class FeatureVisualizationWindow(QMainWindow):
           None
         """
         selected_feature = self.get_selected_feature_code()
-        selected_file = self.ui.all_files_list.currentItem().text()
-        features_df = self.load_features("sliding").query(f'Filename == "{selected_file}"')
-        font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
-        self.plot_line(
-            features_df, selected_feature, font_sizes, colormap, font_family, display_options
-        )
+        
+        # Check if this is epoched data with pre/post event features
+        is_epoched = hasattr(self.comet, "datatype") and self.comet.datatype == "epoched"
+        
+        if is_epoched:
+            # For epoched data, show pre/post event bar plot
+            selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
+            if not selected_files:
+                return
+            features_df = self.load_features("sliding")
+            
+            # Filter by selected files - need to match base filename (without _trial#_Pre/Post suffix)
+            # Extract base filename by removing trial-specific suffixes
+            def extract_base_filename(full_filename):
+                # Remove _trial#_Pre or _trial#_Post suffix (also handle old preTMS/postTMS format)
+                import re
+                base = re.sub(r'_trial\d+_(Pre|Post|preTMS|postTMS)$', '', full_filename)
+                return base
+            
+            features_df['base_filename'] = features_df['Filename'].apply(extract_base_filename)
+            features_df = features_df[features_df['base_filename'].isin(selected_files)]
+            
+            font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
+            self.plot_pre_post_event_bar(
+                features_df, selected_feature, font_sizes, colormap, font_family, display_options
+            )
+        else:
+            # For non-epoched data, show standard time-series line plot
+            selected_file = self.ui.all_files_list.currentItem().text()
+            features_df = self.load_features("sliding").query(f'Filename == "{selected_file}"')
+            font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
+            self.plot_line(
+                features_df, selected_feature, font_sizes, colormap, font_family, display_options
+            )
+        
         self._highlight_button("plot_all_dynamic_button")
 
     def show_tp_heatmap(self):
@@ -2094,3 +2191,290 @@ class FeatureVisualizationWindow(QMainWindow):
 
         # Highlight ROF button
         self._highlight_button("plot_rof_button")
+
+    def plot_rtf_heatmap(self):
+        """Plot baseline-corrected RTF as heatmaps for different time windows.
+
+        Returns:
+          None
+        """
+        # Determine file path
+        if not hasattr(self.comet, "extracted_features_path"):
+            print("[ERROR] COMET extracted_features_path not set")
+            return
+
+        rtf_file = os.path.join(
+            self.comet.extracted_features_path, f"RTF_averages{self.comet.export_format}"
+        )
+        if not os.path.exists(rtf_file):
+            print(f"[ERROR] RTF averages file not found: {rtf_file}")
+            return
+
+        # Load data
+        try:
+            if self.comet.export_format == ".csv":
+                rtf_df = pd.read_csv(rtf_file)
+            elif self.comet.export_format == ".pkl":
+                rtf_df = pd.read_pickle(rtf_file)
+            elif self.comet.export_format == ".hdf":
+                rtf_df = pd.read_hdf(rtf_file, key="rtf")
+            elif self.comet.export_format == ".json":
+                rtf_df = pd.read_json(rtf_file, orient="records", lines=True)
+            else:
+                print("[ERROR] Unsupported export format for RTF file")
+                return
+        except Exception as e:
+            print(f"[ERROR] Failed to load RTF file: {e}")
+            return
+
+        # Filter by selected files if any
+        selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
+        if selected_files:
+            rtf_df = rtf_df[rtf_df["Filename"].isin(selected_files)]
+
+        if rtf_df.empty:
+            print("[ERROR] No RTF data available for selected files")
+            return
+
+        # Get current style parameters from UI/menu
+        font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
+
+        # Reset figure
+        self.figure.clear()
+
+        # Determine microstates from column names
+        transition_cols = [c for c in rtf_df.columns if c.startswith("RTF_")]
+        if not transition_cols:
+            print("[ERROR] No RTF transition columns found")
+            return
+
+        # Extract unique microstates from transition column names (e.g., "RTF_post_tms_1_2" -> ["1", "2"])
+        microstates = set()
+        time_windows = set()
+        for col in transition_cols:
+            parts = col.split("_")
+            if len(parts) >= 4:  # RTF_window_from_to format
+                # Reconstruct window name (may have underscores)
+                window_name = "_".join(parts[1:-2])
+                time_windows.add(window_name)
+                microstates.add(parts[-2])
+                microstates.add(parts[-1])
+
+        microstates = sorted(list(microstates))
+        time_windows = sorted(list(time_windows))
+        n_windows = len(time_windows)
+        n_states = len(microstates)
+
+        if n_windows == 0 or n_states == 0:
+            print("[ERROR] Could not parse RTF data structure")
+            return
+
+        # Create subplots for each time window
+        if n_windows == 1:
+            axes = [self.figure.add_subplot(1, 1, 1)]
+        elif n_windows == 2:
+            axes = [self.figure.add_subplot(1, 2, i + 1) for i in range(n_windows)]
+        else:
+            # Arrange in grid
+            n_cols = min(3, n_windows)
+            n_rows = (n_windows + n_cols - 1) // n_cols
+            axes = [self.figure.add_subplot(n_rows, n_cols, i + 1) for i in range(n_windows)]
+
+        # Plot heatmap for each time window
+        for window_idx, window_name in enumerate(time_windows):
+            ax = axes[window_idx]
+            
+            # Build transition matrix for this window
+            transition_matrix = np.zeros((n_states, n_states))
+            
+            for i, from_state in enumerate(microstates):
+                for j, to_state in enumerate(microstates):
+                    col_name = f"RTF_{window_name}_{from_state}_{to_state}"
+                    if col_name in rtf_df.columns:
+                        # Average across files
+                        transition_matrix[i, j] = rtf_df[col_name].mean()
+            
+            # Plot heatmap
+            im = ax.matshow(transition_matrix, cmap="RdBu_r", vmin=-0.05, vmax=0.05)
+            
+            # Add colorbar for each subplot
+            cbar = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+            cbar.ax.tick_params(labelsize=font_sizes["tick"] - 2)
+            for label in cbar.ax.get_yticklabels():
+                label.set_fontfamily(font_family)
+            
+            # Annotate values
+            for i in range(n_states):
+                for j in range(n_states):
+                    if i != j:  # Skip self-transitions
+                        value = transition_matrix[i, j]
+                        ax.text(
+                            j, i, f"{value:.3f}",
+                            ha="center", va="center",
+                            color="black" if abs(value) < 0.025 else "white",
+                            fontsize=font_sizes["tick"] - 2,
+                            fontfamily=font_family,
+                        )
+            
+            # Set ticks and labels
+            ax.set_xticks(np.arange(n_states))
+            ax.set_yticks(np.arange(n_states))
+            ax.set_xticklabels(microstates, fontsize=font_sizes["tick"], fontfamily=font_family)
+            ax.set_yticklabels(microstates, fontsize=font_sizes["tick"], fontfamily=font_family)
+            
+            # Set subplot title
+            ax.set_title(window_name.replace("_", " ").title(), 
+                        fontsize=font_sizes["label"], fontfamily=font_family)
+            
+            # Set axis labels
+            ax.set_xlabel("To", fontsize=font_sizes["label"] - 2, fontfamily=font_family)
+            ax.set_ylabel("From", fontsize=font_sizes["label"] - 2, fontfamily=font_family)
+
+        # Set overall figure title
+        self.figure.suptitle(
+            "Relative Transition Frequency (Baseline-Corrected)",
+            fontsize=font_sizes["title"],
+            fontfamily=font_family,
+        )
+
+        self.figure.tight_layout()
+        self.canvas.draw()
+
+        # Highlight RTF button
+        self._highlight_button("plot_rtf_button")
+
+    def plot_pre_post_event_bar(self, features_df, feature, font_sizes, colormap, font_family, display_options):
+        """Plot bar plot comparing pre-event vs post-event features for epoched data.
+
+        Args:
+          features_df (pandas.DataFrame): Features with Window_Type, Trial columns.
+          feature (str): Feature short code.
+          font_sizes (dict[str, int]): Title/label/tick/legend sizes.
+          colormap (str): Matplotlib colormap name.
+          font_family (str): Font family to apply.
+          display_options (dict[str, bool]): Visibility options.
+
+        Returns:
+          None
+        """
+        # Reset figure
+        self.figure.clear()
+        ax = self.canvas.figure.gca()
+        
+        # Check if Window_Type column exists (indicates pre/post event features)
+        if "Window_Type" not in features_df.columns:
+            error_msg = 'No pre/post event features found (missing Window_Type column)'
+            ax.text(0.5, 0.5, error_msg, 
+                   ha='center', va='center', transform=ax.transAxes,
+                   fontsize=12)
+            self.canvas.draw()
+            return
+        
+        # Check if DataFrame is empty after filtering
+        if features_df.empty:
+            error_msg = 'No data found for selected files.\nPlease re-extract features with the updated code.'
+            ax.text(0.5, 0.5, error_msg, 
+                   ha='center', va='center', transform=ax.transAxes,
+                   fontsize=12)
+            self.canvas.draw()
+            return
+        
+        # Get feature columns for the selected feature
+        filter_cols = [col for col in features_df.columns if col.startswith(feature + "_")]
+        if not filter_cols and feature in features_df.columns:
+            filter_cols = [feature]
+        filter_cols.sort()
+        
+        if not filter_cols:
+            ax.text(0.5, 0.5, f'No features found for "{feature}"', 
+                   ha='center', va='center', transform=ax.transAxes,
+                   fontsize=12)
+            self.canvas.draw()
+            return
+        
+        # Prepare data for plotting
+        plot_data = pd.melt(
+            features_df, 
+            id_vars=["Filename", "Window_Type", "Trial"], 
+            value_vars=filter_cols,
+            var_name="Microstate",
+            value_name=feature
+        )
+        
+        # Clean up microstate labels (remove feature prefix)
+        plot_data["Microstate"] = plot_data["Microstate"].str.replace(f"{feature}_", "")
+        
+        self.clear_and_set_fonts(ax, font_family, font_sizes)
+        
+        # Create grouped bar plot
+        num_microstates = len(filter_cols)
+        color_palette = sns.color_palette(colormap, num_microstates)
+        
+        # Plot using seaborn
+        sns.barplot(
+            data=plot_data,
+            x="Window_Type",
+            y=feature,
+            hue="Microstate",
+            ax=ax,
+            palette=color_palette,
+            errorbar="sd",  # Show standard deviation
+            capsize=0.1,
+        )
+        
+        # Set labels and title
+        ax.set_xlabel("Event Window", fontsize=font_sizes["label"], fontfamily=font_family)
+        ax.set_ylabel(
+            self.comet.feature_list_dictionary.get(feature, feature),
+            fontsize=font_sizes["label"],
+            fontfamily=font_family,
+        )
+        
+        # Set figure title with correct subject and trial counts
+        # Count unique base filenames for subject count
+        n_subjects = features_df["base_filename"].nunique() if "base_filename" in features_df.columns else features_df["Filename"].nunique()
+        
+        # Count unique trials across all subjects (unique subject-trial combinations)
+        if "base_filename" in features_df.columns and "Trial" in features_df.columns:
+            # Count unique (subject, trial) pairs
+            n_unique_trials = features_df.groupby(["base_filename", "Trial"]).ngroups
+        elif "Trial" in features_df.columns:
+            n_unique_trials = features_df["Trial"].nunique()
+        else:
+            n_unique_trials = len(features_df) // 2
+        
+        # Total observations (includes both Pre and Post for each trial)
+        n_total_observations = len(features_df)
+        
+        self.figure.suptitle(
+            f"{self.comet.feature_list_dictionary.get(feature, feature)} - Pre/Post Event\n"
+            f"({n_subjects} subjects, {n_unique_trials} trials, {n_total_observations} observations)",
+            fontsize=font_sizes["title"],
+            fontfamily=font_family,
+        )
+        
+        # Update tick fonts
+        ax.tick_params(axis="both", which="major", labelsize=font_sizes["tick"])
+        for label in ax.get_xticklabels() + ax.get_yticklabels():
+            label.set_fontfamily(font_family)
+            label.set_fontsize(font_sizes["tick"])
+        
+        # Handle legend
+        legend = ax.get_legend()
+        if legend:
+            if display_options.get("show_legend", True):
+                legend.set_visible(True)
+                legend.set_title("Microstate", prop={'size': font_sizes["legend"], 'family': font_family})
+                for text in legend.get_texts():
+                    text.set_fontsize(font_sizes["legend"])
+                    text.set_fontfamily(font_family)
+            else:
+                legend.remove()
+        
+        # Apply display options
+        if not display_options.get("show_axes", True):
+            ax.axis("off")
+        if display_options.get("show_grid", False):
+            ax.grid(True, alpha=0.3, axis='y')
+        
+        self.canvas.draw()

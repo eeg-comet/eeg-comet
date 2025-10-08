@@ -3150,16 +3150,22 @@ class COMET:
                 is_epoched_sliding = self.datatype == "epoched" and "sliding" in self.feature_mode
                 needs_epoched_structure = self.datatype == "epoched" and ("ROF" in self.feature_list or "RTF" in self.feature_list)
 
-                # For epoched data, always flatten for standard feature extraction
-                # But preserve original array for ROF/RTF if needed
+                # For epoched data with sliding mode, we need to preserve trial structure for pre/post extraction
+                # For averaged mode, flatten everything
                 if len(segmentation_array.shape) == 2:
-                    # Flatten epoched segmentation: (trials, timepoints) -> (trials*timepoints,)
-                    labels = [str(item) for item in segmentation_array.flatten()]
-                    # Store original segmentation array for ROF/RTF feature extraction if needed
-                    if needs_epoched_structure or is_epoched_sliding:
+                    if is_epoched_sliding:
+                        # Keep trial structure for pre/post event extraction
+                        # Use first trial's labels for time array generation
+                        labels = [str(item) for item in segmentation_array[0, :]]
                         original_segmentation_array = segmentation_array
                     else:
-                        original_segmentation_array = None
+                        # Flatten epoched segmentation for averaged mode: (trials, timepoints) -> (trials*timepoints,)
+                        labels = [str(item) for item in segmentation_array.flatten()]
+                        # Store original for ROF/RTF if needed
+                        if needs_epoched_structure:
+                            original_segmentation_array = segmentation_array
+                        else:
+                            original_segmentation_array = None
                 else:
                     labels = [str(item) for item in segmentation_array]  # Ensure strings
                     original_segmentation_array = None
@@ -3167,7 +3173,7 @@ class COMET:
                 # Retrieve accurate time points directly from segmentation file when available
                 num_samples = len(labels)
                 time = None
-                time_single_epoch = None  # Store original single-epoch time for ROF/RTF
+                time_single_epoch = None  # Store original single-epoch time for ROF/RTF and epoched sliding
                 
                 try:
                     if self.export_format == ".csv":
@@ -3175,14 +3181,18 @@ class COMET:
                         time_unique_array = df_time["time"].unique()
                         time_unique = sorted([float(t) for t in time_unique_array])  # Ensure it's a list of floats
                         
-                        # For epoched data that was flattened, replicate time for all trials
+                        # For epoched data, handle time differently based on mode
                         if self.datatype == "epoched" and len(segmentation_array.shape) == 2:
                             n_trials = segmentation_array.shape[0]
                             n_times = len(time_unique)
-                            if n_trials * n_times == num_samples:
-                                # Store single-epoch time for ROF/RTF
-                                time_single_epoch = time_unique
-                                # Replicate time array for all trials (for standard features)
+                            # Store single-epoch time for ROF/RTF and epoched sliding
+                            time_single_epoch = time_unique
+                            
+                            if is_epoched_sliding:
+                                # For pre/post event extraction, use single epoch time
+                                time = time_unique
+                            elif n_trials * n_times == num_samples:
+                                # For averaged mode with flattened data, replicate time for all trials
                                 time = time_unique * n_trials  # Already a list, can multiply directly
                         elif len(time_unique) == num_samples:
                             time = time_unique
@@ -3200,8 +3210,13 @@ class COMET:
                             # For epoched data, create one epoch's worth of time
                             n_timepoints_per_epoch = len(original_segmentation_array[0]) if original_segmentation_array is not None else 1250
                             time_single_epoch = [start_time + i * time_step for i in range(n_timepoints_per_epoch)]
-                            # Replicate for all trials
-                            time = time_single_epoch * (num_samples // n_timepoints_per_epoch)
+                            
+                            if is_epoched_sliding:
+                                # For pre/post event extraction, use single epoch time
+                                time = time_single_epoch
+                            else:
+                                # For averaged mode, replicate for all trials
+                                time = time_single_epoch * (num_samples // n_timepoints_per_epoch)
                         else:
                             time = [i * time_step for i in range(num_samples)]
                     else:
@@ -3225,11 +3240,14 @@ class COMET:
                 # Load the EEG data
                 eeg = self.comet_data_io.load_eeg(eeg_file, self.datatype)
 
-                # For epoched data, always flatten to 2D (channels, all_timepoints) for standard feature extraction
-                # This matches the flattened labels structure
-                eeg_data = self.comet_data_io.get_eeg_data(
-                    eeg, self.datatype
-                )  # Standard processing - flattens epoched to 2D
+                # For epoched sliding mode (pre/post event extraction), keep 3D structure
+                # For averaged mode or ROF/RTF with averaged, flatten to 2D
+                if is_epoched_sliding:
+                    eeg_data = eeg.get_data()  # Keep 3D: (trials, channels, timepoints)
+                else:
+                    eeg_data = self.comet_data_io.get_eeg_data(
+                        eeg, self.datatype
+                    )  # Flatten to 2D: (channels, all_timepoints)
 
                 # Create segmentation dictionary in expected format
                 segmentation = {
@@ -3272,16 +3290,59 @@ class COMET:
                 )
                 self.LogWindow.append_log(f"Extracting features from {file_info}", log_type="file")
 
-            # Extract features
-            extracted_features = self.comet_feature_extractor.extract_features(
-                segmentation=segmentation,
-                feature_list=self.feature_list,
-                feature_mode=self.feature_mode,
-                feature_types=self.feature_types,
-                sliding_window_size=self.sliding_window_size,
-                pre_window_size=self.pre_window_size,
-                post_window_size=self.post_window_size,
-            )
+            # For epoched data with both modes, extract each mode separately with correct data structure
+            if self.datatype == "epoched" and "averaged" in self.feature_mode and "sliding" in self.feature_mode:
+                # Extract averaged mode with flattened data structure
+                segmentation_averaged = segmentation.copy()
+                # Flatten labels and EEG data for averaged mode
+                labels_flat = [str(item) for item in segmentation_array.flatten()]
+                eeg_flat = self.comet_data_io.get_eeg_data(eeg, self.datatype)
+                time_flat = time_single_epoch * segmentation_array.shape[0] if time_single_epoch else time
+                segmentation_averaged["labels"] = labels_flat
+                segmentation_averaged["eeg_data"] = eeg_flat
+                segmentation_averaged["time"] = time_flat
+                # Add epoched_labels for ROF/RTF
+                if needs_epoched_structure:
+                    segmentation_averaged["epoched_labels"] = segmentation_array
+                    if time_single_epoch is not None:
+                        segmentation_averaged["time_single_epoch"] = np.array(time_single_epoch)
+                
+                extracted_features_averaged = self.comet_feature_extractor.extract_features(
+                    segmentation=segmentation_averaged,
+                    feature_list=self.feature_list,
+                    feature_mode=["averaged"],
+                    feature_types=self.feature_types,
+                    sliding_window_size=self.sliding_window_size,
+                    pre_window_size=self.pre_window_size,
+                    post_window_size=self.post_window_size,
+                )
+                
+                # Extract sliding mode with trial-preserved structure (already set in segmentation)
+                extracted_features_sliding = self.comet_feature_extractor.extract_features(
+                    segmentation=segmentation,
+                    feature_list=self.feature_list,
+                    feature_mode=["sliding"],
+                    feature_types=self.feature_types,
+                    sliding_window_size=self.sliding_window_size,
+                    pre_window_size=self.pre_window_size,
+                    post_window_size=self.post_window_size,
+                )
+                
+                # Merge results from both modes
+                extracted_features = {}
+                extracted_features.update(extracted_features_averaged)
+                extracted_features.update(extracted_features_sliding)
+            else:
+                # Standard extraction for single mode or non-epoched data
+                extracted_features = self.comet_feature_extractor.extract_features(
+                    segmentation=segmentation,
+                    feature_list=self.feature_list,
+                    feature_mode=self.feature_mode,
+                    feature_types=self.feature_types,
+                    sliding_window_size=self.sliding_window_size,
+                    pre_window_size=self.pre_window_size,
+                    post_window_size=self.post_window_size,
+                )
 
             # Store in shared storage with thread-safe access
             COMET._shared_feature_results[segmentation_idx] = {
