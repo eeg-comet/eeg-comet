@@ -437,9 +437,9 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-803</y>
-               <width>1153</width>
-               <height>1740</height>
+               <y>0</y>
+               <width>1125</width>
+               <height>1846</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
@@ -2092,8 +2092,8 @@ background-color: rgb(0, 0, 0);</string>
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>353</width>
-               <height>800</height>
+               <width>570</width>
+               <height>855</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_5">
@@ -2905,9 +2905,9 @@ background-color: rgb(0, 0, 0);</string>
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>0</y>
-               <width>302</width>
-               <height>1312</height>
+               <y>-703</y>
+               <width>1125</width>
+               <height>1400</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_9">
@@ -3700,7 +3700,7 @@ background-color: rgb(0, 0, 0);</string>
                    </font>
                   </property>
                   <property name="text">
-                   <string>TMS-EEG Microstate Features</string>
+                   <string>Event-Related Microstate Features</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -4048,8 +4048,8 @@ background-color: rgb(0, 0, 0);</string>
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>473</width>
-               <height>976</height>
+               <width>767</width>
+               <height>1046</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
@@ -5069,7 +5069,7 @@ background-color: rgb(0, 0, 0);</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>18</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -5288,14 +5288,14 @@ background-color: rgb(0, 0, 0);</string>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="SourceGroup"/>
-  <buttongroup name="InputGroup"/>
-  <buttongroup name="InitializersGroup"/>
-  <buttongroup name="BackfitGroup"/>
   <buttongroup name="SlidingGroup"/>
-  <buttongroup name="NstatesGroup"/>
   <buttongroup name="BEMGroup"/>
+  <buttongroup name="SourceGroup"/>
+  <buttongroup name="InitializersGroup"/>
   <buttongroup name="AnatomyGroup"/>
+  <buttongroup name="BackfitGroup"/>
+  <buttongroup name="InputGroup"/>
+  <buttongroup name="NstatesGroup"/>
   <buttongroup name="OptimizerGroup"/>
  </buttongroups>
 </ui>
