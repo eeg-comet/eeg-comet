@@ -692,22 +692,24 @@ class FeatureVisualizationWindow(QMainWindow):
             )
 
         # Enable/disable ROF time-series plot button (always enabled when ROF is selected)
+        current_feature = self.get_selected_feature_code()
+        
         if hasattr(self.ui, "plot_rof_button"):
-            if self.get_selected_feature_code() == "ROF":
+            if current_feature == "ROF":
                 self.ui.plot_rof_button.setEnabled(True)
-                set_widgets_status(self.ui.plot_rof_button, mode="show")
+                self.ui.plot_rof_button.setVisible(True)
             else:
                 self.ui.plot_rof_button.setEnabled(False)
-                set_widgets_status(self.ui.plot_rof_button, mode="show")
+                self.ui.plot_rof_button.setVisible(True)
         
         # Enable/disable RTF heatmap plot button (always enabled when RTF is selected)
         if hasattr(self.ui, "plot_rtf_button"):
-            if self.get_selected_feature_code() == "RTF":
+            if current_feature == "RTF":
                 self.ui.plot_rtf_button.setEnabled(True)
-                set_widgets_status(self.ui.plot_rtf_button, mode="show")
+                self.ui.plot_rtf_button.setVisible(True)
             else:
                 self.ui.plot_rtf_button.setEnabled(False)
-                set_widgets_status(self.ui.plot_rtf_button, mode="show")
+                self.ui.plot_rtf_button.setVisible(True)
 
         # Update comparison widgets status based on list contents
         count_group_a = self.ui.group_a_files_list.count()
@@ -2244,95 +2246,139 @@ class FeatureVisualizationWindow(QMainWindow):
 
         # Determine microstates from column names
         transition_cols = [c for c in rtf_df.columns if c.startswith("RTF_")]
+        
         if not transition_cols:
             print("[ERROR] No RTF transition columns found")
             return
 
-        # Extract unique microstates from transition column names (e.g., "RTF_post_tms_1_2" -> ["1", "2"])
+        # Extract unique microstates from transition column names
+        # Format can be either:
+        # 1. Simple: RTF_A_B (3 parts) - just transition, no time window
+        # 2. With window: RTF_post_tms_A_B (4+ parts) - includes time window
         microstates = set()
         time_windows = set()
+        
         for col in transition_cols:
             parts = col.split("_")
-            if len(parts) >= 4:  # RTF_window_from_to format
-                # Reconstruct window name (may have underscores)
+            if len(parts) == 3:
+                # Simple format: RTF_from_to (no time window info)
+                # Use a default window name
+                time_windows.add("baseline_corrected")
+                microstates.add(parts[1])
+                microstates.add(parts[2])
+            elif len(parts) >= 4:
+                # With window: RTF_window_from_to format
                 window_name = "_".join(parts[1:-2])
                 time_windows.add(window_name)
                 microstates.add(parts[-2])
                 microstates.add(parts[-1])
-
+        
         microstates = sorted(list(microstates))
         time_windows = sorted(list(time_windows))
         n_windows = len(time_windows)
         n_states = len(microstates)
 
         if n_windows == 0 or n_states == 0:
-            print("[ERROR] Could not parse RTF data structure")
+            print(f"[ERROR] Could not parse RTF data: microstates={microstates}, windows={time_windows}")
             return
 
-        # Create subplots for each time window
-        if n_windows == 1:
-            axes = [self.figure.add_subplot(1, 1, 1)]
-        elif n_windows == 2:
-            axes = [self.figure.add_subplot(1, 2, i + 1) for i in range(n_windows)]
+        # Create single heatmap (RTF data typically has one baseline-corrected matrix)
+        self.figure.clear()
+        ax = self.figure.add_subplot(1, 1, 1)
+        
+        # Build transition matrix (already in percentage from RTF calculation)
+        transition_matrix = np.zeros((n_states, n_states))
+        transition_matrix_raw = np.zeros((n_states, n_states))  # Keep raw values for display
+        
+        for i, from_state in enumerate(microstates):
+            for j, to_state in enumerate(microstates):
+                # Try simple format first
+                col_name = f"RTF_{from_state}_{to_state}"
+                if col_name in rtf_df.columns:
+                    # Average across files (already in percentage)
+                    raw_value = rtf_df[col_name].mean()
+                    transition_matrix_raw[i, j] = raw_value
+                else:
+                    # Try with window name
+                    for window_name in time_windows:
+                        col_name = f"RTF_{window_name}_{from_state}_{to_state}"
+                        if col_name in rtf_df.columns:
+                            raw_value = rtf_df[col_name].mean()
+                            transition_matrix_raw[i, j] = raw_value
+                            break
+        
+        # For visualization, cap extreme values at ±200% for better color scaling
+        # But keep raw values for annotation
+        transition_matrix = np.clip(transition_matrix_raw, -200, 200)
+        
+        # Determine colorbar range using percentiles for robustness
+        # Use 95th percentile to avoid extreme outliers affecting the scale
+        non_zero_values = transition_matrix[transition_matrix != 0]
+        if len(non_zero_values) > 0:
+            percentile_95 = np.percentile(np.abs(non_zero_values), 95)
+            # Round up to nice values
+            if percentile_95 < 10:
+                vmax = 10
+            elif percentile_95 < 25:
+                vmax = 25
+            elif percentile_95 < 50:
+                vmax = 50
+            elif percentile_95 < 100:
+                vmax = 100
+            else:
+                vmax = 200
         else:
-            # Arrange in grid
-            n_cols = min(3, n_windows)
-            n_rows = (n_windows + n_cols - 1) // n_cols
-            axes = [self.figure.add_subplot(n_rows, n_cols, i + 1) for i in range(n_windows)]
-
-        # Plot heatmap for each time window
-        for window_idx, window_name in enumerate(time_windows):
-            ax = axes[window_idx]
-            
-            # Build transition matrix for this window
-            transition_matrix = np.zeros((n_states, n_states))
-            
-            for i, from_state in enumerate(microstates):
-                for j, to_state in enumerate(microstates):
-                    col_name = f"RTF_{window_name}_{from_state}_{to_state}"
-                    if col_name in rtf_df.columns:
-                        # Average across files
-                        transition_matrix[i, j] = rtf_df[col_name].mean()
-            
-            # Plot heatmap
-            im = ax.matshow(transition_matrix, cmap="RdBu_r", vmin=-0.05, vmax=0.05)
-            
-            # Add colorbar for each subplot
-            cbar = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-            cbar.ax.tick_params(labelsize=font_sizes["tick"] - 2)
-            for label in cbar.ax.get_yticklabels():
-                label.set_fontfamily(font_family)
-            
-            # Annotate values
-            for i in range(n_states):
-                for j in range(n_states):
-                    if i != j:  # Skip self-transitions
-                        value = transition_matrix[i, j]
-                        ax.text(
-                            j, i, f"{value:.3f}",
-                            ha="center", va="center",
-                            color="black" if abs(value) < 0.025 else "white",
-                            fontsize=font_sizes["tick"] - 2,
-                            fontfamily=font_family,
-                        )
-            
-            # Set ticks and labels
-            ax.set_xticks(np.arange(n_states))
-            ax.set_yticks(np.arange(n_states))
-            ax.set_xticklabels(microstates, fontsize=font_sizes["tick"], fontfamily=font_family)
-            ax.set_yticklabels(microstates, fontsize=font_sizes["tick"], fontfamily=font_family)
-            
-            # Set subplot title
-            ax.set_title(window_name.replace("_", " ").title(), 
-                        fontsize=font_sizes["label"], fontfamily=font_family)
-            
-            # Set axis labels
-            ax.set_xlabel("To", fontsize=font_sizes["label"] - 2, fontfamily=font_family)
-            ax.set_ylabel("From", fontsize=font_sizes["label"] - 2, fontfamily=font_family)
+            vmax = 50
+        
+        # Plot heatmap with percentage scale
+        im = ax.matshow(transition_matrix, cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+        
+        # Add colorbar with percentage label
+        cbar = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.set_label('Change (%)', fontsize=font_sizes["label"] - 2, fontfamily=font_family)
+        cbar.ax.tick_params(labelsize=font_sizes["tick"])
+        for label in cbar.ax.get_yticklabels():
+            label.set_fontfamily(font_family)
+            label.set_fontsize(font_sizes["tick"])
+        
+        # Annotate with raw percentage values (not capped)
+        for i in range(n_states):
+            for j in range(n_states):
+                if i != j:  # Skip self-transitions
+                    raw_value = transition_matrix_raw[i, j]
+                    capped_value = transition_matrix[i, j]
+                    # Use adaptive threshold based on colorbar range
+                    text_color_threshold = vmax * 0.4  # 40% of max for better contrast
+                    
+                    # Show raw value with asterisk if it was capped for color scaling
+                    if abs(raw_value) > 200:
+                        display_text = f"{raw_value:.0f}%*"  # Asterisk indicates capped for color
+                    else:
+                        display_text = f"{raw_value:.1f}%"
+                    
+                    ax.text(
+                        j, i, display_text,
+                        ha="center", va="center",
+                        color="black" if abs(capped_value) < text_color_threshold else "white",
+                        fontsize=font_sizes["tick"] - 1,
+                        fontfamily=font_family,
+                    )
+        
+        # Set ticks and labels
+        ax.set_xticks(np.arange(n_states))
+        ax.set_yticks(np.arange(n_states))
+        ax.set_xticklabels(microstates, fontsize=font_sizes["tick"], fontfamily=font_family)
+        ax.set_yticklabels(microstates, fontsize=font_sizes["tick"], fontfamily=font_family)
+        
+        # Set axis labels
+        ax.set_xlabel("To", fontsize=font_sizes["label"], fontfamily=font_family)
+        ax.set_ylabel("From", fontsize=font_sizes["label"], fontfamily=font_family)
 
         # Set overall figure title
+        n_subjects = rtf_df["Filename"].nunique() if "Filename" in rtf_df.columns else len(rtf_df)
+        
         self.figure.suptitle(
-            "Relative Transition Frequency (Baseline-Corrected)",
+            f"Relative Transition Frequency - Post-Event % Change from Baseline\n({n_subjects} subjects)",
             fontsize=font_sizes["title"],
             fontfamily=font_family,
         )

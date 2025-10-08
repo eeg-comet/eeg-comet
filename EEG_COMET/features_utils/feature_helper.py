@@ -374,9 +374,12 @@ class FeatureHelper:
 
         This function calculates RTF by:
         1. Creating transition time series by counting transitions at each time point
-        2. Averaging over trials
+        2. Normalizing by number of trials (for this subject)
         3. Calculating average transitions for each time window
-        4. Applying baseline correction
+        4. Computing percentage change from baseline: ((post - baseline) / baseline) × 100
+
+        Normalization: Each subject's transitions are divided by that subject's trial count,
+        making RTF values comparable across subjects with different numbers of trials.
 
         Args:
             input_sequence (numpy.ndarray): Epoched microstate data with shape (trials, timepoints)
@@ -387,9 +390,9 @@ class FeatureHelper:
 
         Returns:
             dict: Dictionary containing:
-                - 'transitions_time_series': 3D array of transition counts over time
-                - 'transition_averages': Average transitions for each time window
-                - 'transition_averages_bc': Baseline-corrected transition averages
+                - 'transitions_time_series': 3D array of transition counts per trial over time
+                - 'transition_averages': Average transitions for each time window (per trial)
+                - 'transition_averages_bc': Percentage change from baseline (can exceed ±100%)
                 - 'time_window_indices': Indices for each time window
                 - 'microstates': List of microstate labels
         """
@@ -463,31 +466,41 @@ class FeatureHelper:
                 print(f"Trial data sample: {state_labels_trial[:5]}")
                 raise
 
-        # Average over trials
+        # Normalize by this subject's number of trials
+        # This makes each subject's RTF values standardized (per-trial rate)
+        # allowing fair comparison across subjects with different trial counts
         transitions_time_series = transitions_time_series / num_trials
-        np.sum(transitions_time_series)
-
+        
         # Calculate average transitions for each time window
         transition_averages = {}
         for window_name, time_indices in time_window_indices.items():
             transition_avg = np.zeros((num_states, num_states))
 
             # Average transitions within window (excluding self-transitions)
+            # These values are already per-trial averages from normalization above
             for s1 in range(num_states):
                 for s2 in range(num_states):
                     if s1 != s2:
                         data = transitions_time_series[s1, s2, time_indices]
+                        # Mean across time points within window
                         transition_avg[s1, s2] = np.mean(data)
 
             transition_averages[window_name] = transition_avg
 
-        # Baseline correction
+        # Baseline correction - compute percentage change from baseline
         transition_averages_bc = {}
         if "baseline" in transition_averages:
             baseline_averages = transition_averages["baseline"]
             for window_name, window_avg in transition_averages.items():
                 if window_name != "baseline":
-                    transition_averages_bc[window_name] = window_avg - baseline_averages
+                    # Compute percentage change: ((post - baseline) / baseline) * 100
+                    # Handle division by zero by using small epsilon
+                    epsilon = 1e-10
+                    percentage_change = np.divide(
+                        window_avg - baseline_averages,
+                        baseline_averages + epsilon
+                    ) * 100
+                    transition_averages_bc[window_name] = percentage_change
         else:
             print("Warning: No baseline window found for baseline correction")
 
