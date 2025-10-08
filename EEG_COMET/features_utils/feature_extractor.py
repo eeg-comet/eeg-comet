@@ -518,7 +518,7 @@ class FeatureExtractor:
             )
 
         return FeatureHelper().compute_relative_occurrence_frequency(
-            seq_array, time_array, self.sampling_rate
+            seq_array, time_array, microstates=None
         )
 
     def relative_transition_frequency(self, time_array=None, input_sequence=None):
@@ -1051,7 +1051,8 @@ class FeatureExtractionCoordinator:
                 microstate_labels = segmentation.get("microstate_labels", None)
 
                 # Pass time_array if available for ROF calculation
-                time_array = segmentation.get("time", None)
+                # For ROF/RTF with epoched data, use single-epoch time array if available
+                time_array = segmentation.get("time_single_epoch", segmentation.get("time", None))
 
                 # Determine epoched labels if present
                 epoched_labels_param = segmentation.get("epoched_labels", None)

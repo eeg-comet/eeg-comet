@@ -2754,6 +2754,15 @@ class COMET:
 
             # Convert to expected format for feature extraction
             if segmentation_array is not None:
+                # For epoched data, check if we need to transpose the segmentation array
+                # Segmentation files store data as (timepoints, trials) but we need (trials, timepoints)
+                # Apply transpose for ANY 2D array when shape suggests it needs transposing
+                if len(segmentation_array.shape) == 2:
+                    # Heuristic: if first dimension is larger, it's likely (timepoints, trials) and needs transpose
+                    # Example: (1250 timepoints, 150 trials) should become (150 trials, 1250 timepoints)
+                    if segmentation_array.shape[0] > segmentation_array.shape[1]:
+                        segmentation_array = segmentation_array.T
+                
                 # Handle event-based sliding windows first
                 if (
                     getattr(self, "event_based_sliding", False)
@@ -3139,33 +3148,44 @@ class COMET:
 
                 # Check if we have epoched data with sliding features enabled OR ROF feature requested
                 is_epoched_sliding = self.datatype == "epoched" and "sliding" in self.feature_mode
-                needs_epoched_structure = self.datatype == "epoched" and "ROF" in self.feature_list
+                needs_epoched_structure = self.datatype == "epoched" and ("ROF" in self.feature_list or "RTF" in self.feature_list)
 
-                if (is_epoched_sliding or needs_epoched_structure) and len(
-                    segmentation_array.shape
-                ) == 2:
-                    # For epoched sliding features or ROF, preserve trial structure
-                    # Use first trial for time array creation, but keep all trials for processing
-                    labels = [str(item) for item in segmentation_array[0, :]]  # Ensure strings
-                    # Store original segmentation array for feature extraction
-                    original_segmentation_array = segmentation_array
-                else:
-                    # Standard processing - flatten if needed
-                    if len(segmentation_array.shape) == 2:
-                        labels = [str(item) for item in segmentation_array[0, :]]  # Ensure strings
+                # For epoched data, always flatten for standard feature extraction
+                # But preserve original array for ROF/RTF if needed
+                if len(segmentation_array.shape) == 2:
+                    # Flatten epoched segmentation: (trials, timepoints) -> (trials*timepoints,)
+                    labels = [str(item) for item in segmentation_array.flatten()]
+                    # Store original segmentation array for ROF/RTF feature extraction if needed
+                    if needs_epoched_structure or is_epoched_sliding:
+                        original_segmentation_array = segmentation_array
                     else:
-                        labels = [str(item) for item in segmentation_array]  # Ensure strings
+                        original_segmentation_array = None
+                else:
+                    labels = [str(item) for item in segmentation_array]  # Ensure strings
                     original_segmentation_array = None
 
                 # Retrieve accurate time points directly from segmentation file when available
                 num_samples = len(labels)
                 time = None
+                time_single_epoch = None  # Store original single-epoch time for ROF/RTF
+                
                 try:
                     if self.export_format == ".csv":
                         df_time = pd.read_csv(segmentation_path, usecols=["time"])
-                        time_unique = sorted(df_time["time"].unique())
-                        if len(time_unique) == num_samples:
-                            time = list(time_unique)
+                        time_unique_array = df_time["time"].unique()
+                        time_unique = sorted([float(t) for t in time_unique_array])  # Ensure it's a list of floats
+                        
+                        # For epoched data that was flattened, replicate time for all trials
+                        if self.datatype == "epoched" and len(segmentation_array.shape) == 2:
+                            n_trials = segmentation_array.shape[0]
+                            n_times = len(time_unique)
+                            if n_trials * n_times == num_samples:
+                                # Store single-epoch time for ROF/RTF
+                                time_single_epoch = time_unique
+                                # Replicate time array for all trials (for standard features)
+                                time = time_unique * n_trials  # Already a list, can multiply directly
+                        elif len(time_unique) == num_samples:
+                            time = time_unique
                     # TODO: handle other formats (pkl, hdf, json) similarly if needed
                 except Exception as _e_time:
                     # Fallback to old behaviour if reading fails
@@ -3177,7 +3197,11 @@ class COMET:
                         time_step = 1000 / self.sample_rate  # ms
                         if self.datatype == "epoched":
                             start_time = -1000
-                            time = [start_time + i * time_step for i in range(num_samples)]
+                            # For epoched data, create one epoch's worth of time
+                            n_timepoints_per_epoch = len(original_segmentation_array[0]) if original_segmentation_array is not None else 1250
+                            time_single_epoch = [start_time + i * time_step for i in range(n_timepoints_per_epoch)]
+                            # Replicate for all trials
+                            time = time_single_epoch * (num_samples // n_timepoints_per_epoch)
                         else:
                             time = [i * time_step for i in range(num_samples)]
                     else:
@@ -3201,14 +3225,11 @@ class COMET:
                 # Load the EEG data
                 eeg = self.comet_data_io.load_eeg(eeg_file, self.datatype)
 
-                # For epoched sliding features, preserve 3D structure (trials, channels, timepoints)
-                # Otherwise use standard flattened structure
-                if is_epoched_sliding:
-                    eeg_data = eeg.get_data()  # Keep original 3D structure for epoched data
-                else:
-                    eeg_data = self.comet_data_io.get_eeg_data(
-                        eeg, self.datatype
-                    )  # Standard processing
+                # For epoched data, always flatten to 2D (channels, all_timepoints) for standard feature extraction
+                # This matches the flattened labels structure
+                eeg_data = self.comet_data_io.get_eeg_data(
+                    eeg, self.datatype
+                )  # Standard processing - flattens epoched to 2D
 
                 # Create segmentation dictionary in expected format
                 segmentation = {
@@ -3223,9 +3244,12 @@ class COMET:
                 # Add original segmentation data for epoched sliding processing or ROF
                 if original_segmentation_array is not None:
                     segmentation["original_segmentation_array"] = original_segmentation_array
-                    # For ROF calculation, also store the epoched labels directly
+                    # For ROF/RTF calculation, store the epoched labels and single-epoch time
                     if needs_epoched_structure:
                         segmentation["epoched_labels"] = original_segmentation_array
+                        # Store single-epoch time array for ROF/RTF (not the replicated one)
+                        if time_single_epoch is not None:
+                            segmentation["time_single_epoch"] = np.array(time_single_epoch)
             else:
                 # Create empty segmentation if loading failed
                 segmentation = {
