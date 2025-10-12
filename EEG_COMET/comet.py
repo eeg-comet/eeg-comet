@@ -2292,6 +2292,10 @@ class COMET:
         # Create segmentation directory
         os.makedirs(self.segmentation_path, exist_ok=True)
 
+        # Load preprocessed (cleaned) data paths FIRST before any processing
+        # This ensures we work with data that has the same channels as the microstate maps
+        self.load_clean()
+
         # Create an instance of the microstate backfitter
         self.comet_microstate_backfitter = MicrostateBackfitter(
             study_name=self.study_name,
@@ -2595,7 +2599,8 @@ class COMET:
 
     def _continue_backfitting_process(self):
         """Continue with the main backfitting process after optimal window identification."""
-        self.load_clean()
+        # Note: load_clean() is now called at the start of run_backfitting()
+        # to ensure preprocessed data paths are available for all backfitting operations
         self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
 
         # Log backfitting process details before starting
