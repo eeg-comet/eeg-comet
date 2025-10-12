@@ -298,6 +298,38 @@ class MicrostateBackfitter:
             correlation_matrix = np.dot(self.microstate_maps, data_2d) / denominator
         return np.nan_to_num(correlation_matrix, nan=0.0, posinf=0.0, neginf=0.0)
 
+    @staticmethod
+    def reject_low_correlation_labels(correlation_matrix, segmentation, threshold=0.5):
+        """Reject timepoints with spatial correlation below threshold.
+        
+        This quality control step marks timepoints as -1 if their correlation with 
+        the assigned microstate template is below the threshold. This ensures only 
+        high-confidence assignments are retained.
+        
+        Args:
+            correlation_matrix (np.ndarray): Correlation matrix (n_states, n_timepoints)
+            segmentation (np.ndarray): Segmentation labels (n_timepoints,)
+            threshold (float): Minimum correlation threshold (default: 0.5 or 50%)
+        
+        Returns:
+            np.ndarray: Segmentation with rejected timepoints marked as -1
+        """
+        segmentation = segmentation.copy()
+        
+        # Get the correlation for each timepoint with its assigned microstate
+        # Using fancy indexing to extract correlations efficiently
+        n_timepoints = segmentation.shape[0]
+        timepoint_indices = np.arange(n_timepoints)
+        
+        # Extract correlation values for assigned labels (considering polarity via abs)
+        assigned_correlations = np.abs(correlation_matrix[segmentation, timepoint_indices])
+        
+        # Mark timepoints with correlation below threshold as -1 (rejected)
+        low_correlation_mask = assigned_correlations < threshold
+        segmentation[low_correlation_mask] = -1
+        
+        return segmentation
+
 
     @staticmethod
     def mark_short_segments(segmentation, min_occurrence):
@@ -846,6 +878,13 @@ class MicrostateBackfitter:
         """
         correlation_matrix = self.compute_correlation_matrix(data)
         segmentation = np.argmax(np.abs(correlation_matrix), axis=0).astype(int)
+        
+        # Apply quality control: reject timepoints with correlation below 50% (0.5)
+        # This ensures only high-confidence assignments are retained
+        segmentation = self.reject_low_correlation_labels(
+            correlation_matrix, segmentation, threshold=0.5
+        )
+        
         if self.filter_segments:
             segmentation = self.substitude_maps_with_duration(
                 segmentation=segmentation,
