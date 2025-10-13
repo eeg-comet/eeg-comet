@@ -128,6 +128,7 @@ class LogWindow(QWidget):
         self.ui = uic.loadUi(ui_path, self)
         self.ui.setWindowTitle("EEG-COMET Log")
         self.ui.progress_stop_button.clicked.connect(self.stop_process)
+        self.ui.progress_status_button.clicked.connect(self.show_study_status)
         self.worker_thread = None
         # Initially, there is no process running so disable the stop button.
         self.ui.progress_stop_button.setEnabled(False)
@@ -574,3 +575,87 @@ class LogWindow(QWidget):
                     self.append_log(f"{base_message} - GEV: {gev_percent}", log_type="info")
             else:
                 self.append_log(base_message, log_type="info")
+
+    def show_study_status(self):
+        """Display current study status when user clicks the status button.
+
+        Returns:
+          None
+        """
+        if self.comet_instance is None:
+            self.append_log("⚠️ No study loaded", log_type="warning")
+            return
+
+        # Build status report
+        separator = "=" * 60
+        status_lines = [
+            f"\n{separator}",
+            "📊 STUDY STATUS REPORT",
+            f"{separator}",
+        ]
+
+        # Study information
+        if hasattr(self.comet_instance, "study_name") and self.comet_instance.study_name:
+            status_lines.append(f"📁 Study Name: {self.comet_instance.study_name}")
+        
+        if hasattr(self.comet_instance, "save_dir") and self.comet_instance.save_dir:
+            status_lines.append(f"💾 Save Directory: {self.comet_instance.save_dir}")
+
+        status_lines.append(f"{'-' * 60}")
+        status_lines.append("🔄 PROCESSING STEPS")
+        status_lines.append(f"{'-' * 60}")
+
+        # Processing step status
+        steps = [
+            ("Preprocessing", "done_preprocessing"),
+            ("Clustering", "done_clustering"),
+            ("Microstate Labeling", "done_microstate_labeling"),
+            ("Backfitting", "done_backfitting"),
+            ("Feature Extraction", "done_extracting_features"),
+            ("Source Localization", "done_source_localization"),
+            ("Source-Microstate Correlation", "done_identifying_microstate_sources"),
+        ]
+
+        for step_name, step_attr in steps:
+            if hasattr(self.comet_instance, step_attr):
+                is_done = getattr(self.comet_instance, step_attr)
+                status_icon = "✅" if is_done else "⬜"
+                status_text = "COMPLETED" if is_done else "NOT STARTED"
+                status_lines.append(f"{status_icon} {step_name}: {status_text}")
+            else:
+                status_lines.append(f"⬜ {step_name}: NOT STARTED")
+
+        # Additional details if steps are completed
+        if hasattr(self.comet_instance, "done_clustering") and self.comet_instance.done_clustering:
+            status_lines.append(f"{'-' * 60}")
+            status_lines.append("🧠 CLUSTERING RESULTS")
+            status_lines.append(f"{'-' * 60}")
+            
+            if hasattr(self.comet_instance, "number_of_maps"):
+                status_lines.append(f"🗺️ Number of Microstates: {self.comet_instance.number_of_maps}")
+            
+            if hasattr(self.comet_instance, "best_gev") and self.comet_instance.best_gev:
+                gev_percent = self.comet_instance.best_gev * 100
+                status_lines.append(f"📈 Global Explained Variance: {gev_percent:.2f}%")
+            
+            if hasattr(self.comet_instance, "micro_labels") and self.comet_instance.micro_labels:
+                labels_str = ", ".join(self.comet_instance.micro_labels)
+                status_lines.append(f"🏷️ Microstate Labels: {labels_str}")
+
+        # File counts
+        if hasattr(self.comet_instance, "list_eegs") and self.comet_instance.list_eegs:
+            status_lines.append(f"{'-' * 60}")
+            status_lines.append("📂 DATA FILES")
+            status_lines.append(f"{'-' * 60}")
+            status_lines.append(f"📄 Input Files: {len(self.comet_instance.list_eegs)}")
+
+        status_lines.append(f"{separator}\n")
+
+        # Display the status report in GUI log window
+        status_report = "\n".join(status_lines)
+        self.append_log(status_report, log_type="info")
+        
+        # Also log to terminal/console logger
+        if hasattr(self.comet_instance, "logger") and self.comet_instance.logger:
+            # Log the full status report to terminal
+            print(status_report)

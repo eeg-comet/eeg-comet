@@ -1118,7 +1118,7 @@ class MainMicrostateWindow(QMainWindow):
         self._sync_processing_flags()
 
         # Check if microstate labeling just completed (called from microstate visualization window)
-        # Only print if not loading a study (to avoid duplicate printing)
+        # Study status removed - now only shown via button click
         if (
             self.comet.done_microstate_labeling
             and not self._microstate_labeling_just_finished
@@ -1126,7 +1126,7 @@ class MainMicrostateWindow(QMainWindow):
             and not hasattr(self, "_loading_study")
         ):
             self._microstate_labeling_just_finished = True
-            self._print_study_status()
+            # Status logging removed - user can click button to view status
 
         # Update UI based on processing state
         if not self.comet.done_preprocessing:
@@ -2153,8 +2153,7 @@ class MainMicrostateWindow(QMainWindow):
             # Set flag to indicate clustering just completed (for auto-opening visualization)
             self._clustering_just_finished = True
 
-            # Print study status after clustering completion
-            self._print_study_status()
+            # Study status removed - now only shown via button click
         else:
             # Clustering was stopped or failed - reset UI appropriately
             self._clustering_just_finished = False
@@ -2172,40 +2171,35 @@ class MainMicrostateWindow(QMainWindow):
 
     def _on_backfitting_finished(self):
         """Called when backfitting is finished to update UI state."""
-        # Print study status after backfitting completion
-        self._print_study_status()
+        # Study status removed - now only shown via button click
 
         # Update the UI state now that backfitting is complete
         self._update_ui_state()
 
     def _on_feature_extraction_finished(self):
         """Called when feature extraction is finished to update UI state."""
-        # Print study status after feature extraction completion
-        self._print_study_status()
+        # Study status removed - now only shown via button click
 
         # Update the UI state now that feature extraction is complete
         self._update_ui_state()
 
     def _on_source_localization_finished(self):
         """Called when source localization is finished to update UI state."""
-        # Print study status after source localization completion
-        self._print_study_status()
+        # Study status removed - now only shown via button click
 
         # Update the UI state now that source localization is complete
         self._update_ui_state()
 
     def _on_source_microstate_correlation_finished(self):
         """Called when source-microstate correlation is finished to update UI state."""
-        # Print study status after source-microstate correlation completion
-        self._print_study_status()
+        # Study status removed - now only shown via button click
 
         # Update the UI state now that source-microstate correlation is complete
         self._update_ui_state()
 
     def _on_preprocessing_finished(self):
         """Called when preprocessing is finished to update UI state."""
-        # Print study status after preprocessing completion
-        self._print_study_status()
+        # Study status removed - now only shown via button click
 
         # Update the UI state now that preprocessing is complete
         self._update_ui_state()
