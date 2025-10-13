@@ -850,6 +850,10 @@ class FeatureVisualizationWindow(QMainWindow):
           None
         """
         feature_code = self.get_selected_feature_code()
+        
+        # Validate that feature_code is not empty before attempting to plot
+        if not feature_code or not feature_code.strip():
+            return
 
         if feature_code == "ROF":
             self.plot_rof_timeseries()
@@ -1195,8 +1199,11 @@ class FeatureVisualizationWindow(QMainWindow):
 
         ax.set_xticks(range(len(xticklabels)))
         ax.set_xticklabels(xticklabels)
+        
+        # Get y-axis label from feature dictionary, with fallback for empty or missing features
+        ylabel = self.comet.feature_list_dictionary.get(feature, feature) if feature else "Feature"
         ax.set_ylabel(
-            self.comet.feature_list_dictionary[feature],
+            ylabel,
             fontsize=font_sizes["label"],
             fontfamily=font_family,
         )
