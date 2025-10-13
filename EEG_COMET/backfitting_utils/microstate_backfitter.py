@@ -151,68 +151,141 @@ class MicrostateBackfitter:
         """Smooth the segmentation based on the given parameters.
 
         Args:
-            data (numpy.ndarray): Array containing the data.
-            microstate_maps (numpy.ndarray): Array containing the microstate maps.
+            data (numpy.ndarray): Array containing the data (n_channels x n_samples).
+            microstate_maps (numpy.ndarray): Array containing the microstate maps (n_states x n_channels).
             n_states (int): Number of microstate states.
             epsilon (float, optional): Convergence criterion parameter. Defaults to 1e-6.
             b (int, optional): Window size parameter. Defaults to 3.
-            lamb (int, optional): Non-smoothness penalty parameter. Defaults to 5.
+            lamb (float, optional): Non-smoothness penalty parameter. Defaults to 5.
 
         Returns:
             numpy.ndarray: Smoothed segmentation array.
         """
         n_channels, n_samples = data.shape
-        data_sum_sq = np.sum(data**2)
-        iteration = 0
-        prev_residual = 0
-        residual = np.inf
-        thresh = epsilon
-
-        # STEP 2 in TABLE 2
-        # V dot Gamma
-        activation = microstate_maps.dot(data)
-        # L
+        
+        # Normalize microstate maps (each map should have unit norm)
+        map_norms = np.linalg.norm(microstate_maps, axis=1, keepdims=True)
+        maps_normalized = microstate_maps / (map_norms + 1e-10)
+        
+        # Normalize data at each timepoint
+        data_norms = np.linalg.norm(data, axis=0, keepdims=True)
+        data_normalized = data / (data_norms + 1e-10)
+        
+        # Initial labeling: assign each timepoint to the best-correlating map
+        # correlation = maps_normalized @ data_normalized
+        activation = maps_normalized.dot(data)
         segmentation = np.argmax(np.abs(activation), axis=0)
-
-        # STEP 3 in TABLE 2
-        raw_segmentation = segmentation
-
-        # STEP 4 in TABLE 2
-        act_sum_sq = np.sum(np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2)
-        e1 = abs(data_sum_sq - act_sum_sq)
-        e2 = e1 / float(n_samples * (n_channels - 1))
-
-        while residual > thresh:
-            # STEP 5 in TABLE 2
-            windows = np.lib.stride_tricks.sliding_window_view(raw_segmentation, 2 * b + 1)
-            n_bkt = np.zeros((windows.shape[0], n_states))
-            for i, window in enumerate(windows):
-                cnt = Counter(window)
-                n_bkt[i] = [cnt[x] for x in range(n_states)]
-            raw_segmentation[b : n_samples - b] = np.argmin(
-                (
-                    np.sum(data**2, axis=0)
-                    - (np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2)
-                )[b : n_samples - b]
-                / (2 * e2 * (n_channels - 1))
-                - (lamb * n_bkt).T,
-                axis=0,
-            )
-
-            # STEP 6 in TABLE 2
-            segmentation = raw_segmentation  # .copy()
-
-            # STEP 7 in TABLE 2
-            act_sum_sq = np.sum(np.sum(microstate_maps[segmentation].T * data, axis=0) ** 2)
-            e1 = abs(data_sum_sq - act_sum_sq)
-            sigma_mu = e1 / float(n_samples * (n_channels - 1))
-            residual = abs(prev_residual - sigma_mu)
-
-            # STEP 8 in TABLE 2
-            prev_residual = sigma_mu
-            thresh = epsilon * sigma_mu
-            iteration += 1
-
+        
+        # Compute original sigma² - computed ONCE and kept constant
+        # This is: sum of squared residuals / (n_samples * (n_channels - 1))
+        data_sum_sq = np.sum(data ** 2)
+        
+        # Compute act_sum_sq: sum of squared projections onto assigned maps
+        act_sum_sq = 0.0
+        for tf in range(n_samples):
+            assigned_map = microstate_maps[segmentation[tf]]
+            projection = np.dot(assigned_map, data[:, tf])
+            act_sum_sq += projection ** 2
+        
+        origsigma2 = (data_sum_sq - act_sum_sq) / (n_samples * (n_channels - 1))
+        
+        # Empty labeling or perfect labeling - no improvement possible
+        if origsigma2 == 0:
+            return segmentation
+        
+        # Compute initial GEV for convergence checking
+        gev = 1.0 - (origsigma2 * n_samples * (n_channels - 1)) / data_sum_sq
+        
+        # Maximum iterations
+        max_iter = 20
+        convergence_threshold = epsilon
+        
+        # Working copy of segmentation
+        temp_segmentation = segmentation.copy()
+        
+        # Smoothing iterations
+        for smoothi in range(max_iter):
+            # Reset temp_segmentation for this iteration
+            temp_segmentation = segmentation.copy()
+            
+            # For each timepoint, find the best label considering neighbors
+            for tf in range(n_samples):
+                # Compute histogram of neighbors' clusters
+                histo = np.zeros(n_states, dtype=int)
+                
+                # Count labels in the window around current timepoint
+                win_start = max(0, tf - b)
+                win_end = min(n_samples - 1, tf + b)
+                
+                for tf2 in range(win_start, win_end + 1):
+                    if tf2 != tf:  # Exclude current timepoint
+                        histo[segmentation[tf2]] += 1
+                
+                # Find best cluster by minimizing the error criterion
+                diffmin = np.inf
+                best_nc = segmentation[tf]  # Default to current label
+                
+                for nc in range(n_states):
+                    # Compute normalized correlation between data and map
+                    # correlation = normalized_map @ normalized_data
+                    map_vec = microstate_maps[nc]
+                    data_vec = data[:, tf]
+                    
+                    # Normalize for correlation
+                    map_norm = np.linalg.norm(map_vec)
+                    data_norm = np.linalg.norm(data_vec)
+                    
+                    if map_norm > 0 and data_norm > 0:
+                        corr = np.dot(map_vec, data_vec) / (map_norm * data_norm)
+                    else:
+                        corr = 0.0
+                    
+                    # Handle polarity: use absolute correlation for comparison
+                    # but we care about the sign for the final error computation
+                    # SignedSquare means: if corr is negative, the square is also negative
+                    # This makes negative correlations worse than small positive ones
+                    signed_corr_sq = np.sign(corr) * (corr ** 2)
+                    
+                    # Compute error difference (minimize this)
+                    # diff = (||data||² * (1 - signed_corr²)) / (2 * origsigma2 * (n_channels - 1)) - lambda * histo[nc]
+                    diff = ((data_norm ** 2) * (1 - signed_corr_sq)) / (2 * origsigma2 * (n_channels - 1)) - lamb * histo[nc]
+                    
+                    if diff < diffmin:
+                        diffmin = diff
+                        best_nc = nc
+                
+                # Update label for this timepoint
+                temp_segmentation[tf] = best_nc
+            
+            # Update segmentation with new labels
+            segmentation = temp_segmentation.copy()
+            
+            # Compute new GEV to check convergence
+            gevbefore = gev
+            
+            # Recompute act_sum_sq with new segmentation
+            act_sum_sq = 0.0
+            for tf in range(n_samples):
+                assigned_map = microstate_maps[segmentation[tf]]
+                projection = np.dot(assigned_map, data[:, tf])
+                act_sum_sq += projection ** 2
+            
+            gev = 1.0 - (data_sum_sq - act_sum_sq) / data_sum_sq
+            
+            # Check convergence conditions
+            if gev > gevbefore:
+                # GEV got worse (oscillating) - stop
+                break
+            
+            if gev == 0:
+                # Nothing explained - stop
+                break
+            
+            # Relative difference convergence check
+            rel_diff = abs(gev - gevbefore) / (gevbefore + 1e-10)
+            if rel_diff <= convergence_threshold:
+                break
+        
         return segmentation
 
     def substitude_maps_with_duration(
