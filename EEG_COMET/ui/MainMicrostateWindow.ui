@@ -437,9 +437,9 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>0</y>
-               <width>1125</width>
-               <height>1846</height>
+               <y>-1333</y>
+               <width>1153</width>
+               <height>1740</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
@@ -2092,8 +2092,8 @@ background-color: rgb(0, 0, 0);</string>
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>570</width>
-               <height>855</height>
+               <width>1153</width>
+               <height>800</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_5">
@@ -2905,15 +2905,15 @@ background-color: rgb(0, 0, 0);</string>
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-703</y>
-               <width>1125</width>
-               <height>1400</height>
+               <y>0</y>
+               <width>1153</width>
+               <height>812</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_9">
               <item row="14" column="0">
                <layout class="QGridLayout" name="feature_GLayout">
-                <item row="20" column="1" colspan="2">
+                <item row="11" column="2">
                  <widget class="QCheckBox" name="step4_sliding_features_checkbox">
                   <property name="enabled">
                    <bool>false</bool>
@@ -2949,15 +2949,8 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="6" column="1" colspan="2">
-                 <widget class="Line" name="line_2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item row="23" column="1" colspan="2">
-                 <widget class="QCheckBox" name="step4_synthetic_checkbox">
+                <item row="9" column="2">
+                 <widget class="QCheckBox" name="step4_averaged_features_checkbox">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2979,46 +2972,30 @@ background-color: rgb(0, 0, 0);</string>
                     <height>80</height>
                    </size>
                   </property>
-                  <property name="text">
-                   <string>Extract Features from Synthetic Data as Well</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="7" column="1" colspan="2">
-                 <widget class="QLabel" name="step4_complexity_label">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
                   <property name="font">
                    <font>
-                    <weight>75</weight>
-                    <bold>true</bold>
+                    <pointsize>14</pointsize>
                    </font>
                   </property>
-                  <property name="text">
-                   <string>Microstate Sequence and Complexity Features</string>
+                  <property name="toolTip">
+                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Averaged characteristics over the full span of EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                   </property>
-                  <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  <property name="text">
+                   <string>Extract Global Features (One per File)</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
                   </property>
                  </widget>
                 </item>
-                <item row="16" column="2">
+                <item row="7" column="4">
+                 <widget class="Line" name="step4_line3">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="11" column="4">
                  <widget class="QCheckBox" name="step4_feature_rtf_checkbox">
                   <property name="enabled">
                    <bool>false</bool>
@@ -3043,53 +3020,6 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                   <property name="text">
                    <string>Relative Transition Frequency (RTF)</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="3" rowspan="16">
-                 <spacer name="step4_HSpacer1_2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>10</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="15" column="2">
-                 <widget class="QCheckBox" name="step4_feature_rof_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>Relative Occurrence Frequency (ROF)</string>
                   </property>
                   <property name="checked">
                    <bool>true</bool>
@@ -3127,124 +3057,8 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="15" column="1" rowspan="2">
-                 <spacer name="step4_HSpacer2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="12" column="2">
-                 <widget class="QCheckBox" name="step4_feature_err_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>Entropy Representation Ratio (ERR)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="9" column="2">
-                 <widget class="QCheckBox" name="step4_feature_er_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>Entropy Rate (ER)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="11" column="2">
-                 <widget class="QCheckBox" name="step4_feature_he_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>Hurst Exponents (HE)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="0" rowspan="16">
-                 <spacer name="step4_HSpacer1">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>10</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="26" column="3">
-                 <spacer name="step4_HSpacer4_2">
+                <item row="1" column="5" rowspan="11">
+                 <spacer name="step4_HSpacer1_2">
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>
                   </property>
@@ -3290,6 +3104,22 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
+                <item row="18" column="5">
+                 <spacer name="step4_HSpacer4_2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>10</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
                 <item row="3" column="2">
                  <widget class="QCheckBox" name="step4_feature_dur_checkbox">
                   <property name="enabled">
@@ -3321,79 +3151,7 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="8" column="2">
-                 <widget class="QCheckBox" name="step4_feature_tp_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>Transition Probability (TP)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="10" column="2">
-                 <widget class="QCheckBox" name="step4_feature_lzc_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>Lempel–Ziv Complexity (LZC)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="8" column="1" rowspan="5">
-                 <spacer name="step4_HSpacer1_5">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="0" column="0" colspan="4">
+                <item row="0" column="0" colspan="6">
                  <widget class="QLabel" name="step4_features_extract_label">
                   <property name="enabled">
                    <bool>false</bool>
@@ -3435,38 +3193,7 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="4" column="2">
-                 <widget class="QCheckBox" name="step4_feature_cov_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>Microstate Coverage (COV)</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item row="26" column="0">
+                <item row="18" column="0">
                  <spacer name="step4_HSpacer4">
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>
@@ -3482,55 +3209,7 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </spacer>
                 </item>
-                <item row="19" column="3" rowspan="5">
-                 <spacer name="step4_HSpacer3_2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>10</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="2" column="1" rowspan="4">
-                 <spacer name="step4_HSpacer1_3">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="19" column="0" rowspan="5">
-                 <spacer name="step4_HSpacer3">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>10</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="25" column="0" colspan="4">
+                <item row="17" column="0" colspan="6">
                  <widget class="QLabel" name="step4_outputformats_label">
                   <property name="enabled">
                    <bool>false</bool>
@@ -3572,70 +3251,8 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="18" column="0" colspan="4">
-                 <widget class="QLabel" name="step4_features_type_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>60</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>100</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <weight>75</weight>
-                    <bold>true</bold>
-                   </font>
-                  </property>
-                  <property name="styleSheet">
-                   <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
-                  </property>
-                  <property name="text">
-                   <string>     Features Type</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="17" column="0" colspan="4">
-                 <widget class="Line" name="step4_line2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item row="24" column="0" colspan="4">
-                 <widget class="Line" name="step4_line3">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item row="13" column="1" colspan="2">
-                 <widget class="Line" name="step4_line2_2">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item row="19" column="1" colspan="2">
-                 <widget class="QCheckBox" name="step4_averaged_features_checkbox">
+                <item row="4" column="2">
+                 <widget class="QCheckBox" name="step4_feature_cov_checkbox">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3657,24 +3274,114 @@ background-color: rgb(0, 0, 0);</string>
                     <height>80</height>
                    </size>
                   </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Averaged characteristics over the full span of EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                  </property>
                   <property name="text">
-                   <string>Extract Global Features (One per File)</string>
+                   <string>Microstate Coverage (COV)</string>
                   </property>
                   <property name="checked">
                    <bool>true</bool>
                   </property>
                  </widget>
                 </item>
-                <item row="14" column="1" colspan="2">
-                 <widget class="QLabel" name="step4_features_epoched_label">
+                <item row="16" column="0" colspan="6">
+                 <widget class="Line" name="step4_line2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="4">
+                 <widget class="QCheckBox" name="step4_feature_tp_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Transition Probability (TP)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="3" rowspan="6">
+                 <widget class="Line" name="step4_line6">
+                  <property name="orientation">
+                   <enum>Qt::Vertical</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="4">
+                 <widget class="QCheckBox" name="step4_feature_he_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Hurst Exponents (HE)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="4">
+                 <widget class="QCheckBox" name="step4_feature_er_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Entropy Rate (ER)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="4">
+                 <widget class="QLabel" name="step4_complexity_label">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                     <horstretch>0</horstretch>
@@ -3700,14 +3407,77 @@ background-color: rgb(0, 0, 0);</string>
                    </font>
                   </property>
                   <property name="text">
-                   <string>Event-Related Microstate Features</string>
+                   <string>Microstate Sequence and Complexity Features</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                   </property>
                  </widget>
                 </item>
-                <item row="26" column="1" colspan="2">
+                <item row="6" column="4">
+                 <widget class="QCheckBox" name="step4_feature_err_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Entropy Representation Ratio (ERR)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="4">
+                 <widget class="QCheckBox" name="step4_feature_lzc_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Lempel–Ziv Complexity (LZC)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="9" column="3" rowspan="7">
+                 <widget class="Line" name="step4_line5">
+                  <property name="orientation">
+                   <enum>Qt::Vertical</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="18" column="1" colspan="4">
                  <widget class="QComboBox" name="step4_outputformats_combobox">
                   <property name="enabled">
                    <bool>false</bool>
@@ -3757,7 +3527,23 @@ background-color: rgb(0, 0, 0);</string>
                   </item>
                  </widget>
                 </item>
-                <item row="1" column="1" colspan="2">
+                <item row="1" column="0" rowspan="15">
+                 <spacer name="step4_HSpacer1">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>10</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="1" column="2">
                  <widget class="QLabel" name="step4_main_label">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -3791,23 +3577,41 @@ background-color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
-                <item row="21" column="1" rowspan="2">
-                 <spacer name="step4_HSpacer3_3">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
+                <item row="9" column="4">
+                 <widget class="QLabel" name="step4_features_epoched_label">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
                   </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
+                  <property name="minimumSize">
                    <size>
-                    <width>5</width>
-                    <height>10</height>
+                    <width>0</width>
+                    <height>50</height>
                    </size>
                   </property>
-                 </spacer>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <weight>75</weight>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Event-Related Microstate Features</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
                 </item>
-                <item row="21" column="2" rowspan="2">
+                <item row="12" column="2">
                  <layout class="QGridLayout" name="sliding_GLayout">
                   <item row="1" column="0">
                    <widget class="QRadioButton" name="step4_sliding_event_radio">
@@ -3912,6 +3716,139 @@ background-color: rgb(0, 0, 0);</string>
                    <layout class="QHBoxLayout" name="sliding_event_HLayout"/>
                   </item>
                  </layout>
+                </item>
+                <item row="10" column="4">
+                 <widget class="QCheckBox" name="step4_feature_rof_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Relative Occurrence Frequency (ROF)</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item row="10" column="2">
+                 <widget class="QCheckBox" name="step4_synthetic_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>50</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Extract Features from Synthetic Data as Well</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1" rowspan="5">
+                 <spacer name="step4_HSpacer1_3">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="6" column="1" colspan="2">
+                 <widget class="QLabel" name="step4_features_type_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>60</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>100</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                    <weight>75</weight>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">color: rgb(255, 255, 255);
+background-color: rgb(0, 0, 0);</string>
+                  </property>
+                  <property name="text">
+                   <string>     Features Type</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="7" column="1" rowspan="9">
+                 <spacer name="step4_HSpacer2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
                 </item>
                </layout>
               </item>
@@ -4048,8 +3985,8 @@ background-color: rgb(0, 0, 0);</string>
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>767</width>
-               <height>1046</height>
+               <width>1153</width>
+               <height>976</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
@@ -5069,7 +5006,7 @@ background-color: rgb(0, 0, 0);</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>26</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuImport">
@@ -5290,12 +5227,12 @@ background-color: rgb(0, 0, 0);</string>
  <buttongroups>
   <buttongroup name="SlidingGroup"/>
   <buttongroup name="BEMGroup"/>
+  <buttongroup name="BackfitGroup"/>
   <buttongroup name="SourceGroup"/>
+  <buttongroup name="NstatesGroup"/>
+  <buttongroup name="InputGroup"/>
+  <buttongroup name="OptimizerGroup"/>
   <buttongroup name="InitializersGroup"/>
   <buttongroup name="AnatomyGroup"/>
-  <buttongroup name="BackfitGroup"/>
-  <buttongroup name="InputGroup"/>
-  <buttongroup name="NstatesGroup"/>
-  <buttongroup name="OptimizerGroup"/>
  </buttongroups>
 </ui>
