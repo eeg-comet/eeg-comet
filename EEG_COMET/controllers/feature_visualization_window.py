@@ -1000,8 +1000,16 @@ class FeatureVisualizationWindow(QMainWindow):
         selected_feature = self.get_selected_feature_code()
         # Get the selected files from the all_files_list
         selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
-        # Load all features
-        all_features_df = self.load_features("averaged")
+        
+        # Check if this is a variability feature
+        is_variability = selected_feature.endswith("_SD") or selected_feature.endswith("_RMSSD")
+        
+        # Load appropriate features
+        if is_variability:
+            all_features_df = self.load_features("variability")
+        else:
+            all_features_df = self.load_features("averaged")
+        
         # Filter features_df based on selected files
         features_df = all_features_df[all_features_df["Filename"].isin(selected_files)]
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
@@ -1019,8 +1027,16 @@ class FeatureVisualizationWindow(QMainWindow):
         selected_feature = self.get_selected_feature_code()
         # Get the selected files from the all_files_list
         selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
-        # Load all features
-        all_features_df = self.load_features("averaged")
+        
+        # Check if this is a variability feature
+        is_variability = selected_feature.endswith("_SD") or selected_feature.endswith("_RMSSD")
+        
+        # Load appropriate features
+        if is_variability:
+            all_features_df = self.load_features("variability")
+        else:
+            all_features_df = self.load_features("averaged")
+        
         # Filter features_df based on selected files
         features_df = all_features_df[all_features_df["Filename"].isin(selected_files)]
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
@@ -1102,7 +1118,16 @@ class FeatureVisualizationWindow(QMainWindow):
         """
         selected_feature = self.get_selected_feature_code()
         group_a_name, group_b_name = self.get_group_names()
-        features_df = self.load_features("averaged")
+        
+        # Check if this is a variability feature
+        is_variability = selected_feature.endswith("_SD") or selected_feature.endswith("_RMSSD")
+        
+        # Load appropriate features
+        if is_variability:
+            features_df = self.load_features("variability")
+        else:
+            features_df = self.load_features("averaged")
+        
         font_sizes, colormap, font_family, display_options = self.get_plot_parameters()
         self.plot_group_comparison(
             features_df,
@@ -1122,14 +1147,20 @@ class FeatureVisualizationWindow(QMainWindow):
         """Load features for a given mode.
 
         Args:
-          mode (str): Feature mode (e.g., "averaged", "sliding").
+          mode (str): Feature mode (e.g., "averaged", "sliding", "variability").
 
         Returns:
           pandas.DataFrame: Loaded features for the given mode.
         """
-        feature_path = os.path.join(
-            self.extracted_features_path, f"real_{mode}_features{self.export_format}"
-        )
+        if mode == "variability":
+            # Load variability features separately
+            feature_path = os.path.join(
+                self.extracted_features_path, f"real_sliding_variability_features{self.export_format}"
+            )
+        else:
+            feature_path = os.path.join(
+                self.extracted_features_path, f"real_{mode}_features{self.export_format}"
+            )
         return FeatureIO().import_features(feature_path, self.export_format)
 
     def clear_all_lists(self):

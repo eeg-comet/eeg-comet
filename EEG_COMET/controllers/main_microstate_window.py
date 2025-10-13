@@ -1554,6 +1554,37 @@ class MainMicrostateWindow(QMainWindow):
         rtf_path = os.path.join(self.comet.extracted_features_path, f"RTF_averages{self.comet.export_format}")
         if os.path.exists(rtf_path):
             extracted_features.add("RTF")
+        
+        # Check for variability features file (SD and RMSSD from sliding windows)
+        variability_path = os.path.join(
+            self.comet.extracted_features_path, f"real_sliding_variability_features{self.comet.export_format}"
+        )
+        if os.path.exists(variability_path):
+            try:
+                # Load just the header to check columns
+                if self.comet.export_format == ".csv":
+                    df = pd.read_csv(variability_path, nrows=0)
+                elif self.comet.export_format == ".pkl":
+                    df = pd.read_pickle(variability_path)
+                elif self.comet.export_format == ".hdf":
+                    df = pd.read_hdf(variability_path, key="variability")
+                else:
+                    df = None
+                
+                if df is not None:
+                    # Extract feature codes from column names (e.g., "DUR_SD_A" -> "DUR_SD", "COV_RMSSD_B" -> "COV_RMSSD")
+                    for col in df.columns:
+                        if col == "Filename":
+                            continue
+                        # For variability features, extract the full code including SD/RMSSD
+                        # Format: FEATURE_METRIC_MICROSTATE (e.g., "DUR_SD_A")
+                        parts = col.split("_")
+                        if len(parts) >= 2:
+                            # Combine first two parts to get feature code (e.g., "DUR_SD", "COV_RMSSD")
+                            feature_code = "_".join(parts[:2])
+                            extracted_features.add(feature_code)
+            except Exception as e:
+                print(f"Warning: Could not read variability feature columns from {variability_path}: {e}")
             
         return sorted(list(extracted_features))
 

@@ -243,6 +243,56 @@ class FeatureIO:
             raise ValueError("Invalid export format")
 
     @staticmethod
+    def export_variability_data(variability_data_dict, output_folder, export_format=".csv"):
+        """Export sliding window variability features (SD and RMSSD) for all recordings.
+
+        Output format (wide):
+        Filename | DUR_SD_A | DUR_SD_B | ... | DUR_RMSSD_A | DUR_RMSSD_B | ... | COV_SD_A | ...
+
+        Args:
+            variability_data_dict (dict): key → filename, value → DataFrame with variability features in long format
+            output_folder (str): directory to write the file
+            export_format (str): extension (".csv", ".pkl", etc.)
+        """
+        if not variability_data_dict:
+            return
+
+        # Collect all DataFrames (they're in long format: Filename, Feature, Value)
+        all_dfs = []
+        for filename, df in variability_data_dict.items():
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                all_dfs.append(df)
+
+        if not all_dfs:
+            return
+
+        # Concatenate all long-format DataFrames
+        combined_long_df = pd.concat(all_dfs, ignore_index=True)
+        
+        # Pivot to wide format: Filename as rows, Feature names as columns
+        combined_df = combined_long_df.pivot_table(
+            index="Filename", 
+            columns="Feature", 
+            values="Value"
+        ).reset_index()
+        
+        combined_df.sort_values("Filename", inplace=True)
+
+        os.makedirs(output_folder, exist_ok=True)
+        output_path = os.path.join(output_folder, f"real_sliding_variability_features{export_format}")
+
+        if export_format == ".csv":
+            combined_df.to_csv(output_path, index=False)
+        elif export_format == ".pkl":
+            combined_df.to_pickle(output_path)
+        elif export_format == ".hdf":
+            combined_df.to_hdf(output_path, key="variability", mode="w")
+        elif export_format == ".json":
+            combined_df.to_json(output_path, orient="records", lines=True)
+        else:
+            raise ValueError("Invalid export format")
+
+    @staticmethod
     def import_features(file_path, import_format=".csv"):
         """Import calculated features from a file.
 

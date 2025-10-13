@@ -72,6 +72,13 @@ class FeatureExtractor:
         """Public read-only access to RTF export data cache."""
         return self._rtf_data_for_export
 
+    @property
+    def variability_data_for_export(self) -> dict:
+        """Public read-only access to variability features export data cache."""
+        if not hasattr(self, "_variability_data_for_export"):
+            self._variability_data_for_export = {}
+        return self._variability_data_for_export
+
     def _get_flat_sequence(self):
         """Return the input sequence flattened to a 1-D list of hashable elements (strings)."""
         if isinstance(self.input_sequence, np.ndarray):
@@ -604,6 +611,47 @@ class FeatureExtractor:
             return window_hurst_exponents
         raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
+    def sliding_feature_standard_deviation(self, sliding_values):
+        """Calculate standard deviation of sliding feature values for temporal regularity.
+
+        This measures the variability in a microstate feature (DUR, COV, or OCC) across 
+        consecutive sliding windows, capturing how regular or irregular the temporal pattern is.
+
+        Args:
+            sliding_values (list or np.ndarray): Array of feature values from sliding windows
+
+        Returns:
+            float: Standard deviation of the sliding feature values, or np.nan if insufficient data
+        """
+        if sliding_values is None or len(sliding_values) < 2:
+            return np.nan
+        
+        return np.std(sliding_values, ddof=1)
+
+    def sliding_feature_rmssd(self, sliding_values):
+        """Calculate Root Mean Square of Successive Differences (RMSSD) for sliding features.
+
+        RMSSD quantifies short-term variability by measuring successive differences between 
+        consecutive sliding window values. Higher RMSSD indicates more irregular temporal patterns.
+        This is commonly used in heart rate variability analysis and adapted here for microstate dynamics.
+
+        Args:
+            sliding_values (list or np.ndarray): Array of feature values from sliding windows
+
+        Returns:
+            float: RMSSD of the sliding feature values, or np.nan if insufficient data
+        """
+        if sliding_values is None or len(sliding_values) < 2:
+            return np.nan
+        
+        # Calculate successive differences
+        successive_diffs = np.diff(sliding_values)
+        
+        # Calculate root mean square of successive differences
+        rmssd = np.sqrt(np.mean(successive_diffs ** 2))
+        
+        return rmssd
+
     def extract_microstate_features(
         self,
         filename,
@@ -703,6 +751,42 @@ class FeatureExtractor:
             extracted_microstate_transition_probability = self.compute_transition_probabilities()
             features_dict.append(("TP", extracted_microstate_transition_probability))
 
+        # Calculate SD and RMSSD features for sliding mode
+        # These capture temporal variability of microstate features across windows
+        if self.feature_mode == "sliding":
+            # Process each base feature (DUR, COV, OCC) to extract variability metrics
+            for base_feature in ["DUR", "COV", "OCC"]:
+                if base_feature in feature_list:
+                    # Find the extracted data for this feature
+                    feature_data = None
+                    for feat, data in features_dict:
+                        if feat == base_feature:
+                            feature_data = data
+                            break
+                    
+                    if feature_data is not None and isinstance(feature_data, list):
+                        # Organize sliding values by microstate
+                        microstate_values = {}
+                        
+                        for window_data in feature_data:
+                            if isinstance(window_data, dict):
+                                for microstate, value in window_data.items():
+                                    if microstate not in microstate_values:
+                                        microstate_values[microstate] = []
+                                    microstate_values[microstate].append(value)
+                        
+                        # Calculate SD and RMSSD for each microstate
+                        sd_dict = {}
+                        rmssd_dict = {}
+                        
+                        for microstate, values in microstate_values.items():
+                            sd_dict[microstate] = self.sliding_feature_standard_deviation(values)
+                            rmssd_dict[microstate] = self.sliding_feature_rmssd(values)
+                        
+                        # Add SD and RMSSD to features_dict
+                        features_dict.append((f"{base_feature}_SD", sd_dict))
+                        features_dict.append((f"{base_feature}_RMSSD", rmssd_dict))
+
         # Create a list to hold the data
         output_features_data = []
 
@@ -719,17 +803,32 @@ class FeatureExtractor:
 
         # Process non-special features first
         for feature, feature_data in non_special_features_dict:
+            # Check if this is a variability feature (SD or RMSSD)
+            is_variability_feature = feature.endswith("_SD") or feature.endswith("_RMSSD")
+            
             if self.feature_mode == "sliding":
-                if not isinstance(feature_data, (list, tuple)):
-                    feature_data = [feature_data]
-                for window_index, window_data in enumerate(feature_data):
-                    if isinstance(window_data, dict):
+                if is_variability_feature:
+                    # SD and RMSSD are aggregate statistics, format like averaged mode
+                    # but they're only calculated in sliding mode
+                    if isinstance(feature_data, dict):
                         output_features_data.extend(
-                            [filename, window_index, f"{feature}_{element}", value]
-                            for element, value in window_data.items()
+                            [filename, f"{feature}_{element}", value]
+                            for element, value in feature_data.items()
                         )
                     else:
-                        output_features_data.append([filename, window_index, feature, window_data])
+                        output_features_data.append([filename, feature, feature_data])
+                else:
+                    # Regular sliding features with window indices
+                    if not isinstance(feature_data, (list, tuple)):
+                        feature_data = [feature_data]
+                    for window_index, window_data in enumerate(feature_data):
+                        if isinstance(window_data, dict):
+                            output_features_data.extend(
+                                [filename, window_index, f"{feature}_{element}", value]
+                                for element, value in window_data.items()
+                            )
+                        else:
+                            output_features_data.append([filename, window_index, feature, window_data])
             else:  # self.feature_mode == 'averaged'
                 if isinstance(feature_data, dict):
                     output_features_data.extend(
@@ -806,11 +905,40 @@ class FeatureExtractor:
                     self._rtf_data_for_export[filename] = feature_data
 
         if self.feature_mode == "sliding":
-            columns = ["Filename", "Window_index", "Feature", "Value"]
-            output_features_df = pd.DataFrame(output_features_data, columns=columns)
-            output_features_df = output_features_df.pivot_table(
-                index=["Filename", "Window_index"], columns="Feature", values="Value"
-            ).reset_index()
+            # Separate variability features (SD, RMSSD) from windowed features
+            windowed_data = []
+            variability_data = []
+            
+            for row in output_features_data:
+                if len(row) == 4:  # Windowed feature: [filename, window_index, feature, value]
+                    windowed_data.append(row)
+                elif len(row) == 3:  # Variability feature: [filename, feature, value]
+                    variability_data.append(row)
+            
+            # Create DataFrame for windowed features (without variability features)
+            if windowed_data:
+                columns = ["Filename", "Window_index", "Feature", "Value"]
+                output_features_df = pd.DataFrame(windowed_data, columns=columns)
+                output_features_df = output_features_df.pivot_table(
+                    index=["Filename", "Window_index"], columns="Feature", values="Value"
+                ).reset_index()
+            else:
+                output_features_df = pd.DataFrame(columns=["Filename", "Window_index"])
+            
+            # Store variability features separately for separate export
+            if variability_data:
+                if not hasattr(self, "_variability_data_for_export"):
+                    self._variability_data_for_export = {}
+                
+                # Convert to DataFrame for storage - keep in long format initially
+                variability_df = pd.DataFrame(variability_data, columns=["Filename", "Feature", "Value"])
+                
+                # Store in the export cache (will be pivoted during export)
+                # Group by filename to handle multiple features per file
+                for fname in variability_df["Filename"].unique():
+                    file_data = variability_df[variability_df["Filename"] == fname]
+                    self._variability_data_for_export[fname] = file_data
+                    
         else:  # self.feature_mode == 'averaged'
             columns = ["Filename", "Feature", "Value"]
             output_features_df = pd.DataFrame(output_features_data, columns=columns)
@@ -1086,6 +1214,12 @@ class FeatureExtractionCoordinator:
                     if "rtf_data" not in results[mode]:
                         results[mode]["rtf_data"] = {}
                     results[mode]["rtf_data"].update(feature_extractor.rtf_data_for_export)
+
+                # Store Variability data if it was computed (sliding mode only)
+                if feature_extractor.variability_data_for_export:
+                    if "variability_data" not in results[mode]:
+                        results[mode]["variability_data"] = {}
+                    results[mode]["variability_data"].update(feature_extractor.variability_data_for_export)
 
         return results
 

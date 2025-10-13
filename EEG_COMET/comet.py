@@ -594,6 +594,12 @@ class COMET:
             "ERR": "Sequence Entropy Representation",
             "ROF": "Relative Occurrence Frequency",
             "RTF": "Relative Transition Frequency",
+            "DUR_SD": "Duration Variability (ms)",
+            "DUR_RMSSD": "Duration Irregularity (ms)",
+            "COV_SD": "Coverage Variability (%)",
+            "COV_RMSSD": "Coverage Irregularity (%)",
+            "OCC_SD": "Occurrence Variability (Hz)",
+            "OCC_RMSSD": "Occurrence Irregularity (Hz)",
         }
 
         # Source Localization Configs
@@ -3416,6 +3422,14 @@ class COMET:
                                 extracted_features[mode]["rtf_data"]
                             )
 
+                        # Handle variability data separately
+                        if "variability_data" in extracted_features[mode]:
+                            if "variability_data" not in organized_results[mode]:
+                                organized_results[mode]["variability_data"] = {}
+                            organized_results[mode]["variability_data"].update(
+                                extracted_features[mode]["variability_data"]
+                            )
+
         # Combine DataFrames for each mode and type
         for mode in self.feature_mode:
             for feature_type in self.feature_types:
@@ -3499,6 +3513,30 @@ class COMET:
                         except Exception as rtf_export_error:
                             error_msg = (
                                 f"Failed to export RTF data for {mode} mode: {rtf_export_error}"
+                            )
+                            self.logger.error("FEATURE_EXTRACTION", error_msg)
+                            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                self.LogWindow.append_log(error_msg, log_type="error")
+
+                # Variability features export (SD and RMSSD for sliding mode)
+                if "variability_data" in organized_results[mode]:
+                    variability_data = organized_results[mode]["variability_data"]
+                    if variability_data:
+                        try:
+                            self.comet_feature_io.export_variability_data(
+                                variability_data_dict=variability_data,
+                                output_folder=self.extracted_features_path,
+                                export_format=self.export_format,
+                            )
+
+                            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                                self.LogWindow.append_log(
+                                    f"Exported sliding variability features for {mode} mode ({len(variability_data)} files)",
+                                    log_type="success",
+                                )
+                        except Exception as variability_export_error:
+                            error_msg = (
+                                f"Failed to export variability data for {mode} mode: {variability_export_error}"
                             )
                             self.logger.error("FEATURE_EXTRACTION", error_msg)
                             if hasattr(self, "LogWindow") and self.LogWindow is not None:
