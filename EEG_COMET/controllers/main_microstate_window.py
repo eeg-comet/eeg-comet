@@ -2410,7 +2410,11 @@ class MainMicrostateWindow(QMainWindow):
         # Backfit target
         if self.ui.step3_backfit_all_radio.isChecked():
             self.comet.backfit_to = "all"
-            self.comet.identify_short_window = self.ui.step3_identify_short_checkbox.isChecked()
+            # Only identify short window if filter_segments is enabled AND checkbox is checked
+            self.comet.identify_short_window = (
+                self.ui.step3_filter_segments_checkbox.isChecked() and 
+                self.ui.step3_identify_short_checkbox.isChecked()
+            )
         else:
             self.comet.backfit_to = "peaks"
             self.comet.identify_short_window = False
@@ -2451,6 +2455,10 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.epsilon = ""
             self.comet.b = ""
             self.comet.lamb = ""
+            # Ensure identify_short_window is False when filter_segments is disabled
+            # (This provides extra safety even though it's already handled above)
+            if self.ui.step3_backfit_all_radio.isChecked():
+                self.comet.identify_short_window = False
 
     def visualize_microstate_segmentation(self):
         """Open backfitting visualization window."""
