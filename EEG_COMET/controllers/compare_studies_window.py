@@ -3,6 +3,7 @@
 import os.path
 import re
 import traceback
+import warnings
 from collections import Counter, defaultdict
 from contextlib import suppress
 from typing import Dict, List, Optional, Tuple
@@ -15,8 +16,9 @@ from matplotlib.figure import Figure
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox, QSizePolicy
-from scipy.stats import f, pearsonr, ttest_ind, ttest_rel
+from scipy.stats import f, pearsonr, t, ttest_ind, ttest_rel
 from statsmodels.stats.multitest import multipletests
+import statsmodels.formula.api as smf
 
 from clustering_utils.microstate_visualizer import show_microstate
 from comet import COMET
@@ -549,13 +551,17 @@ class CompareStudiesWindow(QDialog):
         This reads the actual feature file columns rather than relying on the config,
         ensuring all extracted features (including new variability features) are discovered.
         
+        Returns features from all available modes (averaged, sliding, etc.) with mode suffix.
+        
         Args:
             tbx: COMET toolbox object to check for extracted features.
             
         Returns:
-            List of available feature codes (e.g., ["OCC", "DUR", "COV", "DUR_SD", etc.]).
+            List of available feature codes with mode suffix 
+            (e.g., ["OCC", "DUR", "COV", "OCC (Sliding)", "DUR (Sliding)", etc.]).
         """
         extracted_features = set()
+        extracted_features_with_mode = {}  # feature_code -> set of modes
         
         if not hasattr(tbx, "extracted_features_path") or not os.path.exists(
             tbx.extracted_features_path
@@ -571,7 +577,7 @@ class CompareStudiesWindow(QDialog):
             return getattr(tbx, "feature_list", [])
         
         # Try to load all available feature files to discover column features
-        # Don't return early - accumulate features from ALL files
+        # Track which modes each feature appears in
         for feature_type in self.FEATURE_TYPES:
             if feature_type not in available_features:
                 continue
@@ -603,7 +609,9 @@ class CompareStudiesWindow(QDialog):
                                 if df is not None:
                                     # Extract feature codes from column names
                                     for col in df.columns:
-                                        if col in ["Filename", "Study"]:
+                                        if col in ["Filename", "Study", "Window_index", "Trial", 
+                                                   "Window_Type", "Event_name", "base_filename",
+                                                   "window_start_idx", "window_end_idx", "window_duration_ms"]:
                                             continue
                                         # Extract feature code from column name
                                         # e.g., "COV_A" -> "COV", "TP_A_B" -> "TP", "DUR_SD_A" -> "DUR_SD"
@@ -616,14 +624,54 @@ class CompareStudiesWindow(QDialog):
                                             feature_code = parts[0]
                                         
                                         extracted_features.add(feature_code)
+                                        
+                                        # Track which mode this feature appears in
+                                        if feature_code not in extracted_features_with_mode:
+                                            extracted_features_with_mode[feature_code] = set()
+                                        extracted_features_with_mode[feature_code].add(feature_mode)
                                     
                             except Exception as e:
                                 print(f"Warning: Could not read feature columns from {feature_path}: {e}")
                                 continue
         
-        # Return all accumulated features (from both standard and variability files)
-        if extracted_features:
-            return sorted(list(extracted_features))
+        # Build final feature list with mode suffixes where needed
+        final_feature_list = []
+        for feature_code in sorted(extracted_features):
+            modes = extracted_features_with_mode.get(feature_code, set())
+            
+            # Check if this is a variability feature (SD, RMSSD)
+            # These are computed FROM sliding but result in single value per file
+            is_variability_feature = (
+                feature_code.endswith("_SD") or 
+                feature_code.endswith("_RMSSD") or
+                "_SD_" in feature_code or
+                "_RMSSD_" in feature_code
+            )
+            
+            # If feature appears in multiple modes, add separate entries for each mode
+            if len(modes) > 1:
+                # Add averaged mode first (if available)
+                if "averaged" in modes:
+                    final_feature_list.append(feature_code)  # No suffix for averaged (default)
+                # Add sliding mode (but not for variability features - they're always aggregated)
+                if "sliding" in modes and not is_variability_feature:
+                    final_feature_list.append(f"{feature_code} (Sliding)")
+                # Add other modes
+                for mode in sorted(modes):
+                    if mode not in ["averaged", "sliding"]:
+                        final_feature_list.append(f"{feature_code} ({mode.capitalize()})")
+            else:
+                # Feature only in one mode
+                # Variability features are always treated as aggregated, even if only in sliding mode
+                if "sliding" in modes and not is_variability_feature:
+                    final_feature_list.append(f"{feature_code} (Sliding)")
+                else:
+                    # Regular feature or variability feature - no suffix
+                    final_feature_list.append(feature_code)
+        
+        # Return all accumulated features
+        if final_feature_list:
+            return final_feature_list
         
         # If we couldn't read any files, fallback to config feature_list
         return getattr(tbx, "feature_list", [])
@@ -632,12 +680,29 @@ class CompareStudiesWindow(QDialog):
         """Populate the feature combo box with full feature names.
 
         Args:
-            features: List of feature codes.
+            features: List of feature codes (may include mode suffixes like "COV (Sliding)").
         """
         self.ui.feature_combo.clear()
-        full_feature_names = [
-            self.feature_list_dictionary.get(feat, feat) for feat in features
-        ]
+        full_feature_names = []
+        
+        for feat in features:
+            # Check if this has a mode suffix
+            if " (" in feat and feat.endswith(")"):
+                # Extract feature code and mode
+                feature_code = feat.split(" (")[0]
+                mode = feat.split(" (")[1].rstrip(")")
+                
+                # Get full feature name
+                full_name = self.feature_list_dictionary.get(feature_code, feature_code)
+                
+                # Append mode with dash separator
+                full_feature_name = f"{full_name} - {mode}"
+            else:
+                # No mode suffix, just get full name
+                full_feature_name = self.feature_list_dictionary.get(feat, feat)
+            
+            full_feature_names.append(full_feature_name)
+        
         self.ui.feature_combo.addItems(full_feature_names)
 
     def _set_no_features_message(self, message: str = None) -> None:
@@ -701,12 +766,25 @@ class CompareStudiesWindow(QDialog):
             Feature short code (e.g., "COV", "OCC"), or the full name if not found.
         """
         selected_full_name = self.ui.feature_combo.currentText()
+        
+        # Remove mode suffix if present (e.g., "Microstate Coverage (%) - Sliding" -> "Microstate Coverage (%)")
+        if " - " in selected_full_name:
+            selected_full_name = selected_full_name.split(" - ")[0]
 
         if hasattr(self, "feature_list_dictionary"):
             reverse_dict = {v: k for k, v in self.feature_list_dictionary.items()}
             return reverse_dict.get(selected_full_name, selected_full_name)
 
         return selected_full_name
+    
+    def _is_sliding_feature_selected(self) -> bool:
+        """Check if the currently selected feature is a sliding feature.
+        
+        Returns:
+            True if selected feature has "- Sliding" suffix, False otherwise.
+        """
+        selected_full_name = self.ui.feature_combo.currentText()
+        return " - Sliding" in selected_full_name
 
     def _get_compatible_features(self) -> Tuple[Optional[str], Optional[str]]:
         """Return features that are compatible between the selected studies.
@@ -1393,6 +1471,12 @@ class CompareStudiesWindow(QDialog):
         """Update feature comparison t-test statistics in the UI."""
         self.ui.stats_textedit.clear()
         
+        # Check if this is a sliding feature - use repeated measures analysis
+        if self._is_sliding_feature_selected():
+            self._perform_sliding_feature_analysis()
+            return
+        
+        # Otherwise, use standard t-test analysis for averaged features
         # Get analysis information
         (
             feature_list,
@@ -1713,6 +1797,603 @@ class CompareStudiesWindow(QDialog):
             p_values.append(p_value)
 
         return t_test_results, p_values
+
+    # ==================== SLIDING FEATURE (REPEATED MEASURES) ANALYSIS ====================
+    
+    def _perform_sliding_feature_analysis(self) -> None:
+        """Perform repeated measures analysis for sliding window features.
+        
+        This method handles two scenarios:
+        1. Fixed sliding windows: Each window is treated as a repeated measure
+        2. Event-based windows: Pre/post event comparisons
+        """
+        selected_feature = self._get_selected_feature_code()
+        
+        try:
+            # Load sliding features (always use "sliding" mode for sliding features)
+            features_df_study1 = self._load_features_safely(
+                self.comet_tbx_study1, "real", "sliding"
+            )
+            
+            if features_df_study1 is None:
+                self.ui.stats_textedit.appendPlainText(
+                    f"Could not load sliding features for {selected_feature}.\n"
+                    f"Please ensure sliding features have been extracted."
+                )
+                return
+            
+            # Get study2 features based on comparison mode
+            if self.ui.compare_two_studies_radio.isChecked():
+                # Two separate studies
+                features_df_study2 = self._load_features_safely(
+                    self.comet_tbx_study2, "real", "sliding"
+                )
+                if features_df_study2 is None:
+                    self.ui.stats_textedit.appendPlainText(
+                        "Could not load sliding features from Study 2."
+                    )
+                    return
+                # Filter each study by its respective file list
+                features_df_study1 = self._filter_features_by_filelist(
+                    features_df_study1, self.ui.study1_file_list
+                )
+                features_df_study2 = self._filter_features_by_filelist(
+                    features_df_study2, self.ui.study2_file_list
+                )
+            elif self.ui.compare_within_study_radio.isChecked():
+                # Within-study comparison: both groups come from the same data
+                # Keep the original data for filtering by each group separately
+                features_df_full = features_df_study1.copy()
+                
+                # Filter by study1 files (e.g., eyesopen files)
+                features_df_study1 = self._filter_features_by_filelist(
+                    features_df_full, self.ui.study1_file_list
+                )
+                
+                # Filter by study2 files (e.g., eyesclosed files)
+                features_df_study2 = self._filter_features_by_filelist(
+                    features_df_full, self.ui.study2_file_list
+                )
+            else:
+                self.ui.stats_textedit.appendPlainText(
+                    "Repeated measures analysis for synthetic comparisons is not yet implemented."
+                )
+                return
+            
+            # Detect if this is event-based or fixed windows
+            is_event_based = "Event_name" in features_df_study1.columns
+            
+            if is_event_based:
+                self._analyze_event_based_sliding(
+                    features_df_study1, features_df_study2, selected_feature
+                )
+            else:
+                self._analyze_fixed_window_sliding(
+                    features_df_study1, features_df_study2, selected_feature
+                )
+                
+        except Exception as e:
+            self._show_error(
+                "Sliding Feature Analysis Error",
+                f"Failed to perform repeated measures analysis:\n{str(e)}\n\n{traceback.format_exc()}"
+            )
+    
+    def _analyze_fixed_window_sliding(
+        self, df1: pd.DataFrame, df2: pd.DataFrame, selected_feature: str
+    ) -> None:
+        """Analyze fixed sliding window features using repeated measures.
+        
+        For fixed windows with within-subject design, we need to match subjects
+        between conditions and use a paired analysis.
+        """
+        # Get feature columns - match exactly (feature_microstate format)
+        # This ensures we only get COV_A, COV_B, etc., not other columns
+        feature_cols = []
+        for col in df1.columns:
+            if col == selected_feature:  # Exact match
+                feature_cols.append(col)
+            elif col.startswith(selected_feature + "_"):
+                # Make sure it's in the format FEATURE_MICROSTATE (e.g., COV_A)
+                # and not something else like COV_SD_A
+                parts = col.split("_")
+                if len(parts) == 2 and parts[0] == selected_feature:
+                    feature_cols.append(col)
+        
+        if not feature_cols:
+            self.ui.stats_textedit.appendPlainText(
+                f"No feature columns found for '{selected_feature}' in sliding data.\n"
+                f"Available columns: {list(df1.columns)[:20]}"
+            )
+            return
+        
+        # Check if dataframes have data
+        if df1.empty:
+            self.ui.stats_textedit.appendPlainText(
+                f"Study 1 dataframe is empty after filtering."
+            )
+            return
+        
+        if df2.empty:
+            self.ui.stats_textedit.appendPlainText(
+                f"Study 2 dataframe is empty after filtering."
+            )
+            return
+        
+        # Print header
+        comparison_info = self._get_comparison_info()
+        header_text = (
+            f"Repeated Measures Analysis - Fixed Sliding Windows\n"
+            f"{'=' * 60}\n"
+            f"Feature: {self.feature_list_dictionary.get(selected_feature, selected_feature)}\n"
+            f"Comparison: {comparison_info['comparison_type']}\n"
+            f"Study 1: {comparison_info['study1_name']} ({comparison_info['study1_files']} files)\n"
+            f"Study 2: {comparison_info['study2_name']} ({comparison_info['study2_files']} files)\n"
+            f"Analysis: Repeated measures across {len(feature_cols)} microstate(s)\n"
+            f"Microstate columns: {feature_cols}\n"
+            f"Study 1 data: {len(df1)} windows\n"
+            f"Study 2 data: {len(df2)} windows\n"
+            f"{'=' * 60}\n\n"
+        )
+        self.ui.stats_textedit.appendPlainText(header_text)
+        
+        # Check if this is a within-subject design
+        is_within_subject = self.ui.compare_within_study_radio.isChecked()
+        
+        # For each microstate, perform analysis
+        results = []
+        for feat_col in feature_cols:
+            # Get microstate label
+            microstate_label = "_".join(feat_col.split("_")[1:]) if "_" in feat_col else feat_col
+            
+            if is_within_subject:
+                # For within-subject: aggregate per subject, then paired t-test
+                # Extract subject IDs and aggregate
+                def extract_subject_id(filename):
+                    """Extract subject ID from filename (remove condition suffix)."""
+                    # Handle BIDS format (e.g., sub-01_ses-session1_task-eyesopen_...)
+                    # Remove task specification onwards
+                    match = re.search(r'(.*?)_task-[^_]+', filename)
+                    if match:
+                        return match.group(1)
+                    
+                    # Fallback: Remove common suffixes like _eyesopen, _eyesclosed, etc.
+                    base = re.sub(r'_(eyesopen|eyesclosed|open|closed|pre|post).*', '', filename)
+                    return base
+                
+                # Aggregate windows per subject
+                subject_means_1 = df1.groupby('Filename')[feat_col].mean()
+                subject_means_2 = df2.groupby('Filename')[feat_col].mean()
+                
+                # Extract subject IDs
+                subj_ids_1 = {extract_subject_id(fname): val for fname, val in subject_means_1.items()}
+                subj_ids_2 = {extract_subject_id(fname): val for fname, val in subject_means_2.items()}
+                
+                # Find matched subjects
+                matched_subjects = set(subj_ids_1.keys()) & set(subj_ids_2.keys())
+                
+                if len(matched_subjects) < 3:
+                    self.ui.stats_textedit.appendPlainText(
+                        f"Skipping {feat_col}: Insufficient matched subjects ({len(matched_subjects)})"
+                    )
+                    continue
+                
+                # Get matched pairs
+                values_1 = [subj_ids_1[subj] for subj in matched_subjects]
+                values_2 = [subj_ids_2[subj] for subj in matched_subjects]
+                
+                # Remove any NaN values
+                valid_pairs = [(v1, v2) for v1, v2 in zip(values_1, values_2) 
+                              if pd.notna(v1) and pd.notna(v2)]
+                
+                if len(valid_pairs) < 3:
+                    continue
+                
+                values_1 = [p[0] for p in valid_pairs]
+                values_2 = [p[1] for p in valid_pairs]
+                
+                # Perform paired t-test
+                t_stat, p_val = ttest_rel(values_1, values_2)
+                
+                mean1 = np.mean(values_1)
+                mean2 = np.mean(values_2)
+                diff = mean2 - mean1
+                
+                # Calculate paired Cohen's d
+                differences = np.array(values_2) - np.array(values_1)
+                cohens_d = np.mean(differences) / np.std(differences, ddof=1) if np.std(differences, ddof=1) > 0 else 0
+                
+                # Calculate 95% CI for the difference
+                se_diff = np.std(differences, ddof=1) / np.sqrt(len(differences))
+                ci_low = diff - t.ppf(0.975, len(differences)-1) * se_diff
+                ci_high = diff + t.ppf(0.975, len(differences)-1) * se_diff
+                
+                n_windows_1 = len(df1[df1[feat_col].notna()])
+                n_windows_2 = len(df2[df2[feat_col].notna()])
+                
+                results.append({
+                    "microstate": microstate_label,
+                    "n_subjects": len(valid_pairs),
+                    "n_windows_1": n_windows_1,
+                    "n_windows_2": n_windows_2,
+                    "mean1": mean1,
+                    "mean2": mean2,
+                    "diff": diff,
+                    "ci_low": ci_low,
+                    "ci_high": ci_high,
+                    "t_stat": t_stat,
+                    "p_val": p_val,
+                    "cohens_d": cohens_d,
+                    "is_paired": True
+                })
+                
+            else:
+                # For independent samples: mixed effects model
+                data_list = []
+                
+                # Add Study 1 data
+                if 'Filename' in df1.columns:
+                    for idx, row in df1.iterrows():
+                        if pd.notna(row[feat_col]):
+                            data_list.append({
+                                'Subject': row['Filename'],
+                                'Group': 0,
+                                'Value': row[feat_col]
+                            })
+                
+                # Add Study 2 data
+                if 'Filename' in df2.columns:
+                    for idx, row in df2.iterrows():
+                        if pd.notna(row[feat_col]):
+                            data_list.append({
+                                'Subject': row['Filename'],
+                                'Group': 1,
+                                'Value': row[feat_col]
+                            })
+                
+                if len(data_list) == 0:
+                    continue
+                
+                analysis_df = pd.DataFrame(data_list)
+                
+                n_subjects_1 = len(analysis_df[analysis_df['Group'] == 0]['Subject'].unique())
+                n_subjects_2 = len(analysis_df[analysis_df['Group'] == 1]['Subject'].unique())
+                n_windows_1 = len(analysis_df[analysis_df['Group'] == 0])
+                n_windows_2 = len(analysis_df[analysis_df['Group'] == 1])
+                mean1 = analysis_df[analysis_df['Group'] == 0]['Value'].mean()
+                mean2 = analysis_df[analysis_df['Group'] == 1]['Value'].mean()
+                
+                if n_subjects_1 < 2 or n_subjects_2 < 2:
+                    continue
+                
+                try:
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('ignore', category=Warning)
+                        
+                        model = smf.mixedlm("Value ~ Group", data=analysis_df, 
+                                            groups=analysis_df["Subject"],
+                                            re_formula="1")
+                        result = model.fit(method='lbfgs', maxiter=100)
+                    
+                    coef = result.params['Group']
+                    p_val = result.pvalues['Group']
+                    ci_low, ci_high = result.conf_int().loc['Group']
+                    
+                    pooled_sd = np.sqrt(result.scale)
+                    cohens_d = coef / pooled_sd if pooled_sd > 0 else 0
+                    
+                    results.append({
+                        "microstate": microstate_label,
+                        "n_subjects_1": n_subjects_1,
+                        "n_subjects_2": n_subjects_2,
+                        "n_windows_1": n_windows_1,
+                        "n_windows_2": n_windows_2,
+                        "mean1": mean1,
+                        "mean2": mean2,
+                        "diff": coef,
+                        "ci_low": ci_low,
+                        "ci_high": ci_high,
+                        "t_stat": None,
+                        "p_val": p_val,
+                        "cohens_d": cohens_d,
+                        "converged": result.converged,
+                        "is_paired": False
+                    })
+                    
+                except Exception as e:
+                    self.ui.stats_textedit.appendPlainText(
+                        f"Error fitting model for {feat_col}: {str(e)}"
+                    )
+                    continue
+        
+        if not results:
+            self.ui.stats_textedit.appendPlainText(
+                "\nNo valid data for analysis.\n"
+                f"This may indicate that the file filtering is not matching correctly.\n"
+                f"Study 1 files in list: {[self.ui.study1_file_list.item(i).text() for i in range(min(3, self.ui.study1_file_list.count()))]}\n"
+                f"Study 2 files in list: {[self.ui.study2_file_list.item(i).text() for i in range(min(3, self.ui.study2_file_list.count()))]}\n"
+                f"Filenames in sliding data: {df1['Filename'].unique()[:3].tolist() if 'Filename' in df1.columns else 'No Filename column'}"
+            )
+            return
+        
+        # Apply multiple testing correction
+        p_values = [r["p_val"] for r in results]
+        _, adj_p_values, _, _ = multipletests(
+            p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
+        )
+        
+        for i, result in enumerate(results):
+            result["adj_p_val"] = adj_p_values[i]
+        
+        # Display results header based on analysis type
+        if is_within_subject:
+            self.ui.stats_textedit.appendPlainText(
+                "\nPaired Analysis Results (Within-Subject Design):\n"
+                f"{'-' * 130}\n"
+                f"{'Microstate':<12} {'N_Pairs':<10} {'N_Windows':<16} {'Mean(Cond1)':<13} {'Mean(Cond2)':<13} "
+                f"{'Diff':<10} {'95% CI':<26} {'t-stat':<10} {'p-value':<12} {'Adj.p':<12} {'d':<8}\n"
+                f"{'-' * 130}"
+            )
+            
+            for result in results:
+                sig_marker = " ***" if result['adj_p_val'] < 0.001 else " **" if result['adj_p_val'] < 0.01 else " *" if result['adj_p_val'] < 0.05 else ""
+                
+                n_win_str = f"{result['n_windows_1']}/{result['n_windows_2']}"
+                ci_str = f"[{result['ci_low']:.4f}, {result['ci_high']:.4f}]"
+                
+                p_str = f"{result['p_val']:.2e}" if result['p_val'] < 0.001 else f"{result['p_val']:.6f}"
+                adj_p_str = f"{result['adj_p_val']:.2e}" if result['adj_p_val'] < 0.001 else f"{result['adj_p_val']:.6f}"
+                
+                self.ui.stats_textedit.appendPlainText(
+                    f"{result['microstate']:<12} {result['n_subjects']:<10} {n_win_str:<16} "
+                    f"{result['mean1']:<13.4f} {result['mean2']:<13.4f} "
+                    f"{result['diff']:<10.4f} {ci_str:<26} "
+                    f"{result['t_stat']:<10.4f} {p_str:<12} {adj_p_str:<12} {result['cohens_d']:<8.3f}"
+                    f"{sig_marker}"
+                )
+            
+            n_sig = sum(1 for r in results if r["adj_p_val"] < 0.05)
+            
+            self.ui.stats_textedit.appendPlainText(
+                f"\n{'-' * 130}\n"
+                f"Significant differences (adjusted p < 0.05): {n_sig}/{len(results)}\n"
+                f"Multiple testing correction: {self.ui.multiple_test_method_combo.currentText()}\n\n"
+                f"Note:\n"
+                f"  - Analysis: Paired t-test on subject-averaged values (windows aggregated per subject)\n"
+                f"  - N_Pairs: Number of matched subject pairs\n"
+                f"  - N_Windows: Total windows used for aggregation (Cond1/Cond2)\n"
+                f"  - Diff: Mean difference (Condition2 - Condition1)\n"
+                f"  - 95% CI: Confidence interval for mean difference\n"
+                f"  - d: Cohen's d effect size (for paired samples)\n"
+                f"  - Significance: *** p<0.001, ** p<0.01, * p<0.05\n"
+            )
+        else:
+            self.ui.stats_textedit.appendPlainText(
+                "\nMixed Effects Model Results (Independent Groups):\n"
+                f"{'-' * 130}\n"
+                f"{'Microstate':<12} {'N_Subj':<12} {'N_Windows':<16} {'Mean(S1)':<12} {'Mean(S2)':<12} "
+                f"{'Diff':<10} {'95% CI':<26} {'p-value':<12} {'Adj.p':<12} {'d':<8}\n"
+                f"{'-' * 130}"
+            )
+            
+            for result in results:
+                sig_marker = " ***" if result['adj_p_val'] < 0.001 else " **" if result['adj_p_val'] < 0.01 else " *" if result['adj_p_val'] < 0.05 else ""
+                conv_marker = "" if result.get('converged', True) else " [!]"
+                
+                n_subj_str = f"{result['n_subjects_1']}/{result['n_subjects_2']}"
+                n_win_str = f"{result['n_windows_1']}/{result['n_windows_2']}"
+                ci_str = f"[{result['ci_low']:.4f}, {result['ci_high']:.4f}]"
+                
+                p_str = f"{result['p_val']:.2e}" if result['p_val'] < 0.001 else f"{result['p_val']:.6f}"
+                adj_p_str = f"{result['adj_p_val']:.2e}" if result['adj_p_val'] < 0.001 else f"{result['adj_p_val']:.6f}"
+                
+                self.ui.stats_textedit.appendPlainText(
+                    f"{result['microstate']:<12} {n_subj_str:<12} {n_win_str:<16} "
+                    f"{result['mean1']:<12.4f} {result['mean2']:<12.4f} "
+                    f"{result['diff']:<10.4f} {ci_str:<26} "
+                    f"{p_str:<12} {adj_p_str:<12} {result['cohens_d']:<8.3f}"
+                    f"{sig_marker}{conv_marker}"
+                )
+            
+            n_sig = sum(1 for r in results if r["adj_p_val"] < 0.05)
+            n_converged = sum(r.get('converged', True) for r in results)
+            
+            self.ui.stats_textedit.appendPlainText(
+                f"\n{'-' * 130}\n"
+                f"Significant differences (adjusted p < 0.05): {n_sig}/{len(results)}\n"
+                f"Models converged: {n_converged}/{len(results)}\n"
+                f"Multiple testing correction: {self.ui.multiple_test_method_combo.currentText()}\n\n"
+                f"Note:\n"
+                f"  - Model: Value ~ Group + (1|Subject) - accounts for within-subject correlation\n"
+                f"  - N_Subj: Number of subjects (Study1/Study2)\n"
+                f"  - N_Windows: Total windows analyzed (Study1/Study2)\n"
+                f"  - Diff: Group effect (Study2 - Study1)\n"
+                f"  - 95% CI: Confidence interval for group difference\n"
+                f"  - d: Cohen's d effect size\n"
+                f"  - Significance: *** p<0.001, ** p<0.01, * p<0.05\n"
+                f"  - [!]: Model convergence warning\n"
+            )
+    
+    def _analyze_event_based_sliding(
+        self, df1: pd.DataFrame, df2: pd.DataFrame, selected_feature: str
+    ) -> None:
+        """Analyze event-based sliding window features.
+        
+        For event-based data, we compare features across different events or
+        pre/post event windows.
+        """
+        # Get feature columns
+        feature_cols = [col for col in df1.columns 
+                       if col.startswith(selected_feature + "_")]
+        
+        if not feature_cols:
+            self.ui.stats_textedit.appendPlainText(
+                f"No feature columns found for '{selected_feature}' in event-based data."
+            )
+            return
+        
+        # Check if we have Window_Type column (Pre/Post distinction)
+        has_window_type = "Window_Type" in df1.columns
+        
+        # Print header
+        comparison_info = self._get_comparison_info()
+        header_text = (
+            f"Repeated Measures Analysis - Event-Based Windows\n"
+            f"{'=' * 60}\n"
+            f"Feature: {self.feature_list_dictionary.get(selected_feature, selected_feature)}\n"
+            f"Comparison: {comparison_info['comparison_type']}\n"
+            f"Study 1: {comparison_info['study1_name']} ({comparison_info['study1_files']} files)\n"
+            f"Study 2: {comparison_info['study2_name']} ({comparison_info['study2_files']} files)\n"
+            f"Analysis: Event-based repeated measures across {len(feature_cols)} microstate(s)\n"
+        )
+        
+        if has_window_type:
+            header_text += f"Window Types: {df1['Window_Type'].unique().tolist()}\n"
+        
+        header_text += f"{'=' * 60}\n\n"
+        self.ui.stats_textedit.appendPlainText(header_text)
+        
+        # Perform mixed effects analysis for each microstate
+        results = []
+        for feat_col in feature_cols:
+            microstate_label = "_".join(feat_col.split("_")[1:]) if "_" in feat_col else feat_col
+            
+            # Prepare data for mixed effects model
+            data_list = []
+            
+            # Add Study 1 data
+            if 'Filename' in df1.columns:
+                for idx, row in df1.iterrows():
+                    if pd.notna(row[feat_col]):
+                        data_list.append({
+                            'Subject': row['Filename'],
+                            'Group': 0,
+                            'Value': row[feat_col]
+                        })
+            
+            # Add Study 2 data
+            if 'Filename' in df2.columns:
+                for idx, row in df2.iterrows():
+                    if pd.notna(row[feat_col]):
+                        data_list.append({
+                            'Subject': row['Filename'],
+                            'Group': 1,
+                            'Value': row[feat_col]
+                        })
+            
+            if len(data_list) == 0:
+                continue
+            
+            # Create dataframe for mixed effects model
+            analysis_df = pd.DataFrame(data_list)
+            
+            # Get summary statistics
+            n_subjects_1 = len(analysis_df[analysis_df['Group'] == 0]['Subject'].unique())
+            n_subjects_2 = len(analysis_df[analysis_df['Group'] == 1]['Subject'].unique())
+            n_events_1 = len(analysis_df[analysis_df['Group'] == 0])
+            n_events_2 = len(analysis_df[analysis_df['Group'] == 1])
+            mean1 = analysis_df[analysis_df['Group'] == 0]['Value'].mean()
+            mean2 = analysis_df[analysis_df['Group'] == 1]['Value'].mean()
+            
+            if n_subjects_1 < 2 or n_subjects_2 < 2:
+                continue
+            
+            try:
+                # Fit mixed effects model
+                model = smf.mixedlm("Value ~ Group", data=analysis_df, 
+                                    groups=analysis_df["Subject"],
+                                    re_formula="1")
+                result = model.fit(method='lbfgs', maxiter=100)
+                
+                # Extract results
+                coef = result.params['Group']
+                p_val = result.pvalues['Group']
+                ci_low, ci_high = result.conf_int().loc['Group']
+                
+                # Calculate effect size
+                pooled_sd = np.sqrt(result.scale)
+                cohens_d = coef / pooled_sd if pooled_sd > 0 else 0
+                
+                results.append({
+                    "microstate": microstate_label,
+                    "n_subjects_1": n_subjects_1,
+                    "n_subjects_2": n_subjects_2,
+                    "n_events_1": n_events_1,
+                    "n_events_2": n_events_2,
+                    "mean1": mean1,
+                    "mean2": mean2,
+                    "coef": coef,
+                    "ci_low": ci_low,
+                    "ci_high": ci_high,
+                    "p_val": p_val,
+                    "cohens_d": cohens_d,
+                    "converged": result.converged
+                })
+                
+            except Exception as e:
+                self.ui.stats_textedit.appendPlainText(
+                    f"Error fitting model for {feat_col}: {str(e)}"
+                )
+                continue
+        
+        if not results:
+            self.ui.stats_textedit.appendPlainText("No valid data for analysis.")
+            return
+        
+        # Apply multiple testing correction
+        p_values = [r["p_val"] for r in results]
+        _, adj_p_values, _, _ = multipletests(
+            p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
+        )
+        
+        for i, result in enumerate(results):
+            result["adj_p_val"] = adj_p_values[i]
+        
+        # Display results
+        self.ui.stats_textedit.appendPlainText(
+            "\nMixed Effects Model Results (Value ~ Group + (1|Subject)):\n"
+            f"{'-' * 130}\n"
+            f"{'Microstate':<12} {'N_Subj':<12} {'N_Events':<16} {'Mean(S1)':<12} {'Mean(S2)':<12} "
+            f"{'Diff':<10} {'95% CI':<26} {'p-value':<12} {'Adj.p':<12} {'d':<8}\n"
+            f"{'-' * 130}"
+        )
+        
+        for result in results:
+            sig_marker = " ***" if result['adj_p_val'] < 0.001 else " **" if result['adj_p_val'] < 0.01 else " *" if result['adj_p_val'] < 0.05 else ""
+            conv_marker = "" if result.get('converged', True) else " [!]"
+            
+            n_subj_str = f"{result['n_subjects_1']}/{result['n_subjects_2']}"
+            n_events_str = f"{result['n_events_1']}/{result['n_events_2']}"
+            ci_str = f"[{result['ci_low']:.4f}, {result['ci_high']:.4f}]"
+            
+            p_str = f"{result['p_val']:.2e}" if result['p_val'] < 0.001 else f"{result['p_val']:.6f}"
+            adj_p_str = f"{result['adj_p_val']:.2e}" if result['adj_p_val'] < 0.001 else f"{result['adj_p_val']:.6f}"
+            
+            self.ui.stats_textedit.appendPlainText(
+                f"{result['microstate']:<12} {n_subj_str:<12} {n_events_str:<16} "
+                f"{result['mean1']:<12.4f} {result['mean2']:<12.4f} "
+                f"{result['coef']:<10.4f} {ci_str:<26} "
+                f"{p_str:<12} {adj_p_str:<12} {result['cohens_d']:<8.3f}"
+                f"{sig_marker}{conv_marker}"
+            )
+        
+        # Summary
+        n_sig = sum(1 for r in results if r["adj_p_val"] < 0.05)
+        n_converged = sum(r.get('converged', True) for r in results)
+        
+        self.ui.stats_textedit.appendPlainText(
+            f"\n{'-' * 130}\n"
+            f"Significant differences (adjusted p < 0.05): {n_sig}/{len(results)}\n"
+            f"Models converged: {n_converged}/{len(results)}\n"
+            f"Multiple testing correction: {self.ui.multiple_test_method_combo.currentText()}\n\n"
+            f"Note:\n"
+            f"  - N_Subj: Number of subjects (Study1/Study2)\n"
+            f"  - N_Events: Total event windows analyzed (Study1/Study2)\n"
+            f"  - Diff: Group effect (Study2 - Study1)\n"
+            f"  - 95% CI: Confidence interval for group difference\n"
+            f"  - d: Cohen's d effect size\n"
+            f"  - Significance: *** p<0.001, ** p<0.01, * p<0.05\n"
+            f"  - [!]: Model convergence warning\n"
+        )
 
     # ==================== TEST-RETEST ANALYSIS ====================
 
