@@ -163,17 +163,15 @@ class MicrostateBackfitter:
         """
         n_channels, n_samples = data.shape
         
-        # Normalize microstate maps (each map should have unit norm)
+        # Initial labeling: assign each timepoint to the best-correlating map
+        # Normalize maps and data for correlation computation
         map_norms = np.linalg.norm(microstate_maps, axis=1, keepdims=True)
         maps_normalized = microstate_maps / (map_norms + 1e-10)
         
-        # Normalize data at each timepoint
         data_norms = np.linalg.norm(data, axis=0, keepdims=True)
         data_normalized = data / (data_norms + 1e-10)
         
-        # Initial labeling: assign each timepoint to the best-correlating map
-        # correlation = maps_normalized @ data_normalized
-        activation = maps_normalized.dot(data)
+        activation = maps_normalized.dot(data_normalized)
         segmentation = np.argmax(np.abs(activation), axis=0)
         
         # Compute original sigma² - computed ONCE and kept constant
