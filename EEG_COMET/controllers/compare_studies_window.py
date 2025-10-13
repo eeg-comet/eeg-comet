@@ -299,6 +299,8 @@ class CompareStudiesWindow(QDialog):
             tbx: COMET study instance.
             listwidget: Target QListWidget to receive entries.
         """
+        # Clear existing items before adding new ones
+        listwidget.clear()
         for eeg in tbx.list_eegs:
             listwidget.addItem(str(eeg))
 
@@ -524,16 +526,100 @@ class CompareStudiesWindow(QDialog):
 
     def _populate_common_features(self) -> None:
         """Populate feature combo with features common to both studies."""
+        # Get actual extracted features from files rather than config
+        study1_extracted_features = self._get_extracted_feature_codes(self.comet_tbx_study1)
+        study2_extracted_features = self._get_extracted_feature_codes(self.comet_tbx_study2)
+        
         common_features = [
             feat
-            for feat in self.comet_tbx_study1.feature_list
-            if feat in self.comet_tbx_study2.feature_list
+            for feat in study1_extracted_features
+            if feat in study2_extracted_features
         ]
         self._populate_feature_combo(common_features)
 
     def _populate_study_features(self) -> None:
         """Populate feature combo with features from study 1."""
-        self._populate_feature_combo(self.comet_tbx_study1.feature_list)
+        # Get actual extracted features from files rather than config
+        extracted_features = self._get_extracted_feature_codes(self.comet_tbx_study1)
+        self._populate_feature_combo(extracted_features)
+
+    def _get_extracted_feature_codes(self, tbx: COMET) -> List[str]:
+        """Get list of feature codes that have been actually extracted from feature files.
+        
+        This reads the actual feature file columns rather than relying on the config,
+        ensuring all extracted features (including new variability features) are discovered.
+        
+        Args:
+            tbx: COMET toolbox object to check for extracted features.
+            
+        Returns:
+            List of available feature codes (e.g., ["OCC", "DUR", "COV", "DUR_SD", etc.]).
+        """
+        extracted_features = set()
+        
+        if not hasattr(tbx, "extracted_features_path") or not os.path.exists(
+            tbx.extracted_features_path
+        ):
+            # Fallback to config feature_list if no extracted features path
+            return getattr(tbx, "feature_list", [])
+        
+        # Check what feature files are available for this study
+        available_features = self._discover_available_features(tbx)
+        
+        if not available_features:
+            # Fallback to config feature_list
+            return getattr(tbx, "feature_list", [])
+        
+        # Try to load any available feature file to discover column features
+        for feature_type in self.FEATURE_TYPES:
+            if feature_type not in available_features:
+                continue
+                
+            for feature_mode in available_features[feature_type]:
+                for export_format in self.EXPORT_FORMATS:
+                    feature_filename = f"{feature_type}_{feature_mode}_features{export_format}"
+                    feature_path = os.path.join(tbx.extracted_features_path, feature_filename)
+                    
+                    if os.path.exists(feature_path):
+                        try:
+                            # Load just the header to check columns
+                            df = None
+                            if export_format == ".csv":
+                                df = pd.read_csv(feature_path, nrows=0)
+                            elif export_format == ".pkl":
+                                df = pd.read_pickle(feature_path)
+                            elif export_format == ".hdf":
+                                df = pd.read_hdf(feature_path, key="features")
+                            elif export_format == ".json":
+                                df = pd.read_json(feature_path, lines=True, nrows=0)
+                            
+                            if df is not None:
+                                # Extract feature codes from column names
+                                for col in df.columns:
+                                    if col in ["Filename", "Study"]:
+                                        continue
+                                    # Extract feature code from column name
+                                    # e.g., "COV_A" -> "COV", "TP_A_B" -> "TP", "DUR_SD_A" -> "DUR_SD"
+                                    parts = col.split("_")
+                                    
+                                    # Handle multi-part feature codes like DUR_SD, DUR_RMSSD, etc.
+                                    if len(parts) >= 2 and parts[1] in ["SD", "RMSSD"]:
+                                        feature_code = f"{parts[0]}_{parts[1]}"
+                                    else:
+                                        feature_code = parts[0]
+                                    
+                                    extracted_features.add(feature_code)
+                                
+                                # Successfully discovered features, return them sorted
+                                if extracted_features:
+                                    return sorted(list(extracted_features))
+                                
+                        except Exception as e:
+                            print(f"Warning: Could not read feature columns from {feature_path}: {e}")
+                            continue
+        
+        # If we couldn't read any files, fallback to config feature_list
+        return getattr(tbx, "feature_list", [])
 
     def _populate_feature_combo(self, features: List[str]) -> None:
         """Populate the feature combo box with full feature names.
