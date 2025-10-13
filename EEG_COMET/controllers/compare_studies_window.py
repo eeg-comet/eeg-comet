@@ -570,53 +570,60 @@ class CompareStudiesWindow(QDialog):
             # Fallback to config feature_list
             return getattr(tbx, "feature_list", [])
         
-        # Try to load any available feature file to discover column features
+        # Try to load all available feature files to discover column features
+        # Don't return early - accumulate features from ALL files
         for feature_type in self.FEATURE_TYPES:
             if feature_type not in available_features:
                 continue
                 
             for feature_mode in available_features[feature_type]:
                 for export_format in self.EXPORT_FORMATS:
-                    feature_filename = f"{feature_type}_{feature_mode}_features{export_format}"
-                    feature_path = os.path.join(tbx.extracted_features_path, feature_filename)
+                    # Try both standard and variability feature files
+                    filenames_to_try = [
+                        f"{feature_type}_{feature_mode}_features{export_format}",
+                        f"{feature_type}_{feature_mode}_variability_features{export_format}"
+                    ]
                     
-                    if os.path.exists(feature_path):
-                        try:
-                            # Load just the header to check columns
-                            df = None
-                            if export_format == ".csv":
-                                df = pd.read_csv(feature_path, nrows=0)
-                            elif export_format == ".pkl":
-                                df = pd.read_pickle(feature_path)
-                            elif export_format == ".hdf":
-                                df = pd.read_hdf(feature_path, key="features")
-                            elif export_format == ".json":
-                                df = pd.read_json(feature_path, lines=True, nrows=0)
-                            
-                            if df is not None:
-                                # Extract feature codes from column names
-                                for col in df.columns:
-                                    if col in ["Filename", "Study"]:
-                                        continue
-                                    # Extract feature code from column name
-                                    # e.g., "COV_A" -> "COV", "TP_A_B" -> "TP", "DUR_SD_A" -> "DUR_SD"
-                                    parts = col.split("_")
-                                    
-                                    # Handle multi-part feature codes like DUR_SD, DUR_RMSSD, etc.
-                                    if len(parts) >= 2 and parts[1] in ["SD", "RMSSD"]:
-                                        feature_code = f"{parts[0]}_{parts[1]}"
-                                    else:
-                                        feature_code = parts[0]
-                                    
-                                    extracted_features.add(feature_code)
+                    for feature_filename in filenames_to_try:
+                        feature_path = os.path.join(tbx.extracted_features_path, feature_filename)
+                        
+                        if os.path.exists(feature_path):
+                            try:
+                                # Load just the header to check columns
+                                df = None
+                                if export_format == ".csv":
+                                    df = pd.read_csv(feature_path, nrows=0)
+                                elif export_format == ".pkl":
+                                    df = pd.read_pickle(feature_path)
+                                elif export_format == ".hdf":
+                                    df = pd.read_hdf(feature_path, key="features")
+                                elif export_format == ".json":
+                                    df = pd.read_json(feature_path, lines=True, nrows=0)
                                 
-                                # Successfully discovered features, return them sorted
-                                if extracted_features:
-                                    return sorted(list(extracted_features))
-                                
-                        except Exception as e:
-                            print(f"Warning: Could not read feature columns from {feature_path}: {e}")
-                            continue
+                                if df is not None:
+                                    # Extract feature codes from column names
+                                    for col in df.columns:
+                                        if col in ["Filename", "Study"]:
+                                            continue
+                                        # Extract feature code from column name
+                                        # e.g., "COV_A" -> "COV", "TP_A_B" -> "TP", "DUR_SD_A" -> "DUR_SD"
+                                        parts = col.split("_")
+                                        
+                                        # Handle multi-part feature codes like DUR_SD, DUR_RMSSD, etc.
+                                        if len(parts) >= 2 and parts[1] in ["SD", "RMSSD"]:
+                                            feature_code = f"{parts[0]}_{parts[1]}"
+                                        else:
+                                            feature_code = parts[0]
+                                        
+                                        extracted_features.add(feature_code)
+                                    
+                            except Exception as e:
+                                print(f"Warning: Could not read feature columns from {feature_path}: {e}")
+                                continue
+        
+        # Return all accumulated features (from both standard and variability files)
+        if extracted_features:
+            return sorted(list(extracted_features))
         
         # If we couldn't read any files, fallback to config feature_list
         return getattr(tbx, "feature_list", [])
@@ -798,14 +805,24 @@ class CompareStudiesWindow(QDialog):
             available_modes = []
             for feature_mode in CompareStudiesWindow.FEATURE_MODES:
                 for export_format in CompareStudiesWindow.EXPORT_FORMATS:
+                    # Check for standard feature files
                     feature_filename = (
                         f"{feature_type}_{feature_mode}_features{export_format}"
                     )
                     feature_path = os.path.join(
                         tbx.extracted_features_path, feature_filename
                     )
+                    
+                    # Also check for variability feature files
+                    variability_filename = (
+                        f"{feature_type}_{feature_mode}_variability_features{export_format}"
+                    )
+                    variability_path = os.path.join(
+                        tbx.extracted_features_path, variability_filename
+                    )
+                    
                     if (
-                        os.path.exists(feature_path)
+                        (os.path.exists(feature_path) or os.path.exists(variability_path))
                         and feature_mode not in available_modes
                     ):
                         available_modes.append(feature_mode)
@@ -820,6 +837,8 @@ class CompareStudiesWindow(QDialog):
         tbx: COMET, feature_type: str, feature_mode: str
     ) -> Optional[pd.DataFrame]:
         """Safely load features with proper error handling.
+        
+        Loads both standard and variability features if both exist, and merges them.
 
         Args:
             tbx: COMET toolbox object.
@@ -834,16 +853,84 @@ class CompareStudiesWindow(QDialog):
         ):
             return None
 
+        standard_df = None
+        variability_df = None
+        
         for export_format in CompareStudiesWindow.EXPORT_FORMATS:
+            # Try to load standard feature file
             feature_filename = f"{feature_type}_{feature_mode}_features{export_format}"
             feature_path = os.path.join(tbx.extracted_features_path, feature_filename)
 
             if os.path.exists(feature_path):
                 try:
-                    return FeatureIO().import_features(feature_path, export_format)
+                    standard_df = FeatureIO().import_features(feature_path, export_format)
                 except Exception as e:
                     print(f"Error loading {feature_path}: {e}")
-                    continue
+            
+            # Try to load variability feature file from the same mode
+            variability_filename = f"{feature_type}_{feature_mode}_variability_features{export_format}"
+            variability_path = os.path.join(tbx.extracted_features_path, variability_filename)
+
+            if os.path.exists(variability_path):
+                try:
+                    variability_df = FeatureIO().import_features(variability_path, export_format)
+                except Exception as e:
+                    print(f"Error loading {variability_path}: {e}")
+            
+            # If variability features don't exist for current mode, try sliding mode
+            # (variability features are often only extracted for sliding windows)
+            if variability_df is None and feature_mode != "sliding":
+                variability_sliding_filename = f"{feature_type}_sliding_variability_features{export_format}"
+                variability_sliding_path = os.path.join(tbx.extracted_features_path, variability_sliding_filename)
+                
+                if os.path.exists(variability_sliding_path):
+                    try:
+                        # Load the sliding variability features
+                        variability_sliding_df = FeatureIO().import_features(variability_sliding_path, export_format)
+                        
+                        # For averaged mode, we need to average the sliding variability features per file
+                        if feature_mode == "averaged" and "Filename" in variability_sliding_df.columns:
+                            # Group by Filename and calculate mean for all feature columns
+                            feature_cols = [col for col in variability_sliding_df.columns 
+                                          if col not in ['Filename', 'Study', 'Window_index', 'Trial', 
+                                                        'Window_Type', 'Event_name', 'base_filename',
+                                                        'window_start_idx', 'window_end_idx', 'window_duration_ms']]
+                            
+                            if feature_cols:
+                                # Average across windows for each file
+                                variability_df = variability_sliding_df.groupby('Filename')[feature_cols].mean().reset_index()
+                        else:
+                            # For other modes, just use the sliding data as-is
+                            variability_df = variability_sliding_df
+                            
+                    except Exception as e:
+                        print(f"Error loading or processing {variability_sliding_path}: {e}")
+            
+            # If we found at least one file with this export format, process and return
+            if standard_df is not None or variability_df is not None:
+                # Merge standard and variability features if both exist
+                if standard_df is not None and variability_df is not None:
+                    # Identify metadata columns to merge on (not feature columns)
+                    # Common metadata columns in feature files
+                    potential_merge_cols = ['Filename', 'Study', 'Window_index', 'Trial', 
+                                           'Window_Type', 'Event_name', 'base_filename',
+                                           'window_start_idx', 'window_end_idx', 'window_duration_ms']
+                    
+                    # Find which metadata columns exist in both dataframes
+                    merge_cols = [col for col in potential_merge_cols 
+                                  if col in standard_df.columns and col in variability_df.columns]
+                    
+                    if merge_cols:
+                        merged_df = pd.merge(standard_df, variability_df, 
+                                           on=merge_cols, how='outer')
+                        return merged_df
+                    else:
+                        # If no common metadata columns, just return standard features
+                        return standard_df
+                elif standard_df is not None:
+                    return standard_df
+                elif variability_df is not None:
+                    return variability_df
 
         return None
 
@@ -1134,9 +1221,17 @@ class CompareStudiesWindow(QDialog):
         Returns:
             Tuple of (melted plot data, feature column list).
         """
-        columns_to_keep = ["Filename", "Study"] + [
-            col for col in common_features_df.columns if col.startswith(selected_feature)
-        ]
+        # Match columns that start with the feature code followed by underscore
+        # This ensures "DUR" doesn't match "DUR_SD_A" but matches "DUR_A"
+        # Also handle single-column features (no underscore suffix)
+        feature_columns = []
+        for col in common_features_df.columns:
+            if col == selected_feature:  # Exact match for single-column features
+                feature_columns.append(col)
+            elif col.startswith(selected_feature + "_"):  # Must have underscore after feature code
+                feature_columns.append(col)
+        
+        columns_to_keep = ["Filename", "Study"] + feature_columns
         filtered_df = common_features_df[columns_to_keep]
         feature_list = [
             col for col in filtered_df.columns if col not in ["Study", "Filename"]
@@ -1165,14 +1260,25 @@ class CompareStudiesWindow(QDialog):
         self, ax, plot_data: pd.DataFrame, selected_feature: str
     ) -> None:
         """Create violin plot with swarm overlay."""
-        # Create violin plot
+        # Get display names from UI labels
+        study1_display_name = self.ui.study1_name_label.text()
+        study2_display_name = self.ui.study2_name_label.text()
+        
+        # Create a copy of plot_data and replace study names with display names
+        plot_data_display = plot_data.copy()
+        plot_data_display['Study'] = plot_data_display['Study'].replace({
+            self.comet_tbx_study1.study_name: study1_display_name,
+            self.study2_name: study2_display_name
+        })
+        
+        # Create violin plot with display names
         sns.violinplot(
             x="Feature",
             y=selected_feature,
             hue="Study",
-            data=plot_data,
+            data=plot_data_display,
             ax=ax,
-            hue_order=[self.comet_tbx_study1.study_name, self.study2_name],
+            hue_order=[study1_display_name, study2_display_name],
         )
 
         # Overlay swarm plot for individual data points
@@ -1180,7 +1286,7 @@ class CompareStudiesWindow(QDialog):
             x="Feature",
             y=selected_feature,
             hue="Study",
-            data=plot_data,
+            data=plot_data_display,
             ax=ax,
             color="white",
             size=10,
@@ -1296,9 +1402,18 @@ class CompareStudiesWindow(QDialog):
         ) = self._perform_feature_comparison_analysis()
 
         if not feature_list:
-            self.ui.stats_textedit.appendPlainText(
-                "No features available for statistical comparison."
+            selected_feature = self._get_selected_feature_code()
+            error_msg = (
+                f"No features available for statistical comparison.\n\n"
+                f"Selected feature: {selected_feature}\n\n"
+                f"This may happen if:\n"
+                f"1. The selected feature '{selected_feature}' is not present in the loaded feature files\n"
+                f"2. The feature files don't contain data for this feature\n"
+                f"3. The files need to be re-extracted with updated feature extraction code\n\n"
+                f"Hint: For variability features (e.g., DUR_SD, DUR_RMSSD), make sure you have\n"
+                f"extracted features using the latest version of the code that supports variability features."
             )
+            self.ui.stats_textedit.appendPlainText(error_msg)
             return
 
         # Display header information
@@ -1530,14 +1645,22 @@ class CompareStudiesWindow(QDialog):
         feature_list = [
             col for col in study1_df.columns if col not in ["Study", "Filename"]
         ]
+        
+        # Check if we have any features to compare
+        if not feature_list:
+            return [], {}, [], []
+        
         t_test_results, p_values = self._calculate_t_tests(
             study1_df, study2_df, feature_list
         )
 
-        # Adjust p-values for multiple testing
-        adjusted_p_values = multipletests(
-            p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
-        )[1]
+        # Adjust p-values for multiple testing only if we have p-values
+        if p_values:
+            adjusted_p_values = multipletests(
+                p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
+            )[1]
+        else:
+            adjusted_p_values = []
 
         return feature_list, t_test_results, p_values, adjusted_p_values
 
@@ -1545,9 +1668,17 @@ class CompareStudiesWindow(QDialog):
         self, common_features_df: pd.DataFrame, selected_feature: str
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Separate combined features DataFrame by study."""
-        columns_to_keep = ["Filename", "Study"] + [
-            col for col in common_features_df.columns if col.startswith(selected_feature)
-        ]
+        # Match columns that start with the feature code followed by underscore
+        # This ensures "DUR" doesn't match "DUR_SD_A" but matches "DUR_A"
+        # Also handle single-column features (no underscore suffix)
+        feature_columns = []
+        for col in common_features_df.columns:
+            if col == selected_feature:  # Exact match for single-column features
+                feature_columns.append(col)
+            elif col.startswith(selected_feature + "_"):  # Must have underscore after feature code
+                feature_columns.append(col)
+        
+        columns_to_keep = ["Filename", "Study"] + feature_columns
         filtered_df = common_features_df[columns_to_keep]
 
         study1_df = filtered_df[
