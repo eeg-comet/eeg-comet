@@ -642,6 +642,19 @@ class COMET:
             self.done_source_localization = False
             self.done_identifying_microstate_sources = False
 
+        # Load clustering results if available
+        if "clustering_results" in self.config:
+            clustering_results = self.config["clustering_results"]
+            try:
+                self.best_gev = clustering_results.getfloat("best_gev", 0.0)
+            except (ValueError, TypeError):
+                self.best_gev = 0.0
+            
+            try:
+                self.best_residual = clustering_results.getfloat("best_residual", np.inf)
+            except (ValueError, TypeError):
+                self.best_residual = np.inf
+
         # Load metadata if available
         if "metadata" in self.config:
             metadata = self.config["metadata"]
