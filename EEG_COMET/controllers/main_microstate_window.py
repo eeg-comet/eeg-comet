@@ -2424,9 +2424,12 @@ class MainMicrostateWindow(QMainWindow):
         # Filter segments
         if self.ui.step3_filter_segments_checkbox.isChecked():
             self.comet.filter_segments = True
-            self.comet.remove_segments_less_than = int(
-                int(self.ui.step3_filter_segments_input.text()) / (1000 / self.comet.sample_rate)
-            )
+            # Get the value in milliseconds from the input
+            filter_segments_ms = int(self.ui.step3_filter_segments_input.text())
+            # Store in milliseconds (used by comet.py when not identifying optimal window)
+            self.comet.filter_segments_less_than = filter_segments_ms
+            # Also convert to samples for the b parameter (used by smoothing)
+            filter_segments_samples = int(filter_segments_ms / (1000 / self.comet.sample_rate))
 
             # Set filter method
             method_map = {
@@ -2441,7 +2444,7 @@ class MainMicrostateWindow(QMainWindow):
             # Set smooth parameters if needed
             if self.comet.filter_segments_option == "smooth":
                 self.comet.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
-                self.comet.b = self.comet.remove_segments_less_than
+                self.comet.b = filter_segments_samples
                 self.comet.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
             else:
                 self.comet.epsilon = ""
@@ -2450,7 +2453,7 @@ class MainMicrostateWindow(QMainWindow):
         else:
             self.comet.filter_segments = False
             self.comet.filter_segments_option = ""
-            self.comet.remove_segments_less_than = []
+            self.comet.filter_segments_less_than = 20  # Reset to default
             self.comet.epsilon = ""
             self.comet.b = ""
             self.comet.lamb = ""
