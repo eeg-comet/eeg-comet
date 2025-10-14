@@ -270,7 +270,7 @@ class FeatureHelper:
         return np.log(x_replaced / geo_mean)
 
     @staticmethod
-    def compute_relative_occurrence_frequency(input_sequence, time_array, microstates=None):
+    def compute_relative_occurrence_frequency(input_sequence, time_array, microstates=None, baseline_window=None):
         """Extract relative occurrence frequencies (ROF) - baseline-corrected CLR values.
 
         This function calculates ROF for different EEG microstates using the following approach:
@@ -282,6 +282,8 @@ class FeatureHelper:
             input_sequence (numpy.ndarray): Epoched microstate data with shape (trials, timepoints)
             time_array (numpy.ndarray): Time points in milliseconds
             microstates (list, optional): List of microstate labels. If None, inferred from data.
+            baseline_window (list, optional): Baseline time window [start, end] in milliseconds. 
+                                             Defaults to [-1000, -10].
 
         Returns:
             dict: Dictionary containing:
@@ -297,9 +299,12 @@ class FeatureHelper:
         if input_sequence.ndim != 2:
             raise ValueError("Input sequence must be 2D array with shape (trials, timepoints)")
 
-        # Define baseline period: -1000 to -10 ms
-        baseline_start = -1000
-        baseline_end = -10
+        # Use provided baseline window or default to [-1000, -10] ms
+        if baseline_window is None:
+            baseline_window = [-1000, -10]
+        
+        baseline_start = baseline_window[0]
+        baseline_end = baseline_window[1]
 
         # Find baseline indices
         baseline_indices = np.where((time_array >= baseline_start) & (time_array <= baseline_end))[
@@ -346,7 +351,8 @@ class FeatureHelper:
                 print(f"Input values: {all_occ[jj, :]}")
                 raise
 
-        # Baseline correction
+        # Baseline correction: subtract median of PRE-event from ALL timepoints
+        # baseline_indices contains indices of pre-event timepoints
         baseline_shift_clr = np.median(clr_occ[baseline_indices, :], axis=0)
         baseline_corr_clr = clr_occ - baseline_shift_clr
 

@@ -155,6 +155,7 @@ class WidgetGroups:
             "source_localization": self._get_source_localization_widgets(),
             "source_individual": [self.ui.step5_subjects_dir_lineedit],
             "source_microstates": self._get_source_microstate_widgets(),
+            "epoched_features": self._get_epoched_feature_widgets(),
         }
 
     def _cache_original_properties(self):
@@ -326,7 +327,6 @@ class WidgetGroups:
             self.ui.step4_averaged_features_checkbox,
             self.ui.step4_sliding_features_checkbox,
             self.ui.step4_synthetic_checkbox,
-            self.ui.step4_features_epoched_label,
         ]
 
         # Add sliding window options
@@ -387,6 +387,18 @@ class WidgetGroups:
             self.ui.step5_use_tess_radio,
             self.ui.step5_use_avg_radio,
             self.ui.step5_compute_source_microstate_correlation_button,
+        ]
+
+    def _get_epoched_feature_widgets(self):
+        """Get epoched data feature widgets."""
+        return [
+            self.ui.step4_features_epoched_label,
+            self.ui.step4_feature_rof_checkbox,
+            self.ui.step4_feature_rtf_checkbox,
+            self.ui.step4_features_preevent_label,
+            self.ui.step4_features_postevent_label,
+            self.ui.step4_pre_event_input,
+            self.ui.step4_post_event_input,
         ]
 
 
@@ -970,6 +982,16 @@ class MainMicrostateWindow(QMainWindow):
         if hasattr(self.ui, "dark_mode_checkbox"):
             self.ui.dark_mode_checkbox.toggled.connect(self.toggle_theme)
 
+        # Event window input validation
+        if hasattr(self.ui, "step4_pre_event_input"):
+            self.ui.step4_pre_event_input.textChanged.connect(
+                lambda: self._validate_event_window_input(self.ui.step4_pre_event_input)
+            )
+        if hasattr(self.ui, "step4_post_event_input"):
+            self.ui.step4_post_event_input.textChanged.connect(
+                lambda: self._validate_event_window_input(self.ui.step4_post_event_input)
+            )
+
     def _get_control_mappings(self) -> dict[QWidget, callable]:
         """Get control widget to handler mappings.
 
@@ -1434,44 +1456,36 @@ class MainMicrostateWindow(QMainWindow):
     def _handle_data_type_features(self):
         """Handle features based on data type."""
         if self.comet.datatype == "epoched":
-            # Update sliding features checkbox text for epoched data
-            # Note: For epoched data, "sliding" mode extracts pre/post event features
-            # instead of regular time-based sliding windows
-            self.ui.step4_sliding_features_checkbox.setText(
-                "Extract Pre/Post Event Features (per trial)"
-            )
+            # Disable sliding features checkbox for epoched data (use event-related layout instead)
+            self.ui.step4_sliding_features_checkbox.setEnabled(False)
+            self.ui.step4_sliding_features_checkbox.setChecked(False)
 
             # Enable epoched-specific features
-            epoched_widgets = [
-                self.ui.step4_features_epoched_label,
-                self.ui.step4_feature_rof_checkbox,
-                self.ui.step4_feature_rtf_checkbox,
-            ]
-            set_widgets_status(epoched_widgets, mode="enable")
+            self.widget_groups.set_group_status("epoched_features", WidgetMode.ENABLE)
             
-            # Only check ROF/RTF checkboxes on first load, not on every UI update
-            # This allows users to uncheck them if desired
+            # Only check ROF/RTF checkboxes and set default values on first load
+            # This allows users to modify them later if desired
             if not hasattr(self, '_epoched_features_initialized') or not self._epoched_features_initialized:
                 self.ui.step4_feature_rof_checkbox.setChecked(True)
                 self.ui.step4_feature_rtf_checkbox.setChecked(True)
+                
+                # Set default pre/post event windows
+                if not self.ui.step4_pre_event_input.text():
+                    self.ui.step4_pre_event_input.setText("[-1000, -10]")
+                if not self.ui.step4_post_event_input.text():
+                    self.ui.step4_post_event_input.setText("[20, 1000]")
+                    
                 self._epoched_features_initialized = True
 
         else:
             # Reset the initialization flag when switching to non-epoched data
             self._epoched_features_initialized = False
             
-            # Reset sliding features checkbox text for non-epoched data
-            self.ui.step4_sliding_features_checkbox.setText(
-                "Extract Sliding Window Features"
-            )
+            # Re-enable sliding features checkbox for non-epoched data
+            self.ui.step4_sliding_features_checkbox.setEnabled(True)
             
             # Disable epoched-specific features
-            epoched_widgets = [
-                self.ui.step4_features_epoched_label,
-                self.ui.step4_feature_rof_checkbox,
-                self.ui.step4_feature_rtf_checkbox,
-            ]
-            set_widgets_status(epoched_widgets, mode="disable")
+            self.widget_groups.set_group_status("epoched_features", WidgetMode.DISABLE)
             self.ui.step4_feature_rof_checkbox.setChecked(False)
             self.ui.step4_feature_rtf_checkbox.setChecked(False)
 
@@ -1701,6 +1715,69 @@ class MainMicrostateWindow(QMainWindow):
         """Sync processing flags to COMET instance."""
         for f in fields(self.processing_flags):
             setattr(self.comet, f.name, getattr(self.processing_flags, f.name))
+
+    def _validate_event_window_input(self, line_edit):
+        """Validate that event window input follows [X, Y] format.
+        
+        Args:
+          line_edit (QLineEdit): The line edit widget to validate.
+        """
+        import re
+        
+        text = line_edit.text().strip()
+        
+        # Allow empty text (will use defaults)
+        if not text:
+            line_edit.setStyleSheet("")
+            return
+        
+        # Check format: [X, Y] where X and Y are numbers (int or float)
+        pattern = r'^\[\s*-?\d+\.?\d*\s*,\s*-?\d+\.?\d*\s*\]$'
+        
+        if re.match(pattern, text):
+            # Valid format - clear any error styling
+            line_edit.setStyleSheet("")
+        else:
+            # Invalid format - show error styling
+            line_edit.setStyleSheet("border: 2px solid red;")
+
+    def _parse_event_window_input(self, text, default=None):
+        """Parse event window input in [X, Y] format.
+        
+        Args:
+          text (str): The input text to parse.
+          default (list, optional): Default value to return if parsing fails.
+          
+        Returns:
+          list: Two-element list [start, end] with the parsed values.
+        """
+        import re
+        
+        text = text.strip()
+        
+        # Return default if empty
+        if not text:
+            return default if default is not None else [-1000, -10]
+        
+        # Try to parse the [X, Y] format
+        pattern = r'^\[\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*\]$'
+        match = re.match(pattern, text)
+        
+        if match:
+            try:
+                start = float(match.group(1))
+                end = float(match.group(2))
+                # Convert to int if they're whole numbers
+                if start == int(start):
+                    start = int(start)
+                if end == int(end):
+                    end = int(end)
+                return [start, end]
+            except (ValueError, IndexError):
+                pass
+        
+        # Return default if parsing failed
+        return default if default is not None else [-1000, -10]
 
     # Static methods
     @staticmethod
@@ -2629,6 +2706,14 @@ class MainMicrostateWindow(QMainWindow):
                 self.comet.feature_list.append("ROF")
             if self.ui.step4_feature_rtf_checkbox.isChecked():
                 self.comet.feature_list.append("RTF")
+            
+            # Parse pre/post event window values
+            self.comet.pre_event_window = self._parse_event_window_input(
+                self.ui.step4_pre_event_input.text(), default=[-1000, -10]
+            )
+            self.comet.post_event_window = self._parse_event_window_input(
+                self.ui.step4_post_event_input.text(), default=[20, 1000]
+            )
 
     def visualize_microstate_features(self):
         """Open feature visualization window."""

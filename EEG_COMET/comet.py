@@ -3339,6 +3339,8 @@ class COMET:
                     sliding_window_size=self.sliding_window_size,
                     pre_window_size=self.pre_window_size,
                     post_window_size=self.post_window_size,
+                    pre_event_window=getattr(self, 'pre_event_window', None),
+                    post_event_window=getattr(self, 'post_event_window', None),
                 )
                 
                 # Extract sliding mode with trial-preserved structure (already set in segmentation)
@@ -3350,6 +3352,8 @@ class COMET:
                     sliding_window_size=self.sliding_window_size,
                     pre_window_size=self.pre_window_size,
                     post_window_size=self.post_window_size,
+                    pre_event_window=getattr(self, 'pre_event_window', None),
+                    post_event_window=getattr(self, 'post_event_window', None),
                 )
                 
                 # Merge results from both modes
@@ -3366,6 +3370,8 @@ class COMET:
                     sliding_window_size=self.sliding_window_size,
                     pre_window_size=self.pre_window_size,
                     post_window_size=self.post_window_size,
+                    pre_event_window=getattr(self, 'pre_event_window', None),
+                    post_event_window=getattr(self, 'post_event_window', None),
                 )
 
             # Store in shared storage with thread-safe access

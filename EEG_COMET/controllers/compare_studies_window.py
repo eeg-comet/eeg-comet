@@ -6,7 +6,7 @@ import traceback
 import warnings
 from collections import Counter, defaultdict
 from contextlib import suppress
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,7 @@ from comet import COMET
 from features_utils.feature_io import FeatureIO
 from gui_utils.set_widgets_status import set_widgets_status
 from gui_utils.terminal_logger import get_logger
+from mne.stats import permutation_cluster_1samp_test
 
 
 class CompareStudiesWindow(QDialog):
@@ -1471,6 +1472,12 @@ class CompareStudiesWindow(QDialog):
         """Update feature comparison t-test statistics in the UI."""
         self.ui.stats_textedit.clear()
         
+        # Check if this is ROF feature - use TFCE cluster permutation testing
+        selected_feature = self._get_selected_feature_code()
+        if selected_feature == "ROF" and self._has_rof_data():
+            self._perform_rof_tfce_analysis()
+            return
+        
         # Check if this is a sliding feature - use repeated measures analysis
         if self._is_sliding_feature_selected():
             self._perform_sliding_feature_analysis()
@@ -2395,6 +2402,787 @@ class CompareStudiesWindow(QDialog):
             f"  - [!]: Model convergence warning\n"
         )
 
+    # ==================== ROF TFCE CLUSTER PERMUTATION ANALYSIS ====================
+    
+    def _has_rof_data(self) -> bool:
+        """Check if ROF data is available for analysis.
+        
+        Returns:
+            True if ROF data is loaded and available, False otherwise.
+        """
+        if not self.study1_loaded:
+            return False
+        
+        # Check if Study 1 has ROF data
+        feature_type, feature_mode = self._get_compatible_features()
+        if feature_type is None or feature_mode is None:
+            return False
+        
+        # Load features to check for rof_data
+        features_df = self._load_features_safely(self.comet_tbx_study1, feature_type, feature_mode)
+        if features_df is None:
+            return False
+        
+        # Check if there's ROF data in the feature extraction results
+        # ROF data is stored separately from regular features
+        return hasattr(self.comet_tbx_study1, 'extracted_features_path')
+    
+    def _perform_rof_tfce_analysis(self) -> None:
+        """Perform TFCE-based cluster permutation testing for ROF time courses.
+        
+        This method implements the statistical analysis described in:
+        - One-sample t-tests against zero at each time point
+        - Sign-flipping permutation approach
+        - TFCE for multiple comparison correction
+        - Cohen's d for effect sizes
+        """
+        try:
+            # Load ROF data
+            rof_data_study1, rof_data_study2 = self._load_rof_data()
+            
+            if rof_data_study1 is None:
+                self.ui.stats_textedit.appendPlainText(
+                    "Could not load ROF data for analysis.\n"
+                    "Please ensure ROF features have been extracted for event-related data."
+                )
+                return
+            
+            # Display analysis header
+            self._display_rof_analysis_header(rof_data_study1, rof_data_study2)
+            
+            # Determine analysis type (one-sample vs two-sample)
+            if rof_data_study2 is None or self.ui.compare_surrogate_radio.isChecked() or self.ui.compare_random_radio.isChecked():
+                # One-sample test against zero
+                self._perform_rof_one_sample_tfce(rof_data_study1)
+            else:
+                # Two-sample comparison (difference between conditions)
+                self._perform_rof_two_sample_tfce(rof_data_study1, rof_data_study2)
+                
+        except Exception as e:
+            self._show_error(
+                "ROF TFCE Analysis Error",
+                f"Failed to perform TFCE cluster permutation testing:\n{str(e)}\n\n{traceback.format_exc()}"
+            )
+    
+    def _load_rof_data(self) -> Tuple[Optional[Dict], Optional[Dict]]:
+        """Load ROF data from feature extraction results.
+        
+        Returns:
+            Tuple of (rof_data_study1, rof_data_study2) or (rof_data, None) for single study.
+        """
+        feature_type, feature_mode = self._get_compatible_features()
+        
+        if feature_type is None or feature_mode is None:
+            return None, None
+        
+        # For ROF, we need to load the full time-resolved data, not just summary statistics
+        # This data is stored separately during feature extraction
+        
+        # Try to load from the extracted features path
+        rof_data_study1 = self._load_rof_from_features_path(
+            self.comet_tbx_study1, feature_type, feature_mode
+        )
+        
+        rof_data_study2 = None
+        if self.ui.compare_two_studies_radio.isChecked() and self.study2_loaded:
+            rof_data_study2 = self._load_rof_from_features_path(
+                self.comet_tbx_study2, feature_type, feature_mode
+            )
+        elif self.ui.compare_within_study_radio.isChecked():
+            # For within-study comparison, we need to split the data by file lists
+            rof_data_study2 = self._load_rof_from_features_path(
+                self.comet_tbx_study1, feature_type, feature_mode
+            )
+        
+        return rof_data_study1, rof_data_study2
+    
+    def _load_rof_from_features_path(
+        self, tbx: COMET, feature_type: str, feature_mode: str
+    ) -> Optional[Dict]:
+        """Load ROF data from the features path.
+        
+        ROF data includes:
+        - time: time array in milliseconds
+        - microstates: list of microstate labels
+        - occurrences_clr_bc: baseline-corrected CLR-transformed occurrence frequencies
+        - occurrences_clr: CLR-transformed occurrence frequencies (pre-baseline correction)
+        - baseline_median: median values during baseline period
+        - filenames: list of subject filenames
+        
+        Args:
+            tbx: COMET toolbox instance
+            feature_type: Feature type ('real', 'surrogate', 'random')
+            feature_mode: Feature mode ('averaged', 'sliding', etc.)
+        
+        Returns:
+            Dictionary containing ROF data or None if not available
+        """
+        if not hasattr(tbx, "extracted_features_path") or not os.path.exists(
+            tbx.extracted_features_path
+        ):
+            return None
+        
+        # Try multiple naming patterns
+        rof_filenames_to_try = [
+            # Standard naming pattern
+            f"{feature_type}_{feature_mode}_rof_data",
+            # Alternative naming patterns
+            "ROF_timeseries",
+            f"ROF_timeseries_{feature_type}",
+            f"{feature_type}_ROF_timeseries",
+            "rof_timeseries",
+        ]
+        
+        for base_filename in rof_filenames_to_try:
+            for export_format in self.EXPORT_FORMATS:
+                rof_path = os.path.join(tbx.extracted_features_path, base_filename + export_format)
+                
+                if os.path.exists(rof_path):
+                    try:
+                        rof_data = None
+                        
+                        if export_format == ".csv":
+                            # Load CSV file - special handling for ROF timeseries
+                            df = pd.read_csv(rof_path)
+                            rof_data = self._parse_rof_csv(df)
+                            
+                        elif export_format == ".pkl":
+                            import pickle
+                            with open(rof_path, 'rb') as f:
+                                rof_data = pickle.load(f)
+                                
+                        elif export_format == ".hdf":
+                            import h5py
+                            rof_data = {}
+                            with h5py.File(rof_path, 'r') as f:
+                                # Load all data from HDF5 file
+                                for key in f.keys():
+                                    rof_data[key] = f[key][()]
+                                    
+                        elif export_format == ".json":
+                            import json
+                            with open(rof_path, 'r') as f:
+                                rof_data = json.load(f)
+                            # Convert lists back to numpy arrays
+                            if 'time' in rof_data:
+                                rof_data['time'] = np.array(rof_data['time'])
+                            if 'occurrences_clr_bc' in rof_data:
+                                for ms in rof_data['occurrences_clr_bc']:
+                                    rof_data['occurrences_clr_bc'][ms] = np.array(
+                                        rof_data['occurrences_clr_bc'][ms]
+                                    )
+                        
+                        if rof_data is not None:
+                            return rof_data
+                            
+                    except Exception:
+                        continue
+        
+        return None
+    
+    def _parse_rof_csv(self, df: pd.DataFrame) -> Dict:
+        """Parse ROF data from CSV format.
+        
+        Expected CSV format:
+        - Columns: Time, Filename, MS_A, MS_B, MS_C, MS_D (or similar microstate columns)
+        - Each row represents one time point for one subject/trial
+        
+        Args:
+            df: DataFrame loaded from CSV
+            
+        Returns:
+            Dictionary with ROF data structure
+        """
+        rof_data = {}
+        
+        # Extract time array (unique time points)
+        time_col = None
+        for col in df.columns:
+            if 'time' in col.lower():
+                time_col = col
+                break
+        
+        if time_col:
+            rof_data['time'] = np.array(sorted(df[time_col].unique()))
+        else:
+            # Assume time is in first column if not labeled
+            rof_data['time'] = np.array(sorted(df.iloc[:, 0].unique()))
+        
+        # Extract filenames/subjects
+        filename_col = None
+        for col in df.columns:
+            if any(keyword in col.lower() for keyword in ['file', 'subj', 'participant']):
+                filename_col = col
+                break
+        
+        if filename_col:
+            rof_data['filenames'] = list(df[filename_col].unique())
+        
+        # Extract microstate columns - be more flexible
+        # Skip known metadata columns
+        metadata_keywords = ['time', 'file', 'subj', 'trial', 'window', 'event', 
+                            'condition', 'group', 'session', 'participant']
+        
+        microstate_columns = []
+        for col in df.columns:
+            # Skip if it's a metadata column
+            if any(keyword in col.lower() for keyword in metadata_keywords):
+                continue
+            
+            # Accept as microstate column if:
+            # 1. Starts with MS_ or MS- or MS (like MS_A, MSA, MS-A)
+            # 2. Is ROF_ or ROF- prefix (like ROF_A, ROFA, ROF-A)
+            # 3. Is a single uppercase letter (A, B, C, D, etc.)
+            # 4. Looks like a microstate label
+            col_upper = col.upper()
+            if (col.startswith('MS') or 
+                col.startswith('ROF') or
+                'MICROSTATE' in col_upper or
+                (len(col) == 1 and col.isalpha() and col.isupper()) or
+                col_upper in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']):
+                microstate_columns.append(col)
+        
+        if not microstate_columns:
+            # Print helpful error with all columns
+            raise ValueError(
+                f"No microstate columns found in ROF CSV file.\n"
+                f"Available columns: {list(df.columns)}\n"
+                f"Expected columns like: MS_A, MS_B, MS_C, MS_D or A, B, C, D or ROF_A, ROF_B, etc.\n"
+                f"Metadata columns (automatically skipped): {metadata_keywords}"
+            )
+        
+        # Extract microstate labels
+        rof_data['microstates'] = []
+        for col in microstate_columns:
+            # Clean up the label
+            label = col
+            # Remove common prefixes
+            for prefix in ['MS_', 'MS-', 'MS', 'ROF_', 'ROF-', 'ROF', 'MICROSTATE_', 'MICROSTATE-']:
+                if label.startswith(prefix):
+                    label = label[len(prefix):]
+                    break
+            rof_data['microstates'].append(label.upper())
+        
+        # Organize ROF data by microstate
+        # Structure: occurrences_clr_bc[microstate] = array of shape (n_subjects, n_timepoints)
+        rof_data['occurrences_clr_bc'] = {}
+        
+        if 'filenames' in rof_data:
+            n_subjects = len(rof_data['filenames'])
+        else:
+            # Estimate number of subjects
+            n_subjects = len(df) // len(rof_data['time'])
+        
+        n_timepoints = len(rof_data['time'])
+        
+        for i, ms_col in enumerate(microstate_columns):
+            ms_label = rof_data['microstates'][i]
+            
+            # Initialize array
+            rof_array = np.zeros((n_subjects, n_timepoints))
+            
+            # Fill array with data
+            if 'filenames' in rof_data and filename_col:
+                for subj_idx, filename in enumerate(rof_data['filenames']):
+                    # Get data for this subject
+                    subj_data = df[df[filename_col] == filename].copy()
+                    
+                    # Sort by time
+                    if time_col:
+                        subj_data = subj_data.sort_values(time_col)
+                    
+                    # Extract values
+                    values = subj_data[ms_col].values
+                    if len(values) >= n_timepoints:
+                        rof_array[subj_idx, :] = values[:n_timepoints]
+                    else:
+                        rof_array[subj_idx, :len(values)] = values
+            else:
+                # Fallback: assume data is organized sequentially
+                try:
+                    rof_array = df[ms_col].values.reshape(n_subjects, n_timepoints)
+                except ValueError:
+                    # Try transposed
+                    rof_array = df[ms_col].values.reshape(n_timepoints, n_subjects).T
+            
+            rof_data['occurrences_clr_bc'][ms_label] = rof_array
+        
+        return rof_data
+    
+    def _display_rof_analysis_header(
+        self, rof_data_study1: Dict, rof_data_study2: Optional[Dict]
+    ) -> None:
+        """Display header information for ROF TFCE analysis."""
+        comparison_info = self._get_comparison_info()
+        
+        header_text = (
+            f"ROF Cluster-Based Permutation Testing (TFCE)\n"
+            f"{'=' * 80}\n"
+            f"Feature: Relative Occurrence Frequency (ROF)\n"
+            f"Comparison: {comparison_info['comparison_type']}\n"
+            f"Study 1: {comparison_info['study1_name']} ({comparison_info['study1_files']} files)\n"
+        )
+        
+        if rof_data_study2 is not None:
+            header_text += f"Study 2: {comparison_info['study2_name']} ({comparison_info['study2_files']} files)\n"
+        
+        if 'microstates' in rof_data_study1:
+            header_text += f"Microstates: {', '.join(rof_data_study1['microstates'])}\n"
+        
+        if 'time' in rof_data_study1:
+            time = rof_data_study1['time']
+            header_text += f"Time range: {time[0]:.1f} to {time[-1]:.1f} ms\n"
+            header_text += f"Time points: {len(time)}\n"
+        
+        header_text += (
+            f"Method: Threshold-Free Cluster Enhancement (TFCE)\n"
+            f"Permutations: 5000 (sign-flipping)\n"
+            f"Significance level: p < 0.05\n"
+            f"{'=' * 80}\n\n"
+        )
+        
+        self.ui.stats_textedit.appendPlainText(header_text)
+    
+    def _perform_rof_one_sample_tfce(self, rof_data: Dict) -> None:
+        """Perform one-sample TFCE test for ROF against zero.
+        
+        Tests the null hypothesis that ROF does not differ from zero following the event.
+        Uses sign-flipping permutation to preserve temporal dependencies.
+        
+        Args:
+            rof_data: Dictionary containing ROF time course data
+        """
+        self.ui.stats_textedit.appendPlainText(
+            "Analysis Type: One-sample t-test against zero\n"
+            "Null hypothesis: ROF does not differ from zero post-event\n\n"
+        )
+        
+        microstates = rof_data.get('microstates', [])
+        time = rof_data.get('time', [])
+        occurrences_bc = rof_data.get('occurrences_clr_bc', {})
+        
+        if not microstates or len(time) == 0 or not occurrences_bc:
+            self.ui.stats_textedit.appendPlainText(
+                "Error: ROF data is incomplete or malformed."
+            )
+            return
+        
+        # Filter to post-event period (20 ms to 1000 ms)
+        post_event_mask = (time >= 20) & (time <= 1000)
+        time_post = time[post_event_mask]
+        
+        if len(time_post) == 0:
+            self.ui.stats_textedit.appendPlainText(
+                "Error: No time points found in post-event period (20-1000 ms)."
+            )
+            return
+        
+        # Perform TFCE test for each microstate
+        results = []
+        for microstate in microstates:
+            if microstate not in occurrences_bc:
+                continue
+            
+            # Get ROF data for this microstate: shape (n_subjects, n_timepoints)
+            rof_timecourse = occurrences_bc[microstate]
+            
+            # Filter by file list if needed
+            rof_timecourse = self._filter_rof_by_filelist(
+                rof_timecourse, rof_data, self.ui.study1_file_list
+            )
+            
+            if rof_timecourse is None or len(rof_timecourse) < 3:
+                continue
+            
+            # Filter to post-event period
+            rof_timecourse_post = rof_timecourse[:, post_event_mask]
+            
+            # Perform TFCE cluster permutation test
+            t_obs, clusters, cluster_pv, H0 = permutation_cluster_1samp_test(
+                rof_timecourse_post,
+                n_permutations=5000,
+                threshold=dict(start=0, step=0.2),  # TFCE parameters
+                tail=0,  # Two-tailed test
+                n_jobs=-1,  # Use all available cores
+                out_type='mask',
+                verbose=False
+            )
+            
+            # Find significant clusters
+            sig_clusters = [i for i, pv in enumerate(cluster_pv) if pv < 0.05]
+            
+            if len(sig_clusters) > 0:
+                # Calculate effect sizes for significant clusters
+                cluster_results = []
+                for cluster_idx in sig_clusters:
+                    cluster_mask = clusters[cluster_idx]
+                    cluster_times = time_post[cluster_mask]
+                    cluster_rof = rof_timecourse_post[:, cluster_mask]
+                    
+                    # Calculate Cohen's d for the cluster
+                    mean_rof = np.mean(cluster_rof)
+                    std_rof = np.std(cluster_rof, ddof=1)
+                    cohens_d = mean_rof / std_rof if std_rof > 0 else 0
+                    
+                    cluster_results.append({
+                        'cluster_idx': cluster_idx,
+                        'p_value': cluster_pv[cluster_idx],
+                        'time_start': cluster_times[0],
+                        'time_end': cluster_times[-1],
+                        'n_timepoints': len(cluster_times),
+                        'mean_rof': mean_rof,
+                        'cohens_d': cohens_d,
+                        'direction': 'positive' if mean_rof > 0 else 'negative'
+                    })
+                
+                results.append({
+                    'microstate': microstate,
+                    'n_subjects': len(rof_timecourse),
+                    'significant': True,
+                    'n_clusters': len(sig_clusters),
+                    'clusters': cluster_results,
+                    'avg_cohens_d': np.mean([c['cohens_d'] for c in cluster_results])
+                })
+            else:
+                results.append({
+                    'microstate': microstate,
+                    'n_subjects': len(rof_timecourse),
+                    'significant': False,
+                    'n_clusters': 0
+                })
+        
+        # Display results
+        self._display_rof_tfce_results(results)
+    
+    def _perform_rof_two_sample_tfce(
+        self, rof_data_study1: Dict, rof_data_study2: Dict
+    ) -> None:
+        """Perform two-sample TFCE test for ROF differences between conditions.
+        
+        Tests the null hypothesis that ROF does not differ between two conditions.
+        Uses sign-flipping permutation on the difference between conditions.
+        
+        Args:
+            rof_data_study1: Dictionary containing ROF data for condition 1
+            rof_data_study2: Dictionary containing ROF data for condition 2
+        """
+        self.ui.stats_textedit.appendPlainText(
+            "Analysis Type: Two-sample comparison (difference between conditions)\n"
+            "Null hypothesis: No difference in ROF between conditions\n\n"
+        )
+        
+        microstates = rof_data_study1.get('microstates', [])
+        time = rof_data_study1.get('time', [])
+        occurrences_bc_1 = rof_data_study1.get('occurrences_clr_bc', {})
+        occurrences_bc_2 = rof_data_study2.get('occurrences_clr_bc', {})
+        
+        if not microstates or len(time) == 0 or not occurrences_bc_1 or not occurrences_bc_2:
+            self.ui.stats_textedit.appendPlainText(
+                "Error: ROF data is incomplete or malformed for both conditions."
+            )
+            return
+        
+        # Filter to post-event period (20 ms to 1000 ms)
+        post_event_mask = (time >= 20) & (time <= 1000)
+        time_post = time[post_event_mask]
+        
+        if len(time_post) == 0:
+            self.ui.stats_textedit.appendPlainText(
+                "Error: No time points found in post-event period (20-1000 ms)."
+            )
+            return
+        
+        # Perform TFCE test for each microstate
+        results = []
+        for microstate in microstates:
+            if microstate not in occurrences_bc_1 or microstate not in occurrences_bc_2:
+                continue
+            
+            # Get ROF data for both conditions
+            rof_1 = occurrences_bc_1[microstate]
+            rof_2 = occurrences_bc_2[microstate]
+            
+            # For paired comparison, filter and match subjects
+            if self.ui.paired_test_checkbox.isChecked():
+                # Filter by file lists and get corresponding filenames
+                rof_1_result = self._filter_rof_by_filelist(
+                    rof_1, rof_data_study1, self.ui.study1_file_list, return_filenames=True
+                )
+                rof_2_result = self._filter_rof_by_filelist(
+                    rof_2, rof_data_study2, self.ui.study2_file_list, return_filenames=True
+                )
+                
+                if rof_1_result[0] is None or rof_2_result[0] is None:
+                    continue
+                
+                rof_1, filenames_1 = rof_1_result
+                rof_2, filenames_2 = rof_2_result
+                
+                # Match subjects by extracting subject IDs from filenames
+                subj_to_idx1 = {}
+                for idx, fname in enumerate(filenames_1):
+                    subj_id = self._extract_subject_id(fname)
+                    subj_to_idx1[subj_id] = idx
+                
+                subj_to_idx2 = {}
+                for idx, fname in enumerate(filenames_2):
+                    subj_id = self._extract_subject_id(fname)
+                    subj_to_idx2[subj_id] = idx
+                
+                # Find matched subjects
+                matched_subjects = sorted(set(subj_to_idx1.keys()) & set(subj_to_idx2.keys()))
+                
+                if len(matched_subjects) < 3:
+                    self.ui.stats_textedit.appendPlainText(
+                        f"Warning: Microstate {microstate} - insufficient matched subjects ({len(matched_subjects)}). Skipping.\n"
+                    )
+                    continue
+                
+                # Extract matched data in correct order
+                matched_rof_1 = np.array([rof_1[subj_to_idx1[subj], :] for subj in matched_subjects])
+                matched_rof_2 = np.array([rof_2[subj_to_idx2[subj], :] for subj in matched_subjects])
+                
+                # Calculate difference: Study2 - Study1 (for matched pairs)
+                rof_diff = matched_rof_2 - matched_rof_1
+                
+                # Filter to post-event period
+                rof_diff_post = rof_diff[:, post_event_mask]
+                
+                # Perform one-sample TFCE test on difference (testing if difference != 0)
+                t_obs, clusters, cluster_pv, H0 = permutation_cluster_1samp_test(
+                    rof_diff_post,
+                    n_permutations=5000,
+                    threshold=dict(start=0, step=0.2),  # TFCE parameters
+                    tail=0,  # Two-tailed test
+                    n_jobs=-1,
+                    out_type='mask',
+                    verbose=False
+                )
+            else:
+                # Independent samples comparison - filter without matching
+                rof_1 = self._filter_rof_by_filelist(
+                    rof_1, rof_data_study1, self.ui.study1_file_list
+                )
+                rof_2 = self._filter_rof_by_filelist(
+                    rof_2, rof_data_study2, self.ui.study2_file_list
+                )
+                
+                if rof_1 is None or rof_2 is None:
+                    continue
+                
+                # For independent samples TFCE, we would need to use a different MNE function
+                # This is not yet implemented
+                self.ui.stats_textedit.appendPlainText(
+                    "Note: Independent samples TFCE comparison not yet implemented.\n"
+                    "Please use paired test checkbox for matched subjects.\n"
+                )
+                continue
+            
+            # Find significant clusters
+            sig_clusters = [i for i, pv in enumerate(cluster_pv) if pv < 0.05]
+            
+            if len(sig_clusters) > 0:
+                # Calculate effect sizes for significant clusters
+                cluster_results = []
+                for cluster_idx in sig_clusters:
+                    cluster_mask = clusters[cluster_idx]
+                    cluster_times = time_post[cluster_mask]
+                    cluster_diff = rof_diff_post[:, cluster_mask]
+                    
+                    # Calculate Cohen's d for the cluster (paired)
+                    mean_diff = np.mean(cluster_diff)
+                    std_diff = np.std(cluster_diff, ddof=1)
+                    cohens_d = mean_diff / std_diff if std_diff > 0 else 0
+                    
+                    cluster_results.append({
+                        'cluster_idx': cluster_idx,
+                        'p_value': cluster_pv[cluster_idx],
+                        'time_start': cluster_times[0],
+                        'time_end': cluster_times[-1],
+                        'n_timepoints': len(cluster_times),
+                        'mean_diff': mean_diff,
+                        'cohens_d': cohens_d,
+                        'direction': 'Study2>Study1' if mean_diff > 0 else 'Study1>Study2'
+                    })
+                
+                results.append({
+                    'microstate': microstate,
+                    'n_pairs': len(rof_diff),
+                    'significant': True,
+                    'n_clusters': len(sig_clusters),
+                    'clusters': cluster_results,
+                    'avg_cohens_d': np.mean([c['cohens_d'] for c in cluster_results])
+                })
+            else:
+                results.append({
+                    'microstate': microstate,
+                    'n_pairs': len(rof_diff),
+                    'significant': False,
+                    'n_clusters': 0
+                })
+        
+        # Display results
+        self._display_rof_tfce_results(results, comparison_type='paired')
+    
+    def _filter_rof_by_filelist(
+        self, rof_timecourse: np.ndarray, rof_data: Dict, file_list_widget, return_filenames: bool = False
+    ) -> Union[Optional[np.ndarray], Tuple[Optional[np.ndarray], List[str]]]:
+        """Filter ROF timecourse data by files in the file list widget.
+        
+        Args:
+            rof_timecourse: ROF data array (n_subjects, n_timepoints) or dict mapping filenames
+            rof_data: Full ROF data dictionary potentially containing filename mapping
+            file_list_widget: QListWidget containing filenames to include
+            return_filenames: If True, return (filtered_data, filtered_filenames) tuple
+        
+        Returns:
+            Filtered ROF timecourse array (or tuple with filenames) or None if filtering fails
+        """
+        # Get list of filenames from UI widget
+        filenames_in_list = []
+        for i in range(file_list_widget.count()):
+            item = file_list_widget.item(i)
+            if item is not None:
+                filenames_in_list.append(item.text())
+        
+        if not filenames_in_list:
+            if return_filenames:
+                return rof_timecourse, rof_data.get('filenames', [])
+            return rof_timecourse
+        
+        # If ROF data has filename mapping, use it to filter
+        if 'filenames' in rof_data:
+            filenames_in_data = rof_data['filenames']
+            # Find indices and corresponding filenames that are in the list
+            indices_to_keep = []
+            filtered_filenames = []
+            for i, fname in enumerate(filenames_in_data):
+                if fname in filenames_in_list:
+                    indices_to_keep.append(i)
+                    filtered_filenames.append(fname)
+            
+            if len(indices_to_keep) == 0:
+                if return_filenames:
+                    return None, []
+                return None
+            
+            # Filter the timecourse data
+            if isinstance(rof_timecourse, np.ndarray):
+                filtered_data = rof_timecourse[indices_to_keep, :]
+                if return_filenames:
+                    return filtered_data, filtered_filenames
+                return filtered_data
+        
+        # If no filename mapping, return original data
+        if return_filenames:
+            return rof_timecourse, rof_data.get('filenames', [])
+        return rof_timecourse
+    
+    def _display_rof_tfce_results(
+        self, results: List[Dict], comparison_type: str = 'one_sample'
+    ) -> None:
+        """Display results from ROF TFCE cluster permutation testing.
+        
+        Args:
+            results: List of result dictionaries for each microstate
+            comparison_type: Type of comparison ('one_sample' or 'paired')
+        """
+        # Summary header
+        n_sig = sum(1 for r in results if r['significant'])
+        self.ui.stats_textedit.appendPlainText(
+            f"Results Summary: {n_sig}/{len(results)} microstates show significant event effects\n"
+            f"{'-' * 80}\n"
+        )
+        
+        # Display results for each microstate
+        for result in results:
+            microstate = result['microstate']
+            
+            if result['significant']:
+                self.ui.stats_textedit.appendPlainText(
+                    f"\nMicrostate {microstate}: SIGNIFICANT EVENT EFFECT ***\n"
+                )
+                
+                if comparison_type == 'one_sample':
+                    self.ui.stats_textedit.appendPlainText(
+                        f"  Subjects: {result['n_subjects']}\n"
+                    )
+                else:
+                    self.ui.stats_textedit.appendPlainText(
+                        f"  Matched pairs: {result['n_pairs']}\n"
+                    )
+                
+                self.ui.stats_textedit.appendPlainText(
+                    f"  Number of significant clusters: {result['n_clusters']}\n"
+                    f"  Average effect size (Cohen's d): {result['avg_cohens_d']:.3f}\n"
+                )
+                
+                # Display details for each cluster
+                for i, cluster in enumerate(result['clusters'], 1):
+                    self.ui.stats_textedit.appendPlainText(
+                        f"\n  Cluster {i}:\n"
+                        f"    Time window: {cluster['time_start']:.1f} - {cluster['time_end']:.1f} ms\n"
+                        f"    Duration: {cluster['n_timepoints']} time points\n"
+                        f"    Direction: {cluster['direction']}\n"
+                        f"    Cohen's d: {cluster['cohens_d']:.3f}\n"
+                        f"    p-value: {cluster['p_value']:.4f}\n"
+                    )
+                    
+                    if comparison_type == 'one_sample':
+                        self.ui.stats_textedit.appendPlainText(
+                            f"    Mean ROF: {cluster['mean_rof']:.4f}\n"
+                        )
+                    else:
+                        self.ui.stats_textedit.appendPlainText(
+                            f"    Mean difference: {cluster['mean_diff']:.4f}\n"
+                        )
+            else:
+                self.ui.stats_textedit.appendPlainText(
+                    f"\nMicrostate {microstate}: No significant event effect (ns)\n"
+                )
+                
+                if comparison_type == 'one_sample':
+                    self.ui.stats_textedit.appendPlainText(
+                        f"  Subjects: {result['n_subjects']}\n"
+                    )
+                else:
+                    self.ui.stats_textedit.appendPlainText(
+                        f"  Matched pairs: {result['n_pairs']}\n"
+                    )
+        
+        # Overall interpretation
+        self.ui.stats_textedit.appendPlainText(
+            f"\n{'=' * 80}\n"
+            f"Interpretation:\n"
+        )
+        
+        if n_sig > 0:
+            self.ui.stats_textedit.appendPlainText(
+                f"Significant event-related changes in microstate occurrence were detected for "
+                f"{n_sig} out of {len(results)} microstates. The TFCE method identified temporal "
+                f"clusters where the ROF significantly differed from baseline, while controlling "
+                f"for multiple comparisons across time points.\n\n"
+                f"Effect sizes (Cohen's d) are averaged across all significant clusters for each "
+                f"microstate, as recommended by Sassenhagen & Draschkow (2019). Positive effects "
+                f"indicate increased occurrence post-event, while negative effects indicate decreased "
+                f"occurrence relative to baseline.\n"
+            )
+        else:
+            self.ui.stats_textedit.appendPlainText(
+                f"No significant event-related changes in microstate occurrence were detected. "
+                f"This suggests that the event did not produce consistent, temporally-extended "
+                f"modulations of microstate dynamics that survived multiple comparison correction.\n"
+            )
+        
+        self.ui.stats_textedit.appendPlainText(
+            f"\nMethod Notes:\n"
+            f"- Analysis period: 20-1000 ms post-event\n"
+            f"- Permutations: 5000 (sign-flipping to preserve temporal dependencies)\n"
+            f"- Threshold-Free Cluster Enhancement (TFCE) for multiple comparison correction\n"
+            f"- Significance threshold: p < 0.05\n"
+            f"- Effect sizes calculated using Cohen's d for standardized mean differences\n"
+        )
+
     # ==================== TEST-RETEST ANALYSIS ====================
 
     def perform_test_retest_analysis(self) -> None:
@@ -2730,33 +3518,48 @@ class CompareStudiesWindow(QDialog):
     @staticmethod
     def _extract_subject_id(filename: str) -> str:
         """Extract a subject identifier from a filename using common patterns.
+        
+        Prioritizes BIDS format (sub-XX) and handles various naming conventions.
 
         Args:
             filename: Source filename.
 
         Returns:
-            Extracted subject identifier (best effort), or the filename if no match.
+            Extracted subject identifier (normalized), or the filename if no match.
         """
-        # Pattern 1: sub-XX format
-        match = re.search(r"sub-(\d+)", filename)
+        # Pattern 1: BIDS format sub-XX (most common, highest priority)
+        # Matches: sub-01, sub-001, sub-1, etc.
+        match = re.search(r"sub-(\d+)", filename, re.IGNORECASE)
         if match:
-            return f"sub-{match.group(1)}"
+            # Normalize to sub-XX format with zero-padding
+            return f"sub-{match.group(1).zfill(2)}"
 
         # Pattern 2: subjectXX or subjXX format
-        match = re.search(r"subj(?:ect)?(\d+)", filename, re.IGNORECASE)
+        match = re.search(r"subj(?:ect)?[-_]?(\d+)", filename, re.IGNORECASE)
         if match:
-            return f"subject{match.group(1)}"
+            return f"subject-{match.group(1).zfill(2)}"
 
-        # Pattern 3: SXX format
-        match = re.search(r"S(\d+)", filename)
+        # Pattern 3: participantXX or partXX format
+        match = re.search(r"part(?:icipant)?[-_]?(\d+)", filename, re.IGNORECASE)
         if match:
-            return f"S{match.group(1)}"
+            return f"participant-{match.group(1).zfill(2)}"
 
-        # Pattern 4: Just numbers at the beginning
+        # Pattern 4: SXX or S_XX format (common in some labs)
+        match = re.search(r"[^a-zA-Z]S[-_]?(\d+)", filename)
+        if match:
+            return f"S{match.group(1).zfill(2)}"
+        
+        # Pattern 5: PXX format (participant shorthand)
+        match = re.search(r"[^a-zA-Z]P[-_]?(\d+)", filename)
+        if match:
+            return f"P{match.group(1).zfill(2)}"
+
+        # Pattern 6: Just numbers at the beginning
         match = re.search(r"^(\d+)", filename)
         if match:
-            return match.group(1)
+            return match.group(1).zfill(2)
 
+        # Fallback: return the filename unchanged
         return filename
 
     @staticmethod
@@ -3007,6 +3810,7 @@ class CompareStudiesWindow(QDialog):
         """Parse a filename into semantic components.
 
         Recognizes common EEG filename components regardless of order.
+        Supports BIDS format and custom naming conventions.
 
         Args:
             filename: Filename to parse.
@@ -3017,15 +3821,21 @@ class CompareStudiesWindow(QDialog):
         components = {}
         filename_lower = filename.lower()
 
-        # Remove common file extensions
+        # Remove common file extensions and suffixes
         clean_name = re.sub(
-            r"\.(eeg|set|fdt|edf|bdf|cnt|vhdr|vmrk|fif|gz)$", "", filename_lower
+            r"[_\-](eeg|clean|proc|preproc|processed|raw|filt|filtered|ica|epoch|avg)$", 
+            "", 
+            filename_lower
+        )
+        clean_name = re.sub(
+            r"\.(eeg|set|fdt|edf|bdf|cnt|vhdr|vmrk|fif|gz|mat)$", "", clean_name
         )
 
-        # Parse various components
+        # Parse various components (order matters - more specific first)
         CompareStudiesWindow._parse_subject_components(clean_name, components)
         CompareStudiesWindow._parse_session_components(clean_name, components)
         CompareStudiesWindow._parse_task_components(clean_name, components)
+        CompareStudiesWindow._parse_acquisition_components(clean_name, components)
         CompareStudiesWindow._parse_run_components(clean_name, components)
         CompareStudiesWindow._parse_condition_components(clean_name, components)
 
@@ -3105,6 +3915,57 @@ class CompareStudiesWindow(QDialog):
                     break
 
     @staticmethod
+    def _parse_acquisition_components(clean_name: str, components: Dict) -> None:
+        """Parse acquisition-related components (BIDS acq- field).
+        
+        This handles patterns like:
+        - acq-dlpfcactive → sets condition='active'
+        - acq-dlpfcsham → sets condition='sham'
+        - acq-active → sets condition='active'
+        - acq-sham → sets condition='sham'
+        - acq-rest → sets condition='rest'
+        
+        Note: Sets 'condition' directly (not 'acquisition') to avoid duplicate components.
+        """
+        # BIDS acquisition field pattern: acq-<label>
+        acq_pattern = r"acq-([a-zA-Z0-9]+)"
+        match = re.search(acq_pattern, clean_name)
+        
+        if match:
+            acq_value = match.group(1).lower()
+            
+            # Extract meaningful condition from acquisition label
+            # Handle compound labels like "dlpfcactive" -> "active"
+            condition_keywords = {
+                'active': 'active',
+                'sham': 'sham',
+                'rest': 'rest',
+                'baseline': 'baseline',
+                'pre': 'pre',
+                'post': 'post',
+                'stim': 'stimulation',
+                'nostim': 'nostimulation',
+                'real': 'real',
+                'control': 'control',
+                'treatment': 'treatment'
+            }
+            
+            # Try to find a condition keyword in the acquisition value
+            detected_condition = None
+            for keyword, condition_name in condition_keywords.items():
+                if keyword in acq_value:
+                    detected_condition = condition_name
+                    break
+            
+            # Set condition directly (not acquisition) to avoid duplicate components
+            if detected_condition:
+                components["condition"] = detected_condition
+            else:
+                components["condition"] = acq_value
+            
+            return
+    
+    @staticmethod
     def _parse_run_components(clean_name: str, components: Dict) -> None:
         """Parse run-related components."""
         run_patterns = [r"run-?(\d+)", r"r(\d+)(?=[_\-\.]|$)"]
@@ -3116,7 +3977,14 @@ class CompareStudiesWindow(QDialog):
 
     @staticmethod
     def _parse_condition_components(clean_name: str, components: Dict) -> None:
-        """Parse condition-related components."""
+        """Parse condition-related components.
+        
+        Note: If acquisition field already set a condition, don't override it.
+        """
+        # If condition already set by acquisition parsing, don't override
+        if "condition" in components:
+            return
+        
         # Task-specific condition patterns
         task_condition_patterns = [
             (r"task-?(eyesclosed|eyes?closed|ec)", "eyesclosed"),
@@ -3145,6 +4013,8 @@ class CompareStudiesWindow(QDialog):
             (r"\b(passive)\b", "passive"),
             (r"\b(control|ctrl)\b", "control"),
             (r"\b(treatment|treat)\b", "treatment"),
+            (r"\b(sham)\b", "sham"),
+            (r"\b(real)\b", "real"),
         ]
 
         for pattern, condition_name in standalone_patterns:

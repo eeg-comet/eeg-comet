@@ -142,6 +142,12 @@ class FeatureExtractor:
                 # Calculate GFP for the window
                 gfp = np.std(window_eeg_data, axis=0)
                 gfp_squared_sum = np.sum(gfp**2)
+                
+                # Handle case where GFP is zero (no variance in signal)
+                if gfp_squared_sum == 0:
+                    window_gevs = {label: 0.0 for label in microstate_labels}
+                    window_element_gev[window_index] = window_gevs
+                    continue
 
                 # Initialize GEV for each microstate in this window
                 window_gevs = {label: 0.0 for label in microstate_labels}
@@ -180,6 +186,10 @@ class FeatureExtractor:
             # Calculate overall GFP
             gfp = np.std(eeg_data, axis=0)
             gfp_squared_sum = np.sum(gfp**2)
+            
+            # Handle case where GFP is zero (no variance in signal)
+            if gfp_squared_sum == 0:
+                return {label: 0.0 for label in microstate_labels}
 
             # Initialize GEV for each microstate
             gevs = {label: 0.0 for label in microstate_labels}
@@ -222,6 +232,11 @@ class FeatureExtractor:
             try:
                 element_counts = Counter(self._get_flat_sequence())
                 total_elements = len(self._get_flat_sequence())
+                
+                # Handle case where sequence is empty
+                if total_elements == 0:
+                    return {}
+                
                 return {
                     element: (count / total_elements) * 100
                     for element, count in element_counts.items()
@@ -275,6 +290,11 @@ class FeatureExtractor:
             )
             total_element_counts = Counter(sequence_without_repeats)
             total_duration_seconds = len(self._get_flat_sequence()) / samples_per_second
+            
+            # Handle case where duration is zero or very small
+            if total_duration_seconds == 0:
+                return {element: 0.0 for element in total_element_counts.keys()}
+            
             return {
                 element: count / total_duration_seconds
                 for element, count in total_element_counts.items()
@@ -390,6 +410,11 @@ class FeatureExtractor:
             transition_label = f"{current_element}_{next_element}"
             transitions[transition_label] += 1
             total_transitions += 1
+        
+        # Handle case where there are no transitions (all same microstate)
+        if total_transitions == 0:
+            return {}
+        
         return {pair: count / total_transitions for pair, count in transitions.items()}
 
     def entropy_rate(self, min_samples=None, kmax=6):
@@ -496,18 +521,20 @@ class FeatureExtractor:
 
         raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
-    def relative_occurrence_frequency(self, time_array, input_sequence=None):
+    def relative_occurrence_frequency(self, time_array, input_sequence=None, baseline_window=None):
         """Compute baseline-corrected relative occurrence frequency (ROF).
 
         Designed for epoched TMS-EEG data. Steps:
         1) Count occurrences for each microstate at each time point across trials
         2) Average across trials to create temporal profiles
         3) Apply centered log-ratio (CLR) transform for compositional data
-        4) Baseline-correct using pre-TMS period (-1000ms to -10ms)
+        4) Baseline-correct using pre-TMS period (default: -1000ms to -10ms)
 
         Args:
             time_array (numpy.ndarray): Time points in milliseconds for the epoch
             input_sequence (numpy.ndarray | list | None): Optional labels array; if None, uses self.input_sequence
+            baseline_window (list, optional): Baseline time window [start, end] in milliseconds. 
+                                             Defaults to [-1000, -10].
 
         Returns:
             dict: Baseline-corrected ROF values and related metrics
@@ -525,10 +552,10 @@ class FeatureExtractor:
             )
 
         return FeatureHelper().compute_relative_occurrence_frequency(
-            seq_array, time_array, microstates=None
+            seq_array, time_array, microstates=None, baseline_window=baseline_window
         )
 
-    def relative_transition_frequency(self, time_array=None, input_sequence=None):
+    def relative_transition_frequency(self, time_array=None, input_sequence=None, pre_event_window=None, post_event_window=None):
         """Extract baseline-corrected relative transition frequencies (RTF).
 
         Steps:
@@ -540,6 +567,8 @@ class FeatureExtractor:
         Args:
             time_array (array-like, optional): Time points in ms. If None, uses default.
             input_sequence (array-like, optional): Sequence to use. If None, uses self.input_sequence.
+            pre_event_window (list, optional): Pre-event time window [start, end] in milliseconds. Defaults to [-1000, -10].
+            post_event_window (list, optional): Post-event time window [start, end] in milliseconds. Defaults to [20, 1000].
 
         Returns:
             dict: Baseline-corrected RTF values and related metrics
@@ -556,8 +585,16 @@ class FeatureExtractor:
                 f"RTF calculation requires epoched data with shape (trials, timepoints). Current shape: {seq_array.shape}"
             )
 
+        # Set up time window ranges based on pre/post event windows
+        time_window_ranges = None
+        if pre_event_window is not None and post_event_window is not None:
+            time_window_ranges = {
+                "baseline": pre_event_window,
+                "post_tms": post_event_window
+            }
+
         return FeatureHelper().compute_relative_transition_frequency(
-            seq_array, time_array, microstates=None, time_window_ranges=None
+            seq_array, time_array, microstates=None, time_window_ranges=time_window_ranges
         )
 
     def hurst_exponent(self, min_samples=50, max_samples=2500, num_scales=50):
@@ -663,6 +700,7 @@ class FeatureExtractor:
         min_samples=None,
         time_array=None,
         epoched_labels=None,
+        baseline_window=None,
     ):
         """Extracts a set of microstate features from EEG data input_sequences, given a list of feature identifiers.
         The function operates in two modes: 'averaged' and 'sliding'.
@@ -681,6 +719,8 @@ class FeatureExtractor:
                                        If None, uses the full sequence length.
             time_array (numpy.ndarray, optional): Time points in milliseconds for epoched data. Required for ROF calculation.
             epoched_labels (numpy.ndarray, optional): Epoched labels for ROF calculation.
+            baseline_window (list, optional): Baseline time window [start, end] in milliseconds for ROF baseline correction.
+                                             Defaults to [-1000, -10].
 
         Returns:
             pandas.DataFrame: A DataFrame containing the extracted microstate features.
@@ -721,7 +761,7 @@ class FeatureExtractor:
                     )
                 else:
                     extracted_rof = self.relative_occurrence_frequency(
-                        time_array, input_sequence=epoched_labels
+                        time_array, input_sequence=epoched_labels, baseline_window=baseline_window
                     )
                     features_dict.append(("ROF", extracted_rof))
             except ValueError as e:
@@ -734,8 +774,22 @@ class FeatureExtractor:
                         f"Warning: RTF feature skipped for {filename} - requires time_array and epoched_labels for epoched TMS-EEG data"
                     )
                 else:
+                    # Extract pre/post event windows from baseline_window parameter
+                    # baseline_window is the pre_event_window, we need to infer post_event_window
+                    pre_win = baseline_window if baseline_window is not None else None
+                    # For post window, we need to derive it from the filtered time_array
+                    # If baseline_window is provided, it means data was filtered - use the time range after baseline
+                    post_win = None
+                    if baseline_window is not None and time_array is not None:
+                        # Find the time range after the baseline period
+                        time_arr = np.asarray(time_array)
+                        post_mask = time_arr > baseline_window[1]
+                        if np.any(post_mask):
+                            post_win = [float(time_arr[post_mask].min()), float(time_arr[post_mask].max())]
+                    
                     extracted_rtf = self.relative_transition_frequency(
-                        time_array, input_sequence=epoched_labels
+                        time_array, input_sequence=epoched_labels, 
+                        pre_event_window=pre_win, post_event_window=post_win
                     )
                     features_dict.append(("RTF", extracted_rtf))
             except ValueError as e:
@@ -1086,6 +1140,8 @@ class FeatureExtractionCoordinator:
         pre_window_size=1,
         post_window_size=1,
         min_samples=None,
+        pre_event_window=None,
+        post_event_window=None,
     ):
         """Extract features from segmentation data and organize by mode and type.
 
@@ -1108,6 +1164,12 @@ class FeatureExtractionCoordinator:
         min_samples : int, optional
             Minimum number of samples to use for consistent comparison in SE and LZC.
             If None, uses the full sequence length.
+        pre_event_window : list, optional
+            Pre-event time window [start, end] in milliseconds for epoched data.
+            If None, defaults to [-1000, -10].
+        post_event_window : list, optional
+            Post-event time window [start, end] in milliseconds for epoched data.
+            If None, defaults to [20, 1000].
 
         Returns:
         --------
@@ -1128,9 +1190,12 @@ class FeatureExtractionCoordinator:
 
         # Check if this is epoched data with original 2D structure
         eeg_data = segmentation.get("eeg_data", None)
+        # Check for epoched data by presence of epoched_labels (more reliable than eeg_data shape)
+        # as eeg_data might be flattened for averaged mode
         is_epoched_data = (
-            eeg_data is not None and len(eeg_data.shape) == 3
-        )  # (trials, channels, timepoints)
+            segmentation.get("epoched_labels", None) is not None or
+            (eeg_data is not None and len(eeg_data.shape) == 3)
+        )  # (trials, channels, timepoints) or has epoched_labels
 
         # Process each feature mode
         for mode in feature_mode:
@@ -1140,7 +1205,8 @@ class FeatureExtractionCoordinator:
             # Special handling for epoched data with sliding mode - extract TMS pre/post features
             if is_epoched_data and mode == "sliding":
                 results[mode] = self._extract_epoched_sliding_features(
-                    segmentation, feature_list, feature_types, sampling_rate, min_samples
+                    segmentation, feature_list, feature_types, sampling_rate, min_samples,
+                    pre_event_window, post_event_window
                 )
                 continue
 
@@ -1190,6 +1256,47 @@ class FeatureExtractionCoordinator:
                 ):
                     epoched_labels_param = epoched_labels_param.astype(str)
 
+                # Filter time_array and epoched_labels based on pre/post event windows for ROF/RTF
+                # This ensures ROF_timeseries.csv only contains the specified time range
+                baseline_window_param = None
+                if is_epoched_data and mode == "averaged" and time_array is not None and epoched_labels_param is not None:
+                    if "ROF" in feature_list or "RTF" in feature_list:
+                        # Use provided event windows or defaults
+                        if pre_event_window is None:
+                            pre_event_window = [-1000, -10]
+                        if post_event_window is None:
+                            post_event_window = [20, 1000]
+                        
+                        # Set baseline_window to pre_event_window for baseline correction
+                        baseline_window_param = pre_event_window
+                        
+                        # Convert to numpy array for indexing
+                        time_array_full = np.array(time_array)
+                        
+                        # Find indices for pre and post event windows
+                        pre_start_idx = np.searchsorted(time_array_full, pre_event_window[0])
+                        pre_end_idx = np.searchsorted(time_array_full, pre_event_window[1])
+                        post_start_idx = np.searchsorted(time_array_full, post_event_window[0])
+                        post_end_idx = np.searchsorted(time_array_full, post_event_window[1])
+                        
+                        # Ensure valid indices
+                        pre_start_idx = max(0, pre_start_idx)
+                        pre_end_idx = min(len(time_array_full), pre_end_idx)
+                        post_start_idx = max(0, post_start_idx)
+                        post_end_idx = min(len(time_array_full), post_end_idx)
+                        
+                        # Create mask for combined pre and post windows
+                        time_mask = np.zeros(len(time_array_full), dtype=bool)
+                        time_mask[pre_start_idx:pre_end_idx] = True
+                        time_mask[post_start_idx:post_end_idx] = True
+                        
+                        # Filter time array to only include pre/post event windows
+                        time_array = time_array_full[time_mask]
+                        
+                        # Filter epoched labels to match (all trials, but only selected timepoints)
+                        if epoched_labels_param.ndim == 2:  # (trials, timepoints)
+                            epoched_labels_param = epoched_labels_param[:, time_mask]
+
                 extracted_df = feature_extractor.extract_microstate_features(
                     filename=filename,
                     feature_list=feature_list,
@@ -1199,6 +1306,7 @@ class FeatureExtractionCoordinator:
                     min_samples=min_samples,
                     time_array=time_array,
                     epoched_labels=epoched_labels_param,
+                    baseline_window=baseline_window_param,
                 )
 
                 results[mode][feature_type].append(extracted_df)
@@ -1224,23 +1332,21 @@ class FeatureExtractionCoordinator:
         return results
 
     def _extract_epoched_sliding_features(
-        self, segmentation, feature_list, feature_types, sampling_rate, min_samples
+        self, segmentation, feature_list, feature_types, sampling_rate, min_samples,
+        pre_event_window=None, post_event_window=None
     ):
         """Extract features for epoched TMS data with sliding windows.
 
         This method implements specialized feature extraction for TMS-EEG epoched data when
         the sliding features checkbox is enabled. Instead of standard sliding windows, it
-        extracts features from specific time periods around the TMS pulse:
-
-        - Pre-TMS: -1000ms to -10ms (avoiding TMS artifact period)
-        - Post-TMS: +20ms to +1000ms (avoiding immediate TMS artifact)
+        extracts features from specific time periods around the TMS pulse.
 
         Features are extracted separately for each trial, allowing analysis of:
-        - Coverage percentage of microstate A 1 second before TMS to -10ms before TMS
-        - Post-TMS coverage from 20ms to 1 second after TMS
-        - All other selected microstate features for both periods
+        - Pre-event features (e.g., -1000ms to -10ms before event)
+        - Post-event features (e.g., +20ms to +1000ms after event)
+        - All selected microstate features for both periods
 
-        The output includes real_sliding_features with trial-by-trial pre/post TMS data.
+        The output includes real_sliding_features with trial-by-trial pre/post event data.
 
         Parameters:
         -----------
@@ -1254,11 +1360,17 @@ class FeatureExtractionCoordinator:
             Sampling rate in Hz
         min_samples : int, optional
             Minimum number of samples for consistent comparison
+        pre_event_window : list, optional
+            Pre-event time window [start, end] in milliseconds.
+            If None, defaults to [-1000, -10].
+        post_event_window : list, optional
+            Post-event time window [start, end] in milliseconds.
+            If None, defaults to [20, 1000].
 
         Returns:
         --------
         dict
-            Results organized by feature_type with pre/post TMS features
+            Results organized by feature_type with pre/post event features
             Each result includes Window_Type, Trial, Time_Start_ms, Time_End_ms columns
         """
         results = {}
@@ -1281,17 +1393,23 @@ class FeatureExtractionCoordinator:
 
         n_trials = segmentation_data.shape[0]
 
-        # Define TMS windows in milliseconds
-        pre_tms_start = -1000  # -1000ms
-        pre_tms_end = -10  # -10ms
-        post_tms_start = 20  # +20ms
-        post_tms_end = 1000  # +1000ms
+        # Use provided event windows or defaults
+        if pre_event_window is None:
+            pre_event_window = [-1000, -10]
+        if post_event_window is None:
+            post_event_window = [20, 1000]
+
+        # Define event windows in milliseconds
+        pre_event_start = pre_event_window[0]
+        pre_event_end = pre_event_window[1]
+        post_event_start = post_event_window[0]
+        post_event_end = post_event_window[1]
 
         # Find time indices for windows
-        pre_start_idx = np.searchsorted(time_array, pre_tms_start)
-        pre_end_idx = np.searchsorted(time_array, pre_tms_end)
-        post_start_idx = np.searchsorted(time_array, post_tms_start)
-        post_end_idx = np.searchsorted(time_array, post_tms_end)
+        pre_start_idx = np.searchsorted(time_array, pre_event_start)
+        pre_end_idx = np.searchsorted(time_array, pre_event_end)
+        post_start_idx = np.searchsorted(time_array, post_event_start)
+        post_end_idx = np.searchsorted(time_array, post_event_end)
 
         # Ensure valid indices
         pre_start_idx = max(0, pre_start_idx)
@@ -1313,7 +1431,7 @@ class FeatureExtractionCoordinator:
                 trial_labels = segmentation_data[trial_idx, :].tolist()
                 trial_eeg = eeg_data[trial_idx, :, :] if eeg_data.shape[0] > trial_idx else None
 
-                # Process pre-TMS window
+                # Process pre-event window
                 if pre_end_idx > pre_start_idx:
                     pre_labels = trial_labels[pre_start_idx:pre_end_idx]
                     pre_eeg = (
@@ -1332,7 +1450,7 @@ class FeatureExtractionCoordinator:
                     else:
                         pre_input_sequence = pre_labels
 
-                    # Extract features for pre-TMS window (excluding ROF and RTF)
+                    # Extract features for pre-event window (excluding ROF and RTF)
                     if len(pre_input_sequence) > 0:
                         pre_extractor = FeatureExtractor(
                             input_sequence=pre_input_sequence,
@@ -1354,12 +1472,12 @@ class FeatureExtractionCoordinator:
                         # Add window type and trial info
                         pre_df["Window_Type"] = "Pre"
                         pre_df["Trial"] = trial_idx + 1
-                        pre_df["Time_Start_ms"] = pre_tms_start
-                        pre_df["Time_End_ms"] = pre_tms_end
+                        pre_df["Time_Start_ms"] = pre_event_start
+                        pre_df["Time_End_ms"] = pre_event_end
 
                         results[feature_type].append(pre_df)
 
-                # Process post-TMS window
+                # Process post-event window
                 if post_end_idx > post_start_idx:
                     post_labels = trial_labels[post_start_idx:post_end_idx]
                     post_eeg = (
@@ -1378,7 +1496,7 @@ class FeatureExtractionCoordinator:
                     else:
                         post_input_sequence = post_labels
 
-                    # Extract features for post-TMS window (excluding ROF and RTF)
+                    # Extract features for post-event window (excluding ROF and RTF)
                     if len(post_input_sequence) > 0:
                         post_extractor = FeatureExtractor(
                             input_sequence=post_input_sequence,
@@ -1400,8 +1518,8 @@ class FeatureExtractionCoordinator:
                         # Add window type and trial info
                         post_df["Window_Type"] = "Post"
                         post_df["Trial"] = trial_idx + 1
-                        post_df["Time_Start_ms"] = post_tms_start
-                        post_df["Time_End_ms"] = post_tms_end
+                        post_df["Time_Start_ms"] = post_event_start
+                        post_df["Time_End_ms"] = post_event_end
 
                         results[feature_type].append(post_df)
 
