@@ -236,15 +236,23 @@ class DataIO:
     def _read_ced_locations(fname):
         """Read channel locations from an EEGLAB .ced file.
 
-        Parses a .ced file to extract electrode positions, detecting column layout
-        and converting coordinates to meters (auto-detecting mm/cm/m units).
+        Parses a .ced file to extract electrode positions, converting from EEGLAB's
+        coordinate convention to MNE's RAS (Right-Anterior-Superior) coordinate system.
+        Coordinates are directly transformed and scaled to meters (auto-detecting normalized/mm/cm/m units).
+        
+        EEGLAB CED format: X=anterior-posterior (+front), Y=left-right (+LEFT), Z=inferior-superior
+        MNE RAS system: X=left-right (+RIGHT), Y=anterior-posterior (+front), Z=inferior-superior
+        Transformation: MNE_X = -CED_Y, MNE_Y = CED_X, MNE_Z = CED_Z
+        
+        CED files typically contain pre-standardized electrode positions, so no template
+        fitting is applied - only coordinate system transformation and unit scaling.
 
         Args:
             fname (str): Path to the .ced file
 
         Returns:
             dict: Dictionary mapping channel names to 3D positions in meters
-                Format: {'ChannelName': np.array([y, x, z]), ...}
+                Format: {'ChannelName': np.array([x, y, z]), ...} in MNE RAS head coordinates
 
         Raises:
             FileNotFoundError: If the specified file does not exist
@@ -260,37 +268,49 @@ class DataIO:
         header_line = lines[0].strip()
         if not header_line:
             raise ValueError("The .ced file does not contain a header line.")
-        parts = header_line.split("\t")
-        if len(parts) < 4:
-            parts = header_line.split()
-        col_map = {col.strip().lower(): idx for idx, col in enumerate(parts)}
+        
+        # Parse header - keep empty columns to maintain alignment
+        if "\t" in header_line:
+            header_parts = header_line.split("\t")
+        else:
+            header_parts = header_line.split()
+        
+        # Build column map with original indices (including empty columns)
+        col_map = {col.strip().lower(): idx for idx, col in enumerate(header_parts) if col.strip()}
+        
         required_columns = ["labels", "x", "y", "z"]
         missing_cols = [col for col in required_columns if col not in col_map]
         if missing_cols:
             raise ValueError(f"Missing required columns in header: {missing_cols}")
+        
         label_idx = col_map["labels"]
         x_idx = col_map["x"]
         y_idx = col_map["y"]
         z_idx = col_map["z"]
-        # First pass: parse values as-is. We'll fit to a template instead of threshold scaling.
+        
+        # Parse data rows - keep empty columns for alignment
         labels = []
         coords = []  # list of (x, y, z) in original units
         for line_num, line in enumerate(lines[1:], start=2):
             line = line.strip()
             if not line:
                 continue
+            
+            # Split but DON'T filter empty strings - we need to maintain column alignment
             if "\t" in line:
-                parts = [p for p in line.split("\t") if p != ""]
+                parts = line.split("\t")
             else:
                 parts = line.split()
+            
             if len(parts) <= max(label_idx, x_idx, y_idx, z_idx):
                 raise ValueError(f"Invalid line in CED file at line {line_num}: {line}")
+            
             label = parts[label_idx].strip()
             try:
-                x = float(parts[x_idx])
-                y = float(parts[y_idx])
-                z = float(parts[z_idx])
-            except ValueError as err:
+                x = float(parts[x_idx].strip())
+                y = float(parts[y_idx].strip())
+                z = float(parts[z_idx].strip())
+            except (ValueError, AttributeError) as err:
                 raise ValueError(
                     f"Invalid numerical values in line {line_num}: {line}"
                 ) from err
@@ -300,24 +320,42 @@ class DataIO:
         if not coords:
             return ch_pos
 
-        # Build raw positions dict in the original coordinate order (x, y, z)
-        raw_pos = {label: np.array([x, y, z], dtype=float) for label, (x, y, z) in zip(labels, coords)}
+        # Build positions dict with coordinate transformation to match MNE's RAS system
+        # EEGLAB CED: X=front, Y=left, Z=up (positive Y is LEFT side)
+        # MNE RAS: X=right, Y=front, Z=up (positive X is RIGHT side)
+        # Transform: MNE_X = -CED_Y (invert left/right), MNE_Y = CED_X, MNE_Z = CED_Z
+        for label, (x, y, z) in zip(labels, coords):
+            # Apply coordinate transformation
+            mne_x = -y  # CED's left/right becomes MNE's right/left (negated)
+            mne_y = x   # CED's front/back becomes MNE's front/back
+            mne_z = z   # CED's up/down stays the same
+            
+            ch_pos[label] = np.array([mne_x, mne_y, mne_z], dtype=float)
 
-        # Fit to default head shape using a robust similarity transform
-        fitted = DataIO._fit_ch_pos_to_template(raw_pos, template_names=["standard_1020", "standard_1005"], allow_reflection=True)
-
-        # Ensure positions are in meters. If magnitude suggests mm/cm, rescale roughly to meters after fitting.
-        # This is a gentle safeguard if the fit still leaves obviously non-metric units.
-        abs_max = max(np.linalg.norm(v) for v in fitted.values())
+        # Determine appropriate scaling to meters
+        # CED files typically use normalized coordinates (radius ~1) or mm/cm
+        abs_max = max(np.linalg.norm(v) for v in ch_pos.values())
+        
         if abs_max > 20.0:
-            post_scale = 1.0 / 1000.0
-        elif abs_max > 1.0:
-            post_scale = 1.0 / 100.0
+            # Likely in mm (e.g., 85mm)
+            scale = 1.0 / 1000.0
+        elif abs_max > 1.5:
+            # Likely in cm (e.g., 8.5cm)
+            scale = 1.0 / 100.0
+        elif 0.5 <= abs_max <= 1.5:
+            # Likely normalized to unit sphere (radius ~1), scale to typical head size
+            # Standard head radius is approximately 8.5-9.5cm = 0.085-0.095m
+            scale = 0.095
+        elif 0.08 <= abs_max < 0.5:
+            # Already in meters (typical head radius 0.085-0.095m)
+            scale = 1.0
         else:
-            post_scale = 1.0
+            # Very small values, assume normalized and scale
+            scale = 0.095
 
-        for k, v in fitted.items():
-            ch_pos[k] = np.asarray(v) * post_scale
+        # Apply scaling to all positions
+        for k in ch_pos:
+            ch_pos[k] = ch_pos[k] * scale
 
         return ch_pos
 
