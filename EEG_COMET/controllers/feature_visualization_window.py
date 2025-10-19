@@ -114,8 +114,8 @@ class FeatureVisualizationWindow(QMainWindow):
                 self.ui.dynamic_radio.setEnabled(False)
             return
         
-        # Enable static radio if averaged features are available
-        static_available = "averaged" in self.feature_mode
+        # Enable static radio if averaged or pre_post features are available
+        static_available = "averaged" in self.feature_mode or "pre_post" in self.feature_mode
         if hasattr(self.ui, "static_radio"):
             self.ui.static_radio.setEnabled(static_available)
             # If static becomes unavailable and it was selected, switch to dynamic
@@ -123,13 +123,13 @@ class FeatureVisualizationWindow(QMainWindow):
                 if hasattr(self.ui, "dynamic_radio") and "sliding" in self.feature_mode:
                     self.ui.dynamic_radio.setChecked(True)
         
-        # Enable dynamic radio if sliding features are available
-        dynamic_available = "sliding" in self.feature_mode
+        # Enable dynamic radio if sliding or pre_post features are available
+        dynamic_available = "sliding" in self.feature_mode or "pre_post" in self.feature_mode
         if hasattr(self.ui, "dynamic_radio"):
             self.ui.dynamic_radio.setEnabled(dynamic_available)
             # If dynamic becomes unavailable and it was selected, switch to static
             if not dynamic_available and self.ui.dynamic_radio.isChecked():
-                if hasattr(self.ui, "static_radio") and "averaged" in self.feature_mode:
+                if hasattr(self.ui, "static_radio") and ("averaged" in self.feature_mode or "pre_post" in self.feature_mode):
                     self.ui.static_radio.setChecked(True)
         
         # If only one mode is available, select it automatically
@@ -868,13 +868,81 @@ class FeatureVisualizationWindow(QMainWindow):
             static_mode = hasattr(self.ui, "static_radio") and self.ui.static_radio.isChecked()
             dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
 
-            if dynamic_mode and "sliding" in self.feature_mode:
-                # For epoched data or any selection
-                if self.ui.all_files_list.selectedItems():
+        # Handle visualization based on mode and available features
+        if static_mode:
+            if self.ui.all_files_list.selectedItems():
+                # In static mode, prioritize averaged features, then pre_post
+                if "averaged" in self.feature_mode:
+                    self.show_static_box_plot()
+                elif "pre_post" in self.feature_mode:
+                    self._plot_pre_post_features()
+        elif dynamic_mode:
+            if self.ui.all_files_list.selectedItems():
+                # In dynamic mode, prioritize sliding time-series, then pre_post
+                if "sliding" in self.feature_mode:
                     self.show_dynamic_line_all()
-            elif static_mode and self.ui.all_files_list.selectedItems():
-                self.show_static_box_plot()
+                elif "pre_post" in self.feature_mode:
+                    # Show pre_post in dynamic mode as bar plot (comparison over time windows)
+                    self._plot_pre_post_features()
 
+    def _plot_pre_post_features(self):
+        """Plot pre/post event features using bar plot visualization.
+        
+        Returns:
+          None
+        """
+        # Load pre_post features
+        try:
+            features_df = self.load_features("pre_post")
+        except Exception as e:
+            # If loading fails, show error message
+            self.figure.clear()
+            ax = self.canvas.figure.gca()
+            ax.text(0.5, 0.5, f'Failed to load pre/post features:\n{str(e)}', 
+                   ha='center', va='center', transform=ax.transAxes,
+                   fontsize=12, color='red')
+            self.canvas.draw()
+            return
+        
+        # Filter by selected files
+        selected_files = [item.text() for item in self.ui.all_files_list.selectedItems()]
+        if selected_files:
+            # Extract base filenames for filtering (handle _Pre and _Post suffixes)
+            def extract_base_filename(filename):
+                # Remove _Pre or _Post suffix
+                if filename.endswith("_Pre") or filename.endswith("_Post"):
+                    return filename.rsplit("_", 1)[0]
+                return filename
+            
+            # Create base_filename column if it doesn't exist
+            if "base_filename" not in features_df.columns:
+                features_df["base_filename"] = features_df["Filename"].apply(extract_base_filename)
+            
+            # Filter by selected base filenames
+            selected_base = [extract_base_filename(f) for f in selected_files]
+            features_df = features_df[features_df["base_filename"].isin(selected_base)]
+        
+        if features_df.empty:
+            self.figure.clear()
+            ax = self.canvas.figure.gca()
+            ax.text(0.5, 0.5, 'No pre/post features found for selected files', 
+                   ha='center', va='center', transform=ax.transAxes,
+                   fontsize=12)
+            self.canvas.draw()
+            return
+        
+        # Get plot parameters
+        feature_code = self.get_selected_feature_code()
+        font_sizes = self.get_selected_font_size_from_menu()
+        colormap = self.get_selected_colormap()
+        font_family = self.get_selected_font_family()
+        display_options = self.get_display_options()
+        
+        # Plot pre/post event bar chart
+        self.plot_pre_post_event_bar(
+            features_df, feature_code, font_sizes, colormap, font_family, display_options
+        )
+    
     @staticmethod
     def move_file_between_lists(source_list, target_list):
         """Move currently selected items from source list to target list.
@@ -1147,7 +1215,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """Load features for a given mode.
 
         Args:
-          mode (str): Feature mode (e.g., "averaged", "sliding", "variability").
+          mode (str): Feature mode (e.g., "averaged", "sliding", "variability", "pre_post").
 
         Returns:
           pandas.DataFrame: Loaded features for the given mode.
@@ -1156,6 +1224,11 @@ class FeatureVisualizationWindow(QMainWindow):
             # Load variability features separately
             feature_path = os.path.join(
                 self.extracted_features_path, f"real_sliding_variability_features{self.export_format}"
+            )
+        elif mode == "pre_post":
+            # Load pre/post event features
+            feature_path = os.path.join(
+                self.extracted_features_path, f"real_pre_post_features{self.export_format}"
             )
         else:
             feature_path = os.path.join(
@@ -2431,7 +2504,7 @@ class FeatureVisualizationWindow(QMainWindow):
         """Plot bar plot comparing pre-event vs post-event features for epoched data.
 
         Args:
-          features_df (pandas.DataFrame): Features with Window_Type, Trial columns.
+          features_df (pandas.DataFrame): Features with Window_Type column, optionally Trial column.
           feature (str): Feature short code.
           font_sizes (dict[str, int]): Title/label/tick/legend sizes.
           colormap (str): Matplotlib colormap name.
@@ -2476,13 +2549,23 @@ class FeatureVisualizationWindow(QMainWindow):
             self.canvas.draw()
             return
         
-        # Prepare data for plotting
+        # Prepare data for plotting - handle both with and without Trial column
+        has_trial_column = "Trial" in features_df.columns
+        has_ntrials_column = "N_Trials" in features_df.columns
+        
+        # Build id_vars list dynamically
+        id_vars = ["Filename", "Window_Type"]
+        if has_trial_column:
+            id_vars.append("Trial")
+        if has_ntrials_column:
+            id_vars.append("N_Trials")
+        
         plot_data = pd.melt(
             features_df, 
-            id_vars=["Filename", "Window_Type", "Trial"], 
+            id_vars=id_vars, 
             value_vars=filter_cols,
             var_name="Microstate",
-            value_name=feature
+            value_name="Value"  # Use generic name to avoid conflicts
         )
         
         # Clean up microstate labels (remove feature prefix)
@@ -2498,7 +2581,7 @@ class FeatureVisualizationWindow(QMainWindow):
         sns.barplot(
             data=plot_data,
             x="Window_Type",
-            y=feature,
+            y="Value",
             hue="Microstate",
             ax=ax,
             palette=color_palette,
@@ -2516,18 +2599,34 @@ class FeatureVisualizationWindow(QMainWindow):
         
         # Set figure title with correct subject and trial counts
         # Count unique base filenames for subject count
-        n_subjects = features_df["base_filename"].nunique() if "base_filename" in features_df.columns else features_df["Filename"].nunique()
-        
-        # Count unique trials across all subjects (unique subject-trial combinations)
-        if "base_filename" in features_df.columns and "Trial" in features_df.columns:
-            # Count unique (subject, trial) pairs
-            n_unique_trials = features_df.groupby(["base_filename", "Trial"]).ngroups
-        elif "Trial" in features_df.columns:
-            n_unique_trials = features_df["Trial"].nunique()
+        if "base_filename" in features_df.columns:
+            n_subjects = features_df["base_filename"].nunique()
         else:
+            # Remove _Pre and _Post suffixes from Filename to get unique subjects
+            unique_subjects = features_df["Filename"].apply(
+                lambda x: x.rsplit("_Pre", 1)[0].rsplit("_Post", 1)[0]
+            ).nunique()
+            n_subjects = unique_subjects
+        
+        # Count total trials across all subjects
+        if "N_Trials" in plot_data.columns:
+            # For pre_post features: sum the N_Trials column from unique filenames
+            # Remove _Pre/_Post suffix to avoid double counting (each subject has Pre and Post rows)
+            plot_data["base_subject"] = plot_data["Filename"].apply(
+                lambda x: x.rsplit("_Pre", 1)[0].rsplit("_Post", 1)[0]
+            )
+            unique_files = plot_data.drop_duplicates(subset=["base_subject"])
+            n_unique_trials = int(unique_files["N_Trials"].sum())
+        elif "base_filename" in plot_data.columns and "Trial" in plot_data.columns:
+            # For per-trial features: count unique (subject, trial) pairs
+            n_unique_trials = plot_data.groupby(["base_filename", "Trial"]).ngroups
+        elif "Trial" in plot_data.columns:
+            n_unique_trials = plot_data["Trial"].nunique()
+        else:
+            # Fallback: estimate from number of observations
             n_unique_trials = len(features_df) // 2
         
-        # Total observations (includes both Pre and Post for each trial)
+        # Total observations (includes both Pre and Post for each subject)
         n_total_observations = len(features_df)
         
         self.figure.suptitle(

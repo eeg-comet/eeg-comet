@@ -1463,6 +1463,9 @@ class MainMicrostateWindow(QMainWindow):
             # Enable epoched-specific features
             self.widget_groups.set_group_status("epoched_features", WidgetMode.ENABLE)
             
+            # Enable pre/post event features checkbox for epoched data
+            self.ui.step4_prepost_features_checkbox.setEnabled(True)
+            
             # Only check ROF/RTF checkboxes and set default values on first load
             # This allows users to modify them later if desired
             if not hasattr(self, '_epoched_features_initialized') or not self._epoched_features_initialized:
@@ -1486,6 +1489,8 @@ class MainMicrostateWindow(QMainWindow):
             
             # Disable epoched-specific features
             self.widget_groups.set_group_status("epoched_features", WidgetMode.DISABLE)
+            self.ui.step4_prepost_features_checkbox.setEnabled(False)
+            self.ui.step4_prepost_features_checkbox.setChecked(False)
             self.ui.step4_feature_rof_checkbox.setChecked(False)
             self.ui.step4_feature_rtf_checkbox.setChecked(False)
 
@@ -1516,6 +1521,13 @@ class MainMicrostateWindow(QMainWindow):
         )
         if os.path.exists(sliding_path):
             extracted_modes.append("sliding")
+        
+        # Check for pre_post features
+        pre_post_path = os.path.join(
+            self.comet.extracted_features_path, f"real_pre_post_features{self.comet.export_format}"
+        )
+        if os.path.exists(pre_post_path):
+            extracted_modes.append("pre_post")
             
         return extracted_modes
 
@@ -2652,6 +2664,8 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.feature_mode.append("averaged")
         if self.ui.step4_sliding_features_checkbox.isChecked():
             self.comet.feature_mode.append("sliding")
+        if self.ui.step4_prepost_features_checkbox.isChecked():
+            self.comet.feature_mode.append("pre_post")
 
         # Feature types
         if self.ui.step4_synthetic_checkbox.isChecked():

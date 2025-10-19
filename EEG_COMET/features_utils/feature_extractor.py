@@ -893,54 +893,14 @@ class FeatureExtractor:
                     output_features_data.append([filename, feature, feature_data])
 
         # Process special features separately
+        # Note: ROF and RTF are NOT added to the main features DataFrame
+        # They have their own dedicated export files:
+        # - ROF_timeseries.csv (full time-resolved data)
+        # - RTF_averages.csv (transition matrices)
+        # This keeps real_averaged_features.csv clean and focused on standard microstate features
         for feature, feature_data in special_features_dict:
-            if self.feature_mode == "averaged":
-                if feature == "ROF":
-                    # For averaged mode, add summary statistics from ROF
-                    microstates = feature_data.get("microstates", [])
-                    baseline_corrected_rof = feature_data.get("occurrences_clr_bc", {})
-
-                    if baseline_corrected_rof:
-                        # Add mean baseline-corrected ROF for each microstate
-                        for microstate in microstates:
-                            if microstate in baseline_corrected_rof:
-                                mean_rof = np.mean(baseline_corrected_rof[microstate])
-                                output_features_data.append(
-                                    [filename, f"ROF_mean_{microstate}", mean_rof]
-                                )
-
-                                # Add std baseline-corrected ROF for each microstate
-                                std_rof = np.std(baseline_corrected_rof[microstate])
-                                output_features_data.append(
-                                    [filename, f"ROF_std_{microstate}", std_rof]
-                                )
-
-                elif feature == "RTF":
-                    # For averaged mode, add summary statistics from RTF
-                    microstates = feature_data.get("microstates", [])
-                    transition_averages_bc = feature_data.get("transition_averages_bc", {})
-
-                    if transition_averages_bc:
-                        # Add transition averages for each time window
-                        for window_name, transition_matrix in transition_averages_bc.items():
-                            if isinstance(transition_matrix, np.ndarray):
-                                # Extract individual transitions
-                                for i, from_state in enumerate(microstates):
-                                    for j, to_state in enumerate(microstates):
-                                        if i != j:  # Skip self-transitions
-                                            transition_value = transition_matrix[i, j]
-                                            output_features_data.append(
-                                                [
-                                                    filename,
-                                                    f"RTF_{window_name}_{from_state}_{to_state}",
-                                                    transition_value,
-                                                ]
-                                            )
-
-            elif self.feature_mode == "sliding":
-                # For sliding mode, this would typically not be used since ROF/RTF are for epoched data
-                # But if needed, could add time-resolved values here
-                pass
+            # Skip adding ROF/RTF to main features - they're exported separately
+            pass
 
         # Store full ROF data for separate export if ROF was computed
         if special_features_dict:
@@ -1205,6 +1165,14 @@ class FeatureExtractionCoordinator:
             # Special handling for epoched data with sliding mode - extract TMS pre/post features
             if is_epoched_data and mode == "sliding":
                 results[mode] = self._extract_epoched_sliding_features(
+                    segmentation, feature_list, feature_types, sampling_rate, min_samples,
+                    pre_event_window, post_event_window
+                )
+                continue
+
+            # Special handling for pre_post mode - extract features for pre and post event windows
+            if mode == "pre_post":
+                results[mode] = self._extract_pre_post_event_features(
                     segmentation, feature_list, feature_types, sampling_rate, min_samples,
                     pre_event_window, post_event_window
                 )
@@ -1522,6 +1490,230 @@ class FeatureExtractionCoordinator:
                         post_df["Time_End_ms"] = post_event_end
 
                         results[feature_type].append(post_df)
+
+        return results
+
+    def _extract_pre_post_event_features(
+        self, segmentation, feature_list, feature_types, sampling_rate, min_samples,
+        pre_event_window=None, post_event_window=None
+    ):
+        """Extract averaged features for pre and post event windows from epoched data.
+
+        This method extracts features averaged across all trials for specific time periods
+        around the event marker (e.g., TMS pulse). Features are computed separately for
+        pre-event and post-event windows.
+
+        Parameters:
+        -----------
+        segmentation : dict
+            Segmentation data containing labels, time, EEG data, etc.
+        feature_list : list
+            List of features to extract (COV, OCC, DUR, GEV, etc.)
+        feature_types : list
+            List of feature types ('real', 'surrogate', 'random')
+        sampling_rate : float
+            Sampling rate in Hz
+        min_samples : int, optional
+            Minimum number of samples for consistent comparison
+        pre_event_window : list, optional
+            Pre-event time window [start, end] in milliseconds.
+            If None, defaults to [-1000, -10].
+        post_event_window : list, optional
+            Post-event time window [start, end] in milliseconds.
+            If None, defaults to [20, 1000].
+
+        Returns:
+        --------
+        dict
+            Results organized by feature_type with pre/post event features.
+            Each result includes Window_Type column ('Pre' or 'Post').
+        """
+        results = {}
+
+        # Get data
+        eeg_data = segmentation.get("eeg_data", None)  # May be 2D or 3D
+        time_array = np.array(segmentation.get("time", []))
+        filename = segmentation.get("filename", "unknown")
+        microstate_maps = segmentation.get("microstate_maps", None)
+        microstate_labels = segmentation.get("microstate_labels", None)
+
+        if eeg_data is None or len(time_array) == 0:
+            return {feature_type: [] for feature_type in feature_types}
+
+        # Load original segmentation data from file to get trial structure
+        segmentation_data = self._load_original_segmentation_data(segmentation)
+
+        if segmentation_data is None:
+            return {feature_type: [] for feature_type in feature_types}
+
+        n_trials = segmentation_data.shape[0]
+        n_timepoints = segmentation_data.shape[1]
+        
+        # Check if EEG data is 2D (flattened) or 3D (trials preserved)
+        if eeg_data.ndim == 2:
+            # EEG data is 2D (channels, all_timepoints) - need to reshape to 3D
+            n_channels = eeg_data.shape[0]
+            total_timepoints = eeg_data.shape[1]
+            
+            # Verify that total timepoints matches expected structure
+            if total_timepoints == n_trials * n_timepoints:
+                # Reshape to 3D: (trials, channels, timepoints)
+                # Note: data is stored as (channels, trial1_timepoints + trial2_timepoints + ...)
+                # We need to reshape to (trials, channels, timepoints)
+                eeg_data_3d = np.zeros((n_trials, n_channels, n_timepoints))
+                for trial_idx in range(n_trials):
+                    start_idx = trial_idx * n_timepoints
+                    end_idx = (trial_idx + 1) * n_timepoints
+                    eeg_data_3d[trial_idx, :, :] = eeg_data[:, start_idx:end_idx]
+                eeg_data = eeg_data_3d
+            else:
+                # Unexpected shape - return empty results
+                return {feature_type: [] for feature_type in feature_types}
+        elif eeg_data.ndim != 3:
+            # Unexpected dimensionality
+            return {feature_type: [] for feature_type in feature_types}
+
+        # Use provided event windows or defaults
+        if pre_event_window is None:
+            pre_event_window = [-1000, -10]
+        if post_event_window is None:
+            post_event_window = [20, 1000]
+
+        # Define event windows in milliseconds
+        pre_event_start = pre_event_window[0]
+        pre_event_end = pre_event_window[1]
+        post_event_start = post_event_window[0]
+        post_event_end = post_event_window[1]
+
+        # Find time indices for windows
+        pre_start_idx = np.searchsorted(time_array, pre_event_start)
+        pre_end_idx = np.searchsorted(time_array, pre_event_end)
+        post_start_idx = np.searchsorted(time_array, post_event_start)
+        post_end_idx = np.searchsorted(time_array, post_event_end)
+
+        # Ensure valid indices
+        pre_start_idx = max(0, pre_start_idx)
+        pre_end_idx = min(len(time_array), pre_end_idx)
+        post_start_idx = max(0, post_start_idx)
+        post_end_idx = min(len(time_array), post_end_idx)
+
+        # Filter out ROF and RTF from feature list for pre_post extraction
+        # ROF and RTF are special epoched features that should only be computed in averaged mode
+        # ROF already provides baseline-corrected comparison (post vs pre)
+        # RTF requires full trial structure for transition analysis
+        filtered_feature_list = [f for f in feature_list if f not in ["ROF", "RTF"]]
+
+        # Process each feature type
+        for feature_type in feature_types:
+            results[feature_type] = []
+
+            # Extract features for pre-event window (averaged across all trials)
+            if pre_end_idx > pre_start_idx:
+                # Concatenate all trials for the pre-event window
+                pre_labels = []
+                pre_eeg_list = []
+                for trial_idx in range(n_trials):
+                    trial_labels = segmentation_data[trial_idx, pre_start_idx:pre_end_idx].tolist()
+                    pre_labels.extend(trial_labels)
+                    if eeg_data is not None and eeg_data.shape[0] > trial_idx:
+                        trial_eeg = eeg_data[trial_idx, :, pre_start_idx:pre_end_idx]
+                        pre_eeg_list.append(trial_eeg)
+
+                # Concatenate EEG data along time dimension
+                pre_eeg = np.concatenate(pre_eeg_list, axis=1) if pre_eeg_list else None
+
+                # Apply feature type transformation
+                if feature_type == "real":
+                    pre_input_sequence = pre_labels
+                elif feature_type == "surrogate":
+                    pre_input_sequence = pre_labels.copy()
+                    np.random.shuffle(pre_input_sequence)
+                elif feature_type == "random":
+                    unique_labels = list(set(pre_labels))
+                    pre_input_sequence = np.random.choice(unique_labels, size=len(pre_labels))
+                else:
+                    pre_input_sequence = pre_labels
+
+                # Extract features for pre-event window
+                if len(pre_input_sequence) > 0:
+                    pre_extractor = FeatureExtractor(
+                        input_sequence=pre_input_sequence,
+                        sampling_rate=sampling_rate,
+                        feature_mode="averaged",
+                    )
+
+                    pre_df = pre_extractor.extract_microstate_features(
+                        filename=f"{filename}_Pre",
+                        feature_list=filtered_feature_list,
+                        eeg_data=pre_eeg,
+                        microstate_maps=microstate_maps,
+                        microstate_labels=microstate_labels,
+                        min_samples=min_samples,
+                        time_array=None,
+                        epoched_labels=None,
+                    )
+
+                    # Add window type info and trial count
+                    pre_df["Window_Type"] = "Pre"
+                    pre_df["Time_Start_ms"] = pre_event_start
+                    pre_df["Time_End_ms"] = pre_event_end
+                    pre_df["N_Trials"] = n_trials  # Store number of trials used
+
+                    results[feature_type].append(pre_df)
+
+            # Extract features for post-event window (averaged across all trials)
+            if post_end_idx > post_start_idx:
+                # Concatenate all trials for the post-event window
+                post_labels = []
+                post_eeg_list = []
+                for trial_idx in range(n_trials):
+                    trial_labels = segmentation_data[trial_idx, post_start_idx:post_end_idx].tolist()
+                    post_labels.extend(trial_labels)
+                    if eeg_data is not None and eeg_data.shape[0] > trial_idx:
+                        trial_eeg = eeg_data[trial_idx, :, post_start_idx:post_end_idx]
+                        post_eeg_list.append(trial_eeg)
+
+                # Concatenate EEG data along time dimension
+                post_eeg = np.concatenate(post_eeg_list, axis=1) if post_eeg_list else None
+
+                # Apply feature type transformation
+                if feature_type == "real":
+                    post_input_sequence = post_labels
+                elif feature_type == "surrogate":
+                    post_input_sequence = post_labels.copy()
+                    np.random.shuffle(post_input_sequence)
+                elif feature_type == "random":
+                    unique_labels = list(set(post_labels))
+                    post_input_sequence = np.random.choice(unique_labels, size=len(post_labels))
+                else:
+                    post_input_sequence = post_labels
+
+                # Extract features for post-event window
+                if len(post_input_sequence) > 0:
+                    post_extractor = FeatureExtractor(
+                        input_sequence=post_input_sequence,
+                        sampling_rate=sampling_rate,
+                        feature_mode="averaged",
+                    )
+
+                    post_df = post_extractor.extract_microstate_features(
+                        filename=f"{filename}_Post",
+                        feature_list=filtered_feature_list,
+                        eeg_data=post_eeg,
+                        microstate_maps=microstate_maps,
+                        microstate_labels=microstate_labels,
+                        min_samples=min_samples,
+                        time_array=None,
+                        epoched_labels=None,
+                    )
+
+                    # Add window type info and trial count
+                    post_df["Window_Type"] = "Post"
+                    post_df["Time_Start_ms"] = post_event_start
+                    post_df["Time_End_ms"] = post_event_end
+                    post_df["N_Trials"] = n_trials  # Store number of trials used
+
+                    results[feature_type].append(post_df)
 
         return results
 

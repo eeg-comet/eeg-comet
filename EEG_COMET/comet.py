@@ -3172,7 +3172,7 @@ class COMET:
 
                 # Check if we have epoched data with sliding features enabled OR ROF feature requested
                 is_epoched_sliding = self.datatype == "epoched" and "sliding" in self.feature_mode
-                needs_epoched_structure = self.datatype == "epoched" and ("ROF" in self.feature_list or "RTF" in self.feature_list)
+                needs_epoched_structure = self.datatype == "epoched" and ("ROF" in self.feature_list or "RTF" in self.feature_list or "pre_post" in self.feature_mode)
 
                 # For epoched data with sliding mode, we need to preserve trial structure for pre/post extraction
                 # For averaged mode, flatten everything
@@ -3314,52 +3314,81 @@ class COMET:
                 )
                 self.LogWindow.append_log(f"Extracting features from {file_info}", log_type="file")
 
-            # For epoched data with both modes, extract each mode separately with correct data structure
-            if self.datatype == "epoched" and "averaged" in self.feature_mode and "sliding" in self.feature_mode:
-                # Extract averaged mode with flattened data structure
-                segmentation_averaged = segmentation.copy()
-                # Flatten labels and EEG data for averaged mode
-                labels_flat = [str(item) for item in segmentation_array.flatten()]
-                eeg_flat = self.comet_data_io.get_eeg_data(eeg, self.datatype)
-                time_flat = time_single_epoch * segmentation_array.shape[0] if time_single_epoch else time
-                segmentation_averaged["labels"] = labels_flat
-                segmentation_averaged["eeg_data"] = eeg_flat
-                segmentation_averaged["time"] = time_flat
-                # Add epoched_labels for ROF/RTF
-                if needs_epoched_structure:
-                    segmentation_averaged["epoched_labels"] = segmentation_array
-                    if time_single_epoch is not None:
-                        segmentation_averaged["time_single_epoch"] = np.array(time_single_epoch)
-                
-                extracted_features_averaged = self.comet_feature_extractor.extract_features(
-                    segmentation=segmentation_averaged,
-                    feature_list=self.feature_list,
-                    feature_mode=["averaged"],
-                    feature_types=self.feature_types,
-                    sliding_window_size=self.sliding_window_size,
-                    pre_window_size=self.pre_window_size,
-                    post_window_size=self.post_window_size,
-                    pre_event_window=getattr(self, 'pre_event_window', None),
-                    post_event_window=getattr(self, 'post_event_window', None),
-                )
-                
-                # Extract sliding mode with trial-preserved structure (already set in segmentation)
-                extracted_features_sliding = self.comet_feature_extractor.extract_features(
-                    segmentation=segmentation,
-                    feature_list=self.feature_list,
-                    feature_mode=["sliding"],
-                    feature_types=self.feature_types,
-                    sliding_window_size=self.sliding_window_size,
-                    pre_window_size=self.pre_window_size,
-                    post_window_size=self.post_window_size,
-                    pre_event_window=getattr(self, 'pre_event_window', None),
-                    post_event_window=getattr(self, 'post_event_window', None),
-                )
-                
-                # Merge results from both modes
+            # For epoched data with multiple modes or pre_post mode, extract each mode separately with correct data structure
+            if self.datatype == "epoched" and (len(self.feature_mode) > 1 or "pre_post" in self.feature_mode):
                 extracted_features = {}
-                extracted_features.update(extracted_features_averaged)
-                extracted_features.update(extracted_features_sliding)
+                
+                # Extract each mode with appropriate data structure
+                for mode in self.feature_mode:
+                    if mode == "averaged":
+                        # Extract averaged mode with flattened data structure
+                        segmentation_averaged = segmentation.copy()
+                        # Flatten labels and EEG data for averaged mode
+                        labels_flat = [str(item) for item in segmentation_array.flatten()]
+                        eeg_flat = self.comet_data_io.get_eeg_data(eeg, self.datatype)
+                        time_flat = time_single_epoch * segmentation_array.shape[0] if time_single_epoch else time
+                        segmentation_averaged["labels"] = labels_flat
+                        segmentation_averaged["eeg_data"] = eeg_flat
+                        segmentation_averaged["time"] = time_flat
+                        # Add epoched_labels for ROF/RTF
+                        if needs_epoched_structure:
+                            segmentation_averaged["epoched_labels"] = segmentation_array
+                            if time_single_epoch is not None:
+                                segmentation_averaged["time_single_epoch"] = np.array(time_single_epoch)
+                        
+                        mode_features = self.comet_feature_extractor.extract_features(
+                            segmentation=segmentation_averaged,
+                            feature_list=self.feature_list,
+                            feature_mode=[mode],
+                            feature_types=self.feature_types,
+                            sliding_window_size=self.sliding_window_size,
+                            pre_window_size=self.pre_window_size,
+                            post_window_size=self.post_window_size,
+                            pre_event_window=getattr(self, 'pre_event_window', None),
+                            post_event_window=getattr(self, 'post_event_window', None),
+                        )
+                        extracted_features.update(mode_features)
+                        
+                    elif mode == "sliding":
+                        # Extract sliding mode with trial-preserved structure
+                        mode_features = self.comet_feature_extractor.extract_features(
+                            segmentation=segmentation,
+                            feature_list=self.feature_list,
+                            feature_mode=[mode],
+                            feature_types=self.feature_types,
+                            sliding_window_size=self.sliding_window_size,
+                            pre_window_size=self.pre_window_size,
+                            post_window_size=self.post_window_size,
+                            pre_event_window=getattr(self, 'pre_event_window', None),
+                            post_event_window=getattr(self, 'post_event_window', None),
+                        )
+                        extracted_features.update(mode_features)
+                        
+                    elif mode == "pre_post":
+                        # Extract pre_post mode with flattened data structure (like averaged)
+                        segmentation_pre_post = segmentation.copy()
+                        # Flatten labels and EEG data for pre_post mode
+                        labels_flat = [str(item) for item in segmentation_array.flatten()]
+                        eeg_flat = self.comet_data_io.get_eeg_data(eeg, self.datatype)
+                        time_flat = time_single_epoch if time_single_epoch else time
+                        segmentation_pre_post["labels"] = labels_flat
+                        segmentation_pre_post["eeg_data"] = eeg_flat
+                        segmentation_pre_post["time"] = time_flat
+                        # Add original segmentation array for pre_post extraction
+                        segmentation_pre_post["original_segmentation_array"] = segmentation_array
+                        
+                        mode_features = self.comet_feature_extractor.extract_features(
+                            segmentation=segmentation_pre_post,
+                            feature_list=self.feature_list,
+                            feature_mode=[mode],
+                            feature_types=self.feature_types,
+                            sliding_window_size=self.sliding_window_size,
+                            pre_window_size=self.pre_window_size,
+                            post_window_size=self.post_window_size,
+                            pre_event_window=getattr(self, 'pre_event_window', None),
+                            post_event_window=getattr(self, 'post_event_window', None),
+                        )
+                        extracted_features.update(mode_features)
             else:
                 # Standard extraction for single mode or non-epoched data
                 extracted_features = self.comet_feature_extractor.extract_features(
