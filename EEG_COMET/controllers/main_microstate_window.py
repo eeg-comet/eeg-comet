@@ -550,9 +550,8 @@ class MainMicrostateWindow(QMainWindow):
         # Initialize UI state
         self._update_ui_state()
 
-        # Base font parameters for scaling
+        # Base font parameters (fixed size, no scaling)
         self._base_font_pt = 14
-        self._base_width = 1200  # reference width
 
         # Set default application font / stylesheet safely (instance may be None)
         app_instance = QApplication.instance()
@@ -597,12 +596,11 @@ class MainMicrostateWindow(QMainWindow):
         # Update logo to suit current theme
         self._update_logo()
 
-    # Font Scaling Helpers
+    # Font Helpers
     def _update_font_sizes(self):
-        """Scale global application font based on window width."""
-        scale = max(0.8, min(2.0, self.width() / self._base_width))  # cap scaling
-        new_size = int(self._base_font_pt * scale)
-        new_font = QFont("Calibri", new_size)
+        """Set fixed application font size (no scaling)."""
+        # Use fixed font size - no scaling based on window size
+        new_font = QFont("Calibri", self._base_font_pt)
 
         app_instance = QApplication.instance()
         if app_instance is not None:
@@ -630,13 +628,13 @@ class MainMicrostateWindow(QMainWindow):
                 props["font"] = font
 
     def resizeEvent(self, event):
-        """Adjust fonts dynamically on window resize.
+        """Handle window resize event.
 
         Args:
           event (QResizeEvent): Resize event.
         """
         super().resizeEvent(event)
-        self._update_font_sizes()
+        # Font scaling disabled - fonts remain at fixed size
 
     def _init_processing_flags(self):
         """Initialize processing flags."""
