@@ -5,7 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
@@ -30,6 +30,7 @@ class FeatureVisualizationWindow(QMainWindow):
       feature_mode (list[str]): Available feature modes (e.g., ["averaged"], "sliding").
       figure (matplotlib.figure.Figure): Figure used for plotting.
       canvas (matplotlib.backends.backend_qt5agg.FigureCanvasQTAgg): Canvas displaying the figure.
+      toolbar (matplotlib.backends.backend_qt5agg.NavigationToolbar2QT): Matplotlib toolbar for plot interaction.
       current_colormap (str): Current matplotlib colormap name.
       current_font_family (str): Current font family used for labels and titles.
       display_options (dict[str, bool]): Visibility settings for legend, grid, axes.
@@ -53,11 +54,18 @@ class FeatureVisualizationWindow(QMainWindow):
 
         # Initialize feature_mode with a default value (will be set from main window)
         self.feature_mode = ["averaged"]  # Default fallback
+        
+        # Store all available features (to restore when switching modes)
+        self.all_available_features = []
 
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.canvas.setMinimumHeight(100)
+        
+        # Add navigation toolbar for zoom, pan, save, etc.
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        self.ui.Figure_Layout.addWidget(self.toolbar)
         self.ui.Figure_Layout.addWidget(self.canvas)
 
         self.setup_window()
@@ -142,6 +150,92 @@ class FeatureVisualizationWindow(QMainWindow):
             if (hasattr(self.ui, "static_radio") and hasattr(self.ui, "dynamic_radio") 
                 and not self.ui.static_radio.isChecked() and not self.ui.dynamic_radio.isChecked()):
                 self.ui.static_radio.setChecked(True)
+
+    def update_all_available_features(self):
+        """Update the stored list of all available features from the dropdown.
+        
+        This should be called after the main window populates the feature combo.
+        
+        Returns:
+          None
+        """
+        if not hasattr(self.ui, "feature_combo"):
+            return
+        
+        # Store all features currently in dropdown
+        self.all_available_features = []
+        for i in range(self.ui.feature_combo.count()):
+            self.all_available_features.append(self.ui.feature_combo.itemText(i))
+    
+    def _filter_features_by_mode(self):
+        """Filter feature dropdown to show only compatible features for the current mode.
+        
+        For dynamic mode with pre_post features (epoched data), ROF and RTF are not compatible
+        with the pre/post bar chart visualization and should be hidden.
+        
+        Returns:
+          None
+        """
+        if not hasattr(self.ui, "feature_combo"):
+            return
+        
+        # Update stored list if it's empty (first call)
+        if not self.all_available_features:
+            self.update_all_available_features()
+        
+        # If no features stored, nothing to filter
+        if not self.all_available_features:
+            return
+        
+        # Determine current mode
+        static_mode = hasattr(self.ui, "static_radio") and self.ui.static_radio.isChecked()
+        dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
+        
+        # Check if this is epoched data with only pre_post features in dynamic mode
+        is_epoched = hasattr(self.comet, "datatype") and self.comet.datatype == "epoched"
+        has_only_pre_post = "pre_post" in self.feature_mode and "sliding" not in self.feature_mode
+        
+        # Store the currently selected feature
+        current_selection = self.ui.feature_combo.currentText()
+        
+        # Determine which features to show from the complete list
+        features_to_show = []
+        for full_feature_name in self.all_available_features:
+            # Get feature code from full name
+            if hasattr(self.comet, "feature_list_dictionary"):
+                reverse_dict = {v: k for k, v in self.comet.feature_list_dictionary.items()}
+                feature_code = reverse_dict.get(full_feature_name, full_feature_name)
+            else:
+                feature_code = full_feature_name
+            
+            # Filter logic:
+            # In dynamic mode with pre_post features only (no sliding), exclude ROF and RTF
+            if dynamic_mode and is_epoched and has_only_pre_post:
+                if feature_code in ["ROF", "RTF"]:
+                    continue  # Skip ROF and RTF in this mode
+            
+            features_to_show.append(full_feature_name)
+        
+        # Get current features in dropdown
+        current_features = []
+        for i in range(self.ui.feature_combo.count()):
+            current_features.append(self.ui.feature_combo.itemText(i))
+        
+        # Update dropdown if the list changed
+        if set(features_to_show) != set(current_features):
+            # Block signals to prevent triggering controller during update
+            self.ui.feature_combo.blockSignals(True)
+            self.ui.feature_combo.clear()
+            self.ui.feature_combo.addItems(features_to_show)
+            
+            # Restore selection if still available, otherwise select first
+            if current_selection in features_to_show:
+                index = self.ui.feature_combo.findText(current_selection)
+                self.ui.feature_combo.setCurrentIndex(index)
+            elif features_to_show:
+                self.ui.feature_combo.setCurrentIndex(0)
+            
+            self.ui.feature_combo.blockSignals(False)
 
     def setup_style_actions(self):
         """Set up colormap, font family, and style action groups.
@@ -624,6 +718,9 @@ class FeatureVisualizationWindow(QMainWindow):
         # Update radio button states based on available feature modes
         self._update_radio_button_states()
         
+        # Filter features based on current mode (must be done before determining mode for plotting)
+        self._filter_features_by_mode()
+        
         # Determine current visualization mode based on radio buttons
         static_mode = hasattr(self.ui, "static_radio") and self.ui.static_radio.isChecked()
         dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
@@ -855,6 +952,10 @@ class FeatureVisualizationWindow(QMainWindow):
         if not feature_code or not feature_code.strip():
             return
 
+        # Determine which visualization mode is active (needed for all branches)
+        static_mode = hasattr(self.ui, "static_radio") and self.ui.static_radio.isChecked()
+        dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
+
         if feature_code == "ROF":
             self.plot_rof_timeseries()
         elif feature_code == "RTF":
@@ -864,26 +965,22 @@ class FeatureVisualizationWindow(QMainWindow):
             if self.ui.all_files_list.selectedItems():
                 self.show_tp_heatmap()
         else:
-            # Determine which visualization mode is active
-            static_mode = hasattr(self.ui, "static_radio") and self.ui.static_radio.isChecked()
-            dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
-
-        # Handle visualization based on mode and available features
-        if static_mode:
-            if self.ui.all_files_list.selectedItems():
-                # In static mode, prioritize averaged features, then pre_post
-                if "averaged" in self.feature_mode:
-                    self.show_static_box_plot()
-                elif "pre_post" in self.feature_mode:
-                    self._plot_pre_post_features()
-        elif dynamic_mode:
-            if self.ui.all_files_list.selectedItems():
-                # In dynamic mode, prioritize sliding time-series, then pre_post
-                if "sliding" in self.feature_mode:
-                    self.show_dynamic_line_all()
-                elif "pre_post" in self.feature_mode:
-                    # Show pre_post in dynamic mode as bar plot (comparison over time windows)
-                    self._plot_pre_post_features()
+            # Handle visualization based on mode and available features
+            if static_mode:
+                if self.ui.all_files_list.selectedItems():
+                    # In static mode, prioritize averaged features, then pre_post
+                    if "averaged" in self.feature_mode:
+                        self.show_static_box_plot()
+                    elif "pre_post" in self.feature_mode:
+                        self._plot_pre_post_features()
+            elif dynamic_mode:
+                if self.ui.all_files_list.selectedItems():
+                    # In dynamic mode, prioritize sliding time-series, then pre_post
+                    if "sliding" in self.feature_mode:
+                        self.show_dynamic_line_all()
+                    elif "pre_post" in self.feature_mode:
+                        # Show pre_post in dynamic mode as bar plot (comparison over time windows)
+                        self._plot_pre_post_features()
 
     def _plot_pre_post_features(self):
         """Plot pre/post event features using bar plot visualization.

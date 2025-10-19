@@ -2750,6 +2750,9 @@ class MainMicrostateWindow(QMainWindow):
                 for feat in extracted_feature_codes
             ]
             viz_window.feature_combo.addItems(full_feature_names)  # type: ignore[attr-defined]
+            # Update the stored list of all available features for filtering
+            if hasattr(viz_window, "update_all_available_features"):
+                viz_window.update_all_available_features()  # type: ignore[attr-defined]
         viz_window.list_eegs = self.comet.list_eegs
         viz_window.reset_groups()
 
