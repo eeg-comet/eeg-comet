@@ -356,8 +356,9 @@ class FeatureExtractor:
             durations[current_element].append(current_duration)
 
             # Calculate the average duration for each element and convert to milliseconds
+            # Subtract 1 to convert sample count to interval count
             return {
-                key: (sum(value) / len(value)) * 1000 / self.sampling_rate
+                key: (sum(value) / len(value) - 1) * 1000 / self.sampling_rate
                 for key, value in durations.items()
             }
 
