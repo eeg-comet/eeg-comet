@@ -1889,6 +1889,10 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.initialize_log_window()
 
         self.comet.LogWindow.show()
+        
+        # Detect existing processing results (e.g., partial STC files)
+        # This is useful if the study was partially processed before
+        self.comet.detect_existing_processing_results()
 
         # Save the configuration to persist the initial log
         if self.comet.auto_save:
@@ -1971,6 +1975,14 @@ class MainMicrostateWindow(QMainWindow):
                     self.comet.load_maps()
 
             self.comet.load_clean()
+            
+            # Detect existing processing results (e.g., partial STC files)
+            # This updates flags based on actual files present, not just config
+            self.comet.detect_existing_processing_results()
+            
+            # Save config if any flags were updated by detection
+            if self.comet.auto_save:
+                self.comet.save_config()
 
             self.comet.LogWindow.show()
 
@@ -2843,6 +2855,50 @@ class MainMicrostateWindow(QMainWindow):
 
     def source_microstates_correlation(self):
         """Calculate source-microstate correlations."""
+        # Check if source localization has been done
+        if not self.comet.done_source_localization:
+            QMessageBox.warning(
+                self,
+                "Source Localization Required",
+                "Source localization must be completed before computing correlations.",
+                QMessageBox.Ok,
+            )
+            return
+        
+        # Check how many files have stc data available
+        stc_path = os.path.join(self.comet.localized_sources_path, "stc")
+        available_stc_files = self.comet._get_available_stc_files(stc_path)
+        
+        if not available_stc_files:
+            QMessageBox.warning(
+                self,
+                "No Source Data Available",
+                "No source-localized files found. Please complete source localization first.",
+                QMessageBox.Ok,
+            )
+            return
+        
+        # Get total number of preprocessed files
+        list_eeg_path, list_eeg_name = self.comet.comet_data_io.find_data(
+            self.comet.preprocessed_data_path, extension=self.comet.extension, pattern="*"
+        )
+        total_files = len(list_eeg_name)
+        files_with_stc = len(available_stc_files)
+        
+        # Show information message to user if not all files have stc data
+        if files_with_stc < total_files:
+            reply = QMessageBox.information(
+                self,
+                "Partial Source Data Available",
+                f"Source time series data is available for {files_with_stc} out of {total_files} files.\n\n"
+                f"Correlation will be computed for the {files_with_stc} files with source data.\n\n"
+                f"Do you want to proceed?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if reply != QMessageBox.Yes:
+                return
+        
         if self.comet.done_identifying_microstate_sources:
             reply = QMessageBox.question(
                 self,

@@ -86,8 +86,6 @@ class MicrostateLabeler:
             image = np.expand_dims(image, axis=0)  # Add batch dimension
             images.append(image)
 
-        stacked_microstate_images = np.vstack(images)
-
         # Load ONNX model and do inference
         # The exported classifier has 7 output neurons (letters A–G).
         num_classes = 7  # fixed – do not change
@@ -100,7 +98,7 @@ class MicrostateLabeler:
         dictionary2use = {i: chr(ord("A") + i) for i in range(num_classes)}
 
         # Update model path to match the exported ONNX model
-        model_path = "./models/model_v1.3.onnx"
+        model_path = "./models/model_v1.5.onnx"
 
         # Initialize ONNX Runtime session
         session = ort.InferenceSession(model_path)
@@ -109,10 +107,14 @@ class MicrostateLabeler:
         input_name = session.get_inputs()[0].name
         output_name = session.get_outputs()[0].name
 
-        # Run inference
-        predictions = session.run(
-            [output_name], {input_name: stacked_microstate_images.astype(np.float32)}
-        )[0]
+        # Run inference one image at a time (model v1.5 expects batch size of 1)
+        all_predictions = []
+        for img in images:
+            pred = session.run(
+                [output_name], {input_name: img.astype(np.float32)}
+            )[0]
+            all_predictions.append(pred)
+        predictions = np.vstack(all_predictions)
 
         softmax_predictions = self.softmax(predictions) * 100
         assigned_labels, probabilities = self.get_labels(
@@ -136,12 +138,22 @@ class MicrostateLabeler:
 
         self.micro_labels = micro_labels
 
+        # Build per-label confidence dictionary (label -> confidence %)
+        label_confidences = {}
+        for i in range(self.n_states):
+            label = micro_labels[i]
+            if i in probabilities:
+                label_confidences[label] = probabilities[i]
+            else:
+                # Fallback labels have no model confidence
+                label_confidences[label] = 0.0
+
         # Save Best Maps
         maps_df = pd.DataFrame(
             self.microstate_maps.T, columns=micro_labels, index=self.eeg_info["ch_names"]
         )
         maps_df.to_csv(self.microstate_maps_path)
-        return micro_labels, overall_confidence
+        return micro_labels, overall_confidence, label_confidences
 
     @staticmethod
     def get_labels(confidences, softmax_predictions, dictionary2use):

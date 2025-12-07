@@ -332,9 +332,11 @@ class SourceIO:
                     os.path.join(subject_dir, f"{subject}-bem.fif"), bem, overwrite=True
                 )
 
-                mne.write_trans(
-                    os.path.join(subject_dir, f"{subject}-trans.fif"), trans, overwrite=True
-                )
+                # For fsaverage, don't write transform file (use string "fsaverage" directly)
+                if trans != "fsaverage":
+                    mne.write_trans(
+                        os.path.join(subject_dir, f"{subject}-trans.fif"), trans, overwrite=True
+                    )
         except Exception:
             pass
 
@@ -357,12 +359,23 @@ class SourceIO:
         trans_file = os.path.join(subject_dir, f"{subject}-trans.fif")
 
         try:
-            if all(os.path.exists(f) for f in [src_file, bem_file, trans_file]):
-                src = mne.read_source_spaces(src_file)
-                bem = mne.read_bem_solution(bem_file)
-                trans = mne.read_trans(trans_file)
-                return src, bem, trans
-            return None, None, None
+            # Handle fsaverage template specially
+            if subject == "fsaverage":
+                # For fsaverage, use built-in transform
+                if os.path.exists(src_file) and os.path.exists(bem_file):
+                    src = mne.read_source_spaces(src_file)
+                    bem = mne.read_bem_solution(bem_file)
+                    trans = "fsaverage"
+                    return src, bem, trans
+                return None, None, None
+            else:
+                # For other subjects, load all files including transform
+                if all(os.path.exists(f) for f in [src_file, bem_file, trans_file]):
+                    src = mne.read_source_spaces(src_file)
+                    bem = mne.read_bem_solution(bem_file)
+                    trans = mne.read_trans(trans_file)
+                    return src, bem, trans
+                return None, None, None
         except Exception:
             return None, None, None
 

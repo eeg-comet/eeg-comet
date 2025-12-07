@@ -107,7 +107,7 @@ class SourceLocalizer:
         """Load the standard fsaverage MRI subject and create corresponding BEM and coregistration transformations.
 
         Args:
-            eeg_info: The EEG info object.
+            eeg_info: The EEG info object (should already have standard montage applied).
 
         Returns:
             src: The source space data.
@@ -120,6 +120,7 @@ class SourceLocalizer:
 
         # The files live in:
         subject = "fsaverage"
+        # Use with fsaverage - the built-in transform handles alignment
         trans = "fsaverage"  # MNE has a built-in fsaverage transformation
 
         # Check if a different spacing is provided, then create a new source space
@@ -144,23 +145,7 @@ class SourceLocalizer:
         with mne.utils.use_log_level("ERROR"):
             bem = mne.make_bem_solution(bem_model, solver=self.bem_solver, verbose=False)
 
-        # Get MNI fiducials for the subject
-        with mne.utils.use_log_level("ERROR"):
-            fiducials = mne.coreg.get_mni_fiducials(
-                subject=subject, subjects_dir=subjects_dir, verbose=False
-            )
-
-        # Perform coregistration based on fiducials and measurement info
-        with mne.utils.use_log_level("ERROR"):
-            coreg = mne.coreg.Coregistration(
-                info=eeg_info, subject=subject, subjects_dir=subjects_dir, fiducials=fiducials
-            )
-            coreg.fit_icp(n_iterations=20, nasion_weight=10.0, verbose=False)
-
-            # Omit head shape points that are too close to the MRI surface
-            coreg.omit_head_shape_points(distance=5.0 / 1000)  # distance is in meters
-            trans = coreg.trans
-
+        # For fsaverage, no coregistration is needed - use the built-in transform
         return src, bem, trans
 
     def individual_mri(self, subject, raw_info):
@@ -272,7 +257,9 @@ class SourceLocalizer:
             True if successful, False otherwise
         """
         try:
-            self._log(f"Processing file: {eeg_name}")
+            # Reduced logging frequency - only log file name, not every processing step
+            # This prevents UI freezing from too many thread-safe log updates
+            # self._log(f"Processing file: {eeg_name}")
 
             # Create directory for this subject's source time courses
             stc_subject_path = os.path.join(self.stc_path, eeg_name)
@@ -366,15 +353,24 @@ class SourceLocalizer:
                     )
                 stc_file = morph.apply(stc_file)
             else:
+                # For fsaverage, ensure standard montage is applied
+                # Apply standard montage to both the data and info for proper alignment
+                montage = mne.channels.make_standard_montage('standard_1005')
+                with mne.utils.use_log_level("ERROR"):
+                    standard_eeg.set_montage(montage, match_case=False, on_missing='ignore')
+                    eeg_info.set_montage(montage, match_case=False, on_missing='ignore')
+                
                 src, bem, trans = self.load_average_mri(eeg_info)
                 with mne.utils.use_log_level("ERROR"):
                     self.export_src_bem_trans("fsaverage", src, bem, trans)
                 stc_file = self.compute_stc(src, bem, trans, standard_eeg, eeg_info)
 
-            self._log(f"Exporting source time courses: {eeg_name}")
+            # Reduced logging - export happens silently, success/failure logged in comet.py
+            # self._log(f"Exporting source time courses: {eeg_name}")
             self.stc_write(stc_subject_path, stc_file)
             return True
         except Exception as e:
+            # Only log errors, not routine processing steps
             self._log(f"Error processing {eeg_name}: {str(e)}", "error")
             return False
 
@@ -427,7 +423,8 @@ class SourceLocalizer:
         for ii in range(nperm):
             np.random.shuffle(t_shuffle)
             beta_dist[:, :, ii] = self.second_regression(t_shuffle, stc_data)
-            if (ii % 50) == 0:
+            # Reduced logging frequency - only log every 200 permutations to avoid UI freezing
+            if (ii % 200) == 0 and ii > 0:
                 self._log(f"TESS permutation progress: {ii}/{nperm}")
         for idx, x in np.ndenumerate(beta_coeff):
             z_scores[idx] = stats.zscore(np.insert(beta_dist[idx[0]][idx[1]][:], 0, x))[0]

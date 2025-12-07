@@ -191,6 +191,7 @@ class COMET:
         self.events_per_file = {}
         self.common_events = []
         self.labels_overall_confidence = None
+        self.label_confidences = None  # Per-label confidence (label -> %)
         self.maps2use = None
         self.min_distance_size = None
         self.clustering_results = []
@@ -884,6 +885,46 @@ class COMET:
     def load_eeg_info(self):
         """Load EEG info from file instead of keeping it in memory."""
         self.eeg_info = mne.io.read_info(self.eeg_info_path)
+
+    def detect_existing_processing_results(self):
+        """Detect and update processing flags based on existing files in the study directory.
+        
+        This is useful when loading a study to ensure flags match actual data availability,
+        especially for partial processing results.
+        """
+        # Helper to log messages safely (logger might not be available during early initialization)
+        def safe_log(message):
+            if hasattr(self, "logger") and self.logger is not None:
+                self.logger.processing_info("STUDY_LOADING", message)
+        
+        # Check for existing STC files (source localization results)
+        if hasattr(self, "localized_sources_path"):
+            stc_path = os.path.join(self.localized_sources_path, "stc")
+            if os.path.exists(stc_path):
+                successful_stc_files = self._count_successful_source_localizations(stc_path)
+                if successful_stc_files > 0:
+                    # Update flag if we have at least some STC files
+                    if not self.done_source_localization:
+                        self.done_source_localization = True
+                        safe_log(f"Detected {successful_stc_files} existing source-localized files")
+        
+        # Check for existing correlation results
+        if hasattr(self, "localized_sources_path") and self.done_source_localization:
+            # Check TESS results
+            tess_path = os.path.join(self.localized_sources_path, "tess_sources")
+            if os.path.exists(tess_path):
+                successful_tess = self._count_successful_correlations(tess_path)
+                if successful_tess > 0 and not self.done_identifying_microstate_sources:
+                    self.done_identifying_microstate_sources = True
+                    safe_log(f"Detected {successful_tess} existing TESS correlation files")
+            
+            # Check AVG results
+            avg_path = os.path.join(self.localized_sources_path, "avg_sources")
+            if os.path.exists(avg_path):
+                successful_avg = self._count_successful_correlations(avg_path)
+                if successful_avg > 0 and not self.done_identifying_microstate_sources:
+                    self.done_identifying_microstate_sources = True
+                    safe_log(f"Detected {successful_avg} existing AVG correlation files")
 
     def preprocess_eeg(self, eeg_path, eeg_name, worker=None):
         """Preprocess a single EEG file. If the optional worker argument is supplied and its
@@ -2276,7 +2317,7 @@ class COMET:
         self.logger.processing_start("LABELING", "Starting microstate labeling")
 
         # Perform labeling
-        micro_labels, labels_overall_confidence = self.comet_microstate_labeler.do_labeling()
+        micro_labels, labels_overall_confidence, label_confidences = self.comet_microstate_labeler.do_labeling()
 
         # Save updated microstate maps with labels
         self.comet_microstate_io.export_microstates(
@@ -2286,6 +2327,7 @@ class COMET:
         # Update and save labels
         self.load_maps()
         self.labels_overall_confidence = labels_overall_confidence
+        self.label_confidences = label_confidences  # Per-label confidence (label -> %)
 
         # Set labeling flag
         self.done_microstate_labeling = True
@@ -3625,6 +3667,128 @@ class COMET:
             segmentation_path=seg_path, import_format=self.export_format
         )
 
+    def _count_successful_source_localizations(self, stc_path):
+        """Count how many files have been successfully source-localized.
+        
+        Args:
+            stc_path: Path to the stc directory containing subject folders.
+            
+        Returns:
+            int: Number of files with successfully generated stc data.
+        """
+        if not os.path.exists(stc_path):
+            return 0
+        
+        # Count subdirectories in stc_path that contain stc files
+        count = 0
+        try:
+            for subject_dir in os.listdir(stc_path):
+                subject_path = os.path.join(stc_path, subject_dir)
+                if os.path.isdir(subject_path):
+                    # Check if this subject directory contains any stc files
+                    # Include multiple formats:
+                    # - .h5: HDF5 format (current default)
+                    # - .stc: MNE standard format (may have -lh.stc/-rh.stc hemispheres)
+                    # - .pkl/.npy: Pickle/numpy formats (legacy)
+                    stc_files = [f for f in os.listdir(subject_path) 
+                                if f.endswith(('.stc', '.pkl', '.npy', '.h5', '-lh.stc', '-rh.stc'))]
+                    if stc_files:
+                        count += 1
+        except Exception:
+            return 0
+        
+        return count
+
+    def _get_available_stc_files(self, stc_path):
+        """Get list of file names that have successfully generated stc data.
+        
+        Args:
+            stc_path: Path to the stc directory containing subject folders.
+            
+        Returns:
+            list: List of file names (subject names) with stc data.
+        """
+        if not os.path.exists(stc_path):
+            return []
+        
+        available_files = []
+        try:
+            for subject_dir in os.listdir(stc_path):
+                subject_path = os.path.join(stc_path, subject_dir)
+                if os.path.isdir(subject_path):
+                    # Check if this subject directory contains any stc files
+                    # Include .h5 which is the format used by MNE for HDF5 storage
+                    stc_files = [f for f in os.listdir(subject_path) if f.endswith(('.stc', '.pkl', '.npy', '.h5'))]
+                    if stc_files:
+                        available_files.append(subject_dir)
+        except Exception:
+            return []
+        
+        return available_files
+
+    def _count_successful_correlations(self, results_path):
+        """Count how many files have successfully completed source-microstate correlation.
+        
+        Args:
+            results_path: Path to the tess_sources or avg_sources directory.
+            
+        Returns:
+            int: Number of files with successfully generated correlation results.
+        """
+        if not os.path.exists(results_path):
+            return 0
+        
+        # Count files in the results directory
+        count = 0
+        try:
+            # For TESS: count files ending with _z_scores.pkl or _filtered_z_scores.pkl
+            # For AVG: count files ending with .pkl or .npy
+            result_files = [f for f in os.listdir(results_path) 
+                          if f.endswith(('.pkl', '.npy', '.csv'))]
+            
+            # Count unique subject names (each subject may have multiple result files)
+            subject_names = set()
+            for f in result_files:
+                # Extract subject name from filename (remove extension and suffixes)
+                base_name = f.replace('_z_scores.pkl', '').replace('_filtered_z_scores.pkl', '')
+                base_name = base_name.replace('_p_values.pkl', '').replace('.pkl', '').replace('.npy', '')
+                subject_names.add(base_name)
+            
+            count = len(subject_names)
+        except Exception:
+            return 0
+        
+        return count
+
+    def _get_files_with_correlation_results(self, results_path):
+        """Get list of file names that have correlation results.
+        
+        Args:
+            results_path: Path to the tess_sources or avg_sources directory.
+            
+        Returns:
+            list: List of file names (subject names) with correlation results.
+        """
+        if not os.path.exists(results_path):
+            return []
+        
+        subject_names = set()
+        try:
+            # For TESS: look for files ending with _z_scores.pkl or _filtered_z_scores.pkl
+            # For AVG: look for files ending with .pkl or .npy
+            result_files = [f for f in os.listdir(results_path) 
+                          if f.endswith(('.pkl', '.npy', '.csv'))]
+            
+            for f in result_files:
+                # Extract subject name from filename (remove extension and suffixes)
+                base_name = f.replace('_z_scores.pkl', '').replace('_filtered_z_scores.pkl', '')
+                base_name = base_name.replace('_p_values.pkl', '').replace('.pkl', '').replace('.npy', '')
+                subject_names.add(base_name)
+        except Exception:
+            return []
+        
+        return list(subject_names)
+
     def source_localize_file(self, eeg_path, eeg_name, worker=None):
         """Perform source localization for a single file. Terminates early if stop requested."""
         if worker is not None and getattr(worker, "stopped", False):
@@ -3632,12 +3796,13 @@ class COMET:
 
         success = self.comet_source_localizer.localize_single_file(eeg_path, eeg_name)
 
-        # Log the source localization progress
+        # Reduced logging frequency - only log errors or every Nth file to keep UI responsive
+        # The progress bar provides visual feedback for each file
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
-            if success:
-                self.LogWindow.append_log(f"Source Localized: {eeg_name}")
-            else:
-                self.LogWindow.append_log(f"Error Source Localizing: {eeg_name}")
+            if not success:
+                # Always log errors immediately
+                self.LogWindow.append_log(f"❌ Error Source Localizing: {eeg_name}")
+            # Success messages are shown in progress bar, not individual log entries
 
     def source_identify_file(self, eeg_path, eeg_name, worker=None):
         """Identify microstate sources for a single file with stop support."""
@@ -3648,12 +3813,13 @@ class COMET:
             eeg_path, eeg_name, self.source_localization_method
         )
 
-        # Log the source identification progress
+        # Reduced logging frequency - only log errors to keep UI responsive
+        # The progress bar provides visual feedback for each file
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
-            if success:
-                self.LogWindow.append_log(f"Microstate Sources Identified: {eeg_name}")
-            else:
-                self.LogWindow.append_log(f"Error Identifying Microstate Sources: {eeg_name}")
+            if not success:
+                # Always log errors immediately
+                self.LogWindow.append_log(f"❌ Error Identifying Microstate Sources: {eeg_name}")
+            # Success messages are shown in progress bar, not individual log entries
 
     def run_source_localization(self):
         """Perform source localization for microstates."""
@@ -3706,16 +3872,66 @@ class COMET:
         # Make sure the stc_path is set correctly in the source localizer
         self.comet_source_localizer.stc_path = stc_path
 
-        # Load EEG files to process
+        # Load all EEG files
         list_eeg_path, list_eeg_name = self.comet_data_io.find_data(
             self.preprocessed_data_path, extension=self.extension, pattern="*"
         )
-        self.zipped_eeg_files = list(zip(list_eeg_path, list_eeg_name))
+        
+        # Get list of files that already have STC data
+        existing_stc_files = self._get_available_stc_files(stc_path)
+        
+        # Filter out files that already have STC data
+        filtered_files = []
+        skipped_files = []
+        for eeg_path, eeg_name in zip(list_eeg_path, list_eeg_name):
+            if eeg_name in existing_stc_files:
+                skipped_files.append(eeg_name)
+            else:
+                filtered_files.append((eeg_path, eeg_name))
+        
+        self.zipped_eeg_files = filtered_files
+        
+        total_files = len(list_eeg_name)
+        already_done = len(skipped_files)
+        to_process = len(filtered_files)
+        
+        # Log information about what will be processed
+        if already_done > 0:
+            self.logger.processing_info(
+                "SOURCE_LOCALIZATION",
+                f"Found {already_done} files with existing source data - skipping these"
+            )
+        
+        if to_process == 0:
+            self.logger.processing_success(
+                "SOURCE_LOCALIZATION",
+                f"All {total_files} files already have source data - nothing to process"
+            )
+            # Properly handle completion when nothing needs processing
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                # Show a brief message in the progress UI
+                self.LogWindow.ui.progress_label.setText("All files already processed")
+                self.LogWindow.ui.progress_bar.setValue(total_files)
+                self.LogWindow.ui.progress_bar.setMaximum(total_files)
+                self.LogWindow.ui.progress_lineedit.setText(f"✅ All {total_files} files already completed")
+                # Call completion callback
+                if self.LogWindow.process_finished_callback:
+                    self.LogWindow.process_finished_callback()
+                    self.LogWindow.process_finished_callback = None
+            else:
+                # Non-GUI mode - just call completion
+                self._on_source_localization_finished()
+            return
+        
+        self.logger.processing_info(
+            "SOURCE_LOCALIZATION",
+            f"Processing {to_process} files ({already_done} already completed)"
+        )
 
         # Log source localization settings once
         self.comet_source_localizer.log_settings()
 
-        # Perform source localization on all files
+        # Perform source localization on remaining files
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             self.LogWindow.setup_progress_dialog(
                 window_title="Source Localization ...",
@@ -3789,17 +4005,90 @@ class COMET:
         stc_path = os.path.join(self.localized_sources_path, "stc")
         self.comet_source_localizer.stc_path = stc_path
 
-        # Load EEG files to process
+        # Get list of files with available stc data
+        available_stc_files = self._get_available_stc_files(stc_path)
+        
+        if not available_stc_files:
+            self.logger.error(
+                "SOURCE_LOCALIZATION", 
+                "No source-localized files found. Please complete source localization first."
+            )
+            return
+
+        # Get list of files that already have correlation results
+        if self.source_localization_method == "tess":
+            results_path = os.path.join(self.localized_sources_path, "tess_sources")
+        else:  # avg method
+            results_path = os.path.join(self.localized_sources_path, "avg_sources")
+        
+        existing_correlation_files = self._get_files_with_correlation_results(results_path)
+
+        # Load all EEG files and filter to only those with stc data but without correlation results
         list_eeg_path, list_eeg_name = self.comet_data_io.find_data(
             self.preprocessed_data_path, extension=self.extension, pattern="*"
         )
-        self.zipped_eeg_files = list(zip(list_eeg_path, list_eeg_name))
+        
+        # Filter to only include files that have stc data and don't have correlation results yet
+        filtered_files = []
+        skipped_files = []
+        for eeg_path, eeg_name in zip(list_eeg_path, list_eeg_name):
+            if eeg_name in available_stc_files:
+                if eeg_name in existing_correlation_files:
+                    skipped_files.append(eeg_name)
+                else:
+                    filtered_files.append((eeg_path, eeg_name))
+        
+        self.zipped_eeg_files = filtered_files
+        
+        total_preprocessed = len(list_eeg_name)
+        files_with_stc = len(available_stc_files)
+        already_done = len(skipped_files)
+        to_process = len(filtered_files)
+        
+        # Log information about available files
+        if files_with_stc < total_preprocessed:
+            self.logger.warning(
+                "SOURCE_LOCALIZATION",
+                f"Source time series available for {files_with_stc}/{total_preprocessed} files"
+            )
+        
+        if already_done > 0:
+            self.logger.processing_info(
+                "SOURCE_LOCALIZATION",
+                f"Found {already_done} files with existing correlation results - skipping these"
+            )
+        
+        if to_process == 0:
+            self.logger.processing_success(
+                "SOURCE_LOCALIZATION",
+                f"All {files_with_stc} files with source data already have correlation results - nothing to process"
+            )
+            # Properly handle completion when nothing needs processing
+            if hasattr(self, "LogWindow") and self.LogWindow is not None:
+                # Show a brief message in the progress UI
+                self.LogWindow.ui.progress_label.setText("All files already processed")
+                self.LogWindow.ui.progress_bar.setValue(files_with_stc)
+                self.LogWindow.ui.progress_bar.setMaximum(files_with_stc)
+                self.LogWindow.ui.progress_lineedit.setText(f"✅ All {files_with_stc} files already completed")
+                # Call completion callback
+                if self.LogWindow.process_finished_callback:
+                    self.LogWindow.process_finished_callback()
+                    self.LogWindow.process_finished_callback = None
+            else:
+                # Non-GUI mode - just call completion
+                self._on_source_identification_finished()
+            return
+        
+        self.logger.processing_info(
+            "SOURCE_LOCALIZATION",
+            f"Processing {to_process} files ({already_done} already completed)"
+        )
 
         # Log source identification settings
         source_settings = {
             "Method": self.source_localization_method,
             "Number of Permutations": self.nperm,
-            "Files to Process": len(self.zipped_eeg_files),
+            "Files to Process": to_process,
         }
         self.logger.settings_info("SOURCE_LOCALIZATION", source_settings)
 
@@ -3807,7 +4096,7 @@ class COMET:
         if self.source_localization_method == "tess":
             self.logger.reference("SOURCE_LOCALIZATION", "https://doi.org/10.1016/j.neuroimage.2014.04.002")
 
-        # Perform source identification on all files
+        # Perform source identification on remaining files
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             self.logger.processing_start(
                 "SOURCE_LOCALIZATION", f"Processing {len(self.zipped_eeg_files)} EEG files"
@@ -4217,13 +4506,36 @@ class COMET:
 
     def _on_source_localization_finished(self, _message=None):
         """Handle source localization completion when worker thread finishes."""
-        # Set source localization flag
-        self.done_source_localization = True
-
-        # Log completion
-        self.logger.processing_success(
-            "SOURCE_LOCALIZATION", "Source localization completed successfully"
-        )
+        # Count how many files were successfully source-localized
+        stc_path = os.path.join(self.localized_sources_path, "stc")
+        successful_files = self._count_successful_source_localizations(stc_path)
+        total_files = len(self.zipped_eeg_files) if hasattr(self, "zipped_eeg_files") else 0
+        
+        # Set source localization flag if at least some files succeeded
+        if successful_files > 0:
+            self.done_source_localization = True
+            
+            # Log completion with file count information
+            if successful_files == total_files:
+                self.logger.processing_success(
+                    "SOURCE_LOCALIZATION", 
+                    f"Source localization completed successfully for all {total_files} files"
+                )
+            else:
+                self.logger.processing_success(
+                    "SOURCE_LOCALIZATION", 
+                    f"Source localization completed for {successful_files}/{total_files} files"
+                )
+                self.logger.warning(
+                    "SOURCE_LOCALIZATION",
+                    f"{total_files - successful_files} files failed source localization"
+                )
+        else:
+            self.done_source_localization = False
+            self.logger.error(
+                "SOURCE_LOCALIZATION", 
+                "Source localization failed for all files"
+            )
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes
@@ -4245,13 +4557,41 @@ class COMET:
 
     def _on_source_identification_finished(self, _message=None):
         """Handle source identification completion when worker thread finishes."""
-        # Set source-microstate correlation flag
-        self.done_identifying_microstate_sources = True
-
-        # Log completion
-        self.logger.processing_success(
-            "SOURCE_LOCALIZATION", "Source-microstate correlation completed successfully"
-        )
+        # Count how many files were successfully processed for correlation
+        if self.source_localization_method == "tess":
+            results_path = os.path.join(self.localized_sources_path, "tess_sources")
+        else:  # avg method
+            results_path = os.path.join(self.localized_sources_path, "avg_sources")
+        
+        successful_files = self._count_successful_correlations(results_path)
+        total_files = len(self.zipped_eeg_files) if hasattr(self, "zipped_eeg_files") else 0
+        
+        # Set correlation flag if at least some files succeeded
+        if successful_files > 0:
+            self.done_identifying_microstate_sources = True
+            
+            # Log completion with file count information
+            if successful_files == total_files:
+                self.logger.processing_success(
+                    "SOURCE_LOCALIZATION", 
+                    f"Source-microstate correlation completed for all {total_files} files"
+                )
+            else:
+                self.logger.processing_success(
+                    "SOURCE_LOCALIZATION", 
+                    f"Source-microstate correlation completed for {successful_files}/{total_files} files"
+                )
+                if total_files > successful_files:
+                    self.logger.warning(
+                        "SOURCE_LOCALIZATION",
+                        f"{total_files - successful_files} files failed correlation"
+                    )
+        else:
+            self.done_identifying_microstate_sources = False
+            self.logger.error(
+                "SOURCE_LOCALIZATION", 
+                "Source-microstate correlation failed for all files"
+            )
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Clear the callback to prevent it from being triggered by other processes

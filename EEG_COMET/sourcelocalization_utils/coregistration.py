@@ -30,8 +30,18 @@ class Coregistration:
         )
 
     def auto_coreg(self, subject, eeg_info):
-        """Automatically coregister MRI data with the subject’s head shape."""
+        """Automatically coregister MRI data with the subject's head shape."""
         subject_dir = os.path.join(self.subjects_dir, subject)
+        
+        # Handle fsaverage template specially
+        if subject == "fsaverage":
+            # Use standard montage with fsaverage
+            # The built-in 'fsaverage' transform handles alignment automatically
+            # No need to save a transform file - just use 'fsaverage' string directly
+            # in forward solution and source localization functions
+            return
+        
+        # Standard coregistration for individual subjects
         fid_path = self.find_file(subject_dir, "-fiducials.fif")
         if fid_path is not None:
             fiducials = mne.coreg.get_mni_fiducials(subject=subject, subjects_dir=self.subjects_dir)

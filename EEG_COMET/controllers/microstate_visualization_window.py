@@ -89,6 +89,9 @@ class MicrostateVisualizationWindow(QMainWindow):
         # Initialize polarity for each microstate (1 = normal, -1 = reversed)
         self.microstate_polarities = [1] * self.comet.number_of_maps
 
+        # Initialize label confidences (label -> confidence %)
+        self.label_confidences = {}
+
         self.setup_ui(context)
         self.setup_menu_actions()
         self.create_label_widgets(self.comet.micro_labels)
@@ -312,7 +315,7 @@ class MicrostateVisualizationWindow(QMainWindow):
             logger = get_logger(self.comet.LogWindow)
             logger.warning("VISUALIZATION", "Electrode positions not found. Applying standard montage for microstate visualization.")
 
-    def plot_microstates_with_labels(self, microstate, micro_label, ax, polarity=1):
+    def plot_microstates_with_labels(self, microstate, micro_label, ax, polarity=1, confidence=None):
         """Plot a microstate topomap and its label on the provided axis.
 
         Returns the image handle so a shared colour-bar can be created later.
@@ -322,6 +325,7 @@ class MicrostateVisualizationWindow(QMainWindow):
           micro_label (str): Label character to display below the map.
           ax (matplotlib.axes.Axes): Axis to draw into.
           polarity (int, optional): Polarity multiplier (1 or -1). Defaults to 1.
+          confidence (float, optional): Classification confidence (0-100%). Defaults to None.
 
         Returns:
           matplotlib.image.AxesImage: Handle used for colour-bar creation.
@@ -342,10 +346,17 @@ class MicrostateVisualizationWindow(QMainWindow):
 
         # Label placement
         ax.axis("off")
+
+        # Build label text with optional confidence
+        if confidence is not None and confidence > 0:
+            label_text = f"{micro_label.upper()}\n({confidence:.1f}%)"
+        else:
+            label_text = micro_label.upper()
+
         ax.text(
             0.5,
             -0.2,
-            micro_label.upper(),
+            label_text,
             transform=ax.transAxes,
             fontsize=20,
             ha="center",
@@ -386,12 +397,17 @@ class MicrostateVisualizationWindow(QMainWindow):
 
         im = None  # Image handle for colour-bar
         for idx in range(len(micro_labels_texts)):
+            # Get confidence for this label if available
+            label = micro_labels_texts[idx].upper()
+            confidence = self.label_confidences.get(label)
+
             # Plot each microstate
             im = self.plot_microstates_with_labels(
                 self.current_order_maps[idx, :],
                 micro_labels_texts[idx].upper(),
                 self.axs[idx],
                 polarity=self.microstate_polarities[idx],
+                confidence=confidence,
             )
 
         # With constrained_layout, no manual layout adjustment needed
@@ -506,6 +522,10 @@ class MicrostateVisualizationWindow(QMainWindow):
             # Reset polarities when auto-labeling
             self.microstate_polarities = [1] * self.comet.number_of_maps
 
+            # Store label confidences from the labeling results
+            if self.comet.label_confidences is not None:
+                self.label_confidences = self.comet.label_confidences.copy()
+
             for i, label_widget in enumerate(self.micro_label_widgets):
                 label_widget.setText(self.comet.micro_labels[i])
                 label_widget.setDisabled(True)
@@ -550,12 +570,17 @@ class MicrostateVisualizationWindow(QMainWindow):
 
         im = None
         for i in range(len(sorted_indices)):
+            # Get confidence for this label if available
+            label = sorted_micro_labels[i].upper()
+            confidence = self.label_confidences.get(label)
+
             # Plot each microstate
             im = self.plot_microstates_with_labels(
                 sorted_maps[i],
                 sorted_micro_labels[i].upper(),
                 self.axs[i],
                 polarity=sorted_polarities[i],
+                confidence=confidence,
             )
 
         # Update label widget text and radio button states
@@ -613,6 +638,9 @@ class MicrostateVisualizationWindow(QMainWindow):
 
         # Reset all polarities to normal (1)
         self.microstate_polarities = [1] * self.comet.number_of_maps
+
+        # Clear label confidences
+        self.label_confidences = {}
 
         # Reflect the empty default order in the Qt window
         for _i, label_widget in enumerate(self.micro_label_widgets):
