@@ -493,6 +493,31 @@ class MainMicrostateWindow(QMainWindow):
     # Signals for better event handling
     processing_state_changed = pyqtSignal(str)
 
+    # Original button texts (must match MainMicrostateWindow.ui)
+    _BUTTON_TEXTS = {
+        "step2_clustering_button": "Start Clustering",
+        "step3_backfit_button": "Start Backfitting",
+        "step4_extractfeatures_button": "Extract Selected Features",
+        "step5_estimate_sources_button": "Estimate Source Time-Series",
+        "step5_compute_source_microstate_correlation_button": "Compute Source-Microstate Correlation",
+    }
+
+    def _mark_button_complete(self, button_name: str, complete: bool) -> None:
+        """Update button text to show completion status.
+
+        Args:
+            button_name: The object name of the button (e.g., 'step2_clustering_button').
+            complete: If True, adds ✅ to button text; if False, restores original text.
+        """
+        button = getattr(self.ui, button_name, None)
+        if button is None:
+            return
+        original_text = self._BUTTON_TEXTS.get(button_name, button.text())
+        if complete:
+            button.setText(f"✅ {original_text}")
+        else:
+            button.setText(original_text)
+
     def __init__(self, context, parent=None):
         """Initialize the main window and set up UI.
 
@@ -546,6 +571,7 @@ class MainMicrostateWindow(QMainWindow):
         self._init_tooltips()
         self._init_widget_groups()
         self._setup_connections()
+        self.setup_checkable_font_styling()
 
         # Initialize UI state
         self._update_ui_state()
@@ -1116,6 +1142,94 @@ class MainMicrostateWindow(QMainWindow):
         # Defer the actual update to prevent layout thrashing
         QtCore.QTimer.singleShot(0, self._do_update_ui_state)
 
+    def update_widget_font_weight(self, checked_or_widget=None):
+        """Update font weight of a radio button or checkbox based on its checked state.
+
+        Args:
+            checked_or_widget: Either a boolean (from toggled signal) or a widget object.
+                              If boolean or None, uses self.sender() to get the widget.
+
+        Makes the widget bold when checked, normal when unchecked.
+        """
+        # When called from toggled signal, first arg is boolean - use sender instead
+        if checked_or_widget is None or isinstance(checked_or_widget, bool):
+            widget = self.sender()
+        else:
+            widget = checked_or_widget
+
+        if widget is None:
+            return
+
+        # Use stylesheet for bold - more persistent than font property
+        if widget.isChecked():
+            widget.setStyleSheet("font-weight: bold;")
+        else:
+            widget.setStyleSheet("")
+
+    def setup_checkable_font_styling(self):
+        """Set up font weight styling for all radio buttons and checkboxes.
+
+        Connects toggled signal to update font weight and initializes current states.
+        """
+        # List of all radio buttons and checkboxes to style
+        checkable_widgets = [
+            # Step 2 clustering radio buttons
+            "step2_auto_k_radio",
+            "step2_user_k_radio",
+            "step2_use_peaks_radio",
+            "step2_use_percent_radio",
+            "step2_random_initializer_radio",
+            "step2_kmeans_initializer_radio",
+            "step2_ensemble_optimizer_radio",
+            "step2_single_optimizer_radio",
+            # Step 2 checkboxes
+            "step2_show_advanced_checkbox",
+            "step2_batch_checkbox",
+            # Step 3 backfitting radio buttons
+            "step3_backfit_all_radio",
+            "step3_backfit_peaks_radio",
+            # Step 3 checkboxes
+            "step3_filter_segments_checkbox",
+            "step3_identify_short_checkbox",
+            # Step 4 feature checkboxes
+            "step4_feature_occ_checkbox",
+            "step4_feature_dur_checkbox",
+            "step4_feature_cov_checkbox",
+            "step4_feature_gev_checkbox",
+            "step4_feature_tp_checkbox",
+            "step4_feature_er_checkbox",
+            "step4_feature_lzc_checkbox",
+            "step4_feature_he_checkbox",
+            "step4_feature_err_checkbox",
+            "step4_feature_rof_checkbox",
+            "step4_feature_rtf_checkbox",
+            # Step 4 feature mode checkboxes
+            "step4_averaged_features_checkbox",
+            "step4_sliding_features_checkbox",
+            "step4_synthetic_checkbox",
+            "step4_prepost_features_checkbox",
+            # Step 4 sliding radio buttons
+            "step4_sliding_fix_radio",
+            "step4_sliding_event_radio",
+            # Step 5 source localization radio buttons
+            "step5_bem_mne_radio",
+            "step5_bem_openmeeg_radio",
+            "step5_use_fsaverage_radio",
+            "step5_use_individual_radio",
+            "step5_use_tess_radio",
+            "step5_use_avg_radio",
+            # Dark mode checkbox
+            "dark_mode_checkbox",
+        ]
+
+        for widget_name in checkable_widgets:
+            widget = getattr(self.ui, widget_name, None)
+            if widget is not None:
+                # Connect toggled signal to update font weight
+                widget.toggled.connect(self.update_widget_font_weight)
+                # Initialize current font state
+                self.update_widget_font_weight(widget)
+
     def _do_update_ui_state(self):
         """Actual UI state update implementation."""
         # Store current focus to restore later
@@ -1206,7 +1320,6 @@ class MainMicrostateWindow(QMainWindow):
 
         # Update study name display
         self.ui.step0_study_name_mainwin_lineedit.setText(self.comet.study_name)
-        self.ui.step0_study_name_mainwin_lineedit.setStyleSheet("background-color: lightgreen")
 
         # Enable clustering tab
         self.ui.main_tab.setTabEnabled(0, True)
@@ -1353,7 +1466,7 @@ class MainMicrostateWindow(QMainWindow):
         self.widget_groups.set_group_status("after_clustering", WidgetMode.ENABLE)
 
         # Mark clustering as complete visually
-        self.ui.step2_clustering_button.setStyleSheet("background-color: lightgreen")
+        self._mark_button_complete("step2_clustering_button", True)
 
         # Enable microstate visualization action immediately after clustering
         self.ui.view_microstates_action.setEnabled(True)
@@ -1423,7 +1536,7 @@ class MainMicrostateWindow(QMainWindow):
 
     def _handle_post_backfitting_state(self):
         """Handle UI state after backfitting."""
-        self.ui.step3_backfit_button.setStyleSheet("background-color: lightgreen")
+        self._mark_button_complete("step3_backfit_button", True)
         self.ui.main_tab.setTabEnabled(2, True)  # Enable feature tab
         self.ui.main_tab.setTabEnabled(3, True)  # Enable source tab
         self.ui.view_backfitting_action.setEnabled(True)
@@ -1448,7 +1561,7 @@ class MainMicrostateWindow(QMainWindow):
         self.processing_flags.reset_from("done_extracting_features")
         self._sync_flags_to_comet()
 
-        self.ui.step3_backfit_button.setStyleSheet("background-color: none")
+        self._mark_button_complete("step3_backfit_button", False)
         self.ui.view_backfitting_action.setDisabled(True)
 
     def _handle_data_type_features(self):
@@ -1625,14 +1738,14 @@ class MainMicrostateWindow(QMainWindow):
         # Handle sliding window options based on sliding features checkbox
         self._handle_sliding_window_options()
 
-        # Update button styles based on processing state
+        # Update button text based on processing state
         if self.comet.done_extracting_features:
-            self.ui.step4_extractfeatures_button.setStyleSheet("background-color: lightgreen")
+            self._mark_button_complete("step4_extractfeatures_button", True)
             # Enable view features action only if any feature files exist
             extracted_modes = self._get_extracted_feature_modes()
             self.ui.view_features_action.setEnabled(len(extracted_modes) > 0)
         else:
-            self.ui.step4_extractfeatures_button.setStyleSheet("background-color: none")
+            self._mark_button_complete("step4_extractfeatures_button", False)
             self.ui.view_features_action.setDisabled(True)
 
     def _handle_sliding_window_options(self):
@@ -1699,21 +1812,17 @@ class MainMicrostateWindow(QMainWindow):
 
         # Handle post source localization state
         if not self.comet.done_source_localization:
-            self.ui.step5_estimate_sources_button.setStyleSheet("background-color: none")
+            self._mark_button_complete("step5_estimate_sources_button", False)
             self.widget_groups.set_group_status("source_microstates", WidgetMode.DISABLE)
         else:
-            self.ui.step5_estimate_sources_button.setStyleSheet("background-color: lightgreen")
+            self._mark_button_complete("step5_estimate_sources_button", True)
             self.widget_groups.set_group_status("source_microstates", WidgetMode.ENABLE)
 
             if self.comet.done_identifying_microstate_sources:
-                self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet(
-                    "background-color: lightgreen"
-                )
+                self._mark_button_complete("step5_compute_source_microstate_correlation_button", True)
                 self.ui.view_sources_action.setEnabled(True)
             else:
-                self.ui.step5_compute_source_microstate_correlation_button.setStyleSheet(
-                    "background-color: none"
-                )
+                self._mark_button_complete("step5_compute_source_microstate_correlation_button", False)
                 self.ui.view_sources_action.setDisabled(True)
 
     def _reset_post_labeling_features(self):
@@ -2289,8 +2398,8 @@ class MainMicrostateWindow(QMainWindow):
             self._clustering_just_finished = False
             self._microstate_labeling_just_finished = False
             
-            # Reset button styling to indicate it can be retried
-            self.ui.step2_clustering_button.setStyleSheet("background-color: none")
+            # Reset button text to indicate it can be retried
+            self._mark_button_complete("step2_clustering_button", False)
             
             # Log that clustering is ready to restart
             if hasattr(self.comet, "LogWindow") and self.comet.LogWindow is not None:
@@ -3038,7 +3147,7 @@ class MainMicrostateWindow(QMainWindow):
         self.processing_flags.reset_from("done_microstate_labeling")
         self._sync_flags_to_comet()
 
-        self.ui.step2_clustering_button.setStyleSheet("background-color: none")
+        self._mark_button_complete("step2_clustering_button", False)
         self.comet.best_maps, self.comet.micro_labels = None, []
 
         self.widget_groups.set_group_status("after_clustering", WidgetMode.DISABLE)

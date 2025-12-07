@@ -124,6 +124,49 @@ class BackfittingVisualizationWindow(QMainWindow):
         # Initialize UI state based on default settings
         self.backfitting_visualization_controller()
 
+        # Set up checkable font styling
+        self.setup_checkable_font_styling()
+
+    def update_widget_font_weight(self, checked_or_widget=None):
+        """Update font weight of a radio button or checkbox based on its checked state.
+
+        Args:
+            checked_or_widget: Either a boolean (from toggled signal) or a widget object.
+                              If boolean or None, uses self.sender() to get the widget.
+
+        Makes the widget bold when checked, normal when unchecked.
+        """
+        if checked_or_widget is None or isinstance(checked_or_widget, bool):
+            widget = self.sender()
+        else:
+            widget = checked_or_widget
+
+        if widget is None:
+            return
+
+        if widget.isChecked():
+            widget.setStyleSheet("font-weight: bold;")
+        else:
+            widget.setStyleSheet("")
+
+    def setup_checkable_font_styling(self):
+        """Set up font weight styling for all radio buttons and checkboxes.
+
+        Connects toggled signal to update font weight and initializes current states.
+        """
+        checkable_widgets = [
+            "win500_radio",
+            "win1000_radio",
+            "win5000_radio",
+            "win10000_radio",
+        ]
+
+        for widget_name in checkable_widgets:
+            widget = getattr(self.ui, widget_name, None)
+            if widget is not None:
+                widget.toggled.connect(self.update_widget_font_weight)
+                self.update_widget_font_weight(widget)
+
     def _setup_connections(self):
         """Connect UI widgets and actions to their handlers.
 

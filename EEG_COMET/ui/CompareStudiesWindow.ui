@@ -55,8 +55,7 @@
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+      <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #67001F, stop:1 #DD6F58); border-radius: 8px; padding-left: 12px;</string>
      </property>
      <property name="text">
       <string>     Compare Studies Window</string>
@@ -132,6 +131,26 @@ background-color: rgb(0, 0, 0);</string>
            <property name="cursor">
             <cursorShape>PointingHandCursor</cursorShape>
            </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
+           </property>
            <property name="text">
             <string>Load Study 1</string>
            </property>
@@ -197,6 +216,26 @@ background-color: rgb(0, 0, 0);</string>
            </property>
            <property name="cursor">
             <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
            </property>
            <property name="text">
             <string>Load Study 2</string>
@@ -324,6 +363,31 @@ background-color: rgb(0, 0, 0);</string>
            <property name="cursor">
             <cursorShape>PointingHandCursor</cursorShape>
            </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4ade80,
+        stop:0.5 #177226,
+        stop:1 #4ade80);
+    color: white;
+    font-size: 14pt;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #177226,
+        stop:0.5 #4ade80,
+        stop:1 #177226);
+    color: white;
+    font-size: 16pt;
+}
+
+QPushButton:disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+    font-size: 14pt;
+}</string>
+           </property>
            <property name="text">
             <string>Automatically pair subjects for comparison</string>
            </property>
@@ -355,11 +419,14 @@ background-color: rgb(0, 0, 0);</string>
              <bold>true</bold>
             </font>
            </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
            <property name="text">
             <string>Load Studies</string>
            </property>
            <property name="alignment">
-            <set>Qt::AlignCenter</set>
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
            </property>
           </widget>
          </item>
@@ -490,11 +557,14 @@ background-color: rgb(0, 0, 0);</string>
              <bold>true</bold>
             </font>
            </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
            <property name="text">
             <string>Select Comparison Type</string>
            </property>
            <property name="alignment">
-            <set>Qt::AlignCenter</set>
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
            </property>
           </widget>
          </item>
@@ -738,6 +808,9 @@ background-color: rgb(0, 0, 0);</string>
            <height>16777215</height>
           </size>
          </property>
+         <property name="styleSheet">
+          <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+         </property>
          <property name="text">
           <string>Multiple-Testing Correction Method:</string>
          </property>
@@ -770,11 +843,14 @@ background-color: rgb(0, 0, 0);</string>
            <bold>true</bold>
           </font>
          </property>
+         <property name="styleSheet">
+          <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+         </property>
          <property name="text">
           <string>Select the Microstate Feature to Compare</string>
          </property>
          <property name="alignment">
-          <set>Qt::AlignCenter</set>
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
          </property>
         </widget>
        </item>
@@ -829,10 +905,32 @@ background-color: rgb(0, 0, 0);</string>
          <property name="font">
           <font>
            <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
           </font>
          </property>
          <property name="cursor">
           <cursorShape>PointingHandCursor</cursorShape>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
          </property>
          <property name="text">
           <string>Statistical Analysis</string>
@@ -865,10 +963,32 @@ background-color: rgb(0, 0, 0);</string>
          <property name="font">
           <font>
            <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
           </font>
          </property>
          <property name="cursor">
           <cursorShape>PointingHandCursor</cursorShape>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
          </property>
          <property name="text">
           <string>Test-Retest Reliability</string>

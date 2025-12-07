@@ -13,6 +13,7 @@ from mne.utils import use_log_level
 from mne.viz import plot_topomap
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox, QSizePolicy
 
 from data_utils.data_io import DataIO
@@ -58,6 +59,7 @@ class NewStudyWindow(QDialog):
         self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
         self.init_ui_components()
         self.setup_connections()
+        self.setup_checkable_font_styling()
         self.comet.montage = ""
         self.newstudy_controller()
 
@@ -127,6 +129,69 @@ class NewStudyWindow(QDialog):
             if widget is not None:
                 widgets.append(widget)
         return widgets
+
+    def update_widget_font_weight(self, checked_or_widget=None):
+        """Update font weight of a radio button or checkbox based on its checked state.
+        
+        Args:
+            checked_or_widget: Either a boolean (from toggled signal) or a widget object.
+                              If boolean or None, uses self.sender() to get the widget.
+        
+        Makes the widget bold when checked, normal when unchecked.
+        """
+        # When called from toggled signal, first arg is boolean - use sender instead
+        if checked_or_widget is None or isinstance(checked_or_widget, bool):
+            widget = self.sender()
+        else:
+            widget = checked_or_widget
+        
+        if widget is None:
+            return
+        
+        # Use stylesheet for bold - more persistent than font property
+        if widget.isChecked():
+            widget.setStyleSheet("font-weight: bold;")
+        else:
+            widget.setStyleSheet("")
+
+    def setup_checkable_font_styling(self):
+        """Set up font weight styling for all radio buttons and checkboxes.
+        
+        Connects toggled signal to update font weight and initializes current states.
+        """
+        # List of all radio buttons and checkboxes to style
+        checkable_widgets = [
+            # Step 1 radio buttons
+            "step1_import_epoched_radio",
+            "step1_import_raw_radio",
+            "step1_load_all_radio",
+            "step1_load_pattern_radio",
+            # Step 2 montage radio buttons
+            "step2_default_montage_radio",
+            "step2_load_montage_radio",
+            "step2_use_template_montage_radio",
+            # Step 2 data selection radio buttons
+            "step2_select_all",
+            "step2_select_events",
+            # Step 2 channel removal radio button
+            "step2_ch2rm_radio",
+            # Step 2 filter method radio buttons
+            "step2_fir_filtermethod_radio",
+            "step2_iir_filtermethod_radio",
+            # Step 2 checkboxes
+            "step2_temporal_filter_option_checkbox",
+            "step2_downsamp_option_checkbox",
+            "step2_spatial_filter_option_checkbox",
+            "step2_prep_option_checkbox",
+        ]
+        
+        for widget_name in checkable_widgets:
+            widget = getattr(self.ui, widget_name, None)
+            if widget is not None:
+                # Connect toggled signal to update font weight
+                widget.toggled.connect(self.update_widget_font_weight)
+                # Initialize current font state
+                self.update_widget_font_weight(widget)
 
     def setup_connections(self):
         """Set up signal-slot connections.

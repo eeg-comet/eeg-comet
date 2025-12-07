@@ -97,6 +97,7 @@ class MicrostateVisualizationWindow(QMainWindow):
         self.create_label_widgets(self.comet.micro_labels)
         self.connect_ui()
         self.create_figure_and_canvas()
+        self.setup_checkable_font_styling()
 
     def closeEvent(self, event):
         """Handle window close event and cleanup logging filter."""
@@ -104,6 +105,38 @@ class MicrostateVisualizationWindow(QMainWindow):
         if hasattr(self, '_mne_filter'):
             logging.getLogger().removeFilter(self._mne_filter)
         super().closeEvent(event)
+
+    def update_widget_font_weight(self, checked_or_widget=None):
+        """Update font weight of a radio button or checkbox based on its checked state.
+
+        Args:
+            checked_or_widget: Either a boolean (from toggled signal) or a widget object.
+                              If boolean or None, uses self.sender() to get the widget.
+
+        Makes the widget bold when checked, normal when unchecked.
+        """
+        if checked_or_widget is None or isinstance(checked_or_widget, bool):
+            widget = self.sender()
+        else:
+            widget = checked_or_widget
+
+        if widget is None:
+            return
+
+        if widget.isChecked():
+            widget.setStyleSheet("font-weight: bold;")
+        else:
+            widget.setStyleSheet("")
+
+    def setup_checkable_font_styling(self):
+        """Set up font weight styling for all radio buttons and checkboxes.
+
+        Connects toggled signal to update font weight and initializes current states.
+        """
+        # Style the dynamically created polarity radio buttons
+        for radio_button in self.polarity_radio_buttons:
+            radio_button.toggled.connect(self.update_widget_font_weight)
+            self.update_widget_font_weight(radio_button)
 
     def setup_ui(self, context):
         """Set up UI components.

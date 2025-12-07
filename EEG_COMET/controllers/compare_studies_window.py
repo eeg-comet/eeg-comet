@@ -96,6 +96,7 @@ class CompareStudiesWindow(QDialog):
         self._connect_ui_signals()
         self._create_matplotlib_components()
         self.update_ui()
+        self.setup_checkable_font_styling()
 
     # ==================== UI INITIALIZATION ====================
 
@@ -148,6 +149,49 @@ class CompareStudiesWindow(QDialog):
         self.ui.compare_features_button.clicked.connect(self.update_feature_stats)
         self.ui.plot_testretest_button.clicked.connect(self.perform_test_retest_analysis)
         self.ui.match_subjects_button.clicked.connect(self.match_subjects_by_pattern)
+
+    def update_widget_font_weight(self, checked_or_widget=None):
+        """Update font weight of a radio button or checkbox based on its checked state.
+
+        Args:
+            checked_or_widget: Either a boolean (from toggled signal) or a widget object.
+                              If boolean or None, uses self.sender() to get the widget.
+
+        Makes the widget bold when checked, normal when unchecked.
+        """
+        if checked_or_widget is None or isinstance(checked_or_widget, bool):
+            widget = self.sender()
+        else:
+            widget = checked_or_widget
+
+        if widget is None:
+            return
+
+        if widget.isChecked():
+            widget.setStyleSheet("font-weight: bold;")
+        else:
+            widget.setStyleSheet("")
+
+    def setup_checkable_font_styling(self):
+        """Set up font weight styling for all radio buttons and checkboxes.
+
+        Connects toggled signal to update font weight and initializes current states.
+        """
+        checkable_widgets = [
+            "compare_two_studies_radio",
+            "compare_surrogate_radio",
+            "compare_random_radio",
+            "compare_within_study_radio",
+            "paired_test_checkbox",
+            "show_features_checkbox",
+            "show_microstates_checkbox",
+        ]
+
+        for widget_name in checkable_widgets:
+            widget = getattr(self.ui, widget_name, None)
+            if widget is not None:
+                widget.toggled.connect(self.update_widget_font_weight)
+                self.update_widget_font_weight(widget)
 
     def _create_matplotlib_components(self) -> None:
         """Create matplotlib figures and canvases for visualization."""
