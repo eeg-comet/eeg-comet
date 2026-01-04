@@ -1,6 +1,8 @@
+"""Data initialization helpers for microstate analysis (EEG-COMET)."""
+
 import numpy as np
-from scipy.signal import find_peaks
-from scipy.signal import correlate
+from scipy.signal import correlate, find_peaks
+
 from data_utils.data_io import DataIO
 
 
@@ -41,12 +43,15 @@ class DataInitializer:
             This implementation follows the standard k-means++ algorithm but adapted
             for EEG topographies.
         """
-        if initializer == 'K-Means++':
+        if initializer == "K-Means++":
             initial_idx = np.random.choice(np.size(maps2use, 1))
             initial_centers = [maps2use[:, initial_idx]]
             for _ in range(1, n_states):
                 dists = np.array(
-                    [min(float(abs(correlate(d, c, mode='valid')[0])) for c in initial_centers) for d in maps2use.T]
+                    [
+                        min(float(abs(correlate(d, c, mode="valid")[0])) for c in initial_centers)
+                        for d in maps2use.T
+                    ]
                 )
                 probs = dists / dists.sum()
                 next_idx = np.random.choice(np.size(maps2use, 1), p=probs)
@@ -73,44 +78,77 @@ class DataInitializer:
 
         Args:
             data (numpy.ndarray): EEG data array with shape (n_channels, n_timepoints)
-            use_percentages (float, optional): If provided, randomly selects this percentage
-                of timepoints instead of detecting peaks. Value should be between 0-100.
-                Defaults to None (use peak detection)
+            use_percentages (float, optional): If provided, selects timepoints based on percentage:
+                - None: Use GFP peak detection with min_dist
+                - 0-99: Randomly selects this percentage of timepoints 
+                - 100: Uses ALL timepoints (entire data)
+                Value should be between 0-100. Defaults to None (use peak detection)
             min_dist (int, optional): Minimum distance between peaks in samples.
-                If 0, no minimum distance is enforced. Defaults to None
+                If 0, no minimum distance is enforced. Only used when use_percentages is None
             random_seed (int, optional): Random seed for reproducible random sampling.
-                Only used when use_percentages is provided. Defaults to None
+                Only used when use_percentages is provided and < 100. Defaults to None
 
         Returns:
             tuple: Contains:
-                - maps (numpy.ndarray): Topographical maps at GFP peaks,
-                  shape (n_channels, n_peaks), normalized to unit length
-                - peaks (numpy.ndarray): Indices of GFP peaks in the original data
+                - maps (numpy.ndarray): Topographical maps at selected timepoints,
+                  shape (n_channels, n_selected_points), normalized to unit length
+                - peaks (numpy.ndarray): Indices of selected timepoints in the original data
 
         Notes:
-            When use_percentages is provided, peak detection is bypassed and random
-            timepoints are selected instead, which can be useful for large datasets.
+            Three data selection modes:
+            1. use_percentages=None: GFP peak detection (with min_dist constraint)
+            2. use_percentages<100: Random subset of data points 
+            3. use_percentages=100: All data points (entire dataset)
         """
         gfp = np.std(data, axis=0)
 
         if use_percentages is not None:
-            num_samples = int(data.shape[1] * (int(use_percentages) / 100))
-            if random_seed is not None:
-                # Set random seed for reproducible sampling
-                rng = np.random.RandomState(random_seed)
-                peaks = rng.choice(data.shape[1], size=num_samples, replace=False)
+            if use_percentages == 100:
+                # Use entire data - all time points for clustering
+                peaks = np.arange(data.shape[1])
             else:
-                peaks = np.random.choice(data.shape[1], size=num_samples, replace=False)
+                # Use random subset of data based on percentage
+                num_samples = int(data.shape[1] * (int(use_percentages) / 100))
+                if random_seed is not None:
+                    # Set random seed for reproducible sampling
+                    rng = np.random.RandomState(random_seed)
+                    peaks = rng.choice(data.shape[1], size=num_samples, replace=False)
+                else:
+                    peaks = np.random.choice(data.shape[1], size=num_samples, replace=False)
         else:
             if min_dist == 0:
                 min_dist = None
-            peaks, _ = find_peaks(gfp, distance=min_dist)
+            # Optional masking around boundaries
+            boundary_mask = None
+            try:
+                # data may be derived from a Raw with annotations; if present in caller, they should pass masked data
+                # Here we support a simple convention: if the first channel encodes a mask as NaN at boundary samples
+                # we drop those. Otherwise, use distance-based detection only.
+                if np.isnan(data[0]).any():
+                    boundary_mask = ~np.isnan(data[0])
+            except Exception:
+                boundary_mask = None
+
+            if boundary_mask is not None and boundary_mask.any():
+                valid_idx = np.where(boundary_mask)[0]
+                gfp_valid = gfp[valid_idx]
+                local_peaks, _ = find_peaks(gfp_valid, distance=min_dist)
+                peaks = valid_idx[local_peaks]
+            else:
+                peaks, _ = find_peaks(gfp, distance=min_dist)
         maps = data[:, peaks]
         maps /= np.linalg.norm(maps, axis=1, keepdims=True)
         return maps, peaks
 
     @staticmethod
-    def generate_maps_and_peaks(preprocessed_folder, extension, datatype, use_percentages=None, min_dist=None, random_seed=None):
+    def generate_maps_and_peaks(
+        preprocessed_folder,
+        extension,
+        datatype,
+        use_percentages=None,
+        min_dist=None,
+        random_seed=None,
+    ):
         """Generate GFP maps and peak indices from multiple preprocessed EEG files.
 
         Loads all EEG files from the specified folder that match the extension,
@@ -141,23 +179,27 @@ class DataInitializer:
         all_preprocessed_paths, _ = data_io.find_data(preprocessed_folder, extension)
         maps2use, peaks2use = [], []
         counter = 0
-        
+
         # If using random sampling with a seed, we need to ensure consistent sampling across files
         if use_percentages is not None and random_seed is not None:
             # Create a random state for consistent sampling
-            rng = np.random.RandomState(random_seed)
-        
+            np.random.RandomState(random_seed)
+
         for eeg_path in all_preprocessed_paths:
             eeg = data_io.load_eeg(eeg_path, datatype)
             eeg_data = data_io.get_eeg_data(eeg, datatype)
-            
+
             # For random sampling with seed, we need to pass a different seed for each file
             # to ensure different samples but reproducible results
             if use_percentages is not None and random_seed is not None:
                 file_seed = random_seed + counter  # Different seed for each file
-                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist, file_seed)
+                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(
+                    eeg_data, use_percentages, min_dist, file_seed
+                )
             else:
-                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(eeg_data, use_percentages, min_dist)
+                maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(
+                    eeg_data, use_percentages, min_dist
+                )
 
             if counter == 0:
                 maps2use = maps

@@ -25,22 +25,163 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget#Form {
+    background-color: #f5f7fa;
+}
+QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}
+QLineEdit {
+    border: 2px solid #d0d7de;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background-color: white;
+}
+QLineEdit:focus {
+    border-color: #4a90d9;
+}
+QLineEdit:disabled {
+    background-color: #ecf0f1;
+    color: #95a5a6;
+}
+QComboBox {
+    border: 2px solid #d0d7de;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background-color: white;
+}
+QComboBox:focus {
+    border-color: #4a90d9;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 30px;
+}
+QComboBox::down-arrow {
+    width: 12px;
+    height: 12px;
+}
+QRadioButton, QCheckBox {
+    spacing: 8px;
+}
+QRadioButton::indicator, QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+}
+QListWidget {
+    border: 2px solid #d0d7de;
+    border-radius: 6px;
+    background-color: white;
+}
+QListWidget:focus {
+    border-color: #4a90d9;
+}
+Line {
+    color: #d0d7de;
+}</string>
+  </property>
   <layout class="QGridLayout" name="gridLayout_3">
    <item row="2" column="0">
     <widget class="QSplitter" name="splitter_3">
+     <property name="font">
+      <font>
+       <family>Calibri</family>
+      </font>
+     </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
      <widget class="QTabWidget" name="new_study_tab_widget">
       <property name="font">
        <font>
+        <family>Calibri</family>
         <pointsize>14</pointsize>
         <weight>50</weight>
         <bold>false</bold>
        </font>
       </property>
+      <property name="styleSheet">
+       <string notr="true">QTabWidget::pane {
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    background-color: white;
+    padding: 10px;
+}
+QTabBar::tab {
+    background-color: #e8eef4;
+    color: #34495e;
+    padding: 10px 20px;
+    margin-right: 4px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    font-weight: bold;
+}
+QTabBar::tab:selected {
+    background-color: #4a90d9;
+    color: white;
+}
+QTabBar::tab:hover:!selected {
+    background-color: #d0dae8;
+}
+QLineEdit {
+    border: 2px solid #d0d7de;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background-color: white;
+}
+QLineEdit:focus {
+    border-color: #4a90d9;
+}
+QLineEdit:disabled {
+    background-color: #ecf0f1;
+    color: #95a5a6;
+}
+QComboBox {
+    border: 2px solid #d0d7de;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background-color: white;
+}
+QComboBox:focus {
+    border-color: #4a90d9;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 30px;
+}
+QComboBox::down-arrow {
+    width: 12px;
+    height: 12px;
+}
+QRadioButton, QCheckBox {
+    spacing: 8px;
+}
+QRadioButton::indicator, QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+}</string>
+      </property>
+      <property name="tabPosition">
+       <enum>QTabWidget::North</enum>
+      </property>
       <property name="tabShape">
-       <enum>QTabWidget::Triangular</enum>
+       <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
        <number>0</number>
@@ -53,50 +194,13 @@
         </size>
        </property>
        <attribute name="title">
-        <string>Step 1. Import Data</string>
+        <string>Import Data</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout">
-        <item row="6" column="0" colspan="2">
-         <widget class="QLineEdit" name="step1_input_path_lineedit">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-            <italic>false</italic>
-           </font>
-          </property>
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Folder path where data files are located&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0" colspan="2">
+        <item row="6" column="0">
          <widget class="QPushButton" name="step1_input_path_button">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -110,12 +214,15 @@
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
+            <family>Calibri</family>
             <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="cursor">
@@ -126,165 +233,10 @@
           </property>
          </widget>
         </item>
-        <item row="3" column="0" colspan="2">
-         <widget class="Line" name="step1_HLine_2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="0" colspan="2">
-         <widget class="QLabel" name="step1_input_path_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <family>Calibri</family>
-            <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
-          </property>
-          <property name="text">
-           <string>Input Folder</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="7" column="0" colspan="2">
-         <widget class="Line" name="step1_HLine_3">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="14" column="0" colspan="2">
-         <widget class="Line" name="step1_HLine_4">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="11" column="0" colspan="2">
-         <widget class="QLabel" name="step1_import_format_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <family>Calibri</family>
-            <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
-          </property>
-          <property name="text">
-           <string>Data Extension</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="13" column="0" colspan="2">
+        <item row="13" column="0">
          <widget class="QComboBox" name="step1_import_format_combobox">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -298,11 +250,12 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
+            <family>Calibri</family>
             <pointsize>14</pointsize>
            </font>
           </property>
@@ -374,10 +327,130 @@ background-color: rgb(0, 0, 0);</string>
           </item>
          </widget>
         </item>
-        <item row="15" column="0" colspan="2">
-         <widget class="QLabel" name="step1_import_type_label">
+        <item row="1" column="0">
+         <widget class="Line" name="step1_HLine1">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="26" column="0">
+         <widget class="Line" name="step1_HLine5">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="14" column="0">
+         <widget class="Line" name="step1_HLine3">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="19" column="0">
+         <widget class="Line" name="step1_HLine4">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <widget class="QLineEdit" name="step1_input_path_lineedit">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -391,7 +464,45 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>12</pointsize>
+            <italic>false</italic>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Folder path where data files are located&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="step1_input_path_label">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
@@ -403,21 +514,20 @@ background-color: rgb(0, 0, 0);</string>
            </font>
           </property>
           <property name="styleSheet">
-           <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+           <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
           </property>
           <property name="text">
-           <string>Data Type</string>
+           <string>Input Folder</string>
           </property>
           <property name="alignment">
-           <set>Qt::AlignCenter</set>
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
          </widget>
         </item>
-        <item row="17" column="0" colspan="2">
-         <widget class="QRadioButton" name="step1_import_raw_radio">
+        <item row="18" column="0">
+         <widget class="QRadioButton" name="step1_import_epoched_radio">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -431,16 +541,248 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
+            <family>Calibri</family>
             <pointsize>14</pointsize>
            </font>
           </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Currently, only preprocessed (artifact-rejected) epoched TMS-EEG data is supported. Please ensure that your data has undergone the standard cleaning pipelines before proceeding.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="styleSheet">
+           <string notr="true"/>
+          </property>
           <property name="text">
-           <string>Continuous EEG (Channels × Time) - e.g., Resting-State</string>
+           <string>Epoched EEG (Epochs × Channels × Time)</string>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">DataType_ButtonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item row="7" column="0">
+         <widget class="Line" name="step1_HLine2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="24" column="0">
+         <widget class="QLineEdit" name="step1_import_pattern_lineedit">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>12</pointsize>
+            <weight>50</weight>
+            <italic>false</italic>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Pattern to match in file names (e.g., &amp;quot;eyes_closed&amp;quot;)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="maxLength">
+           <number>50</number>
+          </property>
+         </widget>
+        </item>
+        <item row="25" column="0">
+         <widget class="QLineEdit" name="step1_import_log_lineedit">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="20" column="0">
+         <widget class="QLabel" name="step1_import_pattern_label">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+          </property>
+          <property name="text">
+           <string>Find Data</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="15" column="0">
+         <widget class="QLabel" name="step1_import_type_label">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+          </property>
+          <property name="text">
+           <string>Data Type</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="17" column="0">
+         <widget class="QRadioButton" name="step1_import_raw_radio">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string notr="true"/>
+          </property>
+          <property name="text">
+           <string>Continuous EEG (Channels × Time)</string>
           </property>
           <property name="checked">
            <bool>true</bool>
@@ -450,10 +792,10 @@ background-color: rgb(0, 0, 0);</string>
           </attribute>
          </widget>
         </item>
-        <item row="18" column="0" colspan="2">
-         <widget class="QRadioButton" name="step1_import_epoched_radio">
+        <item row="11" column="0">
+         <widget class="QLabel" name="step1_import_format_label">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -467,54 +809,32 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
+            <family>Calibri</family>
             <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Currently, only preprocessed (artifact-rejected) epoched TMS-EEG data is supported. Please ensure that your data has undergone the standard cleaning pipelines before proceeding.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <property name="styleSheet">
+           <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
           </property>
           <property name="text">
-           <string>Epoched EEG (Epochs × Channels × Time) - e.g., TMS-EEG</string>
+           <string>Data Extension</string>
           </property>
-          <attribute name="buttonGroup">
-           <string notr="true">DataType_ButtonGroup</string>
-          </attribute>
-         </widget>
-        </item>
-        <item row="19" column="0" colspan="2">
-         <widget class="Line" name="step1_HLine_5">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
          </widget>
         </item>
-        <item row="22" column="0" colspan="2">
+        <item row="22" column="0">
          <widget class="QRadioButton" name="step1_load_all_radio">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -528,11 +848,12 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
+            <family>Calibri</family>
             <pointsize>14</pointsize>
            </font>
           </property>
@@ -550,46 +871,13 @@ background-color: rgb(0, 0, 0);</string>
           </attribute>
          </widget>
         </item>
-        <item row="23" column="0" colspan="2">
-         <widget class="QRadioButton" name="step1_load_pattern_radio">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Find EEG Data with Specific Naming Convention</string>
-          </property>
-          <attribute name="buttonGroup">
-           <string notr="true">FindData_ButtonGroup</string>
-          </attribute>
-         </widget>
-        </item>
-        <item row="24" column="0" colspan="2">
-         <widget class="QLineEdit" name="step1_import_pattern_lineedit">
+        <item row="27" column="0">
+         <widget class="QPushButton" name="step1_import_raw_button">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -597,52 +885,13 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>40</height>
+            <height>50</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-            <weight>50</weight>
-            <italic>false</italic>
-            <bold>false</bold>
-           </font>
-          </property>
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Pattern to match in file names (e.g., &amp;quot;eyes_closed&amp;quot;)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-          <property name="maxLength">
-           <number>50</number>
-          </property>
-         </widget>
-        </item>
-        <item row="20" column="0" colspan="2">
-         <widget class="QLabel" name="step1_import_pattern_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
+            <height>50</height>
            </size>
           </property>
           <property name="font">
@@ -653,50 +902,33 @@ background-color: rgb(0, 0, 0);</string>
             <bold>true</bold>
            </font>
           </property>
-          <property name="styleSheet">
-           <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
-          </property>
-          <property name="text">
-           <string>Find Data</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="28" column="0" colspan="2">
-         <widget class="QPushButton" name="step1_import_raw_button">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
           <property name="cursor">
            <cursorShape>PointingHandCursor</cursorShape>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4ade80,
+        stop:0.5 #177226,
+        stop:1 #4ade80);
+    color: white;
+    font-size: 14pt;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #177226,
+        stop:0.5 #4ade80,
+        stop:1 #177226);
+    color: white;
+    font-size: 16pt;
+}
+
+QPushButton:disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+    font-size: 14pt;
+}</string>
           </property>
           <property name="text">
            <string>Import Data</string>
@@ -709,10 +941,10 @@ background-color: rgb(0, 0, 0);</string>
           </property>
          </widget>
         </item>
-        <item row="25" column="0" colspan="2">
-         <widget class="Line" name="step1_HLine_6">
+        <item row="23" column="0">
+         <widget class="QRadioButton" name="step1_load_pattern_radio">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -726,111 +958,37 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="27" column="0" colspan="2">
-         <widget class="Line" name="step1_HLine_7">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
             <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="26" column="0" colspan="2">
-         <widget class="QLineEdit" name="step1_import_log_lineedit">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
            </size>
           </property>
           <property name="font">
            <font>
+            <family>Calibri</family>
             <pointsize>14</pointsize>
            </font>
           </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+          <property name="text">
+           <string>Find EEG Data with Specific Naming Convention</string>
           </property>
-          <property name="readOnly">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0" colspan="2">
-         <widget class="Line" name="step1_HLine">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">FindData_ButtonGroup</string>
+          </attribute>
          </widget>
         </item>
        </layout>
       </widget>
       <widget class="QWidget" name="tab_2">
        <attribute name="title">
-        <string>Step 2. Preprocess Data</string>
+        <string>Preprocess Data</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="0" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine">
+        <item row="22" column="0" colspan="2">
+         <widget class="QCheckBox" name="step2_spatial_filter_option_checkbox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -844,48 +1002,36 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="20" column="0" colspan="2">
-         <widget class="QPushButton" name="step2_save_path_button">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
+            <family>Calibri</family>
             <pointsize>14</pointsize>
            </font>
           </property>
-          <property name="cursor">
-           <cursorShape>PointingHandCursor</cursorShape>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Filter data with zero-phase distortion and no causality&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
-           <string>Select Save Location</string>
+           <string>Spatial Filter</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
-        <item row="22" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_5">
+        <item row="11" column="1">
+         <layout class="QHBoxLayout" name="CheckableComboBox_Layout"/>
+        </item>
+        <item row="12" column="0" colspan="2">
+         <widget class="QCheckBox" name="step2_prep_option_checkbox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -893,18 +1039,33 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>20</height>
+            <height>40</height>
            </size>
           </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Automatically Detect and Interpolate Noisy Channels</string>
           </property>
          </widget>
         </item>
-        <item row="19" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_4">
+        <item row="15" column="0">
+         <widget class="QCheckBox" name="step2_temporal_filter_option_checkbox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -912,21 +1073,106 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>20</height>
+            <height>40</height>
            </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Filter data with zero-phase distortion and no causality&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Temporal Filter (Band-Pass)</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="0" colspan="2">
+         <widget class="QRadioButton" name="step2_select_all">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Use the electrode montage stored in the input EEG file (if available)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Use Entire Time Series (Recommended)</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">buttonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item row="29" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine4">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
           </property>
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
          </widget>
         </item>
-        <item row="23" column="0" colspan="2">
+        <item row="33" column="0" colspan="2">
          <widget class="QPushButton" name="step2_preprocess_data_button">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -934,11 +1180,18 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>30</height>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>50</height>
            </size>
           </property>
           <property name="font">
            <font>
+            <family>Calibri</family>
             <pointsize>14</pointsize>
             <weight>75</weight>
             <bold>true</bold>
@@ -947,18 +1200,73 @@ background-color: rgb(0, 0, 0);</string>
           <property name="cursor">
            <cursorShape>PointingHandCursor</cursorShape>
           </property>
+          <property name="styleSheet">
+           <string notr="true">QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4ade80,
+        stop:0.5 #177226,
+        stop:1 #4ade80);
+    color: white;
+    font-size: 14pt;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #177226,
+        stop:0.5 #4ade80,
+        stop:1 #177226);
+    color: white;
+    font-size: 16pt;
+}
+
+QPushButton:disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+    font-size: 14pt;
+}</string>
+          </property>
           <property name="text">
            <string>Preprocess All Data</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="0" colspan="2">
-         <widget class="QLabel" name="step2_montage_label">
+        <item row="0" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine1">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="0" colspan="2">
+         <widget class="QLabel" name="step2_select_label">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -972,7 +1280,7 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
@@ -984,18 +1292,47 @@ background-color: rgb(0, 0, 0);</string>
            </font>
           </property>
           <property name="styleSheet">
-           <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+           <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
           </property>
           <property name="text">
-           <string>EEG Montage</string>
+           <string>Select Data</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
          </widget>
         </item>
-        <item row="5" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_2">
+        <item row="32" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine5">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="30" column="0" colspan="2">
+         <widget class="QPushButton" name="step2_save_path_button">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -1009,18 +1346,32 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="cursor">
+           <cursorShape>PointingHandCursor</cursorShape>
+          </property>
+          <property name="text">
+           <string>Select Save Location</string>
           </property>
          </widget>
         </item>
-        <item row="10" column="0" colspan="2">
-         <widget class="Line" name="step2_HLine_3">
+        <item row="14" column="0" colspan="2">
+         <widget class="QLabel" name="step2_preprocess_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -1034,21 +1385,138 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+          </property>
+          <property name="text">
+           <string>Preprocess Data</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QRadioButton" name="step2_load_montage_radio">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Load electrode positions from a custom file on your computer. Supported formats: .loc, .locs, .eloc, .sfp, .csd, .elc, .txt, .elp, .bvef, .csv, .tsv, .xyz, .mat, .ced&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Use Custom Montage</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">Montage_ButtonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item row="13" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine3">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
           </property>
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
          </widget>
         </item>
-        <item row="21" column="0" colspan="2">
+        <item row="9" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="31" column="0" colspan="2">
          <widget class="QLineEdit" name="step2_save_path_lineedit">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -1056,12 +1524,19 @@ background-color: rgb(0, 0, 0);</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>30</height>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
-            <pointsize>14</pointsize>
+            <family>Calibri</family>
+            <pointsize>12</pointsize>
             <italic>false</italic>
            </font>
           </property>
@@ -1073,462 +1548,552 @@ background-color: rgb(0, 0, 0);</string>
           </property>
          </widget>
         </item>
-        <item row="12" column="0" rowspan="7" colspan="2">
-         <layout class="QGridLayout" name="Filter_GLayout">
-          <item row="3" column="3">
-           <widget class="QLabel" name="step2_filt_hz2">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Hz</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1" colspan="2">
-           <widget class="QLineEdit" name="step2_highcut_freq_input">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="inputMethodHints">
-             <set>Qt::ImhDigitsOnly</set>
-            </property>
-            <property name="text">
-             <string>20</string>
-            </property>
-            <property name="maxLength">
-             <number>2</number>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1" colspan="2">
-           <widget class="QLineEdit" name="step2_lowcut_freq_input">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="inputMethodHints">
-             <set>Qt::ImhDigitsOnly</set>
-            </property>
-            <property name="text">
-             <string>2</string>
-            </property>
-            <property name="maxLength">
-             <number>2</number>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="3">
-           <widget class="QLabel" name="step2_downsamp_hz">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Hz</string>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="1" colspan="2">
-           <widget class="QLineEdit" name="step2_downsamp_freq_input">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="inputMethodHints">
-             <set>Qt::ImhDigitsOnly</set>
-            </property>
-            <property name="text">
-             <string>250</string>
-            </property>
-            <property name="maxLength">
-             <number>4</number>
-            </property>
-            <property name="echoMode">
-             <enum>QLineEdit::Normal</enum>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="0">
-           <widget class="QLabel" name="step2_downsamp_freq_label">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Sampling Rate:</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="step2_filter_method_label">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Method:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="0" colspan="3">
-           <widget class="QCheckBox" name="step2_spatial_filter_option_checkbox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Filter data with zero-phase distortion and no causality&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Spatial Filter</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="step2_highcut_freq_label">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Highcut:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="step2_lowcut_freq_label">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Lowcut:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QRadioButton" name="step2_iir_filtermethod_radio">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Infinite Impulse Response&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Infinite Impulse Response (IIR)</string>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">FilterMethod_ButtonGroup</string>
-            </attribute>
-           </widget>
-          </item>
-          <item row="0" column="0" colspan="4">
-           <widget class="QCheckBox" name="step2_temporal_filter_option_checkbox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Filter data with zero-phase distortion and no causality&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Temporal Filter</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
+        <item row="1" column="0" colspan="2">
+         <widget class="QLabel" name="step2_montage_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+          </property>
+          <property name="text">
+           <string>EEG Montage</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0" colspan="2">
+         <widget class="Line" name="step2_HLine6">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+           </font>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="10" column="0" colspan="2">
+         <widget class="QLabel" name="step2_ch2rm_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+          </property>
+          <property name="text">
+           <string>Remove Channels</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="8" column="0">
+         <widget class="QRadioButton" name="step2_select_events">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Use the electrode montage stored in the input EEG file (if available)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Extract Epochs Around Events</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">buttonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item row="2" column="0" colspan="2">
+         <widget class="QRadioButton" name="step2_default_montage_radio">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Use the electrode montage stored in the input EEG file (if available)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Use Default Montage</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">Montage_ButtonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLineEdit" name="step2_chanloc_path_lineedit">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>12</pointsize>
+            <italic>false</italic>
+           </font>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="8" column="1">
+         <widget class="QComboBox" name="step2_events_combobox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+         </widget>
+        </item>
+        <item row="11" column="0">
+         <widget class="QRadioButton" name="step2_ch2rm_radio">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Select one of the imported files to access the list of available EEG channels.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Select Channels to Remove: </string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">Ch2Rm_ButtonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item row="17" column="0">
+         <widget class="QLabel" name="step2_highcut_freq_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>     Highcut (Hz):</string>
+          </property>
+         </widget>
+        </item>
+        <item row="16" column="0">
+         <widget class="QLabel" name="step2_lowcut_freq_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>     Lowcut (Hz):</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QComboBox" name="step2_template_montage_combobox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QRadioButton" name="step2_use_template_montage_radio">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Select from standard electrode montages provided by MNE-Python (e.g., 10-20 system layouts)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Use Template Montage</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">Montage_ButtonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item row="21" column="0">
+         <widget class="QCheckBox" name="step2_downsamp_option_checkbox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Down-Sample (Hz)</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="21" column="1">
+         <widget class="QLineEdit" name="step2_downsamp_freq_input">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <family>Calibri</family>
+            <pointsize>14</pointsize>
+           </font>
+          </property>
+          <property name="inputMethodHints">
+           <set>Qt::ImhDigitsOnly</set>
+          </property>
+          <property name="text">
+           <string>250</string>
+          </property>
+          <property name="maxLength">
+           <number>4</number>
+          </property>
+          <property name="echoMode">
+           <enum>QLineEdit::Normal</enum>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="15" column="1">
+         <layout class="QHBoxLayout" name="Filter_HLayout">
+          <item>
            <widget class="QRadioButton" name="step2_fir_filtermethod_radio">
             <property name="enabled">
              <bool>false</bool>
             </property>
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -1542,11 +2107,12 @@ background-color: rgb(0, 0, 0);</string>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>100</height>
+              <height>40</height>
              </size>
             </property>
             <property name="font">
              <font>
+              <family>Calibri</family>
               <pointsize>14</pointsize>
              </font>
             </property>
@@ -1564,13 +2130,13 @@ background-color: rgb(0, 0, 0);</string>
             </attribute>
            </widget>
           </item>
-          <item row="4" column="0" colspan="4">
-           <widget class="QCheckBox" name="step2_downsamp_option_checkbox">
+          <item>
+           <widget class="QRadioButton" name="step2_iir_filtermethod_radio">
             <property name="enabled">
              <bool>false</bool>
             </property>
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -1584,67 +2150,35 @@ background-color: rgb(0, 0, 0);</string>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>100</height>
+              <height>40</height>
              </size>
             </property>
             <property name="font">
              <font>
+              <family>Calibri</family>
               <pointsize>14</pointsize>
              </font>
             </property>
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Infinite Impulse Response&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Down-Sample</string>
+             <string>Infinite Impulse Response (IIR)</string>
             </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="3">
-           <widget class="QLabel" name="step2_filt_hz1">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Hz</string>
-            </property>
+            <attribute name="buttonGroup">
+             <string notr="true">FilterMethod_ButtonGroup</string>
+            </attribute>
            </widget>
           </item>
          </layout>
         </item>
-        <item row="6" column="0" colspan="2">
-         <widget class="QLabel" name="step2_ch2rm_label">
+        <item row="16" column="1">
+         <widget class="QLineEdit" name="step2_lowcut_freq_input">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -1658,33 +2192,36 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
             <family>Calibri</family>
             <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
            </font>
           </property>
-          <property name="styleSheet">
-           <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+          <property name="inputMethodHints">
+           <set>Qt::ImhDigitsOnly</set>
           </property>
           <property name="text">
-           <string>Remove Channels</string>
+           <string>2</string>
+          </property>
+          <property name="maxLength">
+           <number>2</number>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
-        <item row="11" column="0" colspan="2">
-         <widget class="QLabel" name="step2_preprocess_label">
+        <item row="17" column="1">
+         <widget class="QLineEdit" name="step2_highcut_freq_input">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -1698,315 +2235,61 @@ background-color: rgb(0, 0, 0);</string>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>100</height>
+            <height>40</height>
            </size>
           </property>
           <property name="font">
            <font>
             <family>Calibri</family>
             <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
            </font>
           </property>
-          <property name="styleSheet">
-           <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+          <property name="inputMethodHints">
+           <set>Qt::ImhDigitsOnly</set>
           </property>
           <property name="text">
-           <string>Preprocess Data</string>
+           <string>20</string>
+          </property>
+          <property name="maxLength">
+           <number>2</number>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
-        </item>
-        <item row="8" column="0" rowspan="2" colspan="2">
-         <layout class="QGridLayout" name="Channels_GLayout">
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="step2_prep_option_checkbox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Automatically Detect and Interpolate Noisy Channels</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <layout class="QHBoxLayout" name="CheckableComboBox_Layout">
-            <item>
-             <widget class="QRadioButton" name="step2_ch2rm_radio">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>40</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>16777215</width>
-                <height>100</height>
-               </size>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>14</pointsize>
-               </font>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Select one of the imported files to access the list of available EEG channels.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Select Channels to Remove: </string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-              <attribute name="buttonGroup">
-               <string notr="true">Ch2Rm_ButtonGroup</string>
-              </attribute>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </item>
-        <item row="2" column="0" rowspan="3" colspan="2">
-         <layout class="QGridLayout" name="Montage_GLayout">
-          <item row="2" column="0">
-           <widget class="QRadioButton" name="step2_use_template_montage_radio">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Select from standard electrode montages provided by MNE-Python (e.g., 10-20 system layouts)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Use Template Montage</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">Montage_ButtonGroup</string>
-            </attribute>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QRadioButton" name="step2_load_montage_radio">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Load electrode positions from a custom file on your computer. Supported formats: .loc, .locs, .eloc, .sfp, .csd, .elc, .txt, .elp, .bvef, .csv, .tsv, .xyz, .mat, .ced&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Use Custom Montage</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">Montage_ButtonGroup</string>
-            </attribute>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QLineEdit" name="step2_chanloc_path_lineedit">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-              <italic>false</italic>
-             </font>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QComboBox" name="step2_template_montage_combobox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0" colspan="2">
-           <widget class="QRadioButton" name="step2_default_montage_radio">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>40</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Use the electrode montage stored in the input EEG file (if available)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Use Default Montage</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">Montage_ButtonGroup</string>
-            </attribute>
-           </widget>
-          </item>
-         </layout>
         </item>
        </layout>
       </widget>
      </widget>
      <widget class="QSplitter" name="splitter_2">
+      <property name="font">
+       <font>
+        <family>Calibri</family>
+       </font>
+      </property>
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
       <widget class="QSplitter" name="splitter">
+       <property name="font">
+        <font>
+         <family>Calibri</family>
+        </font>
+       </property>
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
        <widget class="QWidget" name="layoutWidget">
+        <property name="font">
+         <font>
+          <family>Calibri</family>
+         </font>
+        </property>
         <layout class="QGridLayout" name="List_GLayout">
          <item row="0" column="0" colspan="2">
           <widget class="QLabel" name="loaded_selectedfiles_label">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
@@ -2020,19 +2303,19 @@ background-color: rgb(0, 0, 0);</string>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>50</height>
+             <height>40</height>
             </size>
            </property>
            <property name="font">
             <font>
+             <family>Calibri</family>
              <pointsize>14</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
            </property>
            <property name="styleSheet">
-            <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #DD6F58, stop:0.5 #67001F, stop:1 #DD6F58); border-radius: 8px;</string>
            </property>
            <property name="text">
             <string>List of loaded data</string>
@@ -2058,7 +2341,8 @@ background-color: rgb(0, 0, 0);</string>
            </property>
            <property name="font">
             <font>
-             <pointsize>14</pointsize>
+             <family>Calibri</family>
+             <pointsize>12</pointsize>
              <italic>true</italic>
             </font>
            </property>
@@ -2070,7 +2354,7 @@ background-color: rgb(0, 0, 0);</string>
             <bool>false</bool>
            </property>
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
@@ -2084,12 +2368,15 @@ background-color: rgb(0, 0, 0);</string>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>50</height>
+             <height>40</height>
             </size>
            </property>
            <property name="font">
             <font>
+             <family>Calibri</family>
              <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
             </font>
            </property>
            <property name="text">
@@ -2103,7 +2390,7 @@ background-color: rgb(0, 0, 0);</string>
             <bool>false</bool>
            </property>
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
@@ -2117,12 +2404,15 @@ background-color: rgb(0, 0, 0);</string>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>50</height>
+             <height>40</height>
             </size>
            </property>
            <property name="font">
             <font>
+             <family>Calibri</family>
              <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
             </font>
            </property>
            <property name="text">
@@ -2132,6 +2422,11 @@ background-color: rgb(0, 0, 0);</string>
          </item>
          <item row="3" column="0" colspan="2">
           <widget class="Line" name="list_HLine">
+           <property name="font">
+            <font>
+             <family>Calibri</family>
+            </font>
+           </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
@@ -2140,6 +2435,11 @@ background-color: rgb(0, 0, 0);</string>
         </layout>
        </widget>
        <widget class="QWidget" name="gridLayoutWidget">
+        <property name="font">
+         <font>
+          <family>Calibri</family>
+         </font>
+        </property>
         <layout class="QGridLayout" name="Figure_GLayout">
          <item row="4" column="0" colspan="2">
           <widget class="QLineEdit" name="vis_figure_filename_lineedit">
@@ -2147,7 +2447,7 @@ background-color: rgb(0, 0, 0);</string>
             <bool>false</bool>
            </property>
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
@@ -2155,8 +2455,20 @@ background-color: rgb(0, 0, 0);</string>
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>40</height>
             </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>40</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <family>Calibri</family>
+             <pointsize>12</pointsize>
+            </font>
            </property>
            <property name="alignment">
             <set>Qt::AlignCenter</set>
@@ -2169,7 +2481,7 @@ background-color: rgb(0, 0, 0);</string>
             <bool>false</bool>
            </property>
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
@@ -2177,12 +2489,19 @@ background-color: rgb(0, 0, 0);</string>
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>40</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>40</height>
             </size>
            </property>
            <property name="font">
             <font>
-             <pointsize>14</pointsize>
+             <family>Calibri</family>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="alignment">
@@ -2196,7 +2515,7 @@ background-color: rgb(0, 0, 0);</string>
          <item row="0" column="0" colspan="2">
           <widget class="QLabel" name="vis_label">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
@@ -2210,18 +2529,19 @@ background-color: rgb(0, 0, 0);</string>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>50</height>
+             <height>40</height>
             </size>
            </property>
            <property name="font">
             <font>
+             <family>Calibri</family>
+             <pointsize>14</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
            </property>
            <property name="styleSheet">
-            <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #DD6F58, stop:0.5 #67001F, stop:1 #DD6F58); border-radius: 8px;</string>
            </property>
            <property name="text">
             <string>Inspect Data</string>
@@ -2242,7 +2562,7 @@ background-color: rgb(0, 0, 0);</string>
               <bool>false</bool>
              </property>
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
@@ -2256,12 +2576,15 @@ background-color: rgb(0, 0, 0);</string>
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>50</height>
+               <height>40</height>
               </size>
              </property>
              <property name="font">
               <font>
+               <family>Calibri</family>
                <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
              <property name="text">
@@ -2275,7 +2598,7 @@ background-color: rgb(0, 0, 0);</string>
               <bool>false</bool>
              </property>
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
@@ -2289,12 +2612,15 @@ background-color: rgb(0, 0, 0);</string>
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>50</height>
+               <height>40</height>
               </size>
              </property>
              <property name="font">
               <font>
+               <family>Calibri</family>
                <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
              <property name="text">
@@ -2308,7 +2634,7 @@ background-color: rgb(0, 0, 0);</string>
               <bool>false</bool>
              </property>
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
@@ -2322,12 +2648,15 @@ background-color: rgb(0, 0, 0);</string>
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>50</height>
+               <height>40</height>
               </size>
              </property>
              <property name="font">
               <font>
+               <family>Calibri</family>
                <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
              <property name="styleSheet">
@@ -2349,7 +2678,7 @@ background-color: rgb(0, 0, 0);</string>
    <item row="0" column="0">
     <widget class="QLabel" name="step1_study_name_label">
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
@@ -2363,23 +2692,22 @@ background-color: rgb(0, 0, 0);</string>
      <property name="maximumSize">
       <size>
        <width>16777215</width>
-       <height>100</height>
+       <height>50</height>
       </size>
      </property>
      <property name="font">
       <font>
        <family>Calibri</family>
-       <pointsize>16</pointsize>
+       <pointsize>14</pointsize>
        <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+      <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #80BBD7, stop:0.5 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
      </property>
      <property name="text">
-      <string>Study Name</string>
+      <string>New Study Name</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -2389,7 +2717,7 @@ background-color: rgb(0, 0, 0);</string>
    <item row="1" column="0">
     <widget class="QLineEdit" name="step1_study_name_lineedit">
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
@@ -2403,16 +2731,20 @@ background-color: rgb(0, 0, 0);</string>
      <property name="maximumSize">
       <size>
        <width>16777215</width>
-       <height>100</height>
+       <height>50</height>
       </size>
      </property>
      <property name="font">
       <font>
-       <pointsize>16</pointsize>
+       <family>Calibri</family>
+       <pointsize>14</pointsize>
        <weight>75</weight>
        <italic>true</italic>
        <bold>true</bold>
       </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QLineEdit { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #e8f4f8, stop:0.5 #d4edda, stop:1 #e8f4f8); border: 2px solid #28a745; border-radius: 8px; color: #155724; padding: 8px; }</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -2424,10 +2756,11 @@ background-color: rgb(0, 0, 0);</string>
  <resources/>
  <connections/>
  <buttongroups>
+  <buttongroup name="Ch2Rm_ButtonGroup"/>
   <buttongroup name="DataType_ButtonGroup"/>
   <buttongroup name="FilterMethod_ButtonGroup"/>
-  <buttongroup name="Ch2Rm_ButtonGroup"/>
   <buttongroup name="Montage_ButtonGroup"/>
   <buttongroup name="FindData_ButtonGroup"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

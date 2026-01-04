@@ -25,793 +25,7 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="1" column="0">
-    <widget class="QSplitter" name="splitter_4">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <widget class="QSplitter" name="splitter_3">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <widget class="QWidget" name="gridLayoutWidget">
-       <layout class="QGridLayout" name="Study_GridLayout">
-        <item row="1" column="0">
-         <widget class="QLabel" name="study_name_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Study Name</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="3" rowspan="4">
-         <widget class="Line" name="line_2">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QLabel" name="study1_name_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Study 1</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QPushButton" name="load_study1_button">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Load Study 1</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="2">
-         <widget class="QLabel" name="study2_name_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Study 2</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="load_study_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Load Studies</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QLabel" name="file_list_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>List of Data</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QListWidget" name="study1_file_list">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>100</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="2">
-         <widget class="QPushButton" name="load_study2_button">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Load Study 2</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="2">
-         <widget class="QListWidget" name="study2_file_list">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>100</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0">
-         <widget class="QLabel" name="compare_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Compare Study 1 with:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="1" colspan="2">
-         <layout class="QHBoxLayout" name="horizontalLayout">
-          <item>
-           <widget class="QRadioButton" name="compare_study2_radio">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>60</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Study 2</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">buttonGroup</string>
-            </attribute>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="compare_surrogate_radio">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>60</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Surrogate Data</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">buttonGroup</string>
-            </attribute>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="compare_random_radio">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>60</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Random Data</string>
-            </property>
-            <attribute name="buttonGroup">
-             <string notr="true">buttonGroup</string>
-            </attribute>
-           </widget>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QSplitter" name="splitter_2">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <widget class="QWidget" name="layoutWidget">
-        <layout class="QGridLayout" name="Microstates_GridLayout">
-         <item row="1" column="0" colspan="2">
-          <widget class="QLabel" name="study1_name_label_2">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>40</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>60</height>
-            </size>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-             <weight>75</weight>
-             <bold>true</bold>
-            </font>
-           </property>
-           <property name="text">
-            <string>Microstates</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="2" rowspan="5">
-          <widget class="Line" name="line">
-           <property name="font">
-            <font>
-             <pointsize>14</pointsize>
-            </font>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0" colspan="3">
-          <widget class="Line" name="line_3">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0" colspan="2">
-          <layout class="QVBoxLayout" name="Figure_Microstates_Study1_Layout"/>
-         </item>
-         <item row="3" column="0" colspan="2">
-          <layout class="QVBoxLayout" name="Figure_Microstates_Study2_Layout"/>
-         </item>
-         <item row="4" column="0" rowspan="2" colspan="2">
-          <widget class="Line" name="line_4">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-       <widget class="QWidget" name="verticalLayoutWidget_5">
-        <layout class="QVBoxLayout" name="CorrLayout">
-         <item>
-          <widget class="QPlainTextEdit" name="correlations_textedit">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>100</height>
-            </size>
-           </property>
-           <property name="readOnly">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </widget>
-     </widget>
-     <widget class="QSplitter" name="splitter">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <widget class="QWidget" name="verticalLayoutWidget">
-       <property name="font">
-        <font>
-         <pointsize>14</pointsize>
-        </font>
-       </property>
-       <layout class="QVBoxLayout" name="Features_VerticalLayout">
-        <item>
-         <widget class="QLabel" name="feature_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Select the feature to comapre</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="Feature_Horizontal_Layout">
-          <item>
-           <widget class="QComboBox" name="feature_combo">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>60</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-             </font>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="plot_label">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="font">
-             <font>
-              <pointsize>14</pointsize>
-              <weight>75</weight>
-              <bold>true</bold>
-             </font>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QVBoxLayout" name="Figure_Features_Layout"/>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="paired_test_checkbox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Perform Paired Test</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="Multiple_Test_Layout">
-          <item>
-           <widget class="QLabel" name="multiple_test_label">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>60</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>p-Value Correction Method:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="multiple_test_method_combo">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>60</height>
-             </size>
-            </property>
-            <item>
-             <property name="text">
-              <string>Bonferroni</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Holm</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Sidak</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Holm-Sidak</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Hommel</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>FDR-BH</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>FDR-TSBH</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>FDR-TSBKY</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <widget class="QPushButton" name="plot_features_button">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Compare Features Between Studies</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="plot_testretest_button">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>14</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Test-Retest Reliability</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="verticalLayoutWidget_6">
-       <layout class="QVBoxLayout" name="StatsLayout">
-        <item>
-         <widget class="Line" name="line_5">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPlainTextEdit" name="stats_textedit">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>100</height>
-           </size>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </widget>
-    </widget>
-   </item>
+  <layout class="QGridLayout" name="gridLayout_3">
    <item row="0" column="0">
     <widget class="QLabel" name="comparison_study_label">
      <property name="sizePolicy">
@@ -841,12 +55,1884 @@
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+      <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #67001F, stop:1 #DD6F58); border-radius: 8px; padding-left: 12px;</string>
      </property>
      <property name="text">
       <string>     Compare Studies Window</string>
      </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="tab">
+      <attribute name="title">
+       <string>Load Studies</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout">
+       <item row="0" column="0">
+        <layout class="QGridLayout" name="Study_GridLayout">
+         <item row="9" column="4">
+          <widget class="QLabel" name="study2_name_label">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Study 2</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="10" column="4">
+          <widget class="QListWidget" name="study2_file_list">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>200</width>
+             <height>200</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <family>Calibri</family>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
+          </widget>
+         </item>
+         <item row="9" column="2">
+          <widget class="QLabel" name="study1_name_label">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Study 1</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2" colspan="3">
+          <widget class="QRadioButton" name="compare_within_study_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Compare within a study</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="2" column="2" colspan="3">
+          <widget class="QRadioButton" name="compare_two_studies_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Compare across two studies</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="10" column="2">
+          <widget class="QListWidget" name="study1_file_list">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>200</width>
+             <height>200</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <family>Calibri</family>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1" rowspan="4">
+          <spacer name="HSpacer2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Maximum</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>10</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="11" column="2" colspan="3">
+          <widget class="QPushButton" name="match_subjects_button">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>50</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4ade80,
+        stop:0.5 #177226,
+        stop:1 #4ade80);
+    color: white;
+    font-size: 14pt;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #177226,
+        stop:0.5 #4ade80,
+        stop:1 #177226);
+    color: white;
+    font-size: 16pt;
+}
+
+QPushButton:disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+    font-size: 14pt;
+}</string>
+           </property>
+           <property name="text">
+            <string>Automatically Pair Subjects for Comparison</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1" colspan="4">
+          <widget class="QLabel" name="compare_label_2">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
+           <property name="text">
+            <string>Load Studies</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="2" colspan="3">
+          <widget class="QRadioButton" name="compare_surrogate_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Compare a study with surrogate data</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="5" column="1" colspan="4">
+          <widget class="Line" name="Hline">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="10" column="3">
+          <layout class="QVBoxLayout" name="VLayout">
+           <item>
+            <widget class="QPushButton" name="study1_to_substudy1">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>60</width>
+               <height>60</height>
+              </size>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>16</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22c55e, stop:1 #16a34a);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4ade80, stop:1 #22c55e);
+}
+QPushButton:pressed {
+    background: #15803d;
+}
+QPushButton:disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+}</string>
+             </property>
+             <property name="text">
+              <string>▶</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="substudy1_to_study1">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>60</width>
+               <height>60</height>
+              </size>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>16</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ef4444, stop:1 #dc2626);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #f87171, stop:1 #ef4444);
+}
+QPushButton:pressed {
+    background: #b91c1c;
+}
+QPushButton:disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+}</string>
+             </property>
+             <property name="text">
+              <string>◀</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="4" column="2" colspan="3">
+          <widget class="QRadioButton" name="compare_random_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Compare a study with random data</string>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="0" column="1" colspan="4">
+          <widget class="QLabel" name="compare_label">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
+           <property name="text">
+            <string>Select Comparison Type</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0" rowspan="12">
+          <spacer name="HSpacer1">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Maximum</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="7" column="2" colspan="3">
+          <widget class="QPushButton" name="load_study1_button">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>50</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>80</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <family>Calibri</family>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
+           </property>
+           <property name="text">
+            <string>Load Study 1</string>
+           </property>
+          </widget>
+         </item>
+         <item row="8" column="2" colspan="3">
+          <widget class="QPushButton" name="load_study2_button">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>50</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>80</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="cursor">
+            <cursorShape>PointingHandCursor</cursorShape>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
+           </property>
+           <property name="text">
+            <string>Load Study 2</string>
+           </property>
+          </widget>
+         </item>
+         <item row="7" column="1" rowspan="5">
+          <spacer name="HSpacer3">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Maximum</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>10</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_2">
+      <attribute name="title">
+       <string>Visualize Features</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="0" column="1">
+        <widget class="QLabel" name="feature2visualize_label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+         </property>
+         <property name="text">
+          <string>Microstate Feature to Visualize</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2" rowspan="15">
+        <spacer name="HSpacer1_3">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Fixed</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="0" rowspan="15">
+        <spacer name="HSpacer1_2">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Fixed</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="11" column="1">
+        <widget class="QCheckBox" name="show_microstates_checkbox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Show Microstate Maps</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="feature2visualize_combo">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+          </font>
+         </property>
+        </widget>
+       </item>
+       <item row="14" column="1">
+        <widget class="QSplitter" name="splitter_2">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <widget class="QWidget" name="layoutWidget">
+          <layout class="QGridLayout" name="Microstates_GLayout">
+           <item row="2" column="0" colspan="2">
+            <layout class="QVBoxLayout" name="Figure_Microstates_Study2_Layout"/>
+           </item>
+           <item row="0" column="0" colspan="2">
+            <widget class="QLabel" name="microstate_label">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>14</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Microstate Topographies</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0" colspan="2">
+            <layout class="QVBoxLayout" name="Figure_Microstates_Study1_Layout"/>
+           </item>
+           <item row="3" column="0" colspan="2">
+            <widget class="Line" name="Hline4">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QSplitter" name="splitter">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <widget class="QWidget" name="verticalLayoutWidget">
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+            </font>
+           </property>
+           <layout class="QVBoxLayout" name="Features_VLayout">
+            <item>
+             <widget class="QLabel" name="plot_label">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>14</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Feature Distributions</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="Figure_Features_Layout"/>
+            </item>
+            <item>
+             <widget class="Line" name="Hline2">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </widget>
+       </item>
+       <item row="12" column="1">
+        <widget class="QCheckBox" name="show_features_checkbox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Show Grouped Violin Plots</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="10" column="1">
+        <widget class="QLabel" name="visualization_label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <family>Calibri</family>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+         </property>
+         <property name="text">
+          <string>Microstate Feature Visualization</string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="1">
+        <widget class="Line" name="Hline3">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_3">
+      <attribute name="title">
+       <string>Statistical Analysis</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_5">
+       <item row="3" column="2">
+        <widget class="QLabel" name="analyze_scope_label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+         </property>
+         <property name="text">
+          <string>Analysis Data</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="2">
+        <widget class="QPushButton" name="compare_features_button">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>50</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="cursor">
+          <cursorShape>PointingHandCursor</cursorShape>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4ade80,
+        stop:0.5 #177226,
+        stop:1 #4ade80);
+    color: white;
+    font-size: 14pt;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #177226,
+        stop:0.5 #4ade80,
+        stop:1 #177226);
+    color: white;
+    font-size: 16pt;
+}
+
+QPushButton:disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+    font-size: 14pt;
+}</string>
+         </property>
+         <property name="text">
+          <string>Statistical Analysis</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QLabel" name="feature2compare_label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+         </property>
+         <property name="text">
+          <string>Microstate Feature to Compare</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="Line" name="Hline5">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QComboBox" name="feature2compare_combo">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+          </font>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="2">
+        <layout class="QGridLayout" name="Features_GLayout">
+         <item row="2" column="1">
+          <widget class="QRadioButton" name="analyze_level_trial_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>Treat each trial as independent observation</string>
+           </property>
+           <property name="text">
+            <string>Trial-Level</string>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_3</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QRadioButton" name="analyze_scope_prepost_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>Compare features before vs. after event marker</string>
+           </property>
+           <property name="text">
+            <string>Event-Related (Pre/Post)</string>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_2</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QRadioButton" name="analyze_level_subject_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>Compares one summary value per subject</string>
+           </property>
+           <property name="text">
+            <string>Subject-Level</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_3</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QRadioButton" name="analyze_design_independent_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>Different subjects in each condition</string>
+           </property>
+           <property name="text">
+            <string>Independent (Between-Subject)</string>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_4</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="1" column="0" colspan="2">
+          <widget class="QLabel" name="analyze_level_label">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
+           <property name="text">
+            <string>Analysis Level</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0" colspan="2">
+          <widget class="QLabel" name="analyze_design_label">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
+           <property name="text">
+            <string>Study Design</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0">
+          <widget class="QRadioButton" name="analyze_type_parametric_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>Same subjects measured in both conditions</string>
+           </property>
+           <property name="text">
+            <string>Parametric</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_5</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QRadioButton" name="analyze_type_nonparametric_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>Different subjects in each condition</string>
+           </property>
+           <property name="text">
+            <string>Non-parametric</string>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_5</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="8" column="0" colspan="2">
+          <widget class="QComboBox" name="analyze_model_combo">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <item>
+            <property name="text">
+             <string>Paired t-Test</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="7" column="0" colspan="2">
+          <widget class="QLabel" name="analyze_model_label">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
+           <property name="text">
+            <string>Statistical Test Model</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QRadioButton" name="analyze_scope_full_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>Analyze features from the entire recording duration</string>
+           </property>
+           <property name="text">
+            <string>Full Recording</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_2</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="9" column="0" colspan="2">
+          <widget class="QLabel" name="analyze_correction_label">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
+           <property name="text">
+            <string>Multiple Comparison Correction Method</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="0" colspan="2">
+          <widget class="QLabel" name="analyze_type_label">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>14</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+           </property>
+           <property name="text">
+            <string>Statistical Test Type</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QRadioButton" name="analyze_design_paired_radio">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="toolTip">
+            <string>Same subjects measured in both conditions</string>
+           </property>
+           <property name="text">
+            <string>Paired (Within-Subject)</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup_4</string>
+           </attribute>
+          </widget>
+         </item>
+         <item row="10" column="0" colspan="2">
+          <widget class="QComboBox" name="analyze_correction_combo">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <weight>50</weight>
+             <bold>false</bold>
+            </font>
+           </property>
+           <item>
+            <property name="text">
+             <string>Bonferroni</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Holm</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Sidak</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Holm-Sidak</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Hommel</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>FDR-BH</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>FDR-TSBH</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>FDR-TSBKY</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="0" column="0" rowspan="6">
+        <spacer name="HSpacer1_4">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Fixed</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="3" rowspan="6">
+        <spacer name="HSpacer1_5">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Fixed</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_4">
+      <attribute name="title">
+       <string>Summary Statistics</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_6">
+       <item row="0" column="0" rowspan="2">
+        <spacer name="HSpacer1_6">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Fixed</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="feature_label_9">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>14</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #053062, stop:1 #80BBD7); border-radius: 8px; padding-left: 12px;</string>
+         </property>
+         <property name="text">
+          <string>Statistical Results</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QPlainTextEdit" name="stats_textedit">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>100</height>
+          </size>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2" rowspan="2">
+        <spacer name="HSpacer1_7">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Fixed</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
   </layout>
@@ -854,6 +1940,10 @@ background-color: rgb(0, 0, 0);</string>
  <resources/>
  <connections/>
  <buttongroups>
+  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_5"/>
  </buttongroups>
 </ui>

@@ -1,5 +1,4 @@
-"""
-EEG-COMET: Comprehensive Microstate Extraction Toolbox for EEG Analysis and Feature Extraction.
+"""EEG-COMET: Comprehensive Microstate Extraction Toolbox for EEG Analysis and Feature Extraction.
 
 This package provides tools for EEG preprocessing, microstate clustering,
 labeling, backfitting, feature extraction, and source localization.

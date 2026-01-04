@@ -1,31 +1,35 @@
-import mne
+"""Microstate labeling using an ONNX model (EEG-COMET)."""
+
 import io
-import cv2
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 import os
 import warnings
 
-# Silence TensorFlow warnings before importing ONNX Runtime
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Hide INFO and WARNING messages
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom operations
-warnings.filterwarnings('ignore', category=UserWarning, module='.*tensorflow.*')
-
+import cv2
+import matplotlib.pyplot as plt
+import mne
+from mne.utils import use_log_level
+import numpy as np
 import onnxruntime as ort
+import pandas as pd
+
+# Silence TensorFlow warnings before importing ONNX Runtime
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Hide INFO and WARNING messages
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable oneDNN custom operations
+warnings.filterwarnings("ignore", category=UserWarning, module=".*tensorflow.*")
+
 
 
 class MicrostateLabeler:
+    """Label microstate maps using a pre-trained ONNX model."""
+
     def __init__(self, microstate_maps, eeg_info, microstate_maps_path):
-        """
-        Class for performing microstate labeling using a trained model.
+        """Initialize the microstate labeler.
 
         Args:
-            microstate_maps (ndarray): The microstate maps.
-            eeg_info (dict): Information about the EEG.
-            microstate_maps_path (str): The path to save the microstate maps.
+            microstate_maps (ndarray): Microstate maps to label.
+            eeg_info (dict): EEG info (e.g., MNE info or channel metadata).
+            microstate_maps_path (str): Output path for labeled maps.
         """
-
         self.microstate_maps = microstate_maps
         self.n_states = microstate_maps.shape[0]
         self.eeg_info = eeg_info
@@ -46,12 +50,20 @@ class MicrostateLabeler:
 
         for i in range(self.microstate_maps.shape[0]):
             fig, ax = plt.subplots()
-            mne.viz.plot_topomap(
-                self.microstate_maps[i, :], self.eeg_info,
-                contours=10, sensors=False, axes=ax, show=False, sphere='auto'
-            )
+            
+            # Suppress MNE warnings about electrode locations during visualization
+            with use_log_level('ERROR'):
+                mne.viz.plot_topomap(
+                    self.microstate_maps[i, :],
+                    self.eeg_info,
+                    contours=10,
+                    sensors=False,
+                    axes=ax,
+                    show=False,
+                    sphere="auto",
+                )
             with io.BytesIO() as buf:
-                fig.savefig(buf, dpi=200, bbox_inches='tight')
+                fig.savefig(buf, dpi=200, bbox_inches="tight")
                 buf.seek(0)
                 img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
             plt.close(fig)  # Close the figure to free memory
@@ -74,20 +86,19 @@ class MicrostateLabeler:
             image = np.expand_dims(image, axis=0)  # Add batch dimension
             images.append(image)
 
-        stacked_microstate_images = np.vstack(images)
-
         # Load ONNX model and do inference
         # The exported classifier has 7 output neurons (letters A–G).
         num_classes = 7  # fixed – do not change
         assert self.n_states <= num_classes, (
             f"The labeling model can assign at most {num_classes} unique labels, "
-            f"but {self.n_states} microstate maps were provided.")
+            f"but {self.n_states} microstate maps were provided."
+        )
 
         # Dictionary that maps class index → character label (0→'A', 1→'B', …, 6→'G')
-        dictionary2use = {i: chr(ord('A') + i) for i in range(num_classes)}
+        dictionary2use = {i: chr(ord("A") + i) for i in range(num_classes)}
 
         # Update model path to match the exported ONNX model
-        model_path = './models/model_v1.3.onnx'
+        model_path = "./models/model_v1.5.onnx"
 
         # Initialize ONNX Runtime session
         session = ort.InferenceSession(model_path)
@@ -96,16 +107,24 @@ class MicrostateLabeler:
         input_name = session.get_inputs()[0].name
         output_name = session.get_outputs()[0].name
 
-        # Run inference
-        predictions = session.run([output_name], {input_name: stacked_microstate_images.astype(np.float32)})[0]
+        # Run inference one image at a time (model v1.5 expects batch size of 1)
+        all_predictions = []
+        for img in images:
+            pred = session.run(
+                [output_name], {input_name: img.astype(np.float32)}
+            )[0]
+            all_predictions.append(pred)
+        predictions = np.vstack(all_predictions)
 
         softmax_predictions = self.softmax(predictions) * 100
-        assigned_labels, probabilities = self.get_labels(predictions, softmax_predictions, dictionary2use)
+        assigned_labels, probabilities = self.get_labels(
+            predictions, softmax_predictions, dictionary2use
+        )
         overall_confidence = sum(probabilities.values()) / len(probabilities)
 
         # Build the final ordered list of labels, guaranteeing uniqueness.
         micro_labels = []
-        available_chars = [chr(ord('A') + i) for i in range(num_classes)]
+        available_chars = [chr(ord("A") + i) for i in range(num_classes)]
 
         for i in range(self.n_states):
             if i in assigned_labels:
@@ -119,10 +138,22 @@ class MicrostateLabeler:
 
         self.micro_labels = micro_labels
 
+        # Build per-label confidence dictionary (label -> confidence %)
+        label_confidences = {}
+        for i in range(self.n_states):
+            label = micro_labels[i]
+            if i in probabilities:
+                label_confidences[label] = probabilities[i]
+            else:
+                # Fallback labels have no model confidence
+                label_confidences[label] = 0.0
+
         # Save Best Maps
-        maps_df = pd.DataFrame(self.microstate_maps.T, columns=micro_labels, index=self.eeg_info['ch_names'])
+        maps_df = pd.DataFrame(
+            self.microstate_maps.T, columns=micro_labels, index=self.eeg_info["ch_names"]
+        )
         maps_df.to_csv(self.microstate_maps_path)
-        return micro_labels, overall_confidence
+        return micro_labels, overall_confidence, label_confidences
 
     @staticmethod
     def get_labels(confidences, softmax_predictions, dictionary2use):
@@ -135,7 +166,6 @@ class MicrostateLabeler:
         This works because the number of microstates (rows) is guaranteed to
         be ≤ 7 – the total number of available labels.
         """
-
         assigned_labels = {}
         probabilities = {}
         used_chars = set()
@@ -145,7 +175,7 @@ class MicrostateLabeler:
             sorted_label_indices = np.argsort(confidences[image_index])[::-1]
 
             for lbl_idx in sorted_label_indices:
-                label_char = dictionary2use.get(lbl_idx, chr(ord('A') + lbl_idx))
+                label_char = dictionary2use.get(lbl_idx, chr(ord("A") + lbl_idx))
 
                 if label_char not in used_chars:
                     assigned_labels[image_index] = label_char

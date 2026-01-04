@@ -1,22 +1,19 @@
+"""Import/export utilities for microstate maps (EEG-COMET)."""
+
 import numpy as np
 import pandas as pd
 
 
 class MicrostateIO:
-    """
-    The MicrostateIO class provides utilities for importing and exporting microstate maps.
-
-    This class contains static methods for converting microstate maps between numpy arrays
-    and CSV files, preserving channel information and map structure.
-    """
+    """Import/export utilities for microstate maps and channels."""
 
     def __init__(self):
-        pass
+        """Initialize a new MicrostateIO instance."""
+        return
 
     @staticmethod
     def export_microstates(microstate_maps, eeg_info, microstate_maps_path, headers=None):
-        """
-        Export microstate maps to a CSV file.
+        """Export microstate maps to a CSV file.
 
         Args:
             microstate_maps (ndarray): Microstate maps with shape (n_states, n_channels)
@@ -37,25 +34,24 @@ class MicrostateIO:
 
         # Transpose the microstates array if needed
         # (ensure channels are on rows and microstates are on columns)
-        if microstate_maps.shape[1] == len(eeg_info['ch_names']):
+        if microstate_maps.shape[1] == len(eeg_info["ch_names"]):
             microstate_maps = microstate_maps.T
 
         # Create DataFrame with channel names as index
-        maps_df = pd.DataFrame(microstate_maps, index=eeg_info['ch_names'])
+        maps_df = pd.DataFrame(microstate_maps, index=eeg_info["ch_names"])
 
         # Generate column headers if not provided
         if headers is None:
-            headers = [f'{i + 1}' for i in range(microstate_maps.shape[1])]
+            headers = [f"{i + 1}" for i in range(microstate_maps.shape[1])]
         maps_df.columns = headers
 
         # Save to CSV with 'channel' as the first column header
-        maps_df.index.name = 'channel'
+        maps_df.index.name = "channel"
         maps_df.to_csv(microstate_maps_path)
 
     @staticmethod
     def load_microstates(microstate_maps_path):
-        """
-        Load microstate maps from a CSV file.
+        """Load microstate maps from a CSV file.
 
         Args:
             microstate_maps_path (str): Path to the CSV file containing microstate maps.
@@ -86,7 +82,9 @@ class MicrostateIO:
             microstate_labels = maps_df.columns.tolist()
             return microstate_maps.T, microstate_labels
 
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Microstate maps file not found: {microstate_maps_path}")
-        except Exception as e:
-            raise ValueError(f"Error parsing microstate maps CSV: {str(e)}")
+        except FileNotFoundError as err:
+            raise FileNotFoundError(
+                f"Microstate maps file not found: {microstate_maps_path}"
+            ) from err
+        except Exception as err:
+            raise ValueError(f"Error parsing microstate maps CSV: {str(err)}") from err

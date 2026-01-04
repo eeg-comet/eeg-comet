@@ -1,34 +1,155 @@
-import os.path
+"""Data I/O helpers for EEG files, montages, and related utilities."""
+
 import collections
-from fnmatch import fnmatch
-import numpy as np
-import mne
-from scipy.io import loadmat
+import os.path
 import warnings
+from fnmatch import fnmatch
+
+import mne
+import numpy as np
+from scipy.io import loadmat
+from data_utils.data_preprocessor import DataPreprocessor
 
 
 class DataIO:
-    """Provides methods for loading, saving, and manipulating EEG data files.
-
-    This class handles various EEG file formats and provides utilities for
-    working with channel locations, montages, and data extraction. It supports
-    reading and writing different EEG formats and provides helper methods for
-    file discovery and data transformation.
-    """
+    """Data I/O utilities for EEG files, montages, and helper transforms."""
 
     def __init__(self):
         """Initialize the DataIO class."""
         pass
 
     @staticmethod
-    def find_data(input_folder, extension, pattern='*'):
+    def _umeyama_similarity_transform(source_points: np.ndarray, target_points: np.ndarray, allow_reflection: bool = True):
+        """Compute similarity transform (scale, rotation, translation) using Umeyama.
+
+        Args:
+            source_points: Nx3 array of source coordinates
+            target_points: Nx3 array of target coordinates
+            allow_reflection: If True, allow a reflection in rotation
+
+        Returns:
+            scale (float), rotation (3x3 np.ndarray), translation (3x1 np.ndarray)
         """
-        Recursively search for data files within a folder based on extension and pattern.
+        if source_points.shape != target_points.shape:
+            raise ValueError("Source and target must have the same shape")
+        if source_points.ndim != 2 or source_points.shape[1] != 3:
+            raise ValueError("Points must be of shape (N, 3)")
+
+        num_points = source_points.shape[0]
+        if num_points < 3:
+            raise ValueError("At least 3 points are required for a stable fit")
+
+        mu_source = source_points.mean(axis=0)
+        mu_target = target_points.mean(axis=0)
+        X = source_points - mu_source
+        Y = target_points - mu_target
+
+        cov = (Y.T @ X) / num_points
+        U, S, Vt = np.linalg.svd(cov)
+        R = U @ Vt
+        if not allow_reflection and np.linalg.det(R) < 0:
+            # Enforce proper rotation
+            Vt[-1, :] *= -1
+            R = U @ Vt
+        elif allow_reflection and np.linalg.det(R) < 0:
+            # Allow reflection: flip the sign of the last singular value
+            Vt[-1, :] *= -1
+            S[-1] *= -1
+            R = U @ Vt
+
+        var_X = (X**2).sum() / num_points
+        if var_X <= 0:
+            scale = 1.0
+        else:
+            scale = S.sum() / var_X
+
+        t = mu_target - scale * (R @ mu_source)
+        return scale, R, t
+
+    @staticmethod
+    def _fit_ch_pos_to_template(ch_pos: dict, template_names: list[str] | None = None, allow_reflection: bool = True) -> dict:
+        """Fit arbitrary channel coordinates to a standard head shape via similarity transform.
+
+        Matches channels to a standard montage by name, computes a similarity transform
+        (scale, rotation, translation) to best-align the input to the template, and
+        applies it to all input channels.
+
+        Args:
+            ch_pos: Mapping of channel name -> np.ndarray([x, y, z]) in arbitrary units
+            template_names: Ordered list of template montage names to attempt
+            allow_reflection: Whether to allow reflections during alignment
+
+        Returns:
+            dict: Fitted channel positions in meters (head coordinate frame)
+        """
+        if template_names is None:
+            template_names = ["standard_1020", "standard_1005"]
+
+        # Build case-insensitive name mapping for input
+        input_names_lower_to_orig = {name.lower(): name for name in ch_pos.keys()}
+
+        matched = False
+        fitted = None
+        for tmpl in template_names:
+            try:
+                template = mne.channels.make_standard_montage(tmpl)
+                template_positions = template.get_positions()
+                template_ch_pos = template_positions.get("ch_pos", {})
+                # Build arrays of matched points
+                common_lower = [
+                    nm for nm in input_names_lower_to_orig.keys() if nm in {k.lower(): v for k, v in template_ch_pos.items()}.keys()
+                ]
+                if len(common_lower) < 3:
+                    continue
+                # Prepare matched arrays
+                source_pts = []
+                target_pts = []
+                for nm_lower in common_lower:
+                    src_name = input_names_lower_to_orig[nm_lower]
+                    src_pt = np.asarray(ch_pos[src_name], dtype=float)
+                    # Map nm_lower back to actual template key (case-insensitive)
+                    # Find first template key with same lowercase
+                    for tmpl_key, tmpl_val in template_ch_pos.items():
+                        if tmpl_key.lower() == nm_lower:
+                            tgt_pt = np.asarray(tmpl_val, dtype=float)
+                            break
+                    else:
+                        continue
+                    source_pts.append(src_pt)
+                    target_pts.append(tgt_pt)
+
+                source_pts = np.asarray(source_pts)
+                target_pts = np.asarray(target_pts)
+                if source_pts.shape[0] < 3:
+                    continue
+
+                scale, R, t = DataIO._umeyama_similarity_transform(source_pts, target_pts, allow_reflection=allow_reflection)
+                # Apply to all points
+                fitted = {}
+                for name, pt in ch_pos.items():
+                    pt = np.asarray(pt, dtype=float)
+                    new_pt = scale * (R @ pt) + t
+                    fitted[name] = new_pt
+                matched = True
+                break
+            except Exception:
+                continue
+
+        if matched and fitted is not None:
+            return fitted
+        # Fallback: return original positions unchanged
+        return {k: np.asarray(v, dtype=float) for k, v in ch_pos.items()}
+    @staticmethod
+    def find_data(input_folder, extension, pattern="*", exclude_derivatives=False):
+        """Recursively search for data files within a folder based on extension and pattern.
 
         Args:
             input_folder (str): The folder to search for data files.
             extension (str): The file extension to match. If 'auto', load all eeg files with valid formats.
             pattern (str, optional): The pattern to match against the file name. Defaults to '*'.
+            exclude_derivatives (bool, optional): If True, exclude any folders or paths containing 
+                'derivatives' (case-insensitive) from search. Useful for BIDS datasets when only 
+                raw data is desired. Defaults to False.
 
         Returns:
             tuple: A tuple containing the list of matching file paths and the list of matching file names.
@@ -37,22 +158,45 @@ class DataIO:
         list_filename = []
         if extension == ".auto":
             valid_eeg_formats = [
-                ".vhdr", ".edf", ".bdf", ".gdf",
-                ".cnt", ".egi", ".mff", ".set",
-                ".data", ".nxe", ".lay"
+                ".vhdr",
+                ".edf",
+                ".bdf",
+                ".gdf",
+                ".cnt",
+                ".egi",
+                ".mff",
+                ".set",
+                ".data",
+                ".nxe",
+                ".lay",
             ]
             for path, subdirs, files in os.walk(input_folder):
+                # Skip derivatives folder if exclude_derivatives is True
+                if exclude_derivatives:
+                    # Skip if current path contains derivatives
+                    if 'derivatives' in path.lower():
+                        continue
+                    # Remove any derivatives folders from subdirectories to explore
+                    subdirs[:] = [d for d in subdirs if 'derivatives' not in d.lower()]
+                
                 for name in files:
-                    if os.path.splitext(name)[1] in valid_eeg_formats:
-                        if fnmatch(name, pattern):
+                    if os.path.splitext(name)[1] in valid_eeg_formats and fnmatch(name, pattern):
                             list_path.append(os.path.join(path, name))
                             list_filename.append(os.path.splitext(name)[0])
         else:
             for path, subdirs, files in os.walk(input_folder):
+                # Skip derivatives folder if exclude_derivatives is True
+                if exclude_derivatives:
+                    # Skip if current path contains derivatives
+                    if 'derivatives' in path.lower():
+                        continue
+                    # Remove any derivatives folders from subdirectories to explore
+                    subdirs[:] = [d for d in subdirs if 'derivatives' not in d.lower()]
+                    
                 for name in files:
                     if fnmatch(name, pattern + extension):
                         list_path.append(os.path.join(path, name))
-                        list_filename.append(name.split('.')[0])
+                        list_filename.append(name.split(".")[0])
         return list_path, list_filename
 
     @staticmethod
@@ -74,13 +218,13 @@ class DataIO:
             IOError: If the file cannot be read
         """
         mat = loadmat(fname)
-        if 'Channel' not in mat:
+        if "Channel" not in mat:
             raise ValueError('MAT file does not contain "Channel" key.')
-        channel_data = mat['Channel'][0]
+        channel_data = mat["Channel"][0]
         ch_pos = {}
         for ch in channel_data:
-            name = ch['Name'][0]
-            loc = ch['Loc'].flatten() if ch['Loc'].shape == (3, 1) else ch['Loc']
+            name = ch["Name"][0]
+            loc = ch["Loc"].flatten() if ch["Loc"].shape == (3, 1) else ch["Loc"]
             if abs(loc[0]) > 0.5 or abs(loc[1]) > 0.5 or abs(loc[2]) > 0.5:
                 loc[0] = loc[0] / 1000.0
                 loc[1] = loc[1] / 1000.0
@@ -92,15 +236,23 @@ class DataIO:
     def _read_ced_locations(fname):
         """Read channel locations from an EEGLAB .ced file.
 
-        Parses a .ced file to extract electrode positions, detecting column layout
-        and converting coordinates to meters if necessary.
+        Parses a .ced file to extract electrode positions, converting from EEGLAB's
+        coordinate convention to MNE's RAS (Right-Anterior-Superior) coordinate system.
+        Coordinates are directly transformed and scaled to meters (auto-detecting normalized/mm/cm/m units).
+        
+        EEGLAB CED format: X=anterior-posterior (+front), Y=left-right (+LEFT), Z=inferior-superior
+        MNE RAS system: X=left-right (+RIGHT), Y=anterior-posterior (+front), Z=inferior-superior
+        Transformation: MNE_X = -CED_Y, MNE_Y = CED_X, MNE_Z = CED_Z
+        
+        CED files typically contain pre-standardized electrode positions, so no template
+        fitting is applied - only coordinate system transformation and unit scaling.
 
         Args:
             fname (str): Path to the .ced file
 
         Returns:
             dict: Dictionary mapping channel names to 3D positions in meters
-                Format: {'ChannelName': np.array([y, x, z]), ...}
+                Format: {'ChannelName': np.array([x, y, z]), ...} in MNE RAS head coordinates
 
         Raises:
             FileNotFoundError: If the specified file does not exist
@@ -109,46 +261,102 @@ class DataIO:
         ch_pos = {}
         if not os.path.isfile(fname):
             raise FileNotFoundError(f"The file {fname} does not exist.")
-        with open(fname, 'r') as f:
+        with open(fname) as f:
             lines = f.readlines()
         if not lines:
             raise ValueError("The .ced file is empty.")
         header_line = lines[0].strip()
         if not header_line:
             raise ValueError("The .ced file does not contain a header line.")
-        parts = header_line.split('\t')
-        if len(parts) < 4:
-            parts = header_line.split()
-        col_map = {col.strip().lower(): idx for idx, col in enumerate(parts)}
-        required_columns = ['labels', 'x', 'y', 'z']
+        
+        # Parse header - keep empty columns to maintain alignment
+        if "\t" in header_line:
+            header_parts = header_line.split("\t")
+        else:
+            header_parts = header_line.split()
+        
+        # Build column map with original indices (including empty columns)
+        col_map = {col.strip().lower(): idx for idx, col in enumerate(header_parts) if col.strip()}
+        
+        required_columns = ["labels", "x", "y", "z"]
         missing_cols = [col for col in required_columns if col not in col_map]
         if missing_cols:
             raise ValueError(f"Missing required columns in header: {missing_cols}")
-        label_idx = col_map['labels']
-        x_idx = col_map['x']
-        y_idx = col_map['y']
-        z_idx = col_map['z']
+        
+        label_idx = col_map["labels"]
+        x_idx = col_map["x"]
+        y_idx = col_map["y"]
+        z_idx = col_map["z"]
+        
+        # Parse data rows - keep empty columns for alignment
+        labels = []
+        coords = []  # list of (x, y, z) in original units
         for line_num, line in enumerate(lines[1:], start=2):
             line = line.strip()
             if not line:
                 continue
-            parts = line.split('\t')
-            if len(parts) < len(parts):
+            
+            # Split but DON'T filter empty strings - we need to maintain column alignment
+            if "\t" in line:
+                parts = line.split("\t")
+            else:
                 parts = line.split()
+            
             if len(parts) <= max(label_idx, x_idx, y_idx, z_idx):
                 raise ValueError(f"Invalid line in CED file at line {line_num}: {line}")
+            
             label = parts[label_idx].strip()
             try:
-                x = float(parts[x_idx])
-                y = float(parts[y_idx])
-                z = float(parts[z_idx])
-            except ValueError:
-                raise ValueError(f"Invalid numerical values in line {line_num}: {line}")
-            if abs(x) > 0.5 or abs(y) > 0.5 or abs(z) > 0.5:
-                x = x / 1000.0
-                y = y / 1000.0
-                z = z / 1000.0
-            ch_pos[label] = np.array([y, x, z])
+                x = float(parts[x_idx].strip())
+                y = float(parts[y_idx].strip())
+                z = float(parts[z_idx].strip())
+            except (ValueError, AttributeError) as err:
+                raise ValueError(
+                    f"Invalid numerical values in line {line_num}: {line}"
+                ) from err
+            labels.append(label)
+            coords.append((x, y, z))
+
+        if not coords:
+            return ch_pos
+
+        # Build positions dict with coordinate transformation to match MNE's RAS system
+        # EEGLAB CED: X=front, Y=left, Z=up (positive Y is LEFT side)
+        # MNE RAS: X=right, Y=front, Z=up (positive X is RIGHT side)
+        # Transform: MNE_X = -CED_Y (invert left/right), MNE_Y = CED_X, MNE_Z = CED_Z
+        for label, (x, y, z) in zip(labels, coords):
+            # Apply coordinate transformation
+            mne_x = -y  # CED's left/right becomes MNE's right/left (negated)
+            mne_y = x   # CED's front/back becomes MNE's front/back
+            mne_z = z   # CED's up/down stays the same
+            
+            ch_pos[label] = np.array([mne_x, mne_y, mne_z], dtype=float)
+
+        # Determine appropriate scaling to meters
+        # CED files typically use normalized coordinates (radius ~1) or mm/cm
+        abs_max = max(np.linalg.norm(v) for v in ch_pos.values())
+        
+        if abs_max > 20.0:
+            # Likely in mm (e.g., 85mm)
+            scale = 1.0 / 1000.0
+        elif abs_max > 1.5:
+            # Likely in cm (e.g., 8.5cm)
+            scale = 1.0 / 100.0
+        elif 0.5 <= abs_max <= 1.5:
+            # Likely normalized to unit sphere (radius ~1), scale to typical head size
+            # Standard head radius is approximately 8.5-9.5cm = 0.085-0.095m
+            scale = 0.095
+        elif 0.08 <= abs_max < 0.5:
+            # Already in meters (typical head radius 0.085-0.095m)
+            scale = 1.0
+        else:
+            # Very small values, assume normalized and scale
+            scale = 0.095
+
+        # Apply scaling to all positions
+        for k in ch_pos:
+            ch_pos[k] = ch_pos[k] * scale
+
         return ch_pos
 
     def load_montage(self, montage):
@@ -173,26 +381,28 @@ class DataIO:
         try:
             if os.path.isfile(montage):
                 file_ext = os.path.splitext(montage)[1].lower()
-                if file_ext == '.mat':
+                if file_ext == ".mat":
                     ch_pos = self._read_mat_locations(montage)
-                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
-                elif file_ext == '.ced':
+                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame="head")
+                elif file_ext == ".ced":
                     ch_pos = self._read_ced_locations(montage)
-                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
+                    montage = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame="head")
                 else:
                     montage = mne.channels.read_custom_montage(montage)
             elif montage in mne.channels.get_builtin_montages():
                 montage = mne.channels.make_standard_montage(montage)
             else:
-                raise ValueError(f'Unknown montage: {montage}')
-        except FileNotFoundError:
-            raise FileNotFoundError(f'File not found: {montage}')
+                raise ValueError(f"Unknown montage: {montage}")
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"File not found: {montage}") from err
         except ValueError as ve:
             raise ve
-        except Exception as e:
-            raise ValueError(f'An error occurred while loading the montage: {e}')
+        except Exception as err:
+            raise ValueError(f"An error occurred while loading the montage: {err}") from err
         if montage is None:
-            raise ValueError(f'Could not create a montage from the provided directory or name: {montage}')
+            raise ValueError(
+                f"Could not create a montage from the provided directory or name: {montage}"
+            )
         return montage
 
     def check_chan2rm(self, list_eegs_path, datatype, montage):
@@ -212,8 +422,6 @@ class DataIO:
                 - consistent_channels (list of str): Names of channels present in all files
                 - missing_channels (list of str): Names of channels missing in at least one file
         """
-        import collections
-
         # Dictionary to map canonical lowercase names to original name formats
         channel_name_map = {}
 
@@ -226,7 +434,7 @@ class DataIO:
 
             # Create normalized version of channel names for this file
             normalized_channels = []
-            for chan in eeg.info['ch_names']:
+            for chan in eeg.info["ch_names"]:
                 chan_lower = chan.lower()
 
                 # Store the first encountered version of each channel as canonical
@@ -254,7 +462,9 @@ class DataIO:
 
         return consistent_channels, missing_channels
 
-    def load_eeg(self, eeg_path, datatype, montage='', chan2rm=None, preload=True, verbose='CRITICAL'):
+    def load_eeg(
+        self, eeg_path, datatype, montage="", chan2rm=None, preload=True, verbose="CRITICAL"
+    ):
         """Load EEG data from various file formats with optional preprocessing.
 
         Loads raw or epoched EEG data, applies channel locations, removes specified
@@ -280,26 +490,38 @@ class DataIO:
             ValueError: If the datatype is not supported or montage cannot be loaded
         """
         with mne.use_log_level(verbose):
-            warnings.filterwarnings('ignore')
-            if datatype == 'raw':
-                eeg = mne.io.read_raw(eeg_path, preload=preload, verbose=verbose)
-            elif datatype == 'epoched':
+            warnings.filterwarnings("ignore")
+            if datatype == "raw":
+                try:
+                    eeg = mne.io.read_raw(eeg_path, preload=preload, verbose=verbose)
+                except TypeError as e:
+                    # Check if error is about trying to read epoched data as raw
+                    if "trials" in str(e) and "raw files" in str(e):
+                        raise ValueError(
+                            "Data format mismatch: The selected file contains epoched data, but you chose 'Import Raw Data'. "
+                            "Please select 'Import Epoched Data' instead, or choose a raw EEG file."
+                        ) from e
+                    else:
+                        # Re-raise other TypeErrors as-is
+                        raise
+            elif datatype == "epoched":
                 eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=verbose)
                 # eeg = mne.io.read_epochs(eeg_path, verbose=False)
+            
+            # Remove auxiliary channels immediately after loading, before any other processing
+            eeg, removed_aux_channels = DataPreprocessor.remove_auxiliary_channels(eeg, verbose=verbose)
+            
+            # Apply montage
             montage = self.load_montage(montage)
-            eeg.set_montage(montage, match_case=False, on_missing='warn')
-            ch_names = eeg.info['ch_names']
+            eeg.set_montage(montage, match_case=False, on_missing="warn")
+            ch_names = eeg.info["ch_names"]
             if chan2rm is None:
                 chan2rm = []
-            if (
-                    any(chan2rm)
-                    and any(elem != '' for elem in chan2rm)
-                    and chan2rm in ch_names
-            ):
+            if any(chan2rm) and any(elem != "" for elem in chan2rm) and chan2rm in ch_names:
                 eeg = eeg.drop_channels(chan2rm)
-            if 'TRIGGER' in ch_names:
-                eeg = eeg.drop_channels('TRIGGER')
-            eeg.set_eeg_reference('average', projection=True)
+            if "TRIGGER" in ch_names:
+                eeg = eeg.drop_channels("TRIGGER")
+            eeg.set_eeg_reference("average", projection=True)
             eeg.apply_proj()
         return eeg
 
@@ -320,13 +542,13 @@ class DataIO:
         Notes:
             Automatically overwrites existing files with the same name.
         """
-        available_extensions = ['.vhdr', '.set', '.edf']
+        available_extensions = [".vhdr", ".set", ".edf"]
         if extension not in available_extensions:
-            extension = '.set'
-        if datatype == 'raw':
-            mne.export.export_raw(save_path + extension, eeg, fmt='auto', overwrite=True)
-        elif datatype == 'epoched':
-            mne.export.export_epochs(save_path + extension, eeg, fmt='auto', overwrite=True)
+            extension = ".set"
+        if datatype == "raw":
+            mne.export.export_raw(save_path + extension, eeg, fmt="auto", overwrite=True)
+        elif datatype == "epoched":
+            mne.export.export_epochs(save_path + extension, eeg, fmt="auto", overwrite=True)
 
     @staticmethod
     def get_eeg_data(eeg, datatype):

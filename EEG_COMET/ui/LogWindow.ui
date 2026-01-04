@@ -51,8 +51,7 @@
         </font>
        </property>
        <property name="styleSheet">
-        <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+        <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #67001F, stop:1 #DD6F58); border-radius: 8px; padding-left: 12px;</string>
        </property>
        <property name="text">
         <string>     EEG-COMET Log</string>
@@ -187,6 +186,62 @@ background-color: rgb(0, 0, 0);</string>
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="progress_status_button">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>50</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>100</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <family>Calibri</family>
+         <pointsize>12</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
+       </property>
+       <property name="text">
+        <string>Show Study Status</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="progress_stop_button">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -209,13 +264,33 @@ background-color: rgb(0, 0, 0);</string>
        <property name="font">
         <font>
          <family>Calibri</family>
-         <pointsize>14</pointsize>
+         <pointsize>12</pointsize>
          <weight>75</weight>
          <bold>true</bold>
         </font>
        </property>
        <property name="cursor">
         <cursorShape>ForbiddenCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}</string>
        </property>
        <property name="text">
         <string>Stop Processing</string>

@@ -1,21 +1,23 @@
+"""Source I/O convenience functions for EEG-COMET."""
+
 import os
-import numpy as np
+
 import mne
+import numpy as np
+
 from data_utils.data_io import DataIO
 
 
 class SourceIO:
-    """
-    SourceIO class for handling source-related data input/output operations.
-    """
+    """Handle source-related data input/output operations."""
 
     def __init__(self):
         """Initialize the SourceIO class."""
         self.data_io = DataIO()
 
-    def write_stc(self, stc_data, output_path, filename_prefix="stc", datatype="raw"):
-        """
-        Write source time series to disk.
+    @staticmethod
+    def write_stc(stc_data, output_path, filename_prefix="stc", datatype="raw"):
+        """Write source time series to disk.
 
         Args:
             stc_data: The source time series data (single STC or list of STCs for epoched data)
@@ -28,20 +30,19 @@ class SourceIO:
 
         if datatype == "epoched" and isinstance(stc_data, list):
             for idx, stc in enumerate(stc_data):
-                filename = f'{filename_prefix}_{idx}'
+                filename = f"{filename_prefix}_{idx}"
                 filepath = os.path.join(output_path, filename)
                 # Suppress verbose output during STC save
-                with mne.utils.use_log_level('ERROR'):
-                    stc.save(filepath, ftype='h5', overwrite=True)
+                with mne.utils.use_log_level("ERROR"):
+                    stc.save(filepath, ftype="h5", overwrite=True)
         else:
             filepath = os.path.join(output_path, f"{filename_prefix}_file")
             # Suppress verbose output during STC save
-            with mne.utils.use_log_level('ERROR'):
-                stc_data.save(filepath, ftype='h5', overwrite=True)
+            with mne.utils.use_log_level("ERROR"):
+                stc_data.save(filepath, ftype="h5", overwrite=True)
 
-    def read_stc(self, stc_path, pattern='*'):
-        """
-        Read source time series from disk.
+    def read_stc(self, stc_path, pattern="*"):
+        """Read source time series from disk.
 
         Args:
             stc_path: The directory path where the source time series is stored
@@ -50,15 +51,15 @@ class SourceIO:
         Returns:
             List of loaded source time series data
         """
-        stc_list, _ = self.data_io.find_data(stc_path, '.h5', pattern=pattern)
+        stc_list, _ = self.data_io.find_data(stc_path, ".h5", pattern=pattern)
         if not stc_list:
             return []
 
         return [mne.read_source_estimate(stc_path) for stc_path in stc_list]
 
-    def read_single_stc(self, stc_file_path):
-        """
-        Read a single STC file.
+    @staticmethod
+    def read_single_stc(stc_file_path):
+        """Read a single STC file.
 
         Args:
             stc_file_path: Path to the STC file
@@ -68,12 +69,10 @@ class SourceIO:
         """
         if os.path.exists(stc_file_path):
             return mne.read_source_estimate(stc_file_path)
-        else:
-            return None
+        return None
 
     def find_stc_files(self, base_path, subject_name=None):
-        """
-        Find STC files for a specific subject or all subjects.
+        """Find STC files for a specific subject or all subjects.
 
         Args:
             base_path: Base directory containing STC data
@@ -85,27 +84,29 @@ class SourceIO:
         stc_files = {}
 
         if subject_name:
-            subject_path = os.path.join(base_path, 'stc', subject_name)
+            subject_path = os.path.join(base_path, "stc", subject_name)
             if os.path.exists(subject_path):
-                files, _ = self.data_io.find_data(subject_path, '.h5', pattern='*')
+                files, _ = self.data_io.find_data(subject_path, ".h5", pattern="*")
                 stc_files[subject_name] = files
         else:
-            stc_base_path = os.path.join(base_path, 'stc')
+            stc_base_path = os.path.join(base_path, "stc")
             if os.path.exists(stc_base_path):
-                subjects = [d for d in os.listdir(stc_base_path)
-                            if os.path.isdir(os.path.join(stc_base_path, d))]
+                subjects = [
+                    d
+                    for d in os.listdir(stc_base_path)
+                    if os.path.isdir(os.path.join(stc_base_path, d))
+                ]
 
                 for subject in subjects:
                     subject_path = os.path.join(stc_base_path, subject)
-                    files, _ = self.data_io.find_data(subject_path, '.h5', pattern='*')
+                    files, _ = self.data_io.find_data(subject_path, ".h5", pattern="*")
                     if files:
                         stc_files[subject] = files
 
         return stc_files
 
-    def load_tess_results(self, tess_path, subject_name, result_type='filtered'):
-        """
-        Load TESS analysis results.
+    def load_tess_results(self, tess_path, subject_name, result_type="filtered"):
+        """Load TESS analysis results.
 
         Args:
             tess_path: Path to TESS results directory
@@ -117,16 +118,16 @@ class SourceIO:
         """
         subject_path = os.path.join(tess_path, subject_name)
 
-        if result_type == 'filtered':
-            pattern = '*filtered_zscore*'
-        elif result_type == 'raw':
-            pattern = '*zscore*'
-        elif result_type == 'pvalues':
-            pattern = '*p_values*'
+        if result_type == "filtered":
+            pattern = "*filtered_zscore*"
+        elif result_type == "raw":
+            pattern = "*zscore*"
+        elif result_type == "pvalues":
+            pattern = "*p_values*"
         else:
             return None
 
-        files, _ = self.data_io.find_data(subject_path, '.npy', pattern=pattern)
+        files, _ = self.data_io.find_data(subject_path, ".npy", pattern=pattern)
 
         if files:
             try:
@@ -136,10 +137,11 @@ class SourceIO:
         else:
             return None
 
-    def save_tess_results(self, output_path, subject_name, z_scores=None,
-                          filtered_z_scores=None, p_values=None):
-        """
-        Save TESS analysis results.
+    @staticmethod
+    def save_tess_results(
+        output_path, subject_name, z_scores=None, filtered_z_scores=None, p_values=None
+    ):
+        """Save TESS analysis results.
 
         Args:
             output_path: Output directory path
@@ -153,17 +155,18 @@ class SourceIO:
             os.makedirs(subject_path)
 
         if z_scores is not None:
-            np.save(os.path.join(subject_path, f'{subject_name}-zscore.npy'), z_scores)
+            np.save(os.path.join(subject_path, f"{subject_name}-zscore.npy"), z_scores)
 
         if filtered_z_scores is not None:
-            np.save(os.path.join(subject_path, f'{subject_name}-filtered_zscore.npy'), filtered_z_scores)
+            np.save(
+                os.path.join(subject_path, f"{subject_name}-filtered_zscore.npy"), filtered_z_scores
+            )
 
         if p_values is not None:
-            np.save(os.path.join(subject_path, f'{subject_name}-p_values.npy'), p_values)
+            np.save(os.path.join(subject_path, f"{subject_name}-p_values.npy"), p_values)
 
     def load_averaged_sources(self, avg_path, subject_name, microstate_label=None):
-        """
-        Load averaged source data.
+        """Load averaged source data.
 
         Args:
             avg_path: Path to averaged sources directory
@@ -189,7 +192,7 @@ class SourceIO:
             if not os.path.exists(subject_path):
                 return {}
 
-            files, _ = self.data_io.find_data(subject_path, '.npy', pattern=f'{subject_name}_*')
+            files, _ = self.data_io.find_data(subject_path, ".npy", pattern=f"{subject_name}_*")
 
             averaged_data = {}
             for file_path in files:
@@ -202,9 +205,9 @@ class SourceIO:
 
             return averaged_data
 
-    def save_averaged_sources(self, output_path, subject_name, averaged_data_dict):
-        """
-        Save averaged source data.
+    @staticmethod
+    def save_averaged_sources(output_path, subject_name, averaged_data_dict):
+        """Save averaged source data.
 
         Args:
             output_path: Output directory path
@@ -219,9 +222,9 @@ class SourceIO:
             filename = os.path.join(subject_path, f"{subject_name}_{microstate_label}.npy")
             np.save(filename, data_array)
 
-    def get_stc_info(self, stc_file_path):
-        """
-        Get information about an STC file without fully loading the data.
+    @staticmethod
+    def get_stc_info(stc_file_path):
+        """Get information about an STC file without fully loading the data.
 
         Args:
             stc_file_path: Path to the STC file
@@ -232,24 +235,23 @@ class SourceIO:
         try:
             stc = mne.read_source_estimate(stc_file_path)
 
-            info = {
-                'tmin': stc.tmin,
-                'tmax': stc.times[-1],
-                'tstep': stc.tstep,
-                'n_times': len(stc.times),
-                'n_vertices': stc.data.shape[0],
-                'data_shape': stc.data.shape,
-                'subject': stc.subject,
-                'times': stc.times
+            return {
+                "tmin": stc.tmin,
+                "tmax": stc.times[-1],
+                "tstep": stc.tstep,
+                "n_times": len(stc.times),
+                "n_vertices": stc.data.shape[0],
+                "data_shape": stc.data.shape,
+                "subject": stc.subject,
+                "times": stc.times,
             }
 
-            return info
         except Exception:
             return None
 
-    def validate_stc_file(self, stc_file_path):
-        """
-        Validate if an STC file can be loaded properly.
+    @staticmethod
+    def validate_stc_file(stc_file_path):
+        """Validate if an STC file can be loaded properly.
 
         Args:
             stc_file_path: Path to the STC file
@@ -258,14 +260,13 @@ class SourceIO:
             Boolean indicating if file is valid
         """
         try:
-            stc = mne.read_source_estimate(stc_file_path)
+            mne.read_source_estimate(stc_file_path)
             return True
         except Exception:
             return False
 
-    def find_source_data_by_type(self, base_path, data_type='tess'):
-        """
-        Find source data files by type across all subjects.
+    def find_source_data_by_type(self, base_path, data_type="tess"):
+        """Find source data files by type across all subjects.
 
         Args:
             base_path: Base directory containing source data
@@ -274,12 +275,12 @@ class SourceIO:
         Returns:
             Dictionary with subjects and their available files
         """
-        if data_type == 'tess':
-            search_path = os.path.join(base_path, 'tess_sources')
-        elif data_type == 'avg':
-            search_path = os.path.join(base_path, 'avg_sources')
-        elif data_type == 'stc':
-            search_path = os.path.join(base_path, 'stc')
+        if data_type == "tess":
+            search_path = os.path.join(base_path, "tess_sources")
+        elif data_type == "avg":
+            search_path = os.path.join(base_path, "avg_sources")
+        elif data_type == "stc":
+            search_path = os.path.join(base_path, "stc")
         else:
             return {}
 
@@ -287,25 +288,26 @@ class SourceIO:
             return {}
 
         subjects_data = {}
-        subjects = [d for d in os.listdir(search_path)
-                    if os.path.isdir(os.path.join(search_path, d))]
+        subjects = [
+            d for d in os.listdir(search_path) if os.path.isdir(os.path.join(search_path, d))
+        ]
 
         for subject in subjects:
             subject_path = os.path.join(search_path, subject)
 
-            if data_type in ['tess', 'avg']:
-                files, _ = self.data_io.find_data(subject_path, '.npy', pattern='*')
+            if data_type in ["tess", "avg"]:
+                files, _ = self.data_io.find_data(subject_path, ".npy", pattern="*")
             else:  # stc
-                files, _ = self.data_io.find_data(subject_path, '.h5', pattern='*')
+                files, _ = self.data_io.find_data(subject_path, ".h5", pattern="*")
 
             if files:
                 subjects_data[subject] = files
 
         return subjects_data
 
-    def export_src_bem_trans(self, subjects_dir, subject, src, bem, trans, spacing):
-        """
-        Export source space, BEM, and coregistration transformations.
+    @staticmethod
+    def export_src_bem_trans(subjects_dir, subject, src, bem, trans, spacing):
+        """Export source space, BEM, and coregistration transformations.
 
         Args:
             subjects_dir: Directory containing subject data
@@ -321,27 +323,26 @@ class SourceIO:
 
         try:
             # Suppress verbose output during file writing
-            with mne.utils.use_log_level('ERROR'):
+            with mne.utils.use_log_level("ERROR"):
                 mne.write_source_spaces(
-                    os.path.join(subject_dir, f'{subject}-{spacing}-src.fif'),
-                    src, overwrite=True
+                    os.path.join(subject_dir, f"{subject}-{spacing}-src.fif"), src, overwrite=True
                 )
 
                 mne.write_bem_solution(
-                    os.path.join(subject_dir, f'{subject}-bem.fif'),
-                    bem, overwrite=True
+                    os.path.join(subject_dir, f"{subject}-bem.fif"), bem, overwrite=True
                 )
 
-                mne.write_trans(
-                    os.path.join(subject_dir, f'{subject}-trans.fif'),
-                    trans, overwrite=True
-                )
+                # For fsaverage, don't write transform file (use string "fsaverage" directly)
+                if trans != "fsaverage":
+                    mne.write_trans(
+                        os.path.join(subject_dir, f"{subject}-trans.fif"), trans, overwrite=True
+                    )
         except Exception:
             pass
 
-    def load_src_bem_trans(self, subjects_dir, subject, spacing):
-        """
-        Load source space, BEM, and coregistration transformations.
+    @staticmethod
+    def load_src_bem_trans(subjects_dir, subject, spacing):
+        """Load source space, BEM, and coregistration transformations.
 
         Args:
             subjects_dir: Directory containing subject data
@@ -353,24 +354,33 @@ class SourceIO:
         """
         subject_dir = os.path.join(subjects_dir, subject)
 
-        src_file = os.path.join(subject_dir, f'{subject}-{spacing}-src.fif')
-        bem_file = os.path.join(subject_dir, f'{subject}-bem.fif')
-        trans_file = os.path.join(subject_dir, f'{subject}-trans.fif')
+        src_file = os.path.join(subject_dir, f"{subject}-{spacing}-src.fif")
+        bem_file = os.path.join(subject_dir, f"{subject}-bem.fif")
+        trans_file = os.path.join(subject_dir, f"{subject}-trans.fif")
 
         try:
-            if all(os.path.exists(f) for f in [src_file, bem_file, trans_file]):
-                src = mne.read_source_spaces(src_file)
-                bem = mne.read_bem_solution(bem_file)
-                trans = mne.read_trans(trans_file)
-                return src, bem, trans
+            # Handle fsaverage template specially
+            if subject == "fsaverage":
+                # For fsaverage, use built-in transform
+                if os.path.exists(src_file) and os.path.exists(bem_file):
+                    src = mne.read_source_spaces(src_file)
+                    bem = mne.read_bem_solution(bem_file)
+                    trans = "fsaverage"
+                    return src, bem, trans
+                return None, None, None
             else:
+                # For other subjects, load all files including transform
+                if all(os.path.exists(f) for f in [src_file, bem_file, trans_file]):
+                    src = mne.read_source_spaces(src_file)
+                    bem = mne.read_bem_solution(bem_file)
+                    trans = mne.read_trans(trans_file)
+                    return src, bem, trans
                 return None, None, None
         except Exception:
             return None, None, None
 
     def load_all_averaged_sources_for_microstate(self, avg_path, subjects, microstate_label):
-        """
-        Load averaged source data for a specific microstate across multiple subjects.
+        """Load averaged source data for a specific microstate across multiple subjects.
 
         Args:
             avg_path: Path to averaged sources directory
@@ -392,9 +402,9 @@ class SourceIO:
 
         return all_data
 
-    def get_available_microstates_for_subject(self, avg_path, subject_name):
-        """
-        Get list of available microstate labels for a specific subject.
+    @staticmethod
+    def get_available_microstates_for_subject(avg_path, subject_name):
+        """Get list of available microstate labels for a specific subject.
 
         Args:
             avg_path: Path to averaged sources directory
@@ -408,7 +418,7 @@ class SourceIO:
         if not os.path.exists(subject_path):
             return []
 
-        files = [f for f in os.listdir(subject_path) if f.endswith('.npy')]
+        files = [f for f in os.listdir(subject_path) if f.endswith(".npy")]
         microstates = []
 
         for file in files:
@@ -419,8 +429,7 @@ class SourceIO:
         return microstates
 
     def validate_averaged_sources_consistency(self, avg_path, subjects, expected_microstates):
-        """
-        Validate that all subjects have consistent averaged source data.
+        """Validate that all subjects have consistent averaged source data.
 
         Args:
             avg_path: Path to averaged sources directory
@@ -431,22 +440,24 @@ class SourceIO:
             Tuple of (is_valid, validation_report)
         """
         validation_report = {
-            'valid_subjects': [],
-            'invalid_subjects': [],
-            'missing_microstates': {},
-            'shape_inconsistencies': {}
+            "valid_subjects": [],
+            "invalid_subjects": [],
+            "missing_microstates": {},
+            "shape_inconsistencies": {},
         }
 
         reference_shapes = {}
 
         for subject_name in subjects:
             subject_valid = True
-            available_microstates = self.get_available_microstates_for_subject(avg_path, subject_name)
+            available_microstates = self.get_available_microstates_for_subject(
+                avg_path, subject_name
+            )
 
             # Check if all expected microstates are present
             missing = [ms for ms in expected_microstates if ms not in available_microstates]
             if missing:
-                validation_report['missing_microstates'][subject_name] = missing
+                validation_report["missing_microstates"][subject_name] = missing
                 subject_valid = False
 
             # Check data shapes
@@ -463,18 +474,18 @@ class SourceIO:
             elif subject_shapes:
                 for microstate, shape in subject_shapes.items():
                     if microstate in reference_shapes and shape != reference_shapes[microstate]:
-                        if subject_name not in validation_report['shape_inconsistencies']:
-                            validation_report['shape_inconsistencies'][subject_name] = {}
-                        validation_report['shape_inconsistencies'][subject_name][microstate] = {
-                            'expected': reference_shapes[microstate],
-                            'actual': shape
+                        if subject_name not in validation_report["shape_inconsistencies"]:
+                            validation_report["shape_inconsistencies"][subject_name] = {}
+                        validation_report["shape_inconsistencies"][subject_name][microstate] = {
+                            "expected": reference_shapes[microstate],
+                            "actual": shape,
                         }
                         subject_valid = False
 
             if subject_valid:
-                validation_report['valid_subjects'].append(subject_name)
+                validation_report["valid_subjects"].append(subject_name)
             else:
-                validation_report['invalid_subjects'].append(subject_name)
+                validation_report["invalid_subjects"].append(subject_name)
 
-        is_valid = len(validation_report['invalid_subjects']) == 0
+        is_valid = len(validation_report["invalid_subjects"]) == 0
         return is_valid, validation_report

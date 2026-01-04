@@ -190,6 +190,31 @@
       <property name="cursor">
        <cursorShape>PointingHandCursor</cursorShape>
       </property>
+      <property name="styleSheet">
+       <string notr="true">QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4ade80,
+        stop:0.5 #177226,
+        stop:1 #4ade80);
+    color: white;
+    font-size: 14pt;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #177226,
+        stop:0.5 #4ade80,
+        stop:1 #177226);
+    color: white;
+    font-size: 16pt;
+}
+
+QPushButton:disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+    font-size: 14pt;
+}</string>
+      </property>
       <property name="text">
        <string>Run Analysis</string>
       </property>
@@ -227,8 +252,7 @@
        </font>
       </property>
       <property name="styleSheet">
-       <string notr="true">color: rgb(255, 255, 255);
-background-color: rgb(0, 0, 0);</string>
+       <string notr="true">color: white; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #67001F, stop:1 #DD6F58); border-radius: 8px; padding-left: 12px;</string>
       </property>
       <property name="text">
        <string>     Determining The Optimal Number Of Clusters</string>

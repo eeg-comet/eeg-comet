@@ -1,0 +1,4 @@
+/studies
+*.pyc
+*.DS_Store
+/.idea
