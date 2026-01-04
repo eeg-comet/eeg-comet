@@ -15,10 +15,16 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox, QSizePolicy
-from scipy.stats import f, pearsonr, t, ttest_ind, ttest_rel
+from PyQt5.QtGui import QColor, QBrush
+from PyQt5.QtWidgets import QDialog, QFileDialog, QListWidgetItem, QMessageBox, QSizePolicy
+from scipy.stats import f, pearsonr, t, ttest_ind, ttest_rel, wilcoxon, mannwhitneyu
+from scipy.ndimage import label as scipy_label
 from statsmodels.stats.multitest import multipletests
 import statsmodels.formula.api as smf
+from statsmodels.genmod.generalized_estimating_equations import GEE
+from statsmodels.genmod.families import Gaussian, Gamma
+from statsmodels.genmod.families.links import Identity, Log
+from statsmodels.genmod.cov_struct import Exchangeable, Independence
 
 from clustering_utils.microstate_visualizer import show_microstate
 from comet import COMET
@@ -110,8 +116,7 @@ class CompareStudiesWindow(QDialog):
         self.ui.setWindowTitle("Comparison of two EEG-COMET studies")
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
         
-        # Initialize checkboxes
-        self.ui.paired_test_checkbox.setChecked(False)
+        # Initialize checkboxes - show_features starts unchecked
         self.ui.show_features_checkbox.setChecked(False)
         # show_microstates_checkbox is set to True by default in UI file, keep that setting
         
@@ -131,7 +136,7 @@ class CompareStudiesWindow(QDialog):
         self.ui.load_study1_button.clicked.connect(self.load_study1)
         self.ui.load_study2_button.clicked.connect(self.load_study2)
 
-        # Radio button connections
+        # Radio button connections for comparison mode
         compare_widgets = [
             self.ui.compare_two_studies_radio,
             self.ui.compare_surrogate_radio,
@@ -141,14 +146,144 @@ class CompareStudiesWindow(QDialog):
         for widget in compare_widgets:
             widget.clicked.connect(self.update_ui)
 
-        # Feature and analysis connections
-        self.ui.feature_combo.currentTextChanged.connect(self._update_plot_label)
-        self.ui.feature_combo.currentTextChanged.connect(self._on_feature_selection_changed)
+        # Feature combo connections - sync both combos
+        self.ui.feature2visualize_combo.currentTextChanged.connect(self._on_visualize_feature_changed)
+        self.ui.feature2compare_combo.currentTextChanged.connect(self._on_compare_feature_changed)
+        
+        # Visualization connections
         self.ui.show_features_checkbox.toggled.connect(self._on_show_features_toggled)
         self.ui.show_microstates_checkbox.toggled.connect(self._on_show_microstates_toggled)
+        
+        # Statistical analysis connections
         self.ui.compare_features_button.clicked.connect(self.update_feature_stats)
-        self.ui.plot_testretest_button.clicked.connect(self.perform_test_retest_analysis)
         self.ui.match_subjects_button.clicked.connect(self.match_subjects_by_pattern)
+        
+        # File list transfer buttons (for within-study comparison)
+        self.ui.study1_to_substudy1.clicked.connect(self._move_to_study2_list)
+        self.ui.substudy1_to_study1.clicked.connect(self._move_to_study1_list)
+        
+        # Enable drag-and-drop sorting on study2_file_list
+        self.ui.study2_file_list.setDragDropMode(self.ui.study2_file_list.InternalMove)
+        self.ui.study2_file_list.setDefaultDropAction(Qt.MoveAction)
+        
+        # Connect to model changes to update colors/numbers after drag-drop reorder
+        self.ui.study2_file_list.model().rowsMoved.connect(self._on_study2_list_reordered)
+        
+        # Analysis option radio buttons - update model combo when changed
+        analysis_radio_buttons = [
+            self.ui.analyze_scope_full_radio,
+            self.ui.analyze_scope_prepost_radio,
+            self.ui.analyze_level_subject_radio,
+            self.ui.analyze_level_trial_radio,
+            self.ui.analyze_design_paired_radio,
+            self.ui.analyze_design_independent_radio,
+            self.ui.analyze_type_parametric_radio,
+            self.ui.analyze_type_nonparametric_radio,
+        ]
+        for radio in analysis_radio_buttons:
+            radio.toggled.connect(self._update_analyze_model_combo)
+        
+        # Initialize the model combo
+        self._update_analyze_model_combo()
+
+    def _on_visualize_feature_changed(self, text: str) -> None:
+        """Handle feature2visualize_combo change - sync with feature2compare_combo."""
+        # Prevent infinite loop by checking if already synced
+        if self.ui.feature2compare_combo.currentText() != text:
+            index = self.ui.feature2compare_combo.findText(text)
+            if index >= 0:
+                self.ui.feature2compare_combo.blockSignals(True)
+                self.ui.feature2compare_combo.setCurrentIndex(index)
+                self.ui.feature2compare_combo.blockSignals(False)
+        
+        # Trigger feature selection changed logic
+        self._on_feature_selection_changed()
+
+    def _on_compare_feature_changed(self, text: str) -> None:
+        """Handle feature2compare_combo change - sync with feature2visualize_combo."""
+        # Prevent infinite loop by checking if already synced
+        if self.ui.feature2visualize_combo.currentText() != text:
+            index = self.ui.feature2visualize_combo.findText(text)
+            if index >= 0:
+                self.ui.feature2visualize_combo.blockSignals(True)
+                self.ui.feature2visualize_combo.setCurrentIndex(index)
+                self.ui.feature2visualize_combo.blockSignals(False)
+        
+        # Trigger feature selection changed logic
+        self._on_feature_selection_changed()
+
+    def _update_analyze_model_combo(self, checked: bool = True) -> None:
+        """Update the analyze_model_combo based on current radio button selections.
+        
+        Args:
+            checked: Whether the radio button is checked (from toggled signal).
+                     Only update when a button is checked, not unchecked.
+        """
+        # Only update when a radio button is checked, not when unchecked
+        if not checked:
+            return
+        
+        # If ROF is selected, don't update - keep TFCE
+        if hasattr(self, 'ui') and self._is_rof_feature_selected():
+            return
+            
+        # Get current selections
+        is_subject_level = self.ui.analyze_level_subject_radio.isChecked()
+        is_trial_level = self.ui.analyze_level_trial_radio.isChecked()
+        is_paired = self.ui.analyze_design_paired_radio.isChecked()
+        is_independent = self.ui.analyze_design_independent_radio.isChecked()
+        is_parametric = self.ui.analyze_type_parametric_radio.isChecked()
+        is_nonparametric = self.ui.analyze_type_nonparametric_radio.isChecked()
+        
+        # Clear current items
+        self.ui.analyze_model_combo.clear()
+        
+        if is_subject_level:
+            if is_paired:
+                if is_parametric:
+                    self.ui.analyze_model_combo.addItems([
+                        "Paired t-Test",
+                        "Repeated Measures ANOVA"
+                    ])
+                else:  # non-parametric
+                    self.ui.analyze_model_combo.addItems([
+                        "Wilcoxon Signed-Rank Test",
+                        "Friedman Test"
+                    ])
+            else:  # independent
+                if is_parametric:
+                    self.ui.analyze_model_combo.addItems([
+                        "Independent t-Test",
+                        "One-Way ANOVA"
+                    ])
+                else:  # non-parametric
+                    self.ui.analyze_model_combo.addItems([
+                        "Mann-Whitney U Test",
+                        "Kruskal-Wallis H Test"
+                    ])
+        else:  # trial-level
+            if is_paired:
+                if is_parametric:
+                    self.ui.analyze_model_combo.addItems([
+                        "Linear Mixed Model (LMM)",
+                        "Generalized Estimating Equations (GEE)"
+                    ])
+                else:  # non-parametric
+                    self.ui.analyze_model_combo.addItems([
+                        "Generalized Linear Mixed Model (GLMM)",
+                        "Permutation Test with Clustering"
+                    ])
+            else:  # independent
+                if is_parametric:
+                    self.ui.analyze_model_combo.addItems([
+                        "Linear Mixed Model (LMM)",
+                        "Generalized Estimating Equations (GEE)"
+                    ])
+                else:  # non-parametric
+                    self.ui.analyze_model_combo.addItems([
+                        "Generalized Linear Mixed Model (GLMM)",
+                        "Bootstrap Resampling"
+                    ])
 
     def update_widget_font_weight(self, checked_or_widget=None):
         """Update font weight of a radio button or checkbox based on its checked state.
@@ -170,7 +305,7 @@ class CompareStudiesWindow(QDialog):
         if widget.isChecked():
             widget.setStyleSheet("font-weight: bold;")
         else:
-            widget.setStyleSheet("")
+            widget.setStyleSheet("font-weight: normal;")
 
     def setup_checkable_font_styling(self):
         """Set up font weight styling for all radio buttons and checkboxes.
@@ -178,13 +313,23 @@ class CompareStudiesWindow(QDialog):
         Connects toggled signal to update font weight and initializes current states.
         """
         checkable_widgets = [
+            # Comparison mode radios
             "compare_two_studies_radio",
             "compare_surrogate_radio",
             "compare_random_radio",
             "compare_within_study_radio",
-            "paired_test_checkbox",
+            # Visualization checkboxes
             "show_features_checkbox",
             "show_microstates_checkbox",
+            # Analysis option radios
+            "analyze_scope_full_radio",
+            "analyze_scope_prepost_radio",
+            "analyze_level_subject_radio",
+            "analyze_level_trial_radio",
+            "analyze_design_paired_radio",
+            "analyze_design_independent_radio",
+            "analyze_type_parametric_radio",
+            "analyze_type_nonparametric_radio",
         ]
 
         for widget_name in checkable_widgets:
@@ -360,6 +505,124 @@ class CompareStudiesWindow(QDialog):
         ):
             self.ui.match_subjects_button.setEnabled(True)
 
+    def _move_to_study2_list(self) -> None:
+        """Move selected items from study1_file_list to study2_file_list."""
+        selected_items = self.ui.study1_file_list.selectedItems()
+        if not selected_items:
+            return
+        
+        for item in selected_items:
+            # Get the row of the item
+            row = self.ui.study1_file_list.row(item)
+            # Take the item from study1 list
+            taken_item = self.ui.study1_file_list.takeItem(row)
+            if taken_item:
+                # Create a new item for study2 list (preserving data)
+                new_item = QListWidgetItem(taken_item.text())
+                # Copy the original filename from UserRole if it exists
+                original_filename = taken_item.data(Qt.UserRole)
+                if original_filename:
+                    new_item.setData(Qt.UserRole, original_filename)
+                # Copy the background color if set
+                if taken_item.background().style() != Qt.NoBrush:
+                    new_item.setBackground(taken_item.background())
+                # Add to study2 list
+                self.ui.study2_file_list.addItem(new_item)
+
+    def _move_to_study1_list(self) -> None:
+        """Move selected items from study2_file_list back to study1_file_list."""
+        selected_items = self.ui.study2_file_list.selectedItems()
+        if not selected_items:
+            return
+        
+        for item in selected_items:
+            # Get the row of the item
+            row = self.ui.study2_file_list.row(item)
+            # Take the item from study2 list
+            taken_item = self.ui.study2_file_list.takeItem(row)
+            if taken_item:
+                # Create a new item for study1 list (preserving data)
+                new_item = QListWidgetItem(taken_item.text())
+                # Copy the original filename from UserRole if it exists
+                original_filename = taken_item.data(Qt.UserRole)
+                if original_filename:
+                    new_item.setData(Qt.UserRole, original_filename)
+                # Copy the background color if set
+                if taken_item.background().style() != Qt.NoBrush:
+                    new_item.setBackground(taken_item.background())
+                # Add to study1 list
+                self.ui.study1_file_list.addItem(new_item)
+
+    def _on_study2_list_reordered(self) -> None:
+        """Handle reordering of study2_file_list after drag-drop."""
+        self._update_paired_list_display()
+
+    def _update_paired_list_display(self) -> None:
+        """Update colors and numbers for both lists to reflect current pairing.
+        
+        Items at the same index in both lists are considered paired and will have
+        matching colors and prefix numbers.
+        """
+        study1_count = self.ui.study1_file_list.count()
+        study2_count = self.ui.study2_file_list.count()
+        
+        # Generate colors for the number of pairs
+        max_pairs = max(study1_count, study2_count)
+        if max_pairs == 0:
+            return
+        
+        # Generate pastel colors using golden ratio for good distribution
+        colors = []
+        golden_ratio = 0.618033988749895
+        hue = 0.0
+        for i in range(max_pairs):
+            hue = (hue + golden_ratio) % 1.0
+            # Create pastel color (high brightness, medium saturation)
+            color = QColor.fromHsvF(hue, 0.35, 0.95)
+            colors.append(color)
+        
+        # Update study1_file_list
+        for i in range(study1_count):
+            item = self.ui.study1_file_list.item(i)
+            if item:
+                # Get original filename
+                original_filename = item.data(Qt.UserRole)
+                if original_filename is None:
+                    # Extract from current text if no UserRole data
+                    current_text = item.text()
+                    # Remove existing number prefix if present
+                    if ". " in current_text and current_text.split(". ")[0].isdigit():
+                        original_filename = ". ".join(current_text.split(". ")[1:])
+                    else:
+                        original_filename = current_text
+                    item.setData(Qt.UserRole, original_filename)
+                
+                # Update display with new number
+                item.setText(f"{i + 1}. {original_filename}")
+                # Set color
+                item.setBackground(QBrush(colors[i]))
+        
+        # Update study2_file_list
+        for i in range(study2_count):
+            item = self.ui.study2_file_list.item(i)
+            if item:
+                # Get original filename
+                original_filename = item.data(Qt.UserRole)
+                if original_filename is None:
+                    # Extract from current text if no UserRole data
+                    current_text = item.text()
+                    # Remove existing number prefix if present
+                    if ". " in current_text and current_text.split(". ")[0].isdigit():
+                        original_filename = ". ".join(current_text.split(". ")[1:])
+                    else:
+                        original_filename = current_text
+                    item.setData(Qt.UserRole, original_filename)
+                
+                # Update display with new number
+                item.setText(f"{i + 1}. {original_filename}")
+                # Set color (matching with study1 at same index)
+                item.setBackground(QBrush(colors[i]))
+
     # ==================== UI STATE MANAGEMENT ====================
 
     def update_ui(self) -> None:
@@ -371,11 +634,11 @@ class CompareStudiesWindow(QDialog):
 
     def _clear_ui_elements(self) -> None:
         """Clear previous selections and texts."""
-        self.ui.feature_combo.clear()
+        self.ui.feature2visualize_combo.clear()
+        self.ui.feature2compare_combo.clear()
         self.ui.plot_label.clear()
         self.ui.stats_textedit.clear()
         # Reset checkboxes when UI elements are cleared
-        self.ui.paired_test_checkbox.setChecked(False)
         self.ui.show_features_checkbox.setChecked(False)
         # Hide plots, labels, and widgets
         self._hide_features_plot()
@@ -402,6 +665,12 @@ class CompareStudiesWindow(QDialog):
 
     def _configure_two_studies_mode(self) -> None:
         """Configure UI for two-studies comparison mode."""
+        # Clear pattern info from within-study matching
+        self.pattern_info = None
+        
+        # Reset load button text for two-studies mode
+        self.ui.load_study1_button.setText("Load Study 1")
+        
         # Show Study 2 widgets
         widgets_to_show = [
             self.ui.load_study2_button,
@@ -431,7 +700,10 @@ class CompareStudiesWindow(QDialog):
     def _configure_within_study_mode(self) -> None:
         """Configure UI for within-study comparison mode."""
         # Check if we're dealing with event-related features by checking the selected feature name
-        is_event_related = "(Pre/Post Event)" in self.ui.feature_combo.currentText()
+        is_event_related = "(Pre/Post Event)" in self.ui.feature2visualize_combo.currentText()
+        
+        # Change load button text for within-study mode
+        self.ui.load_study1_button.setText("Load Study")
         
         # Show within-study widgets
         widgets_to_show = [
@@ -441,7 +713,11 @@ class CompareStudiesWindow(QDialog):
             self.ui.study2_file_list,
             self.ui.match_subjects_button,
         ]
-        widgets_to_hide = [self.ui.load_study2_button, self.canvas_microstates_study2]
+        # Hide Study 2 load button and related widgets
+        widgets_to_hide = [
+            self.ui.load_study2_button, 
+            self.canvas_microstates_study2,
+        ]
 
         self._set_widget_visibility(widgets_to_show, True)
         self._set_widget_visibility(widgets_to_hide, False)
@@ -451,7 +727,6 @@ class CompareStudiesWindow(QDialog):
         self.ui.study2_name_label.setEnabled(True)
         self.ui.study2_file_list.setEnabled(True)
         self.canvas_microstates_study2.setEnabled(False)
-        self.ui.plot_testretest_button.setEnabled(False)
 
         # Enable controls based on study1 status
         if (
@@ -466,7 +741,7 @@ class CompareStudiesWindow(QDialog):
         self.ui.study1_to_substudy1.setEnabled(True)
         self.ui.substudy1_to_study1.setEnabled(True)
 
-        # Set labels based on whether this is event-related
+        # Set labels based on whether this is event-related or pattern-matched
         if is_event_related:
             # For event-related features, we're comparing pre vs post within the same files
             self.ui.study2_name_label.setText("Post-Event")
@@ -475,6 +750,11 @@ class CompareStudiesWindow(QDialog):
             # Clear the file list since we're not separating files
             self.ui.study2_file_list.clear()
             self.ui.study2_file_list.addItem("Same files (Pre vs Post comparison)")
+        elif self.pattern_info is not None:
+            # Pattern matching was done - preserve the detected condition labels
+            self.ui.study1_name_label.setText(self.pattern_info["group1_pattern"])
+            self.ui.study2_name_label.setText(self.pattern_info["group2_pattern"])
+            self.study2_name = self.pattern_info["group2_pattern"]
         else:
             # For regular within-study comparisons, use the standard labels
             self.ui.study2_name_label.setText(self.STUDY_NAMES["within"])
@@ -482,6 +762,12 @@ class CompareStudiesWindow(QDialog):
 
     def _configure_synthetic_mode(self) -> None:
         """Configure UI for synthetic comparison mode."""
+        # Clear pattern info from within-study matching
+        self.pattern_info = None
+        
+        # Reset load button text for synthetic mode
+        self.ui.load_study1_button.setText("Load Study 1")
+        
         # Hide Study 2 widgets
         widgets_to_hide = [
             self.ui.load_study2_button,
@@ -500,7 +786,6 @@ class CompareStudiesWindow(QDialog):
         self.ui.study2_name_label.setEnabled(True)
         self.ui.study2_file_list.setEnabled(False)
         self.canvas_microstates_study2.setEnabled(False)
-        self.ui.plot_testretest_button.setEnabled(False)
         self.ui.match_subjects_button.setEnabled(False)
         self.ui.study1_to_substudy1.setEnabled(False)
         self.ui.substudy1_to_study1.setEnabled(False)
@@ -548,14 +833,6 @@ class CompareStudiesWindow(QDialog):
         """Update features for two-studies comparison."""
         if self.study1_loaded and self.study2_loaded:
             set_widgets_status(self.ui.compare_features_button, mode="enable")
-
-            # Check for test-retest capability
-            if len(self.comet_tbx_study1.list_eegs) == len(
-                self.comet_tbx_study2.list_eegs
-            ):
-                set_widgets_status(self.ui.plot_testretest_button, mode="enable")
-            else:
-                set_widgets_status(self.ui.plot_testretest_button, mode="disable")
 
             # Populate common features
             feature_type, feature_mode = self._get_compatible_features()
@@ -669,7 +946,8 @@ class CompareStudiesWindow(QDialog):
                                     for col in df.columns:
                                         if col in ["Filename", "Study", "Window_index", "Trial", 
                                                    "Window_Type", "Event_name", "base_filename",
-                                                   "window_start_idx", "window_end_idx", "window_duration_ms"]:
+                                                   "window_start_idx", "window_end_idx", "window_duration_ms",
+                                                   "N", "Time"]:
                                             continue
                                         # Extract feature code from column name
                                         # e.g., "COV_A" -> "COV", "TP_A_B" -> "TP", "DUR_SD_A" -> "DUR_SD"
@@ -786,12 +1064,17 @@ class CompareStudiesWindow(QDialog):
         return getattr(tbx, "feature_list", [])
 
     def _populate_feature_combo(self, features: List[str]) -> None:
-        """Populate the feature combo box with full feature names.
+        """Populate both feature combo boxes with full feature names.
 
         Args:
             features: List of feature codes (may include mode suffixes like "COV (Sliding)").
         """
-        self.ui.feature_combo.clear()
+        # Block signals to prevent sync loops during population
+        self.ui.feature2visualize_combo.blockSignals(True)
+        self.ui.feature2compare_combo.blockSignals(True)
+        
+        self.ui.feature2visualize_combo.clear()
+        self.ui.feature2compare_combo.clear()
         full_feature_names = []
 
         for feat in features:
@@ -820,23 +1103,30 @@ class CompareStudiesWindow(QDialog):
 
             full_feature_names.append(full_feature_name)
 
-        self.ui.feature_combo.addItems(full_feature_names)
+        # Add items to both combo boxes
+        self.ui.feature2visualize_combo.addItems(full_feature_names)
+        self.ui.feature2compare_combo.addItems(full_feature_names)
+        
+        # Re-enable signals
+        self.ui.feature2visualize_combo.blockSignals(False)
+        self.ui.feature2compare_combo.blockSignals(False)
 
     def _set_no_features_message(self, message: str = None) -> None:
-        """Set a 'no features' message in the combo box.
+        """Set a 'no features' message in both combo boxes.
 
         Args:
             message: Custom message to display.
         """
-        self.ui.feature_combo.clear()
+        self.ui.feature2visualize_combo.clear()
+        self.ui.feature2compare_combo.clear()
         message = message or self.ERROR_MESSAGES["no_features"]
-        self.ui.feature_combo.addItem(message)
+        self.ui.feature2visualize_combo.addItem(message)
+        self.ui.feature2compare_combo.addItem(message)
         set_widgets_status(self.ui.compare_features_button, mode="disable")
 
     def _disable_feature_buttons(self) -> None:
         """Disable all feature-related buttons."""
         set_widgets_status(self.ui.compare_features_button, mode="disable")
-        set_widgets_status(self.ui.plot_testretest_button, mode="disable")
 
     def _update_plot_button_text(self) -> None:
         """Update the plot features button text based on selected comparison mode."""
@@ -862,7 +1152,7 @@ class CompareStudiesWindow(QDialog):
 
     def _update_plot_label(self) -> None:
         """Update the plot label based on the currently selected feature."""
-        selected_feature_full_name = self.ui.feature_combo.currentText()
+        selected_feature_full_name = self.ui.feature2visualize_combo.currentText()
 
         # Check if this is a placeholder/error message
         if (
@@ -882,7 +1172,8 @@ class CompareStudiesWindow(QDialog):
         Returns:
             Feature short code (e.g., "COV", "OCC"), or the full name if not found.
         """
-        selected_full_name = self.ui.feature_combo.currentText()
+        # Use the compare combo as this is used for analysis
+        selected_full_name = self.ui.feature2compare_combo.currentText()
 
         # Remove mode suffix if present (e.g., "Microstate Coverage (%) - Sliding" -> "Microstate Coverage (%)")
         if " - " in selected_full_name:
@@ -900,7 +1191,7 @@ class CompareStudiesWindow(QDialog):
         Returns:
             True if selected feature has "- Sliding" suffix, False otherwise.
         """
-        selected_full_name = self.ui.feature_combo.currentText()
+        selected_full_name = self.ui.feature2compare_combo.currentText()
         return " - Sliding" in selected_full_name or " - Sliding Window" in selected_full_name
 
     def _is_pre_post_event_feature_selected(self) -> bool:
@@ -909,7 +1200,7 @@ class CompareStudiesWindow(QDialog):
         Returns:
             True if selected feature has "- Pre/Post Event" suffix, False otherwise.
         """
-        selected_full_name = self.ui.feature_combo.currentText()
+        selected_full_name = self.ui.feature2compare_combo.currentText()
         return " - Pre/Post Event" in selected_full_name
 
     def _get_compatible_features(self) -> Tuple[Optional[str], Optional[str]]:
@@ -1256,11 +1547,22 @@ class CompareStudiesWindow(QDialog):
             return features_df
 
         # Get list of filenames from the UI widget
+        # Check for original filename in UserRole (used when numbering is applied)
         filenames_in_list = []
         for i in range(file_list_widget.count()):
             item = file_list_widget.item(i)
             if item is not None:
-                filenames_in_list.append(item.text())
+                # Try to get original filename from UserRole data
+                original_filename = item.data(Qt.UserRole)
+                if original_filename:
+                    filenames_in_list.append(original_filename)
+                else:
+                    # Fallback to display text (strip number prefix if present)
+                    text = item.text()
+                    # Remove "N. " prefix if present (e.g., "1. filename" -> "filename")
+                    if re.match(r'^\d+\.\s+', text):
+                        text = re.sub(r'^\d+\.\s+', '', text)
+                    filenames_in_list.append(text)
 
         if not filenames_in_list:
             return features_df
@@ -1548,20 +1850,6 @@ class CompareStudiesWindow(QDialog):
             hue_order=[study1_display_name, study2_display_name],
         )
 
-        # Overlay swarm plot for individual data points
-        sns.swarmplot(
-            x="Feature",
-            y=selected_feature,
-            hue="Study",
-            data=plot_data_display,
-            ax=ax,
-            color="white",
-            size=10,
-            marker="o",
-            dodge=True,
-            legend=False,
-        )
-
     def _set_plot_labels_and_ticks(
         self, ax, filter_cols: List[str], feature: str
     ) -> None:
@@ -1577,9 +1865,53 @@ class CompareStudiesWindow(QDialog):
         """Handle feature selection change - auto-plot if checkbox is checked."""
         # Reconfigure comparison mode based on selected feature
         self._configure_comparison_mode()
+        
+        # Update analysis options based on selected feature
+        self._update_analysis_options_for_feature()
 
         if self.ui.show_features_checkbox.isChecked():
             self._auto_plot_features()
+
+    def _is_rof_feature_selected(self) -> bool:
+        """Check if the currently selected feature is a ROF (Rate of Occurrence Function) feature.
+        
+        Returns:
+            True if selected feature contains "ROF", False otherwise.
+        """
+        selected_full_name = self.ui.feature2compare_combo.currentText()
+        return "ROF" in selected_full_name.upper()
+
+    def _update_analysis_options_for_feature(self) -> None:
+        """Update analysis option widgets based on the selected feature.
+        
+        For ROF features, disable all options and set model to TFCE.
+        For other features, enable all options and update model normally.
+        """
+        is_rof = self._is_rof_feature_selected()
+        
+        # List of analysis option widgets to enable/disable
+        analysis_widgets = [
+            self.ui.analyze_scope_full_radio,
+            self.ui.analyze_scope_prepost_radio,
+            self.ui.analyze_level_subject_radio,
+            self.ui.analyze_level_trial_radio,
+            self.ui.analyze_design_paired_radio,
+            self.ui.analyze_design_independent_radio,
+            self.ui.analyze_type_parametric_radio,
+            self.ui.analyze_type_nonparametric_radio,
+        ]
+        
+        # Enable/disable based on whether ROF is selected
+        for widget in analysis_widgets:
+            widget.setEnabled(not is_rof)
+        
+        # Update model combo
+        if is_rof:
+            self.ui.analyze_model_combo.clear()
+            self.ui.analyze_model_combo.addItem("TFCE (Threshold-Free Cluster Enhancement)")
+        else:
+            # Re-update model combo based on current selections
+            self._update_analyze_model_combo()
 
     def _on_show_features_toggled(self, checked: bool) -> None:
         """Handle show features checkbox toggle."""
@@ -1596,8 +1928,8 @@ class CompareStudiesWindow(QDialog):
         """Automatically plot features if conditions are met."""
         # Check if we have the necessary conditions for plotting
         if (self.study1_loaded and
-            self.ui.feature_combo.currentText() and
-            self.ui.feature_combo.currentText() not in self.ERROR_MESSAGES.values()):
+            self.ui.feature2visualize_combo.currentText() and
+            self.ui.feature2visualize_combo.currentText() not in self.ERROR_MESSAGES.values()):
             try:
                 self.plot_features()
                 # Show the plot label and widget when plotting succeeds
@@ -1660,53 +1992,107 @@ class CompareStudiesWindow(QDialog):
     # ==================== STATISTICAL ANALYSIS ====================
 
     def update_feature_stats(self) -> None:
-        """Update feature comparison statistics in the UI with appropriate statistical method."""
+        """Update feature comparison statistics in the UI with appropriate statistical method.
+        
+        Routes analysis based on:
+        - Feature type (ROF uses TFCE)
+        - Data scope (Full Recording vs Event-Related)
+        - Analysis level (Subject-Level vs Trial-Level)
+        - Study design (Paired vs Independent)
+        - Test type (Parametric vs Non-parametric)
+        """
+        # Switch to Summary Statistics tab (index 3)
+        self.ui.tabWidget.setCurrentIndex(3)
+        
         self.ui.stats_textedit.clear()
 
         selected_feature = self._get_selected_feature_code()
+        
+        # Get current analysis settings
+        is_rof = self._is_rof_feature_selected()
+        is_prepost = self.ui.analyze_scope_prepost_radio.isChecked()
+        is_subject_level = self.ui.analyze_level_subject_radio.isChecked()
+        is_trial_level = self.ui.analyze_level_trial_radio.isChecked()
+        is_paired = self.ui.analyze_design_paired_radio.isChecked()
+        is_parametric = self.ui.analyze_type_parametric_radio.isChecked()
+        selected_model = self.ui.analyze_model_combo.currentText()
 
-        # Determine the appropriate statistical analysis based on feature type
-
-        # 1. ROF (Relative Occurrence Frequency) - use TFCE cluster permutation testing
-        if selected_feature == "ROF" and self._has_rof_data():
+        # 1. ROF features - always use TFCE
+        if is_rof and self._has_rof_data():
             self.ui.stats_textedit.appendPlainText(
-                "Detected ROF feature - using TFCE cluster permutation testing...\n"
+                "ROF Feature Analysis\n"
+                "=" * 60 + "\n"
+                "Using TFCE (Threshold-Free Cluster Enhancement) with sign-flipping permutation...\n"
             )
             self._perform_rof_tfce_analysis()
             return
 
-        # 2. RTF (Rate of Time in Field) - use t-test with multiple comparison correction
-        if selected_feature == "RTF":
-            self.ui.stats_textedit.appendPlainText(
-                "Detected RTF feature - using t-test with multiple comparison correction...\n"
-            )
-            self._perform_rtf_analysis()
+        # 2. Pre/Post Event scope with trial-level data
+        if is_prepost or self._is_pre_post_event_feature_selected():
+            if is_trial_level:
+                self.ui.stats_textedit.appendPlainText(
+                    f"Event-Related Trial-Level Analysis\n"
+                    f"{'=' * 60}\n"
+                    f"Model: {selected_model}\n\n"
+                )
+                self._perform_trial_level_analysis(is_paired, is_parametric, selected_model)
+            else:
+                self.ui.stats_textedit.appendPlainText(
+                    f"Event-Related Subject-Level Analysis\n"
+                    f"{'=' * 60}\n"
+                    f"Model: {selected_model}\n\n"
+                )
+                self._perform_pre_post_event_analysis()
             return
 
-        # 3. Pre/Post Event features - use mixed-effects models
-        if self._is_pre_post_event_feature_selected():
-            self.ui.stats_textedit.appendPlainText(
-                "Detected Pre/Post Event feature - using mixed-effects models to account for within-subject correlation...\n"
-            )
-            self._perform_pre_post_event_analysis()
-            return
-
-        # 4. Sliding window features - use mixed-effects models
+        # 3. Sliding window features
         if self._is_sliding_feature_selected():
-            self.ui.stats_textedit.appendPlainText(
-                "Detected sliding window feature - using mixed-effects models to account for within-subject correlation...\n"
-            )
-            self._perform_sliding_feature_analysis()
+            if is_trial_level:
+                self.ui.stats_textedit.appendPlainText(
+                    f"Sliding Window Trial-Level Analysis\n"
+                    f"{'=' * 60}\n"
+                    f"Model: {selected_model}\n\n"
+                )
+                self._perform_trial_level_analysis(is_paired, is_parametric, selected_model)
+            else:
+                self.ui.stats_textedit.appendPlainText(
+                    f"Sliding Window Subject-Level Analysis\n"
+                    f"{'=' * 60}\n"
+                    f"Model: {selected_model}\n\n"
+                )
+                self._perform_sliding_feature_analysis()
             return
 
-        # 5. Standard averaged features - use standard t-test analysis
+        # 4. Standard features - route by analysis level and test type
+        if is_trial_level:
+            self.ui.stats_textedit.appendPlainText(
+                f"Trial-Level Analysis\n"
+                f"{'=' * 60}\n"
+                f"Model: {selected_model}\n\n"
+            )
+            self._perform_trial_level_analysis(is_paired, is_parametric, selected_model)
+            return
+
+        # 5. Subject-level analysis (default)
+        self._perform_subject_level_analysis(is_paired, is_parametric, selected_model)
+
+    def _perform_subject_level_analysis(
+        self, is_paired: bool, is_parametric: bool, model_name: str
+    ) -> None:
+        """Perform subject-level statistical analysis.
+        
+        Args:
+            is_paired: Whether to use paired tests
+            is_parametric: Whether to use parametric tests
+            model_name: Name of the selected statistical model
+        """
         # Get analysis information
         (
             feature_list,
-            t_test_results,
+            test_results,
             p_values,
             adjusted_p_values,
-        ) = self._perform_feature_comparison_analysis()
+        ) = self._perform_feature_comparison_analysis(is_paired, is_parametric)
 
         if not feature_list:
             selected_feature = self._get_selected_feature_code()
@@ -1716,9 +2102,7 @@ class CompareStudiesWindow(QDialog):
                 f"This may happen if:\n"
                 f"1. The selected feature '{selected_feature}' is not present in the loaded feature files\n"
                 f"2. The feature files don't contain data for this feature\n"
-                f"3. The files need to be re-extracted with updated feature extraction code\n\n"
-                f"Hint: For variability features (e.g., DUR_SD, DUR_RMSSD), make sure you have\n"
-                f"extracted features using the latest version of the code that supports variability features."
+                f"3. The files need to be re-extracted with updated feature extraction code\n"
             )
             self.ui.stats_textedit.appendPlainText(error_msg)
             return
@@ -1728,11 +2112,168 @@ class CompareStudiesWindow(QDialog):
 
         # Display main results table
         self._display_statistical_results_table(
-            feature_list, t_test_results, p_values, adjusted_p_values
+            feature_list, test_results, p_values, adjusted_p_values
         )
 
         # Display summary statistics
         self._display_statistical_summary(p_values, adjusted_p_values)
+
+    def _perform_trial_level_analysis(
+        self, is_paired: bool, is_parametric: bool, model_name: str
+    ) -> None:
+        """Perform trial-level statistical analysis using GEE or LMM.
+        
+        Args:
+            is_paired: Whether subjects are matched across conditions
+            is_parametric: Whether to use parametric models
+            model_name: Name of the selected statistical model
+        """
+        result = self._get_common_features()
+        if result is None or result[0] is None:
+            self.ui.stats_textedit.appendPlainText("No features available for analysis.\n")
+            return
+
+        common_features_df, _ = result
+        selected_feature = self._get_selected_feature_code()
+        
+        # Get feature columns
+        feature_columns = [
+            col for col in common_features_df.columns
+            if col == selected_feature or col.startswith(selected_feature + "_")
+        ]
+        
+        if not feature_columns:
+            self.ui.stats_textedit.appendPlainText(
+                f"No columns found for feature: {selected_feature}\n"
+            )
+            return
+
+        # Display header
+        self._display_analysis_header()
+        
+        # Perform GEE or LMM analysis
+        if "GEE" in model_name or "Linear Mixed" in model_name:
+            self._perform_gee_analysis(common_features_df, feature_columns, is_paired)
+        else:
+            # Fallback to aggregated subject-level analysis
+            self.ui.stats_textedit.appendPlainText(
+                f"Note: {model_name} will be implemented in a future update.\n"
+                f"Currently using subject-level aggregation.\n\n"
+            )
+            self._perform_subject_level_analysis(is_paired, is_parametric, model_name)
+
+    def _perform_gee_analysis(
+        self, data_df: pd.DataFrame, feature_columns: List[str], is_paired: bool
+    ) -> None:
+        """Perform Generalized Estimating Equations analysis.
+        
+        Args:
+            data_df: DataFrame with feature data
+            feature_columns: List of feature column names to analyze
+            is_paired: Whether design is paired (within-subject)
+        """
+        try:
+            # Prepare data for GEE
+            # Extract subject ID from filename
+            data_df = data_df.copy()
+            data_df['Subject'] = data_df['Filename'].apply(self._extract_subject_id)
+            
+            results_text = []
+            p_values = []
+            
+            for feat_col in feature_columns:
+                # Create long-format data for this feature
+                analysis_df = data_df[['Subject', 'Study', 'Filename', feat_col]].copy()
+                analysis_df = analysis_df.dropna(subset=[feat_col])
+                
+                if analysis_df.empty:
+                    continue
+                
+                # Check if we have enough data
+                n_subjects = analysis_df['Subject'].nunique()
+                n_per_group = analysis_df.groupby('Study').size()
+                
+                if n_subjects < 3:
+                    results_text.append(f"{feat_col}: Insufficient subjects (n={n_subjects})")
+                    continue
+                
+                try:
+                    # Fit GEE model
+                    # Create condition variable (0 = Study1, 1 = Study2)
+                    study1_name = self.comet_tbx_study1.study_name
+                    analysis_df['Condition'] = (analysis_df['Study'] != study1_name).astype(int)
+                    
+                    # Ensure positive values for Gamma family
+                    min_val = analysis_df[feat_col].min()
+                    if min_val <= 0:
+                        analysis_df[feat_col] = analysis_df[feat_col] - min_val + 0.001
+                    
+                    # Fit GEE with exchangeable correlation structure
+                    formula = f"`{feat_col}` ~ Condition"
+                    model = GEE.from_formula(
+                        formula=formula,
+                        groups="Subject",
+                        data=analysis_df,
+                        family=Gaussian(link=Identity()),
+                        cov_struct=Exchangeable() if is_paired else Independence(),
+                    )
+                    gee_result = model.fit()
+                    
+                    # Extract results
+                    coef = gee_result.params.get('Condition', np.nan)
+                    stderr = gee_result.bse.get('Condition', np.nan)
+                    z_val = gee_result.tvalues.get('Condition', np.nan)
+                    p_val = gee_result.pvalues.get('Condition', np.nan)
+                    
+                    p_values.append(p_val)
+                    
+                    sig = self._get_significance_level(p_val)
+                    results_text.append(
+                        f"{feat_col}: β={coef:.4f}, SE={stderr:.4f}, z={z_val:.2f}, p={p_val:.4f} {sig}"
+                    )
+                    
+                except Exception as e:
+                    results_text.append(f"{feat_col}: Analysis failed - {str(e)[:50]}")
+            
+            # Display results
+            self.ui.stats_textedit.appendPlainText("GEE Analysis Results\n" + "-" * 40 + "\n")
+            self.ui.stats_textedit.appendPlainText("\n".join(results_text))
+            
+            # Apply multiple testing correction
+            if p_values:
+                correction_method = self.ui.analyze_correction_combo.currentText().lower()
+                # Handle special correction names
+                if correction_method == "fdr-bh":
+                    correction_method = "fdr_bh"
+                elif correction_method == "fdr-tsbh":
+                    correction_method = "fdr_tsbh"
+                elif correction_method == "fdr-tsbky":
+                    correction_method = "fdr_tsbky"
+                elif correction_method == "holm-sidak":
+                    correction_method = "holm-sidak"
+                
+                try:
+                    _, adj_p_values, _, _ = multipletests(p_values, method=correction_method)
+                    
+                    self.ui.stats_textedit.appendPlainText(
+                        f"\n\nMultiple Testing Correction ({self.ui.analyze_correction_combo.currentText()}):\n"
+                    )
+                    n_sig = sum(1 for p in adj_p_values if p < 0.05)
+                    self.ui.stats_textedit.appendPlainText(
+                        f"Significant features after correction: {n_sig}/{len(adj_p_values)}\n"
+                    )
+                except Exception as e:
+                    self.ui.stats_textedit.appendPlainText(
+                        f"\nCould not apply correction: {str(e)}\n"
+                    )
+            
+        except Exception as e:
+            self.ui.stats_textedit.appendPlainText(
+                f"GEE Analysis Error: {str(e)}\n"
+                f"Falling back to standard t-test analysis.\n\n"
+            )
+            traceback.print_exc()
+            self._perform_subject_level_analysis(is_paired, True, "t-test")
 
     def _display_analysis_header(self) -> None:
         """Display header information for the statistical analysis."""
@@ -1740,6 +2281,17 @@ class CompareStudiesWindow(QDialog):
         comparison_info = self._get_comparison_info()
         selected_feature = self._get_selected_feature_code()
         feature_full_name = self.feature_list_dictionary.get(selected_feature, selected_feature)
+        
+        # Get test type description
+        is_paired = self.ui.analyze_design_paired_radio.isChecked()
+        is_parametric = self.ui.analyze_type_parametric_radio.isChecked()
+        is_subject_level = self.ui.analyze_level_subject_radio.isChecked()
+        selected_model = self.ui.analyze_model_combo.currentText()
+        
+        # Determine analysis level description
+        level_desc = "Subject-Level" if is_subject_level else "Trial-Level"
+        design_desc = "Paired" if is_paired else "Independent"
+        type_desc = "Parametric" if is_parametric else "Non-parametric"
 
         # Analysis header
         header_text = (
@@ -1749,11 +2301,27 @@ class CompareStudiesWindow(QDialog):
             f"Comparison: {comparison_info['comparison_type']}\n"
             f"Study 1: {comparison_info['study1_name']} ({comparison_info['study1_files']} files)\n"
             f"Study 2: {comparison_info['study2_name']} ({comparison_info['study2_files']} files)\n"
-            f"Test Type: {'Paired' if self.ui.paired_test_checkbox.isChecked() else 'Independent'} t-test\n"
-            f"Multiple Testing Correction: {self.ui.multiple_test_method_combo.currentText()}\n"
+            f"Analysis Level: {level_desc}\n"
+            f"Study Design: {design_desc}\n"
+            f"Test Type: {type_desc}\n"
+            f"Statistical Model: {selected_model}\n"
+            f"Multiple Testing Correction: {self.ui.analyze_correction_combo.currentText()}\n"
             f"{'=' * 60}\n"
         )
         self.ui.stats_textedit.appendPlainText(header_text)
+
+    def _get_statistic_column_name(self) -> str:
+        """Get the appropriate column name for the test statistic."""
+        is_parametric = self.ui.analyze_type_parametric_radio.isChecked()
+        is_paired = self.ui.analyze_design_paired_radio.isChecked()
+        
+        if is_parametric:
+            return "t-statistic"
+        else:
+            if is_paired:
+                return "W-statistic"  # Wilcoxon
+            else:
+                return "U-statistic"  # Mann-Whitney
 
     def _display_statistical_results_table(
         self,
@@ -1763,10 +2331,12 @@ class CompareStudiesWindow(QDialog):
         adjusted_p_values: List[float]
     ) -> None:
         """Display the main statistical results in a formatted table."""
+        stat_col_name = self._get_statistic_column_name()
+        
         # Table header
         self.ui.stats_textedit.appendPlainText("Statistical Results:")
         self.ui.stats_textedit.appendPlainText(
-            f"{'Microstate Feature':<35} {'t-statistic':>12} {'p-value':>12} {'adj. p-value':>12} {'Significance':>12}"
+            f"{'Microstate Feature':<35} {stat_col_name:>12} {'p-value':>12} {'adj. p-value':>12} {'Significance':>12}"
         )
         self.ui.stats_textedit.appendPlainText("-" * 85)
 
@@ -1939,12 +2509,24 @@ class CompareStudiesWindow(QDialog):
 
     def _perform_feature_comparison_analysis(
         self,
+        is_paired: bool = None,
+        is_parametric: bool = None,
     ) -> Tuple[List[str], Dict[str, float], List[float], List[float]]:
-        """Perform t-test-based feature comparison between two studies.
+        """Perform statistical comparison between two studies.
+
+        Args:
+            is_paired: Use paired tests (if None, reads from UI)
+            is_parametric: Use parametric tests (if None, reads from UI)
 
         Returns:
-            Tuple of (feature_list, t_test_results, p_values, adjusted_p_values).
+            Tuple of (feature_list, test_results, p_values, adjusted_p_values).
         """
+        # Get settings from UI if not provided
+        if is_paired is None:
+            is_paired = self.ui.analyze_design_paired_radio.isChecked()
+        if is_parametric is None:
+            is_parametric = self.ui.analyze_type_parametric_radio.isChecked()
+
         result = self._get_common_features()
         if result is None or result[0] is None:
             return [], {}, [], []
@@ -1957,7 +2539,7 @@ class CompareStudiesWindow(QDialog):
             common_features_df, selected_feature
         )
 
-        # Perform t-tests
+        # Get feature columns
         feature_list = [
             col for col in study1_df.columns if col not in ["Study", "Filename"]
         ]
@@ -1966,19 +2548,20 @@ class CompareStudiesWindow(QDialog):
         if not feature_list:
             return [], {}, [], []
 
-        t_test_results, p_values = self._calculate_t_tests(
-            study1_df, study2_df, feature_list
+        # Perform statistical tests based on settings
+        test_results, p_values = self._calculate_statistical_tests(
+            study1_df, study2_df, feature_list, is_paired, is_parametric
         )
 
         # Adjust p-values for multiple testing only if we have p-values
         if p_values:
             adjusted_p_values = multipletests(
-                p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
+                p_values, method=self.ui.analyze_correction_combo.currentText().lower()
             )[1]
         else:
             adjusted_p_values = []
 
-        return feature_list, t_test_results, p_values, adjusted_p_values
+        return feature_list, test_results, p_values, adjusted_p_values
 
     def _separate_studies_data(
         self, common_features_df: pd.DataFrame, selected_feature: str
@@ -2012,23 +2595,81 @@ class CompareStudiesWindow(QDialog):
         study2_df: pd.DataFrame,
         feature_list: List[str],
     ) -> Tuple[Dict[str, float], List[float]]:
-        """Calculate t-tests for each feature."""
-        t_test_results = {}
+        """Calculate t-tests for each feature (legacy method - uses UI settings)."""
+        is_paired = self.ui.analyze_design_paired_radio.isChecked()
+        is_parametric = self.ui.analyze_type_parametric_radio.isChecked()
+        return self._calculate_statistical_tests(
+            study1_df, study2_df, feature_list, is_paired, is_parametric
+        )
+
+    def _calculate_statistical_tests(
+        self,
+        study1_df: pd.DataFrame,
+        study2_df: pd.DataFrame,
+        feature_list: List[str],
+        is_paired: bool,
+        is_parametric: bool,
+    ) -> Tuple[Dict[str, float], List[float]]:
+        """Calculate statistical tests for each feature.
+        
+        Args:
+            study1_df: DataFrame with Study 1 data
+            study2_df: DataFrame with Study 2 data
+            feature_list: List of feature column names
+            is_paired: Use paired tests
+            is_parametric: Use parametric tests
+            
+        Returns:
+            Tuple of (test_statistic_dict, p_values_list)
+        """
+        test_results = {}
         p_values = []
 
         for feat in feature_list:
-            study1_values = study1_df[feat].tolist()
-            study2_values = study2_df[feat].tolist()
+            study1_values = np.array(study1_df[feat].dropna().tolist())
+            study2_values = np.array(study2_df[feat].dropna().tolist())
+            
+            # Skip if insufficient data
+            if len(study1_values) < 2 or len(study2_values) < 2:
+                test_results[feat] = np.nan
+                p_values.append(1.0)
+                continue
 
-            if self.ui.paired_test_checkbox.isChecked():
-                t_statistic, p_value = ttest_rel(study1_values, study2_values)
-            else:
-                t_statistic, p_value = ttest_ind(study1_values, study2_values)
+            try:
+                if is_parametric:
+                    # Parametric tests
+                    if is_paired:
+                        # Paired t-test (requires equal lengths)
+                        min_len = min(len(study1_values), len(study2_values))
+                        statistic, p_value = ttest_rel(
+                            study1_values[:min_len], study2_values[:min_len]
+                        )
+                    else:
+                        # Independent t-test
+                        statistic, p_value = ttest_ind(study1_values, study2_values)
+                else:
+                    # Non-parametric tests
+                    if is_paired:
+                        # Wilcoxon signed-rank test (requires equal lengths)
+                        min_len = min(len(study1_values), len(study2_values))
+                        statistic, p_value = wilcoxon(
+                            study1_values[:min_len], study2_values[:min_len]
+                        )
+                    else:
+                        # Mann-Whitney U test
+                        statistic, p_value = mannwhitneyu(
+                            study1_values, study2_values, alternative='two-sided'
+                        )
 
-            t_test_results[feat] = t_statistic
-            p_values.append(p_value)
+                test_results[feat] = statistic
+                p_values.append(p_value)
+                
+            except Exception as e:
+                # Handle test failures gracefully
+                test_results[feat] = np.nan
+                p_values.append(1.0)
 
-        return t_test_results, p_values
+        return test_results, p_values
 
     # ==================== PRE/POST EVENT ANALYSIS ====================
 
@@ -2215,7 +2856,7 @@ class CompareStudiesWindow(QDialog):
             # Apply multiple testing correction
             p_values = [r["p_val"] for r in results]
             _, adj_p_values, _, _ = multipletests(
-                p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
+                p_values, method=self.ui.analyze_correction_combo.currentText().lower()
             )
 
             for i, result in enumerate(results):
@@ -2259,7 +2900,7 @@ class CompareStudiesWindow(QDialog):
                 f"Summary:\n"
                 f"  Significant differences (adjusted p < 0.05): {n_sig}/{len(results)}\n"
                 f"  Models converged: {n_converged}/{len(results)}\n"
-                f"  Multiple testing correction: {self.ui.multiple_test_method_combo.currentText()}\n\n"
+                f"  Multiple testing correction: {self.ui.analyze_correction_combo.currentText()}\n\n"
                 f"Interpretation:\n"
                 f"  Model: Value ~ Group + (1|Subject) accounts for within-subject correlation\n"
                 f"  Group: Pre (0) vs Post (1) event window\n"
@@ -2616,7 +3257,7 @@ class CompareStudiesWindow(QDialog):
             # Apply multiple testing correction
             p_values = [r["p_val"] for r in results]
             _, adj_p_values, _, _ = multipletests(
-                p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
+                p_values, method=self.ui.analyze_correction_combo.currentText().lower()
             )
 
             for i, result in enumerate(results):
@@ -2657,7 +3298,7 @@ class CompareStudiesWindow(QDialog):
                 self.ui.stats_textedit.appendPlainText(
                     f"\n{'-' * 130}\n"
                     f"Significant differences (adjusted p < 0.05): {n_sig}/{len(results)}\n"
-                    f"Multiple testing correction: {self.ui.multiple_test_method_combo.currentText()}\n\n"
+                    f"Multiple testing correction: {self.ui.analyze_correction_combo.currentText()}\n\n"
                     f"Note:\n"
                     f"  - Analysis: Paired t-test on subject-averaged values (windows aggregated per subject)\n"
                     f"  - N_Pairs: Number of matched subject pairs\n"
@@ -2705,7 +3346,7 @@ class CompareStudiesWindow(QDialog):
                     f"\n{'-' * 130}\n"
                     f"Significant differences (adjusted p < 0.05): {n_sig}/{len(results)}\n"
                     f"Models converged: {n_converged}/{len(results)}\n"
-                    f"Multiple testing correction: {self.ui.multiple_test_method_combo.currentText()}\n\n"
+                    f"Multiple testing correction: {self.ui.analyze_correction_combo.currentText()}\n\n"
                     f"Note:\n"
                     f"  - Model: Value ~ Group + (1|Subject) - accounts for within-subject correlation\n"
                     f"  - N_Subj: Number of subjects (Study1/Study2)\n"
@@ -2884,7 +3525,7 @@ class CompareStudiesWindow(QDialog):
             # Apply multiple testing correction
             p_values = [r["p_val"] for r in results]
             _, adj_p_values, _, _ = multipletests(
-                p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
+                p_values, method=self.ui.analyze_correction_combo.currentText().lower()
             )
 
             for i, result in enumerate(results):
@@ -2928,7 +3569,7 @@ class CompareStudiesWindow(QDialog):
                 f"\n{'-' * 130}\n"
                 f"Significant differences (adjusted p < 0.05): {n_sig}/{len(results)}\n"
                 f"Models converged: {n_converged}/{len(results)}\n"
-                f"Multiple testing correction: {self.ui.multiple_test_method_combo.currentText()}\n\n"
+                f"Multiple testing correction: {self.ui.analyze_correction_combo.currentText()}\n\n"
                 f"Note:\n"
                 f"  - N_Subj: Number of subjects (Study1/Study2)\n"
                 f"  - N_Events: Total event windows analyzed (Study1/Study2)\n"
@@ -2985,8 +3626,8 @@ class CompareStudiesWindow(QDialog):
                     f"Comparison: {comparison_info['comparison_type']}\n"
                     f"Study 1: {comparison_info['study1_name']} ({comparison_info['study1_files']} files)\n"
                     f"Study 2: {comparison_info['study2_name']} ({comparison_info['study2_files']} files)\n"
-                    f"Test Type: {'Paired' if self.ui.paired_test_checkbox.isChecked() else 'Independent'} t-test\n"
-                    f"Multiple Testing Correction: {self.ui.multiple_test_method_combo.currentText()}\n"
+                    f"Test Type: {'Paired' if self.ui.analyze_design_paired_radio.isChecked() else 'Independent'} t-test\n"
+                    f"Multiple Testing Correction: {self.ui.analyze_correction_combo.currentText()}\n"
                     f"Number of comparisons: {len(feature_cols)}\n"
                     f"{'=' * 80}\n\n"
                 )
@@ -3006,7 +3647,7 @@ class CompareStudiesWindow(QDialog):
                         continue
 
                     # Perform t-test
-                    if self.ui.paired_test_checkbox.isChecked():
+                    if self.ui.analyze_design_paired_radio.isChecked():
                         if len(study1_values) != len(study2_values):
                             self.ui.stats_textedit.appendPlainText(
                                 f"Warning: Skipping {feat_col} - unequal sample sizes for paired test\n"
@@ -3020,7 +3661,7 @@ class CompareStudiesWindow(QDialog):
                     mean1 = np.mean(study1_values)
                     mean2 = np.mean(study2_values)
 
-                    if self.ui.paired_test_checkbox.isChecked():
+                    if self.ui.analyze_design_paired_radio.isChecked():
                         # Paired Cohen's d
                         diff = study2_values - study1_values
                         cohens_d = np.mean(diff) / np.std(diff, ddof=1) if np.std(diff, ddof=1) > 0 else 0
@@ -3063,7 +3704,7 @@ class CompareStudiesWindow(QDialog):
 
                 # Apply multiple testing correction
                 _, adj_p_values, _, _ = multipletests(
-                    p_values, method=self.ui.multiple_test_method_combo.currentText().lower()
+                    p_values, method=self.ui.analyze_correction_combo.currentText().lower()
                 )
 
                 for i, result in enumerate(results):
@@ -3103,7 +3744,7 @@ class CompareStudiesWindow(QDialog):
                     f"\n{'-' * 120}\n"
                     f"Summary:\n"
                     f"  Significant differences (adjusted p < 0.05): {n_sig}/{len(results)}\n"
-                    f"  Multiple testing correction: {self.ui.multiple_test_method_combo.currentText()}\n\n"
+                    f"  Multiple testing correction: {self.ui.analyze_correction_combo.currentText()}\n\n"
                     f"Interpretation:\n"
                     f"  RTF measures the rate of transitions into specific microstates.\n"
                     f"  Higher values indicate more frequent transitions into that microstate.\n"
@@ -3635,7 +4276,7 @@ class CompareStudiesWindow(QDialog):
                 rof_2 = occurrences_bc_2[microstate]
 
                 # For paired comparison, filter and match subjects
-                if self.ui.paired_test_checkbox.isChecked():
+                if self.ui.analyze_design_paired_radio.isChecked():
                     # Filter by file lists and get corresponding filenames
                     rof_1_result = self._filter_rof_by_filelist(
                         rof_1, rof_data_study1, self.ui.study1_file_list, return_filenames=True
@@ -4364,7 +5005,7 @@ class CompareStudiesWindow(QDialog):
             self._show_error("Pattern Matching Error", error_msg)
 
     def _apply_detected_pattern(self, pattern_result: Tuple) -> None:
-            """Apply the detected pattern to update UI."""
+            """Apply the detected pattern to update UI with color-coded paired subjects."""
             (
                 common_pattern,
                 group1_pattern,
@@ -4373,14 +5014,48 @@ class CompareStudiesWindow(QDialog):
                 group2_files,
             ) = pattern_result
 
-            # Update file lists
-            self.ui.study2_file_list.clear()
-            for filename in group2_files:
-                self.ui.study2_file_list.addItem(filename)
+            # Create subject ID to number mapping (sorted for consistent ordering)
+            subject_ids = sorted(set(
+                self._extract_subject_id(f) for f in group1_files + group2_files
+            ))
+            subject_to_number = {subj: idx + 1 for idx, subj in enumerate(subject_ids)}
 
+            # Generate colors for each subject pair
+            subject_colors = self._generate_subject_colors(group1_files, group2_files)
+
+            # Sort files by subject number for consistent display
+            def sort_key(filename):
+                return subject_to_number.get(self._extract_subject_id(filename), 999)
+
+            group1_files_sorted = sorted(group1_files, key=sort_key)
+            group2_files_sorted = sorted(group2_files, key=sort_key)
+
+            # Update file lists with numbering and color coding
             self.ui.study1_file_list.clear()
-            for filename in group1_files:
-                self.ui.study1_file_list.addItem(filename)
+            for filename in group1_files_sorted:
+                subject_id = self._extract_subject_id(filename)
+                number = subject_to_number.get(subject_id, 0)
+                display_name = f"{number}. {filename}"
+                item = QListWidgetItem(display_name)
+                item.setData(Qt.UserRole, filename)  # Store original filename
+                if subject_id in subject_colors:
+                    item.setBackground(QBrush(subject_colors[subject_id]))
+                self.ui.study1_file_list.addItem(item)
+
+            self.ui.study2_file_list.clear()
+            for filename in group2_files_sorted:
+                subject_id = self._extract_subject_id(filename)
+                number = subject_to_number.get(subject_id, 0)
+                display_name = f"{number}. {filename}"
+                item = QListWidgetItem(display_name)
+                item.setData(Qt.UserRole, filename)  # Store original filename
+                if subject_id in subject_colors:
+                    item.setBackground(QBrush(subject_colors[subject_id]))
+                self.ui.study2_file_list.addItem(item)
+            
+            # Update the stored file lists with sorted order (original filenames)
+            group1_files = group1_files_sorted
+            group2_files = group2_files_sorted
 
             # Update study labels
             base_study_name = self.comet_tbx_study1.study_name
@@ -4403,18 +5078,52 @@ class CompareStudiesWindow(QDialog):
             )
             self._show_info("Pattern Matching Successful", success_msg)
 
-            # Check the paired test checkbox since subjects have been successfully matched
-            self.ui.paired_test_checkbox.setChecked(True)
+            # Set paired design radio since subjects have been successfully matched
+            self.ui.analyze_design_paired_radio.setChecked(True)
 
             # Update plot button text now that study2_file_list has been populated
             self._update_plot_button_text()
+
+    def _generate_subject_colors(
+            self, group1_files: List[str], group2_files: List[str]
+    ) -> Dict[str, QColor]:
+            """Generate unique pastel colors for each subject pair.
+
+            Args:
+                group1_files: List of filenames in group 1.
+                group2_files: List of filenames in group 2.
+
+            Returns:
+                Dictionary mapping subject IDs to QColor objects.
+            """
+            # Collect all unique subject IDs
+            subject_ids = set()
+            for filename in group1_files + group2_files:
+                subject_id = self._extract_subject_id(filename)
+                subject_ids.add(subject_id)
+
+            # Generate pastel colors using golden ratio for good distribution
+            subject_colors = {}
+            golden_ratio = 0.618033988749895
+            hue = 0.0
+
+            for subject_id in sorted(subject_ids):
+                # Generate pastel color (high saturation ~0.4, high value ~0.95)
+                hue = (hue + golden_ratio) % 1.0
+                # Convert HSV to RGB
+                color = QColor.fromHsvF(hue, 0.35, 0.95)
+                subject_colors[subject_id] = color
+
+            return subject_colors
 
     @staticmethod
     def _detect_filename_patterns(filenames: List[str]) -> Optional[Tuple]:
             """Detect common patterns in filenames that repeat exactly twice.
 
-            Uses a robust, order-independent approach that parses filename components
-            semantically rather than assuming fixed positions.
+            Uses a robust, multi-strategy approach:
+            1. Subject-based grouping (most reliable for sub-# patterns)
+            2. Semantic component parsing
+            3. Flexible delimiter-based fallback
 
             Args:
                 filenames: List of filenames to analyze.
@@ -4423,13 +5132,242 @@ class CompareStudiesWindow(QDialog):
                 Tuple of (common_pattern, group1_pattern, group2_pattern, group1_files,
                 group2_files) or None if no suitable pattern is found.
             """
-            # Try semantic approach first
+            # Strategy 1: Subject-based approach (most robust for sub-# patterns)
+            result = CompareStudiesWindow._detect_subject_based_patterns(filenames)
+            if result is not None:
+                return result
+
+            # Strategy 2: Semantic approach
             result = CompareStudiesWindow._detect_semantic_patterns(filenames)
             if result is not None:
                 return result
 
-            # Fallback to flexible delimiter-based approach
+            # Strategy 3: Fallback to flexible delimiter-based approach
             return CompareStudiesWindow._detect_flexible_delimiter_patterns(filenames)
+
+    @staticmethod
+    def _detect_subject_based_patterns(filenames: List[str]) -> Optional[Tuple]:
+            """Detect patterns by grouping files by subject ID.
+
+            This is the most robust approach for standard naming conventions
+            where subjects are identified by sub-#, subject-#, S#, etc.
+            Each subject should have exactly 2 files with different conditions.
+
+            Args:
+                filenames: List of filenames to analyze.
+
+            Returns:
+                Tuple of (common_pattern, group1_pattern, group2_pattern, group1_files,
+                group2_files) or None if no suitable pattern is found.
+            """
+            # Group files by subject ID
+            subject_groups = defaultdict(list)
+            for filename in filenames:
+                subject_id = CompareStudiesWindow._extract_subject_id(filename)
+                subject_groups[subject_id].append(filename)
+
+            # Filter to subjects with exactly 2 files
+            valid_subjects = {
+                subj: files for subj, files in subject_groups.items()
+                if len(files) == 2
+            }
+
+            if len(valid_subjects) < 2:  # Need at least 2 subjects with pairs
+                return None
+
+            # For each subject pair, find what component varies
+            condition_to_files = defaultdict(list)  # condition -> list of filenames
+            condition_pairs_found = []  # Track (cond1, cond2) pairs for validation
+
+            for subject_id, files in valid_subjects.items():
+                file1, file2 = sorted(files)  # Sort for consistency
+
+                # Find the varying conditions between the two filenames
+                cond1, cond2 = CompareStudiesWindow._find_varying_conditions(file1, file2)
+
+                if cond1 is None or cond2 is None:
+                    continue
+
+                # Normalize to ensure consistent ordering (alphabetically)
+                if cond1 > cond2:
+                    cond1, cond2 = cond2, cond1
+                    file1, file2 = file2, file1
+
+                condition_to_files[cond1].append(file1)
+                condition_to_files[cond2].append(file2)
+                condition_pairs_found.append((cond1, cond2))
+
+            # Check if we have exactly 2 conditions
+            if len(condition_to_files) != 2:
+                return None
+
+            # Verify all subjects have the same two conditions
+            if condition_pairs_found:
+                first_pair = condition_pairs_found[0]
+                if not all(pair == first_pair for pair in condition_pairs_found):
+                    return None
+
+            condition_values = sorted(list(condition_to_files.keys()))
+            group1_files = condition_to_files[condition_values[0]]
+            group2_files = condition_to_files[condition_values[1]]
+
+            # Verify we have equal groups with at least 2 files each
+            if len(group1_files) < 2 or len(group1_files) != len(group2_files):
+                return None
+
+            common_pattern = f"condition:[{condition_values[0]}|{condition_values[1]}]"
+            return (
+                common_pattern,
+                condition_values[0],
+                condition_values[1],
+                sorted(group1_files),
+                sorted(group2_files),
+            )
+
+    @staticmethod
+    def _find_varying_conditions(file1: str, file2: str) -> Tuple[Optional[str], Optional[str]]:
+            """Find what condition/component varies between two filenames from the same subject.
+
+            Args:
+                file1: First filename.
+                file2: Second filename.
+
+            Returns:
+                Tuple of (condition1, condition2) representing the differing component,
+                or (None, None) if no clear condition difference found.
+            """
+            # Known condition keywords and their normalized forms
+            condition_keywords = {
+                # Eyes open/closed variations
+                'eyesclosed': 'eyesclosed', 'eyesclose': 'eyesclosed', 'eyeclose': 'eyesclosed',
+                'ec': 'eyesclosed', 'closed': 'eyesclosed', 'close': 'eyesclosed',
+                'eyesopen': 'eyesopen', 'eyeopen': 'eyesopen',
+                'eo': 'eyesopen', 'open': 'eyesopen',
+                # Pre/post variations
+                'pre': 'pre', 'post': 'post', 'before': 'pre', 'after': 'post',
+                # Active/baseline variations
+                'active': 'active', 'baseline': 'baseline', 'base': 'baseline',
+                'rest': 'rest', 'resting': 'rest', 'task': 'task',
+                # Treatment variations
+                'sham': 'sham', 'real': 'real', 'verum': 'real',
+                'control': 'control', 'treatment': 'treatment',
+                'placebo': 'placebo', 'drug': 'drug',
+                # Generic labels
+                'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd',
+                '1': '1', '2': '2', '3': '3', '4': '4',
+                'cond1': 'cond1', 'cond2': 'cond2',
+                'condition1': 'cond1', 'condition2': 'cond2',
+                # Stimulation variations
+                'stim': 'stim', 'nostim': 'nostim', 'stimulation': 'stim',
+                # Session/run variations that might indicate conditions
+                'session1': 'session1', 'session2': 'session2',
+                'run1': 'run1', 'run2': 'run2',
+            }
+
+            def normalize_filename(filename):
+                """Normalize filename for comparison."""
+                name = filename.lower()
+                # Remove common file extensions
+                name = re.sub(r'\.(eeg|set|fdt|edf|bdf|cnt|vhdr|vmrk|fif|gz|mat)$', '', name)
+                # Remove common processing suffixes
+                name = re.sub(r'[_\-](eeg|clean|proc|preproc|processed|raw|filt|filtered|ica|epoch|avg)$', '', name)
+                return name
+
+            clean1 = normalize_filename(file1)
+            clean2 = normalize_filename(file2)
+
+            # Strategy 1: Check for BIDS-style task-condition or acq-condition format
+            def extract_bids_condition(clean_name):
+                """Extract condition from BIDS-style naming (task-X or acq-X)."""
+                # Match task-<condition> or acq-<condition>
+                for prefix in ['task', 'acq']:
+                    match = re.search(rf'{prefix}-([a-zA-Z0-9]+)', clean_name)
+                    if match:
+                        value = match.group(1).lower()
+                        # Check for known condition keywords
+                        if value in condition_keywords:
+                            return condition_keywords[value]
+                        # Check if value contains a known condition
+                        for keyword, normalized in condition_keywords.items():
+                            if keyword in value and len(keyword) >= 2:  # Avoid single char matches
+                                return normalized
+                        return value
+                return None
+
+            bids_cond1 = extract_bids_condition(clean1)
+            bids_cond2 = extract_bids_condition(clean2)
+
+            if bids_cond1 and bids_cond2 and bids_cond1 != bids_cond2:
+                return bids_cond1, bids_cond2
+
+            # Strategy 2: Split by delimiters and find differing parts
+            parts1 = re.split(r'[_\-\.]', clean1)
+            parts2 = re.split(r'[_\-\.]', clean2)
+
+            # Remove empty parts and subject identifiers
+            def filter_parts(parts):
+                filtered = []
+                for p in parts:
+                    if not p:
+                        continue
+                    # Skip subject identifier parts
+                    if re.match(r'^(sub|subject|subj|s|p|participant)$', p, re.IGNORECASE):
+                        continue
+                    if re.match(r'^\d{1,3}$', p):  # Skip pure numbers (likely subject IDs)
+                        continue
+                    filtered.append(p)
+                return filtered
+
+            parts1 = filter_parts(parts1)
+            parts2 = filter_parts(parts2)
+
+            # Find parts unique to each filename
+            set1 = set(parts1)
+            set2 = set(parts2)
+
+            unique_to_1 = set1 - set2
+            unique_to_2 = set2 - set1
+
+            def extract_condition_from_parts(parts_set):
+                """Extract condition from a set of filename parts."""
+                # First, check for exact matches with known conditions
+                for part in parts_set:
+                    if part in condition_keywords:
+                        return condition_keywords[part]
+
+                # Check for partial matches (condition contained in part)
+                for part in parts_set:
+                    for keyword, normalized in condition_keywords.items():
+                        # Require minimum length to avoid false matches
+                        if len(keyword) >= 2 and keyword in part:
+                            return normalized
+
+                # If no known condition found, return the first unique part
+                if parts_set:
+                    # Prefer longer parts (more likely to be meaningful)
+                    sorted_parts = sorted(parts_set, key=len, reverse=True)
+                    return sorted_parts[0]
+
+                return None
+
+            cond1 = extract_condition_from_parts(unique_to_1)
+            cond2 = extract_condition_from_parts(unique_to_2)
+
+            if cond1 and cond2 and cond1 != cond2:
+                return cond1, cond2
+
+            # Strategy 3: Compare parts position by position
+            min_len = min(len(parts1), len(parts2))
+            for i in range(min_len):
+                if parts1[i] != parts2[i]:
+                    p1, p2 = parts1[i], parts2[i]
+                    # Normalize if they're known conditions
+                    c1 = condition_keywords.get(p1, p1)
+                    c2 = condition_keywords.get(p2, p2)
+                    if c1 != c2:
+                        return c1, c2
+
+            return None, None
 
     @staticmethod
     def _detect_semantic_patterns(filenames: List[str]) -> Optional[Tuple]:
