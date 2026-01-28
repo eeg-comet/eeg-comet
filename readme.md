@@ -48,14 +48,14 @@ conda activate eegcomet
 #### Windows
 ```sh
 python -m venv eegcomet
-comet_env\Scripts\activate
+eegcomet\Scripts\activate
 pip install -r requirements.txt
 ```
 
 #### macOS/Linux
 ```sh
 python3 -m venv eegcomet
-source comet_env/bin/activate
+source eegcomet/bin/activate
 pip install -r requirements.txt
 ```
 
