@@ -4320,15 +4320,16 @@ class COMET:
             # Ensure logs are saved
             self._save_logs()
 
-            # Launch microstate labeling window
-            self._launch_microstate_labeling()
-
             # Notify any registered callbacks (e.g., GUI updates)
+            # The callback is responsible for opening the visualization window
             if (
                 hasattr(self, "clustering_completed_callback")
                 and self.clustering_completed_callback is not None
             ):
                 self.clustering_completed_callback()
+            else:
+                # Only launch window directly if no callback is registered (non-GUI mode or standalone)
+                self._launch_microstate_labeling()
 
         except Exception as e:
             error_msg = f"Error in clustering completion handler: {str(e)}"
@@ -4373,8 +4374,16 @@ class COMET:
             # Ensure logs are saved
             self._save_logs()
 
-            # Launch microstate labeling window
-            self._launch_microstate_labeling()
+            # Notify any registered callbacks (e.g., GUI updates)
+            # The callback is responsible for opening the visualization window
+            if (
+                hasattr(self, "clustering_completed_callback")
+                and self.clustering_completed_callback is not None
+            ):
+                self.clustering_completed_callback()
+            else:
+                # Only launch window directly if no callback is registered (non-GUI mode or standalone)
+                self._launch_microstate_labeling()
 
         else:
             self.logger.error("CLUSTERING", "Clustering failed - no valid results obtained")
