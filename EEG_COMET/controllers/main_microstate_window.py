@@ -10,7 +10,7 @@ from typing import Any, cast
 import pandas as pd
 from PyQt5 import QtCore, uic
 from PyQt5.QtCore import QEvent, QObject, Qt, pyqtSignal
-from PyQt5.QtGui import QColor, QFont, QImage, QKeySequence, QPixmap
+from PyQt5.QtGui import QColor, QFont, QFontDatabase, QImage, QKeySequence, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -578,11 +578,13 @@ class MainMicrostateWindow(QMainWindow):
 
         # Base font parameters (fixed size, no scaling)
         self._base_font_pt = 14
+        # Cross-platform font family - tries Calibri first, falls back to system fonts
+        self._font_family = self._get_cross_platform_font()
 
         # Set default application font / stylesheet safely (instance may be None)
         app_instance = QApplication.instance()
         if app_instance is not None:
-            cast(QApplication, app_instance).setFont(QFont("Calibri", self._base_font_pt))
+            cast(QApplication, app_instance).setFont(QFont(self._font_family, self._base_font_pt))
             cast(QApplication, app_instance).setStyleSheet(self.light_style)
 
         # Initial font scaling
@@ -623,10 +625,41 @@ class MainMicrostateWindow(QMainWindow):
         self._update_logo()
 
     # Font Helpers
+    def _get_cross_platform_font(self) -> str:
+        """Get a cross-platform font family that works on Windows, macOS, and Linux.
+
+        Returns:
+            str: Font family name that is available on the current system.
+        """
+        font_db = QFontDatabase()
+        available_fonts = font_db.families()
+
+        # Preferred fonts in order: Calibri (Windows), then cross-platform alternatives
+        preferred_fonts = [
+            "Calibri",           # Windows
+            "Segoe UI",          # Windows fallback
+            "SF Pro Text",       # macOS
+            "Helvetica Neue",    # macOS fallback
+            "Ubuntu",            # Ubuntu Linux
+            "Noto Sans",         # Linux (widely available)
+            "DejaVu Sans",       # Linux fallback
+            "Liberation Sans",   # Linux fallback
+            "Arial",             # Universal fallback
+            "sans-serif",        # Generic fallback
+        ]
+
+        for font in preferred_fonts:
+            if font in available_fonts:
+                return font
+
+        # If none found, return system default
+        return QApplication.font().family()
+
     def _update_font_sizes(self):
         """Set fixed application font size (no scaling)."""
         # Use fixed font size - no scaling based on window size
-        new_font = QFont("Calibri", self._base_font_pt)
+        font_family = getattr(self, "_font_family", "Calibri")
+        new_font = QFont(font_family, self._base_font_pt)
 
         app_instance = QApplication.instance()
         if app_instance is not None:

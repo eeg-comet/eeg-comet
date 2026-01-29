@@ -9,14 +9,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1200</width>
-    <height>1203</height>
+    <width>1000</width>
+    <height>800</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1200</width>
-    <height>1000</height>
+    <width>800</width>
+    <height>600</height>
    </size>
   </property>
   <property name="maximumSize">
@@ -162,8 +162,8 @@ Line {
   <widget class="QWidget" name="centralwidget">
    <property name="minimumSize">
     <size>
-     <width>1200</width>
-     <height>1000</height>
+     <width>0</width>
+     <height>0</height>
     </size>
    </property>
    <layout class="QGridLayout" name="gridLayout">
@@ -182,13 +182,13 @@ Line {
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>60</height>
+            <height>32</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>80</height>
+            <height>16777215</height>
            </size>
           </property>
           <property name="font">
@@ -256,18 +256,18 @@ Line {
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>50</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
           <property name="font">
            <font>
             <family>Calibri</family>
@@ -305,13 +305,13 @@ Line {
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>24</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>40</height>
+          <height>16777215</height>
          </size>
         </property>
         <property name="font">
@@ -343,18 +343,18 @@ Line {
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>50</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
           <property name="font">
            <font>
             <family>Calibri</family>
@@ -399,18 +399,18 @@ QPushButton:hover {
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>50</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
           <property name="font">
            <font>
             <family>Calibri</family>
@@ -468,18 +468,18 @@ QPushButton:hover {
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>50</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>60</height>
-           </size>
-          </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
           <property name="font">
            <font>
             <family>Calibri</family>
@@ -684,13 +684,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -723,13 +723,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -768,13 +768,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -814,13 +814,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -863,13 +863,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -902,13 +902,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -945,13 +945,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -988,13 +988,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1031,13 +1031,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1068,13 +1068,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1117,13 +1117,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1179,13 +1179,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1213,13 +1213,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1269,13 +1269,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1310,13 +1310,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1349,13 +1349,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1479,13 +1479,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1560,13 +1560,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1625,13 +1625,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1665,13 +1665,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1752,13 +1752,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1788,13 +1788,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1892,13 +1892,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1938,13 +1938,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1994,13 +1994,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2072,13 +2072,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2109,13 +2109,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2212,13 +2212,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2274,13 +2274,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2332,13 +2332,13 @@ QPushButton:hover {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -2372,13 +2372,13 @@ QPushButton:hover {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -2460,18 +2460,18 @@ QPushButton:hover {
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>50</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>16777215</width>
-                <height>60</height>
-               </size>
-              </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
               <property name="font">
                <font>
                 <family>Calibri</family>
@@ -2586,13 +2586,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2623,13 +2623,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2660,13 +2660,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2700,13 +2700,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2739,13 +2739,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2794,13 +2794,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2992,13 +2992,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3029,13 +3029,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3069,13 +3069,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3169,13 +3169,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3211,13 +3211,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3248,13 +3248,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3285,13 +3285,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3342,13 +3342,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3534,13 +3534,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3570,13 +3570,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -3607,13 +3607,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -3647,13 +3647,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -3692,13 +3692,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3729,13 +3729,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3766,13 +3766,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3803,13 +3803,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3840,13 +3840,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3877,13 +3877,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3935,13 +3935,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3984,13 +3984,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4015,13 +4015,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4054,13 +4054,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4088,13 +4088,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4124,13 +4124,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -4164,13 +4164,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -4204,13 +4204,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -4243,13 +4243,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -4326,13 +4326,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4380,13 +4380,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4422,13 +4422,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4473,13 +4473,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4548,13 +4548,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4579,13 +4579,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4618,13 +4618,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4652,13 +4652,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4689,13 +4689,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4726,13 +4726,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4942,13 +4942,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4988,13 +4988,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5060,13 +5060,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5120,13 +5120,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5214,13 +5214,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5263,13 +5263,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5314,13 +5314,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5353,13 +5353,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5393,13 +5393,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5436,13 +5436,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5536,13 +5536,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5576,13 +5576,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5612,13 +5612,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5670,13 +5670,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5709,13 +5709,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5801,13 +5801,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5840,13 +5840,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">

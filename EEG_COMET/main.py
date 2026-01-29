@@ -6,8 +6,14 @@ import warnings
 import logging
 
 import mne
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication
+
+# Enable high-DPI scaling BEFORE creating QApplication
+# This must be done before any QApplication instance is created
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
 from controllers.main_microstate_window import MainMicrostateWindow
 from gui_utils.terminal_logger import get_logger

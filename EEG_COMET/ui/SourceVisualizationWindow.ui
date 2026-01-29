@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>800</height>
+    <height>700</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>800</width>
-    <height>800</height>
+    <width>600</width>
+    <height>500</height>
    </size>
   </property>
   <property name="font">
@@ -69,13 +69,13 @@
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -118,13 +118,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -152,13 +152,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -207,13 +207,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -262,13 +262,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="orientation">
@@ -306,13 +306,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -340,13 +340,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -362,13 +362,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="text">
@@ -387,13 +387,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -459,13 +459,13 @@ QPushButton:disabled {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="text">
@@ -599,18 +599,18 @@ QPushButton:disabled {
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
-     <property name="minimumSize">
-      <size>
-       <width>0</width>
-       <height>60</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>16777215</width>
-       <height>80</height>
-      </size>
-     </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>32</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>16777215</height>
+        </size>
+       </property>
      <property name="font">
       <font>
        <family>Calibri</family>

@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>800</height>
+    <height>700</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>800</width>
-    <height>800</height>
+    <width>600</width>
+    <height>500</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -32,13 +32,13 @@
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>60</height>
+        <height>32</height>
        </size>
       </property>
       <property name="maximumSize">
        <size>
         <width>16777215</width>
-        <height>80</height>
+        <height>16777215</height>
        </size>
       </property>
       <property name="font">
@@ -79,7 +79,7 @@
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>60</height>
+          <height>16777215</height>
          </size>
         </property>
         <property name="font">
@@ -140,7 +140,7 @@ QPushButton:disabled {
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>60</height>
+          <height>16777215</height>
          </size>
         </property>
         <property name="font">
@@ -199,7 +199,7 @@ QPushButton:disabled {
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>60</height>
+          <height>16777215</height>
          </size>
         </property>
         <property name="font">
@@ -271,7 +271,7 @@ QPushButton:disabled {
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>60</height>
+          <height>16777215</height>
          </size>
         </property>
         <property name="font">
