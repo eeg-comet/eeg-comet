@@ -162,6 +162,7 @@ class COMET:
         self.epsilon = 1e-6
         self.b = 3
         self.lamb = 5
+        self.min_correlation_threshold = 0.5
         self.filter_segments_less_than_ms = 0
 
         # Features
@@ -334,6 +335,7 @@ class COMET:
         config["backfitting_config"]["epsilon"] = "1e-6"
         config["backfitting_config"]["b"] = "3"
         config["backfitting_config"]["lamb"] = "5"
+        config["backfitting_config"]["min_correlation_threshold"] = "0.5"
 
         # Set default feature extraction values
         config["features_config"]["export_format"] = ".csv"
@@ -544,6 +546,14 @@ class COMET:
             self.lamb = backfitting_config.getint("lamb", 5)
         except (ValueError, TypeError):
             self.lamb = 5
+        _corr_thresh = backfitting_config.get("min_correlation_threshold", "False").strip()
+        if _corr_thresh in ("", "False", "false", "0"):
+            self.min_correlation_threshold = False
+        else:
+            try:
+                self.min_correlation_threshold = float(_corr_thresh)
+            except (ValueError, TypeError):
+                self.min_correlation_threshold = False
 
         # Feature Extraction Configs
         features_config = self.config["features_config"]
@@ -2373,6 +2383,7 @@ class COMET:
             sample_rate=self.sample_rate,
             smoothing_parameters=[self.epsilon, self.b, self.lamb],
             export_format=self.export_format,
+            min_correlation_threshold=getattr(self, "min_correlation_threshold", False),
         )
 
         # Identify optimal window size if requested
@@ -4169,6 +4180,9 @@ class COMET:
         self.config["backfitting_config"]["epsilon"] = str(self.epsilon)
         self.config["backfitting_config"]["b"] = str(self.b)
         self.config["backfitting_config"]["lamb"] = str(self.lamb)
+        self.config["backfitting_config"]["min_correlation_threshold"] = (
+            str(self.min_correlation_threshold) if self.min_correlation_threshold is not False else "False"
+        )
 
         self.config["features_config"]["export_format"] = self.export_format
         self.config["features_config"]["feature_list"] = ", ".join(self.feature_list)
