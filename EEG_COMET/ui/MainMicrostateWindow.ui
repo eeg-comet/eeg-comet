@@ -256,18 +256,18 @@ Line {
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>16777215</height>
-            </size>
-           </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>32</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
           <property name="font">
            <font>
             <family>Calibri</family>
@@ -343,18 +343,18 @@ Line {
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>16777215</height>
-            </size>
-           </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>32</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
           <property name="font">
            <font>
             <family>Calibri</family>
@@ -399,18 +399,18 @@ QPushButton:hover {
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>16777215</height>
-            </size>
-           </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>32</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
           <property name="font">
            <font>
             <family>Calibri</family>
@@ -468,18 +468,18 @@ QPushButton:hover {
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>16777215</height>
-            </size>
-           </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>32</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
           <property name="font">
            <font>
             <family>Calibri</family>
@@ -637,9 +637,9 @@ QPushButton:hover {
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-1462</y>
-               <width>1139</width>
-               <height>1740</height>
+               <y>0</y>
+               <width>939</width>
+               <height>1170</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
@@ -2460,18 +2460,18 @@ QPushButton:hover {
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>16777215</height>
-            </size>
-           </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>16777215</height>
+               </size>
+              </property>
               <property name="font">
                <font>
                 <family>Calibri</family>
@@ -2564,14 +2564,88 @@ QPushButton:disabled {
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>0</y>
-               <width>1139</width>
-               <height>800</height>
+               <y>-375</y>
+               <width>939</width>
+               <height>600</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_5">
               <item row="0" column="0">
                <layout class="QGridLayout" name="step3_backfit_GLayout">
+                <item row="15" column="4">
+                 <widget class="QLineEdit" name="step3_smooth_segments_b_input">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>5</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="14" column="3">
+                 <widget class="QLabel" name="step3_smooth_segments_b_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Half Window Size (b):</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
                 <item row="2" column="1" colspan="4">
                  <widget class="QRadioButton" name="step3_backfit_peaks_radio">
                   <property name="enabled">
@@ -2609,8 +2683,29 @@ QPushButton:disabled {
                   </attribute>
                  </widget>
                 </item>
-                <item row="14" column="3" colspan="2">
-                 <widget class="QLabel" name="step3_smooth_segments_lambda_label">
+                <item row="17" column="3">
+                 <spacer name="step3_HSpacer2_13">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="17" column="4">
+                 <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2639,10 +2734,266 @@ QPushButton:disabled {
                    </font>
                   </property>
                   <property name="text">
-                   <string>Non-smoothness Penalty:</string>
+                   <string>10</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="5" rowspan="13">
+                 <spacer name="step3_HSpacer2_2">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="5" column="0" rowspan="13">
+                 <spacer name="step3_HSpacer2">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="13" column="4">
+                 <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>1E-6</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="11" column="4">
+                 <widget class="QLineEdit" name="step3_filter_segments_input">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>20</string>
+                  </property>
+                  <property name="maxLength">
+                   <number>3</number>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="9" column="1" rowspan="9">
+                 <spacer name="step3_HSpacer2_5">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="12" column="3" colspan="2">
+                 <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Convergence Criterion:</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="1" colspan="4">
+                 <widget class="QCheckBox" name="step3_filter_segments_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                   </font>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
+                  <property name="text">
+                   <string>Filter Transient Segments</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item row="9" column="2" colspan="3">
+                 <widget class="QCheckBox" name="step3_identify_short_checkbox">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Automatically Identify Optimal Smoothing Length</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
                   </property>
                  </widget>
                 </item>
@@ -2686,6 +3037,80 @@ QPushButton:disabled {
                   </attribute>
                  </widget>
                 </item>
+                <item row="10" column="3" colspan="2">
+                 <widget class="QLabel" name="step3_window_segments_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Reject Segments ≤ (ms):</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="16" column="3" colspan="2">
+                 <widget class="QLabel" name="step3_smooth_segments_lambda_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Non-smoothness Penalty:</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
                 <item row="6" column="2" colspan="3">
                  <widget class="QLabel" name="step3_filter_segments_method_label">
                   <property name="enabled">
@@ -2725,43 +3150,6 @@ QPushButton:disabled {
                   </property>
                  </widget>
                 </item>
-                <item row="10" column="3" colspan="2">
-                 <widget class="QLabel" name="step3_window_segments_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>32</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Window Size (ms):</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-                  </property>
-                 </widget>
-                </item>
                 <item row="8" column="1" colspan="4">
                  <widget class="Line" name="step3_line3">
                   <property name="sizePolicy">
@@ -2779,6 +3167,90 @@ QPushButton:disabled {
                    <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
+                </item>
+                <item row="13" column="3">
+                 <spacer name="step3_HSpacer2_11">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="6" column="1" rowspan="2">
+                 <spacer name="step3_HSpacer2_3">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="1" column="5" rowspan="2">
+                 <spacer name="step3_HSpacer1_2">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="1" column="0" rowspan="2">
+                 <spacer name="step3_HSpacer1">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
                 </item>
                 <item row="7" column="2" colspan="3">
                  <widget class="QComboBox" name="step3_filter_segments_method_combobox">
@@ -2831,111 +3303,6 @@ QPushButton:disabled {
                   </item>
                  </widget>
                 </item>
-                <item row="6" column="1" rowspan="2">
-                 <spacer name="step3_HSpacer2_3">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="1" column="0" rowspan="2">
-                 <spacer name="step3_HSpacer1">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="13" column="3">
-                 <spacer name="step3_HSpacer2_11">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>1</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="1" column="5" rowspan="2">
-                 <spacer name="step3_HSpacer1_2">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="10" column="2" rowspan="6">
-                 <spacer name="step3_HSpacer2_7">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>2</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
                 <item row="11" column="3">
                  <spacer name="step3_HSpacer2_9">
                   <property name="font">
@@ -2957,8 +3324,8 @@ QPushButton:disabled {
                   </property>
                  </spacer>
                 </item>
-                <item row="15" column="3">
-                 <spacer name="step3_HSpacer2_13">
+                <item row="10" column="2" rowspan="8">
+                 <spacer name="step3_HSpacer2_7">
                   <property name="font">
                    <font>
                     <family>Calibri</family>
@@ -2972,304 +3339,11 @@ QPushButton:disabled {
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
-                    <width>1</width>
+                    <width>2</width>
                     <height>10</height>
                    </size>
                   </property>
                  </spacer>
-                </item>
-                <item row="15" column="4">
-                 <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>32</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>5</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="11" column="4">
-                 <widget class="QLineEdit" name="step3_filter_segments_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>32</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>20</string>
-                  </property>
-                  <property name="maxLength">
-                   <number>3</number>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="13" column="4">
-                 <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>32</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>1E-6</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="5" column="5" rowspan="11">
-                 <spacer name="step3_HSpacer2_2">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="5" column="0" rowspan="11">
-                 <spacer name="step3_HSpacer2">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="9" column="1" rowspan="7">
-                 <spacer name="step3_HSpacer2_5">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="5" column="1" colspan="4">
-                 <widget class="QCheckBox" name="step3_filter_segments_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>32</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
-                   </font>
-                  </property>
-                  <property name="styleSheet">
-                   <string notr="true"/>
-                  </property>
-                  <property name="text">
-                   <string>Filter Transient Segments</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item row="12" column="3" colspan="2">
-                 <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>32</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Convergence Criterion:</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="9" column="2" colspan="3">
-                 <widget class="QCheckBox" name="step3_identify_short_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>32</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Automatically Identify Optimal Smoothing Length</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
                 </item>
                 <item row="0" column="0" colspan="6">
                  <widget class="QLabel" name="step3_backfit_label">
@@ -3310,24 +3384,6 @@ QPushButton:disabled {
                   </property>
                  </widget>
                 </item>
-                <item row="3" column="0" colspan="6">
-                 <widget class="Line" name="step3_line2">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
                 <item row="4" column="0" colspan="6">
                  <widget class="QLabel" name="step3_filter_segments_param_label">
                   <property name="enabled">
@@ -3364,6 +3420,24 @@ QPushButton:disabled {
                   </property>
                   <property name="text">
                    <string>Filter Segments Parameters:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0" colspan="6">
+                 <widget class="Line" name="step3_line2">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
                 </item>
@@ -3513,8 +3587,8 @@ QPushButton:disabled {
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>1139</width>
-               <height>866</height>
+               <width>586</width>
+               <height>566</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_9">
@@ -4921,8 +4995,8 @@ QPushButton:disabled {
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>1139</width>
-               <height>976</height>
+               <width>500</width>
+               <height>650</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
@@ -6130,7 +6204,7 @@ QPushButton:hover {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1200</width>
+     <width>1000</width>
      <height>18</height>
     </rect>
    </property>
@@ -6351,13 +6425,13 @@ QPushButton:hover {
  <connections/>
  <buttongroups>
   <buttongroup name="OptimizerGroup"/>
-  <buttongroup name="InitializersGroup"/>
-  <buttongroup name="AnatomyGroup"/>
-  <buttongroup name="InputGroup"/>
-  <buttongroup name="NstatesGroup"/>
-  <buttongroup name="BackfitGroup"/>
   <buttongroup name="BEMGroup"/>
   <buttongroup name="SlidingGroup"/>
+  <buttongroup name="InitializersGroup"/>
+  <buttongroup name="AnatomyGroup"/>
   <buttongroup name="SourceGroup"/>
+  <buttongroup name="InputGroup"/>
+  <buttongroup name="BackfitGroup"/>
+  <buttongroup name="NstatesGroup"/>
  </buttongroups>
 </ui>
