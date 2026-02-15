@@ -2681,7 +2681,7 @@ class COMET:
                     f"Replacing segments less than {self.filter_segments_less_than_ms}ms using half-and-half method")
             elif self.filter_segments_option == "smooth":
                 self.logger.processing_info("BACKFITTING", 
-                    f"Smoothing segments with window size {self.filter_segments_less_than_ms}ms and lambda {self.lamb}")
+                    f"Smoothing segments: reject ≤ {self.filter_segments_less_than_ms}ms, half-window b={self.b}, lambda={self.lamb}")
 
         # Perform backfitting on all files
         if hasattr(self, "LogWindow") and self.LogWindow is not None:

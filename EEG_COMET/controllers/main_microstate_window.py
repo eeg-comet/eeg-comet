@@ -298,6 +298,8 @@ class WidgetGroups:
             self.ui.step3_smooth_segments_epsilon_input,
             self.ui.step3_smooth_segments_lambda_label,
             self.ui.step3_smooth_segments_lambda_input,
+            self.ui.step3_smooth_segments_b_label,
+            self.ui.step3_smooth_segments_b_input,
         ]
 
     def _get_identify_short_widgets(self):
@@ -2698,8 +2700,6 @@ class MainMicrostateWindow(QMainWindow):
             filter_segments_ms = int(self.ui.step3_filter_segments_input.text())
             # Store in milliseconds (used by comet.py when not identifying optimal window)
             self.comet.filter_segments_less_than = filter_segments_ms
-            # Also convert to samples for the b parameter (used by smoothing)
-            filter_segments_samples = int(filter_segments_ms / (1000 / self.comet.sample_rate))
 
             # Set filter method
             method_map = {
@@ -2714,7 +2714,7 @@ class MainMicrostateWindow(QMainWindow):
             # Set smooth parameters if needed
             if self.comet.filter_segments_option == "smooth":
                 self.comet.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
-                self.comet.b = filter_segments_samples
+                self.comet.b = int(self.ui.step3_smooth_segments_b_input.text())
                 self.comet.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
             else:
                 self.comet.epsilon = ""
