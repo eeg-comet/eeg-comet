@@ -71,6 +71,11 @@ class MicrostateBackfitter:
         self.smoothing_parameters = smoothing_parameters if smoothing_parameters else [1e-6, 3, 10]
         self.export_format = export_format
         self.min_correlation_threshold = min_correlation_threshold
+        if self.microstate_maps.shape[0] != len(self.microstate_labels):
+            raise ValueError(
+                "microstate_maps.shape[0] must equal len(micro_labels); "
+                f"got {self.microstate_maps.shape[0]} and {len(self.microstate_labels)}."
+            )
 
     @staticmethod
     def fill_with_neighbors_with_higher_count(segmentation):
@@ -93,28 +98,38 @@ class MicrostateBackfitter:
                     i += 1
                 end = i - 1
 
-                prev = segmentation[start - 1] if start > 0 else 0
-                next_val = segmentation[end + 1] if end < n - 1 else 0
+                prev = segmentation[start - 1] if start > 0 else -1
+                next_val = segmentation[end + 1] if end < n - 1 else -1
 
-                prev_count = 0
-                if start > 0:
-                    window_before = segmentation[max(start - 2, 0) : start]
-                    prev_count = Counter(window_before).most_common(1)[0][1]
-
-                next_count = 0
-                if end < n - 1:
-                    window_after = segmentation[end + 2 : min(end + 3, n)]
-                    next_count = Counter(window_after).most_common(1)[0][1]
-
-                if prev_count > next_count:
-                    fill_value = prev
-                elif prev_count < next_count:
+                if prev < 0 and next_val < 0:
+                    pass  # no neighbor: leave as -1
+                elif prev < 0:
                     fill_value = next_val
+                    for j in range(start, end + 1):
+                        filled_segmentation[j] = fill_value
+                elif next_val < 0:
+                    fill_value = prev
+                    for j in range(start, end + 1):
+                        filled_segmentation[j] = fill_value
                 else:
-                    fill_value = prev or next_val
+                    prev_count = 0
+                    if start > 0:
+                        window_before = segmentation[max(start - 2, 0) : start]
+                        prev_count = Counter(window_before).most_common(1)[0][1]
 
-                for j in range(start, end + 1):
-                    filled_segmentation[j] = fill_value
+                    next_count = 0
+                    if end < n - 1:
+                        window_after = segmentation[end + 2 : min(end + 3, n)]
+                        next_count = Counter(window_after).most_common(1)[0][1]
+
+                    if prev_count > next_count:
+                        fill_value = prev
+                    elif prev_count < next_count:
+                        fill_value = next_val
+                    else:
+                        fill_value = prev if prev >= 0 else next_val
+                    for j in range(start, end + 1):
+                        filled_segmentation[j] = fill_value
             else:
                 i += 1
 
@@ -143,16 +158,24 @@ class MicrostateBackfitter:
                     count += 1
                 end = i - 1
 
-                fill_value_prev = segmentation[start - 1] if start > 0 else 0
-                fill_value_next = segmentation[end + 1] if end < n - 1 else 0
+                fill_value_prev = segmentation[start - 1] if start > 0 else -1
+                fill_value_next = segmentation[end + 1] if end < n - 1 else -1
 
-                half_count = count // 2
-                half_count_prev = half_count if count % 2 == 0 else half_count + 1
-
-                for j in range(start, start + half_count_prev):
-                    filled_segmentation[j] = fill_value_prev
-                for j in range(start + half_count_prev, end + 1):
-                    filled_segmentation[j] = fill_value_next
+                if fill_value_prev < 0 and fill_value_next < 0:
+                    pass  # no neighbor: leave chunk as -1
+                elif fill_value_prev < 0:
+                    for j in range(start, end + 1):
+                        filled_segmentation[j] = fill_value_next
+                elif fill_value_next < 0:
+                    for j in range(start, end + 1):
+                        filled_segmentation[j] = fill_value_prev
+                else:
+                    half_count = count // 2
+                    half_count_prev = half_count if count % 2 == 0 else half_count + 1
+                    for j in range(start, start + half_count_prev):
+                        filled_segmentation[j] = fill_value_prev
+                    for j in range(start + half_count_prev, end + 1):
+                        filled_segmentation[j] = fill_value_next
 
                 count = 0
             else:
@@ -268,6 +291,9 @@ class MicrostateBackfitter:
                 
                 temp_segmentation[tf] = best_nc
             
+            # Stop when no assignment changed (stable segmentation)
+            if np.array_equal(segmentation, temp_segmentation):
+                break
             # Update only valid timepoints, preserve -1 for rejected
             segmentation[valid_mask] = temp_segmentation[valid_mask]
             
@@ -280,10 +306,6 @@ class MicrostateBackfitter:
                 act_sum_sq += (data_norms[tf] * corr) ** 2
             
             gev = act_sum_sq / data_sum_sq
-            
-            # Convergence: stop at first GEV increase (oscillation indicator)
-            if gev > gevbefore or gev == 0:
-                break
             
             rel_diff = abs(gev - gevbefore) / (gevbefore + 1e-10)
             if rel_diff <= convergence_threshold:
@@ -322,14 +344,21 @@ class MicrostateBackfitter:
         if option == "smooth":
             # Step 1: Apply Pascual-Marqui temporal smoothing
             filled_segmentation = self.segmentation_smooth(
-                data, 
-                microstate_maps, 
+                data,
+                microstate_maps,
                 n_states,
                 initial_segmentation=segmentation,
                 epsilon=smoothing_parameters[0],
                 half_window_size=smoothing_parameters[1],
                 lamb=smoothing_parameters[2]
             )
+            # Precompute normalized maps and data once for redistribute loop
+            maps_centered = microstate_maps - np.mean(microstate_maps, axis=1, keepdims=True)
+            maps_norms = np.linalg.norm(maps_centered, axis=1, keepdims=True)
+            maps_normalized = maps_centered / (maps_norms + 1e-10)
+            data_centered = data - np.mean(data, axis=0, keepdims=True)
+            data_norms = np.linalg.norm(data_centered, axis=0)
+            data_normalized = data_centered / (data_norms[np.newaxis, :] + 1e-10)
             # Step 2: Reject short segments and distribute to neighbors (iterative).
             # Redistribution can create new short segments at split boundaries, so
             # repeat mark + distribute until no segment <= segments_less_than remains,
@@ -340,7 +369,8 @@ class MicrostateBackfitter:
                 if not np.any(marked == -1):
                     break
                 filled_segmentation = self._distribute_rejected_to_neighbors(
-                    marked, data, microstate_maps
+                    marked, data, microstate_maps,
+                    maps_normalized=maps_normalized, data_normalized=data_normalized
                 )
             
         elif option == "replace_high":
@@ -357,7 +387,8 @@ class MicrostateBackfitter:
         return filled_segmentation
 
     @staticmethod
-    def _distribute_rejected_to_neighbors(segmentation, data, microstate_maps):
+    def _distribute_rejected_to_neighbors(segmentation, data, microstate_maps,
+                                          maps_normalized=None, data_normalized=None):
         """Distribute rejected segments to neighboring segments using spatial correlation.
 
         For each contiguous chunk of rejected timepoints (-1), determines the
@@ -370,25 +401,35 @@ class MicrostateBackfitter:
             segmentation (numpy.ndarray): Segmentation with -1 for rejected timepoints.
             data (numpy.ndarray): EEG data (n_channels, n_samples).
             microstate_maps (numpy.ndarray): Template maps (n_states, n_channels).
+            maps_normalized (numpy.ndarray, optional): Pre-centered and L2-normalized
+                template maps. If None, computed from microstate_maps.
+            data_normalized (numpy.ndarray, optional): Pre-centered and L2-normalized
+                data. If None, computed from data.
 
         Returns:
             numpy.ndarray: Segmentation with rejected timepoints re-assigned.
         """
+        if maps_normalized is None:
+            maps_centered = microstate_maps - np.mean(microstate_maps, axis=1, keepdims=True)
+            maps_norms = np.linalg.norm(maps_centered, axis=1, keepdims=True)
+            maps_normalized = maps_centered / (maps_norms + 1e-10)
+        if data_normalized is None:
+            data_centered = data - np.mean(data, axis=0, keepdims=True)
+            data_norms = np.linalg.norm(data_centered, axis=0)
+            data_normalized = data_centered / (data_norms[np.newaxis, :] + 1e-10)
+
+        return MicrostateBackfitter._distribute_rejected_to_neighbors_impl(
+            segmentation, maps_normalized, data_normalized
+        )
+
+    @staticmethod
+    def _distribute_rejected_to_neighbors_impl(segmentation, maps_normalized, data_normalized):
+        """Distribute rejected segments using precomputed normalized maps and data."""
         result = segmentation.copy()
         n_samples = len(segmentation)
 
         if not np.any(segmentation == -1):
             return result
-
-        # Pre-center and normalize templates
-        maps_centered = microstate_maps - np.mean(microstate_maps, axis=1, keepdims=True)
-        maps_norms = np.linalg.norm(maps_centered, axis=1, keepdims=True)
-        maps_normalized = maps_centered / (maps_norms + 1e-10)
-
-        # Pre-center and normalize data
-        data_centered = data - np.mean(data, axis=0, keepdims=True)
-        data_norms = np.linalg.norm(data_centered, axis=0)
-        data_normalized = data_centered / (data_norms[np.newaxis, :] + 1e-10)
 
         # Scan for contiguous rejected chunks and distribute to neighbors
         i = 0
@@ -513,11 +554,12 @@ class MicrostateBackfitter:
         
         This quality control step marks timepoints as -1 (rejected) if their absolute
         correlation with the assigned microstate template falls below the threshold.
-        This ensures only high-confidence assignments are retained for analysis.
+        Only valid labels (>= 0) are threshold-tested; any -1 already present in
+        segmentation are left unchanged.
         
         Args:
             correlation_matrix (np.ndarray): Spatial correlations (n_states, n_timepoints).
-            segmentation (np.ndarray): Assigned labels (n_timepoints,).
+            segmentation (np.ndarray): Assigned labels (n_timepoints,). May contain -1.
             threshold (float or False): Minimum absolute correlation threshold. If False,
                 no filtering is applied. Values typically range from 0.5 (liberal) to 
                 0.7 (conservative). Default: False.
@@ -531,24 +573,32 @@ class MicrostateBackfitter:
         
         segmentation = segmentation.copy()
         n_timepoints = segmentation.shape[0]
+        valid_mask = segmentation >= 0
+        if not np.any(valid_mask):
+            return segmentation
+        
         timepoint_indices = np.arange(n_timepoints)
+        valid_indices = timepoint_indices[valid_mask]
+        valid_labels = segmentation[valid_mask].astype(int)
         
-        # Extract correlation for each timepoint with its assigned label (polarity-invariant)
-        assigned_correlations = np.abs(correlation_matrix[segmentation, timepoint_indices])
-        
-        # Mark timepoints below threshold as rejected
-        low_correlation_mask = assigned_correlations < threshold
-        segmentation[low_correlation_mask] = -1
+        # Extract correlation only for valid timepoints (avoid indexing with -1)
+        assigned_correlations = np.abs(correlation_matrix[valid_labels, valid_indices])
+        low_correlation = assigned_correlations < threshold
+        segmentation[valid_indices[low_correlation]] = -1
         
         return segmentation
 
     @staticmethod
     def mark_short_segments(segmentation, min_occurrence):
-        """Mark segments shorter than minimum duration as rejected (-1).
+        """Mark segments with duration ≤ min_occurrence as rejected (-1).
+
+        Segments shorter than or equal to the threshold (in samples) are marked -1.
+        Longer segments are left unchanged.
 
         Args:
             segmentation (numpy.ndarray): Segmentation array.
-            min_occurrence (int): Minimum segment duration in samples.
+            min_occurrence (int): Maximum duration (samples) for a segment to be
+                considered short; segments with duration ≤ this are rejected.
 
         Returns:
             numpy.ndarray: Segmentation with short segments marked as -1.
@@ -870,6 +920,9 @@ class MicrostateBackfitter:
     def _compute_quality(self, eeg_data, segmentation):
         """Compute quality metric combining correlation, stability, and coverage.
 
+        Uses the same Pearson spatial correlation (center + L2-normalize) as
+        compute_correlation_matrix and backfitting for consistency.
+
         Args:
             eeg_data (np.ndarray): EEG data (n_channels, n_timepoints).
             segmentation (np.ndarray): Segmentation labels.
@@ -880,44 +933,42 @@ class MicrostateBackfitter:
         valid_indices = segmentation != -1
         if not np.any(valid_indices):
             return 0.0
-        
+
         valid_data = eeg_data[:, valid_indices]
         valid_labels = segmentation[valid_indices]
-        
-        # Template correlation quality
+        n_states = self.microstate_maps.shape[0]
+
+        # Same correlation definition as compute_correlation_matrix (center + L2 normalize)
+        maps_centered = self.microstate_maps - np.mean(self.microstate_maps, axis=1, keepdims=True)
+        maps_norm = np.linalg.norm(maps_centered, axis=1, keepdims=True)
+        maps_normalized = maps_centered / (maps_norm + 1e-10)
+        data_centered = valid_data - np.mean(valid_data, axis=0, keepdims=True)
+        data_norm = np.linalg.norm(data_centered, axis=0, keepdims=True)
+        data_normalized = data_centered / (data_norm + 1e-10)
+        correlation_matrix = np.dot(maps_normalized, data_normalized)
+        correlation_matrix = np.nan_to_num(correlation_matrix, nan=0.0, posinf=0.0, neginf=0.0)
+
+        # Per-label mean absolute correlation (vectorized)
         template_correlations = []
-        unique_labels = np.unique(valid_labels)
-        
-        for label in unique_labels:
-            if 0 <= label < len(self.microstate_maps):
-                label_mask = valid_labels == label
-                if np.any(label_mask):
-                    label_data = valid_data[:, label_mask]
-                    template = self.microstate_maps[label]
-                    
-                    corrs = []
-                    for t in range(label_data.shape[1]):
-                        corr = np.corrcoef(template, label_data[:, t])[0, 1]
-                        if not np.isnan(corr):
-                            corrs.append(abs(corr))
-                    
-                    if corrs:
-                        template_correlations.append(np.mean(corrs))
-        
+        for label in range(n_states):
+            label_mask = valid_labels == label
+            if np.any(label_mask):
+                corrs = np.abs(correlation_matrix[label, label_mask])
+                template_correlations.append(np.mean(corrs))
         template_quality = np.mean(template_correlations) if template_correlations else 0.0
-        
+
         # Temporal stability (fewer transitions = more stable)
         n_transitions = np.sum(np.diff(valid_labels) != 0)
         stability_score = 1.0 / (1.0 + n_transitions / len(valid_labels))
-        
+
         # Data coverage (proportion of data retained)
         coverage_score = len(valid_labels) / len(segmentation)
-        
+
         # Weighted combination
-        quality_score = (0.6 * template_quality + 
-                        0.3 * stability_score + 
+        quality_score = (0.6 * template_quality +
+                        0.3 * stability_score +
                         0.1 * coverage_score)
-        
+
         return quality_score
 
     @staticmethod
@@ -972,7 +1023,7 @@ class MicrostateBackfitter:
                 option=self.filter_segments_option,
                 data=data,
                 microstate_maps=self.microstate_maps,
-                n_states=len(self.microstate_labels),
+                n_states=self.microstate_maps.shape[0],
                 smoothing_parameters=[
                     self.smoothing_parameters[0],  # epsilon
                     self.smoothing_parameters[1],  # half_window_size (b)
@@ -989,33 +1040,43 @@ class MicrostateBackfitter:
 
         Returns:
             ndarray: Segmentation with labels interpolated across peak intervals.
+                Length always equals data.shape[1].
         """
+        n_timepoints = data.shape[1]
         gfp = np.std(data, axis=0)
         peaks, _ = find_peaks(gfp)
-        
+
+        if len(peaks) == 0:
+            return self.backfit2all(data, 0)
+
         # Find troughs between peaks for segment boundaries
         troughs = [0]
         for p in range(len(peaks) - 1):
             min_arg = np.argmin(gfp[peaks[p] : peaks[p + 1]])
             troughs.append(peaks[p] + min_arg)
         troughs.append(len(gfp))
-        diff_troughs = np.diff(troughs)
-        
+        diff_troughs = np.diff(troughs).astype(int)
+
         # Assign labels at peaks using Pearson correlation
         data_peaks = data[:, peaks]
         maps_centered = self.microstate_maps - np.mean(self.microstate_maps, axis=1, keepdims=True)
         maps_norm = np.linalg.norm(maps_centered, axis=1, keepdims=True)
         maps_normalized = maps_centered / (maps_norm + 1e-10)
-        
+
         data_centered = data_peaks - np.mean(data_peaks, axis=0, keepdims=True)
         data_norm = np.linalg.norm(data_centered, axis=0, keepdims=True)
         data_normalized = data_centered / (data_norm + 1e-10)
-        
+
         activation = np.dot(maps_normalized, data_normalized)
-        segmentation_peaks = np.argmax(np.abs(activation), axis=0)
-        
-        # Interpolate labels across segments
-        return np.repeat(segmentation_peaks.astype(int), diff_troughs.astype(int))
+        segmentation_peaks = np.argmax(np.abs(activation), axis=0).astype(int)
+
+        segmentation = np.repeat(segmentation_peaks, diff_troughs)
+        if len(segmentation) > n_timepoints:
+            segmentation = segmentation[:n_timepoints]
+        elif len(segmentation) < n_timepoints:
+            pad_len = n_timepoints - len(segmentation)
+            segmentation = np.concatenate([segmentation, np.full(pad_len, segmentation[-1], dtype=int)])
+        return segmentation
 
     def perform_segmentation(self, eeg, filter_segments_less_than):
         """Perform microstate segmentation on EEG data.
