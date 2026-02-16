@@ -162,7 +162,7 @@ class COMET:
         self.epsilon = 1e-6
         self.b = 3
         self.lamb = 5
-        self.min_correlation_threshold = 0.5
+        self.min_correlation_threshold = False
         self.filter_segments_less_than_ms = 0
 
         # Features
@@ -335,7 +335,7 @@ class COMET:
         config["backfitting_config"]["epsilon"] = "1e-6"
         config["backfitting_config"]["b"] = "3"
         config["backfitting_config"]["lamb"] = "5"
-        config["backfitting_config"]["min_correlation_threshold"] = "0.5"
+        config["backfitting_config"]["min_correlation_threshold"] = "False"
 
         # Set default feature extraction values
         config["features_config"]["export_format"] = ".csv"
