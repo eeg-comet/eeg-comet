@@ -325,7 +325,6 @@ class COMET:
         config["clustering_config"]["clustering_tolerance"] = "1e-6"
         config["clustering_config"]["similarity_metric"] = "Spatial Correlation"
         config["clustering_config"]["number_of_repeats"] = "5"
-
         # Set default backfitting values
         config["backfitting_config"]["backfit_to"] = "all"
         config["backfitting_config"]["identify_short_window"] = "False"
@@ -4169,7 +4168,6 @@ class COMET:
         self.config["clustering_config"]["clustering_tolerance"] = str(self.clustering_tolerance)
         self.config["clustering_config"]["similarity_metric"] = self.similarity_metric
         self.config["clustering_config"]["number_of_repeats"] = str(self.number_of_repeats)
-
         self.config["backfitting_config"]["backfit_to"] = self.backfit_to
         self.config["backfitting_config"]["identify_short_window"] = str(self.identify_short_window)
         self.config["backfitting_config"]["filter_segments"] = str(self.filter_segments)
