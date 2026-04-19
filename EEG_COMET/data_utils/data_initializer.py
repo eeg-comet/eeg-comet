@@ -180,11 +180,11 @@ class DataInitializer:
         maps2use, peaks2use = [], []
         counter = 0
 
-        # If using random sampling with a seed, we need to ensure consistent sampling across files
-        if use_percentages is not None and random_seed is not None:
-            # Create a random state for consistent sampling
-            np.random.RandomState(random_seed)
-
+        # When use_percentages is set together with random_seed, reproducibility
+        # is achieved by deriving a distinct per-file seed
+        # (``file_seed = random_seed + counter``) below and passing it to
+        # ``extract_gfp_peaks_and_maps``. This yields a stable but different
+        # random sample within each file across runs.
         for eeg_path in all_preprocessed_paths:
             eeg = data_io.load_eeg(eeg_path, datatype)
             eeg_data = data_io.get_eeg_data(eeg, datatype)

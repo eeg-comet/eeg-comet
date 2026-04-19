@@ -2,11 +2,12 @@
 
 import json
 import os
-import pickle
 
 import h5py
 import numpy as np
 import pandas as pd
+
+from data_utils.safe_io import safe_pickle_load
 
 
 class SegmentationIO:
@@ -14,7 +15,6 @@ class SegmentationIO:
 
     def __init__(self):
         """Initialize a new SegmentationIO instance."""
-        # No state required yet; placeholder for future extensibility
         return
 
     @staticmethod
@@ -116,20 +116,19 @@ class SegmentationIO:
                 labels = df["label"].astype(str).values
                 return np.array([labels], dtype="<U10")
             if import_format == ".pkl":
-                with open(segmentation_path, "rb") as f:
-                    data = pickle.load(f)
-                    if "trial" in data:
-                        trials = np.unique(data["trial"])
-                        time_points = np.unique(data["time"])
-                        # Use string dtype to ensure hashable labels
-                        segmentation_array = np.empty((len(trials), len(time_points)), dtype="<U10")
-                        for i, trial in enumerate(trials):
-                            indices = np.where(data["trial"] == trial)
-                            labels = np.array(data["label"])[indices].astype(str)
-                            segmentation_array[i, :] = labels
-                        return segmentation_array
-                    labels = np.array(data["label"]).astype(str)
-                    return np.array([labels], dtype="<U10")
+                data = safe_pickle_load(segmentation_path)
+                if "trial" in data:
+                    trials = np.unique(data["trial"])
+                    time_points = np.unique(data["time"])
+                    # Use string dtype to ensure hashable labels
+                    segmentation_array = np.empty((len(trials), len(time_points)), dtype="<U10")
+                    for i, trial in enumerate(trials):
+                        indices = np.where(data["trial"] == trial)
+                        labels = np.array(data["label"])[indices].astype(str)
+                        segmentation_array[i, :] = labels
+                    return segmentation_array
+                labels = np.array(data["label"]).astype(str)
+                return np.array([labels], dtype="<U10")
             elif import_format == ".hdf":
                 with h5py.File(segmentation_path, "r") as h5f:
                     if "trial" in h5f:

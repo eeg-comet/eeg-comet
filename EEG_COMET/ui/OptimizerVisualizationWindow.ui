@@ -122,6 +122,9 @@
     </item>
     <item row="2" column="1">
      <widget class="QLineEdit" name="optimizer_max_input">
+      <property name="toolTip">
+       <string>Largest number of clusters (k) to test</string>
+      </property>
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
         <horstretch>0</horstretch>
@@ -161,6 +164,9 @@
     </item>
     <item row="4" column="0" colspan="2">
      <widget class="QPushButton" name="optimizer_button">
+      <property name="toolTip">
+       <string>Run the optimisation across the selected k range</string>
+      </property>
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
         <horstretch>0</horstretch>
@@ -261,6 +267,9 @@ QPushButton:disabled {
     </item>
     <item row="1" column="1">
      <widget class="QLineEdit" name="optimizer_min_input">
+      <property name="toolTip">
+       <string>Smallest number of clusters (k) to test</string>
+      </property>
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
         <horstretch>0</horstretch>
@@ -374,6 +383,9 @@ QPushButton:disabled {
     </item>
     <item row="7" column="1">
      <widget class="QLineEdit" name="optimizer_stopping_threshold_input">
+      <property name="toolTip">
+       <string>Stop searching when criterion improvement falls below this percentage</string>
+      </property>
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -411,6 +423,9 @@ QPushButton:disabled {
     </item>
     <item row="6" column="1">
      <widget class="QComboBox" name="optimizer_combobox">
+      <property name="toolTip">
+       <string>Criterion used to evaluate cluster quality at each k</string>
+      </property>
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -462,6 +477,9 @@ QPushButton:disabled {
     </item>
     <item row="8" column="0" colspan="2">
      <widget class="QPushButton" name="visualize_button">
+      <property name="toolTip">
+       <string>Plot the chosen criterion as a function of k</string>
+      </property>
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -575,6 +593,9 @@ QPushButton:disabled {
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="export_figure_image_button">
+   <property name="toolTip">
+    <string>Save the current optimisation plot to an image file</string>
+   </property>
    <property name="text">
     <string>Export Figure</string>
    </property>
@@ -586,6 +607,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="actionArial">
+   <property name="toolTip">
+    <string>Use Arial in figure text</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -603,6 +627,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="actionCalibri">
+   <property name="toolTip">
+    <string>Use Calibri in figure text</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -617,6 +644,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="actionTimes_New_Roman">
+   <property name="toolTip">
+    <string>Use Times New Roman in figure text</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -631,6 +661,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="actionSmall">
+   <property name="toolTip">
+    <string>Use a small figure font size</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -645,6 +678,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="actionMedium">
+   <property name="toolTip">
+    <string>Use a medium figure font size</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -659,6 +695,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="actionLarge">
+   <property name="toolTip">
+    <string>Use a large figure font size</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -676,6 +715,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="actionX_Large">
+   <property name="toolTip">
+    <string>Use an extra-large figure font size</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>

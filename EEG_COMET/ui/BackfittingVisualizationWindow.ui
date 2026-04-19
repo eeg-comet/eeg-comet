@@ -110,6 +110,9 @@
       </item>
       <item row="2" column="1" colspan="2">
        <widget class="QComboBox" name="eeg_filenames_combobox">
+        <property name="toolTip">
+         <string>Pick the recording whose backfitted microstate sequence to display</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
@@ -184,6 +187,9 @@
       </item>
       <item row="4" column="1" colspan="2">
        <widget class="QSpinBox" name="num_trials_spinbox">
+        <property name="toolTip">
+         <string>Trial number to plot (only enabled for epoched data)</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
@@ -344,6 +350,9 @@
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <widget class="QRadioButton" name="win500_radio">
+          <property name="toolTip">
+           <string>Show 500 ms of data at a time</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -372,6 +381,9 @@
         </item>
         <item>
          <widget class="QRadioButton" name="win1000_radio">
+          <property name="toolTip">
+           <string>Show 1000 ms of data at a time</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -403,6 +415,9 @@
         </item>
         <item>
          <widget class="QRadioButton" name="win5000_radio">
+          <property name="toolTip">
+           <string>Show 5000 ms of data at a time</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -431,6 +446,9 @@
         </item>
         <item>
          <widget class="QRadioButton" name="win10000_radio">
+          <property name="toolTip">
+           <string>Show 10000 ms of data at a time</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -552,6 +570,9 @@
       </item>
       <item row="4" column="1">
        <widget class="QLineEdit" name="xlim_min_input">
+        <property name="toolTip">
+         <string>Lower bound (ms) of the displayed time window</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
@@ -583,6 +604,9 @@
       </item>
       <item row="4" column="3">
        <widget class="QLineEdit" name="xlim_max_input">
+        <property name="toolTip">
+         <string>Upper bound (ms) of the displayed time window</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
@@ -674,6 +698,9 @@
       </item>
       <item row="2" column="1" colspan="4">
        <widget class="QSlider" name="xlim_slider">
+        <property name="toolTip">
+         <string>Drag to scroll through the recording</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
@@ -762,6 +789,9 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="export_backfitting_image_button">
+   <property name="toolTip">
+    <string>Save the current backfitting plot to an image file</string>
+   </property>
    <property name="text">
     <string>Export Figure</string>
    </property>
@@ -773,6 +803,9 @@
    </property>
   </action>
   <action name="cmap_tab10">
+   <property name="toolTip">
+    <string>Use tab10 as the microstate colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -790,6 +823,9 @@
    </property>
   </action>
   <action name="cmap_set1">
+   <property name="toolTip">
+    <string>Use Set1 as the microstate colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -804,6 +840,9 @@
    </property>
   </action>
   <action name="cmap_set2">
+   <property name="toolTip">
+    <string>Use Set2 as the microstate colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -818,6 +857,9 @@
    </property>
   </action>
   <action name="cmap_dark2">
+   <property name="toolTip">
+    <string>Use Dark2 as the microstate colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -832,6 +874,9 @@
    </property>
   </action>
   <action name="cmap_accent">
+   <property name="toolTip">
+    <string>Use Accent as the microstate colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -846,6 +891,9 @@
    </property>
   </action>
   <action name="actionFont_Size">
+   <property name="toolTip">
+    <string>Choose figure font size</string>
+   </property>
    <property name="text">
     <string>Font Size</string>
    </property>

@@ -11,12 +11,13 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QActionGroup, QInputDialog, QMainWindow, QSizePolicy
+from PyQt5.QtWidgets import QActionGroup, QInputDialog, QMainWindow
 
 from backfitting_utils.segmentation_io import SegmentationIO
 from data_utils.data_io import DataIO
-from gui_utils.set_widgets_status import set_widgets_status
 from gui_utils.export_utils import get_save_file_path, save_matplotlib_figure
+from gui_utils.responsive import apply_window_minimum, expand_canvas
+from gui_utils.set_widgets_status import set_widgets_status
 
 # Suppress matplotlib font warnings
 logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
@@ -98,15 +99,15 @@ class BackfittingVisualizationWindow(QMainWindow):
         Returns:
           None
         """
-        # Set window properties
         self.ui.setWindowTitle("Visualization of the backfitted microstates")
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        apply_window_minimum(self, "tool")
+        if hasattr(self.ui, "backfitting_visualization_label"):
+            self.ui.backfitting_visualization_label.setProperty("role", "banner")
 
-        # Initialize matplotlib Figure and Canvas
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        self.canvas.setMinimumHeight(100)
+        expand_canvas(self.canvas, minimum=(360, 240))
         self.ui.Figure_Layout.addWidget(self.canvas)
 
         # Connect UI signals and menu actions
@@ -862,9 +863,9 @@ class BackfittingVisualizationWindow(QMainWindow):
           tuple[list[matplotlib.patches.Patch], dict[int, tuple]]: Legend elements
           and label-to-color mapping.
         """
-        # NEW: Use global color mapping instead of window-specific mapping
+        # Prefer the shared global color mapping; build a window-local map
+        # only when no global mapping has been established yet.
         if self.global_color_map is None:
-            # Fallback to old behavior if global mapping not established
             unique_labels = sorted(set(segmentation_data))
             cm = plt.get_cmap(colormap)
             unique_colors = [cm(1.0 * i / len(unique_labels)) for i in range(len(unique_labels))]
@@ -935,7 +936,7 @@ class BackfittingVisualizationWindow(QMainWindow):
             )
 
     def _save_plot(self, file_name):
-        """Deprecated: wrapper retained for backward compatibility.
+        """Save the current plot to ``file_name`` using the standard helper.
 
         Args:
           file_name (str): Target output path.

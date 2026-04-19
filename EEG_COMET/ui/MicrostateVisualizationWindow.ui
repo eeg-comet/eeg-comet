@@ -61,6 +61,9 @@
      <layout class="QGridLayout" name="Microstate_Grid_Layout">
       <item row="7" column="0">
        <widget class="QPushButton" name="done_labeling_button">
+        <property name="toolTip">
+         <string>Save the current labels and order, propagate them downstream</string>
+        </property>
         <property name="enabled">
          <bool>true</bool>
         </property>
@@ -125,6 +128,9 @@ QPushButton:disabled {
       </item>
       <item row="6" column="0">
        <widget class="QPushButton" name="reorder_microstates_button">
+        <property name="toolTip">
+         <string>Drag-and-drop microstates into a new order</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
@@ -184,6 +190,9 @@ QPushButton:disabled {
       </item>
       <item row="4" column="0">
        <widget class="QPushButton" name="auto_labeling_button">
+        <property name="toolTip">
+         <string>Assign canonical microstate labels (A, B, C, ...) automatically using template matching</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
@@ -256,6 +265,9 @@ QPushButton:disabled {
       </item>
       <item row="5" column="0">
        <widget class="QPushButton" name="reset_labels_button">
+        <property name="toolTip">
+         <string>Clear all labels and restore the original ordering</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
@@ -388,6 +400,9 @@ QPushButton:disabled {
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="export_microstates_image_button">
+   <property name="toolTip">
+    <string>Save the microstate topographies to an image file</string>
+   </property>
    <property name="text">
     <string>Export Figure</string>
    </property>
@@ -404,6 +419,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_rdbur">
+   <property name="toolTip">
+    <string>Use the RdBu_r colour map for topographies</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -421,6 +439,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_coolwarm">
+   <property name="toolTip">
+    <string>Use the coolwarm colour map for topographies</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -435,6 +456,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_bwr">
+   <property name="toolTip">
+    <string>Use the bwr colour map for topographies</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -449,6 +473,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_seismic">
+   <property name="toolTip">
+    <string>Use the seismic colour map for topographies</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -485,6 +512,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="show_sensors">
+   <property name="toolTip">
+    <string>Overlay sensor positions on each topography</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -502,6 +532,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="show_contours">
+   <property name="toolTip">
+    <string>Overlay iso-potential contour lines on each topography</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -519,6 +552,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="show_colorbar">
+   <property name="toolTip">
+    <string>Show a colour bar with each topography</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>

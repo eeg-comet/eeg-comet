@@ -10,6 +10,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+
+from data_utils.safe_io import safe_pd_read_pickle, safe_pickle_load
 import seaborn as sns
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -17,6 +19,12 @@ from PyQt5 import uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QBrush
 from PyQt5.QtWidgets import QDialog, QFileDialog, QListWidgetItem, QMessageBox, QSizePolicy
+
+from gui_utils.responsive import (
+    apply_window_minimum,
+    expand_canvas,
+    scroll_wrap_all_tabs,
+)
 from scipy.stats import f, pearsonr, t, ttest_ind, ttest_rel, wilcoxon, mannwhitneyu
 from scipy.ndimage import label as scipy_label
 from statsmodels.stats.multitest import multipletests
@@ -115,8 +123,12 @@ class CompareStudiesWindow(QDialog):
         self.ui = uic.loadUi(context.get_resource("CompareStudiesWindow.ui"), self)
         self.ui.setWindowTitle("Comparison of two EEG-COMET studies")
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
-        
-        # Initialize checkboxes - show_features starts unchecked
+        apply_window_minimum(self, "tool")
+        if hasattr(self.ui, "comparison_study_label"):
+            self.ui.comparison_study_label.setProperty("role", "banner")
+        if hasattr(self.ui, "tabWidget"):
+            scroll_wrap_all_tabs(self.ui.tabWidget)
+
         self.ui.show_features_checkbox.setChecked(False)
         # show_microstates_checkbox is set to True by default in UI file, keep that setting
         
@@ -373,10 +385,7 @@ class CompareStudiesWindow(QDialog):
             Configured FigureCanvasQTAgg instance.
         """
         canvas = FigureCanvasQTAgg(figure)
-        canvas.setSizePolicy(
-            QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding
-        )
-        canvas.setMinimumHeight(100)
+        expand_canvas(canvas, minimum=(360, 240))
         return canvas
 
     # ==================== STUDY LOADING ====================
@@ -935,7 +944,7 @@ class CompareStudiesWindow(QDialog):
                                 if export_format == ".csv":
                                     df = pd.read_csv(feature_path, nrows=0)
                                 elif export_format == ".pkl":
-                                    df = pd.read_pickle(feature_path)
+                                    df = safe_pd_read_pickle(feature_path)
                                 elif export_format == ".hdf":
                                     df = pd.read_hdf(feature_path, key="features")
                                 elif export_format == ".json":
@@ -2595,7 +2604,7 @@ class CompareStudiesWindow(QDialog):
         study2_df: pd.DataFrame,
         feature_list: List[str],
     ) -> Tuple[Dict[str, float], List[float]]:
-        """Calculate t-tests for each feature (legacy method - uses UI settings)."""
+        """Calculate t-tests for each feature using the current UI settings."""
         is_paired = self.ui.analyze_design_paired_radio.isChecked()
         is_parametric = self.ui.analyze_type_parametric_radio.isChecked()
         return self._calculate_statistical_tests(
@@ -3904,9 +3913,7 @@ class CompareStudiesWindow(QDialog):
                                 rof_data = self._parse_rof_csv(df)
 
                             elif export_format == ".pkl":
-                                import pickle
-                                with open(rof_path, 'rb') as f:
-                                    rof_data = pickle.load(f)
+                                rof_data = safe_pickle_load(rof_path)
 
                             elif export_format == ".hdf":
                                 import h5py

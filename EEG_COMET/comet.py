@@ -22,7 +22,6 @@ from clustering_utils.microstate_clusterer import MicrostateClusterer
 from clustering_utils.microstate_io import MicrostateIO
 from clustering_utils.microstate_labeler import MicrostateLabeler
 from clustering_utils.microstate_visualizer import reset_electrode_warning
-from PyQt5.QtCore import Qt
 from controllers.logging_window import LogWindow
 from controllers.microstate_visualization_window import MicrostateVisualizationWindow
 from data_utils.data_initializer import DataInitializer
@@ -222,7 +221,9 @@ class COMET:
         self.comet_segmentation_io = SegmentationIO()
         self.comet_feature_io = FeatureIO()
         self.comet_feature_helper = FeatureHelper()
-        self.comet_feature_extractor = FeatureExtractionCoordinator()
+        self.comet_feature_extractor = FeatureExtractionCoordinator(
+            random_seed=getattr(self, "random_seed", None)
+        )
         self.comet_microstate_clusterer = None  # Will be initialized during clustering
 
         # Load or create configuration
@@ -861,7 +862,6 @@ class COMET:
                 dig_count = len(eeg_info['dig']) if eeg_info.get('dig') else 0
                 self.LogWindow.append_log(f"Saving EEG info with {dig_count} digitization points from processed data", log_type="info")
         else:
-            # Fallback: Create a basic Info object (legacy behavior)
             eeg_info = mne.create_info(
                 ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sample_rate
             )
@@ -1514,8 +1514,10 @@ class COMET:
             self._on_preprocessing_finished()
 
     def run_clustering(self):
-        """Perform clustering on preprocessed EEG data with automatic or manual k selection
-        Enhanced with proper TAAHC progress tracking and batch processing support.
+        """Perform clustering on preprocessed EEG data.
+
+        Supports automatic or manual k selection, TAAHC progress tracking,
+        and batch processing.
         """
         # Reset microstate labeling flag since new clustering will invalidate previous labels
         self.done_microstate_labeling = False
@@ -1801,9 +1803,8 @@ class COMET:
                     # Update UI message and call callback to reset main window
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
                         self.LogWindow.append_log("🔄 Clustering ready to restart with new parameters", log_type="info")
-                        # Reset progress UI
-                        self.LogWindow.ui.progress_label.setText("Ready for clustering")
-                        self.LogWindow.ui.progress_stop_button.setEnabled(False)
+                        self.LogWindow.set_progress_label("Ready for clustering")
+                        self.LogWindow.set_progress_stop_enabled(False)
                     
                     # Call clustering completion callback to update main window UI
                     if self.clustering_completed_callback is not None:
@@ -2980,7 +2981,7 @@ class COMET:
                                         matched = True
                                         break
                             
-                            else:  # default to "partial" for backward compatibility
+                            else:  # default to "partial" matching
                                 # Try exact match first
                                 matched = desc in self.selected_events
                                 
@@ -3130,7 +3131,9 @@ class COMET:
                                 "event_name": ev_label,  # Add event name
                                 "window_index": window_index,  # Add window index
                             }
-                            coordinator = FeatureExtractionCoordinator()
+                            coordinator = FeatureExtractionCoordinator(
+                                random_seed=getattr(self, "random_seed", None)
+                            )
                             feat_res = coordinator.extract_features(
                                 segmentation=seg_stub,
                                 feature_list=self.feature_list,
@@ -3272,9 +3275,7 @@ class COMET:
                                 time = time_unique * n_trials  # Already a list, can multiply directly
                         elif len(time_unique) == num_samples:
                             time = time_unique
-                    # TODO: handle other formats (pkl, hdf, json) similarly if needed
                 except Exception as _e_time:
-                    # Fallback to old behaviour if reading fails
                     time = None
 
                 if time is None:
@@ -3695,11 +3696,11 @@ class COMET:
             for subject_dir in os.listdir(stc_path):
                 subject_path = os.path.join(stc_path, subject_dir)
                 if os.path.isdir(subject_path):
-                    # Check if this subject directory contains any stc files
-                    # Include multiple formats:
-                    # - .h5: HDF5 format (current default)
+                    # Check if this subject directory contains any stc files.
+                    # Supported formats:
+                    # - .h5: HDF5 format
                     # - .stc: MNE standard format (may have -lh.stc/-rh.stc hemispheres)
-                    # - .pkl/.npy: Pickle/numpy formats (legacy)
+                    # - .pkl/.npy: pickle and numpy formats
                     stc_files = [f for f in os.listdir(subject_path) 
                                 if f.endswith(('.stc', '.pkl', '.npy', '.h5', '-lh.stc', '-rh.stc'))]
                     if stc_files:
@@ -3877,6 +3878,7 @@ class COMET:
             microstate_maps=self.best_maps,
             nperm=self.nperm,
             logger=self.logger,
+            random_seed=getattr(self, "random_seed", None),
         )
 
         # Make sure the stc_path is set correctly in the source localizer
@@ -3919,11 +3921,10 @@ class COMET:
             )
             # Properly handle completion when nothing needs processing
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                # Show a brief message in the progress UI
-                self.LogWindow.ui.progress_label.setText("All files already processed")
-                self.LogWindow.ui.progress_bar.setValue(total_files)
-                self.LogWindow.ui.progress_bar.setMaximum(total_files)
-                self.LogWindow.ui.progress_lineedit.setText(f"✅ All {total_files} files already completed")
+                self.LogWindow.set_progress_label("All files already processed")
+                self.LogWindow.set_progress_max(total_files)
+                self.LogWindow.set_progress_value(total_files)
+                self.LogWindow.set_progress_text(f"✅ All {total_files} files already completed")
                 # Call completion callback
                 if self.LogWindow.process_finished_callback:
                     self.LogWindow.process_finished_callback()
@@ -3999,6 +4000,7 @@ class COMET:
                 microstate_maps=self.best_maps,
                 nperm=self.nperm,
                 logger=self.logger,
+                random_seed=getattr(self, "random_seed", None),
             )
 
         # Ensure directories are created and paths are set
@@ -4075,11 +4077,10 @@ class COMET:
             )
             # Properly handle completion when nothing needs processing
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                # Show a brief message in the progress UI
-                self.LogWindow.ui.progress_label.setText("All files already processed")
-                self.LogWindow.ui.progress_bar.setValue(files_with_stc)
-                self.LogWindow.ui.progress_bar.setMaximum(files_with_stc)
-                self.LogWindow.ui.progress_lineedit.setText(f"✅ All {files_with_stc} files already completed")
+                self.LogWindow.set_progress_label("All files already processed")
+                self.LogWindow.set_progress_max(files_with_stc)
+                self.LogWindow.set_progress_value(files_with_stc)
+                self.LogWindow.set_progress_text(f"✅ All {files_with_stc} files already completed")
                 # Call completion callback
                 if self.LogWindow.process_finished_callback:
                     self.LogWindow.process_finished_callback()

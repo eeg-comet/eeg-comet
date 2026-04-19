@@ -561,8 +561,18 @@ class MicrostateClusterer:
         assignments = np.zeros(n_samples, dtype=int)
         best_corrs = np.zeros(n_samples, dtype=float)
 
-        # Main TAAHC loop
+        # Main TAAHC loop. The algorithm removes one cluster per iteration, so it
+        # must terminate in at most (initial_n_maps - self.n_states) steps; the
+        # explicit upper bound guards against pathological inputs.
+        max_taahc_iterations = max(0, n_maps - self.n_states) + 1
         while n_maps > self.n_states:
+            if iteration >= max_taahc_iterations:
+                self.logger.error(
+                    "CLUSTERING",
+                    f"TAAHC exceeded {max_taahc_iterations} iterations without reaching "
+                    f"target n_states={self.n_states} (n_maps={n_maps}); aborting.",
+                )
+                return None, np.inf
             # Start iteration timer at the very beginning to avoid uninitialized reference
             iteration_iter_start = time.time()
             # Check if we should stop
@@ -604,7 +614,7 @@ class MicrostateClusterer:
             progress_msg = f"TAAHC Iteration {iteration}: {n_maps} → {n_maps - 1} maps ({remaining_iterations} remaining)"
             update_progress(progress_msg)
 
-            # Enhanced logging with ETA every 10th iteration
+            # Log progress with ETA every 10th iteration
             if verbose and (iteration % 10 == 0 or n_maps <= self.n_states + 5 or iteration == 1):
                 elapsed = time.time() - start_time
 
@@ -627,10 +637,10 @@ class MicrostateClusterer:
             best_corrs.fill(0.0)
 
             # Normalize maps based on the chosen metric
-        if metric == "Spatial Correlation":
-            maps_norm = self._normalize_for_metric(maps, axis=1, metric="Correlation")
-        else:  # Cosine Similarity
-            maps_norm = self._normalize_for_metric(maps, axis=1, metric="Cosine")
+            if metric == "Spatial Correlation":
+                maps_norm = self._normalize_for_metric(maps, axis=1, metric="Correlation")
+            else:  # Cosine Similarity
+                maps_norm = self._normalize_for_metric(maps, axis=1, metric="Cosine")
 
             # Process data in batches
             if verbose and n_maps <= self.n_states + 10:

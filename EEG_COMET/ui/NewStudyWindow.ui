@@ -199,6 +199,9 @@ QRadioButton::indicator, QCheckBox::indicator {
        <layout class="QGridLayout" name="gridLayout">
         <item row="6" column="0">
          <widget class="QPushButton" name="step1_input_path_button">
+          <property name="toolTip">
+           <string>Browse for the folder containing the input EEG files</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -260,7 +263,7 @@ QRadioButton::indicator, QCheckBox::indicator {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;EEG file extension to search for (e.g., &amp;quot;.set&amp;quot;)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>EEG file extension to search for (e.g., ".set")</string>
           </property>
           <property name="currentIndex">
            <number>0</number>
@@ -475,7 +478,7 @@ QRadioButton::indicator, QCheckBox::indicator {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Folder path where data files are located&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Folder path where data files are located</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -551,7 +554,7 @@ QRadioButton::indicator, QCheckBox::indicator {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Currently, only preprocessed (artifact-rejected) epoched TMS-EEG data is supported. Please ensure that your data has undergone the standard cleaning pipelines before proceeding.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Data already segmented into fixed-length trials around events (e.g. TMS pulses, stimuli); each file holds an array shaped (epochs × channels × time)</string>
           </property>
           <property name="styleSheet">
            <string notr="true"/>
@@ -627,7 +630,7 @@ QRadioButton::indicator, QCheckBox::indicator {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Pattern to match in file names (e.g., &amp;quot;eyes_closed&amp;quot;)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Pattern to match in file names (e.g., "eyes_closed")</string>
           </property>
           <property name="text">
            <string/>
@@ -639,6 +642,9 @@ QRadioButton::indicator, QCheckBox::indicator {
         </item>
         <item row="25" column="0">
          <widget class="QLineEdit" name="step1_import_log_lineedit">
+          <property name="toolTip">
+           <string>Live log of files discovered and imported</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -754,6 +760,9 @@ QRadioButton::indicator, QCheckBox::indicator {
         </item>
         <item row="17" column="0">
          <widget class="QRadioButton" name="step1_import_raw_radio">
+          <property name="toolTip">
+           <string>Single uninterrupted recording with no trial segmentation; each file holds an array shaped (channels × time)</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -858,7 +867,7 @@ QRadioButton::indicator, QCheckBox::indicator {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Retrieve and load EEG data from the input directory and its subdirectories&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Retrieve and load EEG data from the input directory and its subdirectories</string>
           </property>
           <property name="text">
            <string>Find All EEG Data Within Directory and Subfolders</string>
@@ -873,6 +882,9 @@ QRadioButton::indicator, QCheckBox::indicator {
         </item>
         <item row="27" column="0">
          <widget class="QPushButton" name="step1_import_raw_button">
+          <property name="toolTip">
+           <string>Browse for the folder of raw EEG recordings</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -943,6 +955,9 @@ QPushButton:disabled {
         </item>
         <item row="23" column="0">
          <widget class="QRadioButton" name="step1_load_pattern_radio">
+          <property name="toolTip">
+           <string>Load only files whose name matches the pattern</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -1012,7 +1027,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Filter data with zero-phase distortion and no causality&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Filter data with zero-phase distortion and no causality</string>
           </property>
           <property name="text">
            <string>Spatial Filter</string>
@@ -1027,6 +1042,9 @@ QPushButton:disabled {
         </item>
         <item row="12" column="0" colspan="2">
          <widget class="QCheckBox" name="step2_prep_option_checkbox">
+          <property name="toolTip">
+           <string>Apply automated bad-channel detection and interpolation</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -1089,7 +1107,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Filter data with zero-phase distortion and no causality&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Filter data with zero-phase distortion and no causality</string>
           </property>
           <property name="text">
            <string>Temporal Filter (Band-Pass)</string>
@@ -1129,7 +1147,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Use the electrode montage stored in the input EEG file (if available)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Use the electrode montage stored in the input EEG file (if available)</string>
           </property>
           <property name="text">
            <string>Use Entire Time Series (Recommended)</string>
@@ -1168,6 +1186,9 @@ QPushButton:disabled {
         </item>
         <item row="33" column="0" colspan="2">
          <widget class="QPushButton" name="step2_preprocess_data_button">
+          <property name="toolTip">
+           <string>Run preprocessing with the current settings</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -1328,6 +1349,9 @@ QPushButton:disabled {
         </item>
         <item row="30" column="0" colspan="2">
          <widget class="QPushButton" name="step2_save_path_button">
+          <property name="toolTip">
+           <string>Browse for the output directory</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -1437,7 +1461,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Load electrode positions from a custom file on your computer. Supported formats: .loc, .locs, .eloc, .sfp, .csd, .elc, .txt, .elp, .bvef, .csv, .tsv, .xyz, .mat, .ced&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Load electrode positions from a custom file on your computer. Supported formats: .loc, .locs, .eloc, .sfp, .csd, .elc, .txt, .elp, .bvef, .csv, .tsv, .xyz, .mat, .ced</string>
           </property>
           <property name="text">
            <string>Use Custom Montage</string>
@@ -1541,7 +1565,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Directory where the output data will be saved&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Directory where the output data will be saved</string>
           </property>
           <property name="readOnly">
            <bool>true</bool>
@@ -1692,7 +1716,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Use the electrode montage stored in the input EEG file (if available)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Use the electrode montage stored in the input EEG file (if available)</string>
           </property>
           <property name="text">
            <string>Extract Epochs Around Events</string>
@@ -1735,7 +1759,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Use the electrode montage stored in the input EEG file (if available)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Use the electrode montage stored in the input EEG file (if available)</string>
           </property>
           <property name="text">
            <string>Use Default Montage</string>
@@ -1750,6 +1774,9 @@ QPushButton:disabled {
         </item>
         <item row="3" column="1">
          <widget class="QLineEdit" name="step2_chanloc_path_lineedit">
+          <property name="toolTip">
+           <string>Custom channel-location file path</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -1785,6 +1812,9 @@ QPushButton:disabled {
         </item>
         <item row="8" column="1">
          <widget class="QComboBox" name="step2_events_combobox">
+          <property name="toolTip">
+           <string>Event marker around which to extract epochs</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -1844,7 +1874,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Select one of the imported files to access the list of available EEG channels.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Select one of the imported files to access the list of available EEG channels.</string>
           </property>
           <property name="text">
            <string>Select Channels to Remove: </string>
@@ -1986,7 +2016,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Select from standard electrode montages provided by MNE-Python (e.g., 10-20 system layouts)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Select from standard electrode montages provided by MNE-Python (e.g., 10-20 system layouts)</string>
           </property>
           <property name="text">
            <string>Use Template Montage</string>
@@ -2029,7 +2059,7 @@ QPushButton:disabled {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string></string>
           </property>
           <property name="text">
            <string>Down-Sample (Hz)</string>
@@ -2041,6 +2071,9 @@ QPushButton:disabled {
         </item>
         <item row="21" column="1">
          <widget class="QLineEdit" name="step2_downsamp_freq_input">
+          <property name="toolTip">
+           <string>Target sampling rate (Hz) after down-sampling</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -2117,7 +2150,7 @@ QPushButton:disabled {
              </font>
             </property>
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Finite Impulse Response&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>Finite Impulse Response</string>
             </property>
             <property name="text">
              <string>Finite Impulse Response (FIR)</string>
@@ -2160,7 +2193,7 @@ QPushButton:disabled {
              </font>
             </property>
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Infinite Impulse Response&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>Infinite Impulse Response</string>
             </property>
             <property name="text">
              <string>Infinite Impulse Response (IIR)</string>
@@ -2174,6 +2207,9 @@ QPushButton:disabled {
         </item>
         <item row="16" column="1">
          <widget class="QLineEdit" name="step2_lowcut_freq_input">
+          <property name="toolTip">
+           <string>Low cut-off frequency (Hz) of the band-pass filter</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -2217,6 +2253,9 @@ QPushButton:disabled {
         </item>
         <item row="17" column="1">
          <widget class="QLineEdit" name="step2_highcut_freq_input">
+          <property name="toolTip">
+           <string>High cut-off frequency (Hz) of the band-pass filter</string>
+          </property>
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -2327,6 +2366,9 @@ QPushButton:disabled {
          </item>
          <item row="1" column="0" colspan="2">
           <widget class="QListWidget" name="loaded_selected_files_list">
+           <property name="toolTip">
+            <string>Files currently selected for preprocessing</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
              <horstretch>0</horstretch>
@@ -2350,6 +2392,9 @@ QPushButton:disabled {
          </item>
          <item row="2" column="0">
           <widget class="QPushButton" name="loaded_remove_file_button">
+           <property name="toolTip">
+            <string>Remove the highlighted file from the selection</string>
+           </property>
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -2386,6 +2431,9 @@ QPushButton:disabled {
          </item>
          <item row="2" column="1">
           <widget class="QPushButton" name="loaded_clear_files_button">
+           <property name="toolTip">
+            <string>Clear all selected files</string>
+           </property>
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -2443,6 +2491,9 @@ QPushButton:disabled {
         <layout class="QGridLayout" name="Figure_GLayout">
          <item row="4" column="0" colspan="2">
           <widget class="QLineEdit" name="vis_figure_filename_lineedit">
+           <property name="toolTip">
+            <string>File name to use when exporting the current figure</string>
+           </property>
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -2477,6 +2528,9 @@ QPushButton:disabled {
          </item>
          <item row="2" column="0" colspan="2">
           <widget class="QLineEdit" name="vis_figure_title_lineedit">
+           <property name="toolTip">
+            <string>Title to display on the current figure</string>
+           </property>
            <property name="enabled">
             <bool>false</bool>
            </property>
@@ -2558,6 +2612,9 @@ QPushButton:disabled {
           <layout class="QGridLayout" name="Vis_GLayout">
            <item row="2" column="0" colspan="2">
             <widget class="QPushButton" name="vis_psd_button">
+             <property name="toolTip">
+              <string>Plot the power spectral density of the selected file</string>
+             </property>
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -2594,6 +2651,9 @@ QPushButton:disabled {
            </item>
            <item row="1" column="0" colspan="2">
             <widget class="QPushButton" name="vis_montage_button">
+             <property name="toolTip">
+              <string>Plot the electrode montage of the selected file</string>
+             </property>
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -2630,6 +2690,9 @@ QPushButton:disabled {
            </item>
            <item row="0" column="0" colspan="2">
             <widget class="QPushButton" name="vis_plot_button">
+             <property name="toolTip">
+              <string>Plot the raw EEG of the selected file</string>
+             </property>
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -2716,6 +2779,9 @@ QPushButton:disabled {
    </item>
    <item row="1" column="0">
     <widget class="QLineEdit" name="step1_study_name_lineedit">
+     <property name="toolTip">
+      <string>Short name to identify this study (used as folder/file prefix)</string>
+     </property>
      <property name="sizePolicy">
       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
        <horstretch>0</horstretch>

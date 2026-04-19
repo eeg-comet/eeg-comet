@@ -497,7 +497,6 @@ class FeatureExtractor:
                             returns a list of dictionaries, where each dictionary represents the entropy representation
                             for each entropy class in a window.
         """
-        # TODO: not completed
         # word_size = 5
         (
             window_entropy_representations,
@@ -1088,8 +1087,26 @@ class MicroSynt:
 class FeatureExtractionCoordinator:
     """Coordinator class for feature extraction that organizes results by mode and type."""
 
-    def __init__(self):
-        """Initialize the coordinator."""
+    def __init__(self, random_seed=None):
+        """Initialize the coordinator.
+
+        Args:
+          random_seed (int | None): Seed used to deterministically generate
+            ``surrogate`` and ``random`` baseline sequences. Use ``None`` to
+            disable seeding.
+        """
+        self.random_seed = random_seed
+        # A per-coordinator Generator keeps these shuffles isolated from
+        # numpy's global RNG state.
+        self._rng = np.random.default_rng(random_seed)
+
+    def _shuffle(self, array):
+        """In-place shuffle using the coordinator's RNG."""
+        self._rng.shuffle(array)
+
+    def _choice(self, choices, size):
+        """Random choice using the coordinator's RNG."""
+        return self._rng.choice(choices, size=size)
 
     def extract_features(
         self,
@@ -1188,13 +1205,13 @@ class FeatureExtractionCoordinator:
                 if feature_type == "real":
                     input_sequence = labels
                 elif feature_type == "surrogate":
-                    # Create surrogate data by shuffling
+                    # Create surrogate data by shuffling with the coordinator's RNG.
                     input_sequence = labels.copy()
-                    np.random.shuffle(input_sequence)
+                    self._shuffle(input_sequence)
                 elif feature_type == "random":
                     # Create random data with same length and unique values
                     unique_labels = list(set(labels))
-                    input_sequence = np.random.choice(unique_labels, size=len(labels))
+                    input_sequence = self._choice(unique_labels, size=len(labels))
                 else:
                     input_sequence = labels
 
@@ -1412,10 +1429,10 @@ class FeatureExtractionCoordinator:
                         pre_input_sequence = pre_labels
                     elif feature_type == "surrogate":
                         pre_input_sequence = pre_labels.copy()
-                        np.random.shuffle(pre_input_sequence)
+                        self._shuffle(pre_input_sequence)
                     elif feature_type == "random":
                         unique_labels = list(set(trial_labels))
-                        pre_input_sequence = np.random.choice(unique_labels, size=len(pre_labels))
+                        pre_input_sequence = self._choice(unique_labels, size=len(pre_labels))
                     else:
                         pre_input_sequence = pre_labels
 
@@ -1458,10 +1475,10 @@ class FeatureExtractionCoordinator:
                         post_input_sequence = post_labels
                     elif feature_type == "surrogate":
                         post_input_sequence = post_labels.copy()
-                        np.random.shuffle(post_input_sequence)
+                        self._shuffle(post_input_sequence)
                     elif feature_type == "random":
                         unique_labels = list(set(trial_labels))
-                        post_input_sequence = np.random.choice(unique_labels, size=len(post_labels))
+                        post_input_sequence = self._choice(unique_labels, size=len(post_labels))
                     else:
                         post_input_sequence = post_labels
 
@@ -1628,10 +1645,10 @@ class FeatureExtractionCoordinator:
                     pre_input_sequence = pre_labels
                 elif feature_type == "surrogate":
                     pre_input_sequence = pre_labels.copy()
-                    np.random.shuffle(pre_input_sequence)
+                    self._shuffle(pre_input_sequence)
                 elif feature_type == "random":
                     unique_labels = list(set(pre_labels))
-                    pre_input_sequence = np.random.choice(unique_labels, size=len(pre_labels))
+                    pre_input_sequence = self._choice(unique_labels, size=len(pre_labels))
                 else:
                     pre_input_sequence = pre_labels
 
@@ -1682,10 +1699,10 @@ class FeatureExtractionCoordinator:
                     post_input_sequence = post_labels
                 elif feature_type == "surrogate":
                     post_input_sequence = post_labels.copy()
-                    np.random.shuffle(post_input_sequence)
+                    self._shuffle(post_input_sequence)
                 elif feature_type == "random":
                     unique_labels = list(set(post_labels))
-                    post_input_sequence = np.random.choice(unique_labels, size=len(post_labels))
+                    post_input_sequence = self._choice(unique_labels, size=len(post_labels))
                 else:
                     post_input_sequence = post_labels
 
@@ -1741,8 +1758,7 @@ class FeatureExtractionCoordinator:
             if not filename:
                 return None
 
-            # Try to find and load the original segmentation file
-            # This is a simplified approach - you may need to adjust paths
+            # Try to find and load the original segmentation file.
             segmentation_io = SegmentationIO()
 
             # Try different possible paths/formats

@@ -4,8 +4,7 @@ Uses fast scipy interpolation of raw channel values to 128x128
 topography arrays for model inference (no matplotlib rendering needed).
 """
 
-import os
-import warnings
+from pathlib import Path
 
 import mne
 import numpy as np
@@ -13,11 +12,15 @@ import onnxruntime as ort
 import pandas as pd
 from scipy.spatial import Delaunay, cKDTree
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-warnings.filterwarnings("ignore", category=UserWarning, module=".*tensorflow.*")
-
-_MODEL_PATH = "./models/model_v2.onnx"
+# Resolve the ONNX model path relative to this file so the labeler works
+# regardless of the current working directory. Falls back to a CWD-relative
+# location when the packaged model file is not present.
+_PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+_DEFAULT_MODEL_PATH = _PACKAGE_ROOT / "models" / "model_v2.onnx"
+_FALLBACK_MODEL_PATH = Path("./models/model_v2.onnx")
+_MODEL_PATH = str(
+    _DEFAULT_MODEL_PATH if _DEFAULT_MODEL_PATH.exists() else _FALLBACK_MODEL_PATH
+)
 _IMAGE_SIZE = 128
 
 

@@ -1,0 +1,196 @@
+/* EEG-COMET shared theme.
+ *
+ * Loaded by gui_utils/ui_scale.py. Placeholders of the form $$dollar-name
+ * (rendered using string.Template) are substituted with values from
+ * BASE_TOKENS multiplied by the current UI scale factor. Pixel values
+ * become integers; font sizes stay in pt.
+ *
+ * To change a token's base value, edit BASE_TOKENS in
+ * gui_utils/ui_scale.py rather than hard-coding numbers here.
+ */
+
+/* -- Typography ---------------------------------------------------------- */
+* {
+    font-family: "Calibri", "Segoe UI", "Helvetica Neue", sans-serif;
+    font-size: ${font_default}pt;
+}
+
+QLabel[role="caption"] {
+    font-size: ${font_caption}pt;
+    color: #4a5563;
+}
+QLabel[role="subhead"] {
+    font-size: ${font_subhead}pt;
+    font-weight: 600;
+}
+QLabel[role="head"] {
+    font-size: ${font_head}pt;
+    font-weight: 700;
+}
+
+/* -- Banner header label (one rule replaces ~10 inline copies) ----------- */
+QLabel#bannerLabel,
+QLabel[role="banner"] {
+    color: white;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #67001F, stop:1 #DD6F58);
+    border-radius: 8px;
+    padding: ${pad_v_banner}px ${pad_h_banner}px;
+    font-size: ${font_banner_lg}pt;
+    font-weight: 700;
+    min-height: ${ctrl_h_banner}px;
+}
+QLabel#bannerLabelSymmetric,
+QLabel[role="bannerSymmetric"] {
+    color: white;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #DD6F58, stop:0.5 #67001F, stop:1 #DD6F58);
+    border-radius: 8px;
+    padding: ${pad_v_banner}px ${pad_h_banner}px;
+    font-size: ${font_banner_md}pt;
+    font-weight: 700;
+    min-height: ${ctrl_h_banner}px;
+}
+
+/* -- Buttons (semantic roles + sensible default) ------------------------- */
+QPushButton {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #4a90d9, stop:1 #357abd);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: ${pad_v_btn}px ${pad_h_btn}px;
+    font-weight: 600;
+    min-height: ${ctrl_h_btn}px;
+}
+QPushButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #5a9fe9, stop:1 #4589cd);
+}
+QPushButton:pressed {
+    background-color: #2a5a8d;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}
+
+QPushButton[role="success"] {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #4ade80, stop:0.5 #177226, stop:1 #4ade80);
+    color: white;
+}
+QPushButton[role="destructive"] {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #e74c3c, stop:1 #c0392b);
+    color: white;
+}
+QPushButton[role="ghost"] {
+    background: transparent;
+    color: #357abd;
+    border: 1px solid #357abd;
+}
+
+/* -- Inputs --------------------------------------------------------------- */
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+    border: 2px solid #d0d7de;
+    border-radius: 6px;
+    padding: ${pad_v_input}px ${pad_h_input}px;
+    background-color: white;
+    min-height: ${ctrl_h_input}px;
+}
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+    border-color: #4a90d9;
+}
+QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {
+    background-color: #ecf0f1;
+    color: #95a5a6;
+}
+QComboBox::drop-down {
+    border: none;
+    width: ${drop_w}px;
+}
+QComboBox::down-arrow {
+    width: ${arrow_size}px;
+    height: ${arrow_size}px;
+}
+
+QRadioButton, QCheckBox {
+    spacing: ${indicator_spacing}px;
+}
+QRadioButton::indicator, QCheckBox::indicator {
+    width: ${indicator_size}px;
+    height: ${indicator_size}px;
+}
+
+/* -- List / table --------------------------------------------------------- */
+QListWidget, QTableWidget, QTableView, QTreeView {
+    border: 2px solid #d0d7de;
+    border-radius: 6px;
+    background-color: white;
+}
+QListWidget:focus, QTableWidget:focus, QTableView:focus, QTreeView:focus {
+    border-color: #4a90d9;
+}
+
+/* -- Containers ----------------------------------------------------------- */
+QScrollArea {
+    border: none;
+    background-color: transparent;
+}
+QSplitter::handle {
+    background-color: #d0d7de;
+}
+QSplitter::handle:horizontal {
+    width: ${splitter_thick}px;
+}
+QSplitter::handle:vertical {
+    height: ${splitter_thick}px;
+}
+QSplitter::handle:hover {
+    background-color: #4a90d9;
+}
+QTabWidget::pane {
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background: #ffffff;
+}
+QTabBar::tab {
+    padding: ${pad_v_tab}px ${pad_h_tab}px;
+    border: 1px solid #d0d7de;
+    border-bottom: none;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    background: #f0f3f7;
+}
+QTabBar::tab:selected {
+    background: #ffffff;
+    font-weight: 700;
+}
+
+/* -- Misc ----------------------------------------------------------------- */
+QGroupBox {
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    margin-top: ${groupbox_margin}px;
+    padding-top: ${groupbox_pad_top}px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 ${groupbox_title_pad_h}px;
+}
+QProgressBar {
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    text-align: center;
+    min-height: ${ctrl_h_progress}px;
+}
+QProgressBar::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #4a90d9, stop:1 #357abd);
+    border-radius: 5px;
+}
+Line {
+    color: #d0d7de;
+}

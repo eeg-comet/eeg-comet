@@ -72,20 +72,29 @@ class EEGCometLogger:
         """
         print(message)
 
-    def _log_to_gui(self, message: str, log_type: str = "info"):
+    def _log_to_gui(self, message: str, log_type: str = "info", step: str = None):
         """Log message to GUI if available.
 
         Args:
             message (str): Message text.
             log_type (str): Log category. One of 'info', 'process', 'success',
-                'warning', 'error', 'file', or 'section'.
+                'warning', 'error', 'file', 'reference', 'section', or
+                'settings'.
+            step (Optional[str]): Processing step the entry belongs to,
+                forwarded to ``LogWindow.append_log`` so the step filter
+                in the new log window classifies the entry correctly.
         """
         if self.log_window is not None and hasattr(self.log_window, "append_log"):
             try:
-                self.log_window.append_log(message, log_type=log_type)
+                try:
+                    self.log_window.append_log(message, log_type=log_type, step=step)
+                except TypeError:
+                    # Older LogWindow without ``step`` kwarg.
+                    self.log_window.append_log(message, log_type=log_type)
             except RecursionError:
-                # Avoid crashing due to recursive logging when saving logs fails
-                self._print_to_console(f"[LOGGER WARNING] Recursive logging prevented: {message}")
+                self._print_to_console(
+                    f"[LOGGER WARNING] Recursive logging prevented: {message}"
+                )
 
     def section_header(self, step: str, title: str = None):
         """Print a section header with centered title.
@@ -111,7 +120,7 @@ class EEGCometLogger:
         self._print_to_console(f"{separator}")
 
         # Log to GUI
-        self._log_to_gui(f"{title}", log_type="section")
+        self._log_to_gui(f"{title}", log_type="section", step=step)
 
     def toolbox_header(self, main_title: str, subtitle: str):
         """Print a toolbox header with main title and subtitle.
@@ -150,7 +159,8 @@ class EEGCometLogger:
         self._print_to_console(f"{separator}")
 
         # Log to GUI
-        self._log_to_gui(f"{main_title} - {subtitle}", log_type="section")
+        self._log_to_gui(f"{main_title} - {subtitle}", log_type="section",
+                         step="STUDY_LOADING")
 
     def processing_start(self, step: str, message: str):
         """Log the start of a processing step.
@@ -167,7 +177,7 @@ class EEGCometLogger:
             full_message = f"{prefix} {message} ..."
 
         self._print_to_console(full_message)
-        self._log_to_gui(message, log_type="process")
+        self._log_to_gui(message, log_type="process", step=step)
 
     def processing_info(self, step: str, message: str):
         """Log processing information.
@@ -187,7 +197,7 @@ class EEGCometLogger:
         full_message = f"{prefix} {message}"
 
         self._print_to_console(full_message)
-        self._log_to_gui(message, log_type="info")
+        self._log_to_gui(message, log_type="info", step=step)
 
     def processing_success(self, step: str, message: str):
         """Log successful completion of a processing step.
@@ -199,7 +209,7 @@ class EEGCometLogger:
         success_message = f"✅  [{step.replace('_', ' ').upper()}] {message}"
 
         self._print_to_console(success_message)
-        self._log_to_gui(message, log_type="success")
+        self._log_to_gui(message, log_type="success", step=step)
 
     def warning(self, step: str, message: str):
         """Log a warning message.
@@ -211,7 +221,7 @@ class EEGCometLogger:
         warning_message = f"⚠️  [{step.replace('_', ' ').upper()}] {message}"
 
         self._print_to_console(warning_message)
-        self._log_to_gui(message, log_type="warning")
+        self._log_to_gui(message, log_type="warning", step=step)
 
     def error(self, step: str, message: str):
         """Log an error message (app should not crash).
@@ -223,7 +233,7 @@ class EEGCometLogger:
         error_message = f"❌  [{step.replace('_', ' ').upper()}] {message}"
 
         self._print_to_console(error_message)
-        self._log_to_gui(message, log_type="error")
+        self._log_to_gui(message, log_type="error", step=step)
 
     def stop_requested(self, step: str):
         """Log when a stop is requested for a processing step.
@@ -234,7 +244,8 @@ class EEGCometLogger:
         stop_message = f"❌  [{step.replace('_', ' ').upper()}] Stop Requested - Please Wait ..."
 
         self._print_to_console(stop_message)
-        self._log_to_gui("Stop Requested - Please Wait ...", log_type="warning")
+        self._log_to_gui("Stop Requested - Please Wait ...", log_type="warning",
+                         step=step)
 
     def settings_info(self, step: str, settings_dict: dict):
         """Log configuration settings.
@@ -288,7 +299,8 @@ class EEGCometLogger:
 
         self._print_to_console(full_message)
         if message:
-            self._log_to_gui(f"{progress_text} - {message}", log_type="info")
+            self._log_to_gui(f"{progress_text} - {message}", log_type="info",
+                             step=step)
 
     def file_operation(self, step: str, operation: str, file_path: str):
         """Log file operations.
@@ -305,7 +317,7 @@ class EEGCometLogger:
         full_message = f"{prefix} {message}"
 
         self._print_to_console(full_message)
-        self._log_to_gui(message, log_type="file")
+        self._log_to_gui(message, log_type="file", step=step)
 
     def reference(self, step: str, reference_url: str):
         """Log scientific references.
@@ -320,7 +332,7 @@ class EEGCometLogger:
         full_message = f"{prefix} {message}"
 
         self._print_to_console(full_message)
-        self._log_to_gui(message, log_type="reference")
+        self._log_to_gui(message, log_type="reference", step="REFERENCE")
 
 
 # Global logger instance

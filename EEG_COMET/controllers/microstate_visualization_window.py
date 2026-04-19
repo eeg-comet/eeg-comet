@@ -24,6 +24,7 @@ from PyQt5.QtWidgets import (
 
 from clustering_utils.microstate_io import MicrostateIO
 from clustering_utils.microstate_visualizer import show_microstate
+from gui_utils.responsive import apply_window_minimum, expand_canvas
 from gui_utils.terminal_logger import get_logger
 
 
@@ -146,7 +147,9 @@ class MicrostateVisualizationWindow(QMainWindow):
         """
         self.ui = uic.loadUi(context.get_resource("MicrostateVisualizationWindow.ui"), self)
         self.ui.setWindowTitle("Visualization of the identified microstates")
-        # Set window flags to include the maximize button
+        apply_window_minimum(self, "dialog")
+        if hasattr(self.ui, "microstate_visualization_label"):
+            self.ui.microstate_visualization_label.setProperty("role", "banner")
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
 
     def setup_menu_actions(self):
@@ -259,11 +262,9 @@ class MicrostateVisualizationWindow(QMainWindow):
 
     def create_figure_and_canvas(self):
         """Create matplotlib figure and canvas."""
-        # Use constrained_layout for automatic centring
         self.figure = Figure(constrained_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        self.canvas.setMinimumHeight(100)
+        expand_canvas(self.canvas, minimum=(360, 240))
         self.Microstate_Layout.addWidget(self.canvas)
 
     def create_label_widgets(self, micro_labels):

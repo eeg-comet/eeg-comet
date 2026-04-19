@@ -34,7 +34,7 @@ EEG-COMET is developed by the [SFU eBrain Lab](https://www.ebrainlab.ca) at Simo
 
 ### Is EEG-COMET free to use?
 
-Yes, EEG-COMET is open-source and free for academic and research use.
+Yes. EEG-COMET is free and open-source software released under the **GNU General Public License v3.0**. You are free to use, study, modify, and redistribute it. Any redistributed or modified version (including a fork or a tool that incorporates EEG-COMET) must also be released under GPL-3.0 with the copyright and license notices intact. For closed-source or otherwise GPL-incompatible use, please contact the authors to discuss a separate commercial license.
 
 ### What operating systems are supported?
 
@@ -283,7 +283,7 @@ Include in your methods:
 
 ### Where can I report bugs?
 
-Submit issues on GitHub: [github.com/eeg-comet/eeg-comet.github.io/issues](https://github.com/eeg-comet/eeg-comet.github.io/issues)
+Submit issues on GitHub: [github.com/eeg-comet/eeg-comet/issues](https://github.com/eeg-comet/eeg-comet/issues)
 
 Include:
 - Operating system and version

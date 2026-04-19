@@ -203,7 +203,8 @@ Classification is typically automatic with default settings. Advanced options:
 
 | Setting | Description |
 |:--------|:------------|
-| Model file | `model_v1.5.onnx` (embedded) |
+| Model file | `model_v2.onnx` (bundled in `EEG_COMET/models/`) |
+| Inference runtime | ONNX Runtime (`onnxruntime`) |
 | Confidence threshold | Report low-confidence assignments |
 | Interpolation grid | Standard 64×64 pixels |
 

@@ -60,6 +60,9 @@
          </item>
          <item row="8" column="0" colspan="2">
           <widget class="QPushButton" name="show_microstate_sources_button">
+           <property name="toolTip">
+            <string>Plot the source map for the selected microstate of the selected subject</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -143,6 +146,9 @@ QPushButton:disabled {
          </item>
          <item row="9" column="0" colspan="2">
           <widget class="QPushButton" name="show_all_microstate_sources_button">
+           <property name="toolTip">
+            <string>Plot source maps for the selected microstate across every subject</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -198,6 +204,9 @@ QPushButton:disabled {
          </item>
          <item row="3" column="0" colspan="2">
           <widget class="QPushButton" name="show_stc_button">
+           <property name="toolTip">
+            <string>Open the source time-course viewer for the selected subject</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -253,6 +262,9 @@ QPushButton:disabled {
          </item>
          <item row="2" column="1">
           <widget class="QSlider" name="stc_time_slider">
+           <property name="toolTip">
+            <string>Drag to scrub through the source time course</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
              <horstretch>0</horstretch>
@@ -331,6 +343,9 @@ QPushButton:disabled {
          </item>
          <item row="7" column="1">
           <widget class="QComboBox" name="microstate_combobox">
+           <property name="toolTip">
+            <string>Choose which microstate map to visualize</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -378,6 +393,9 @@ QPushButton:disabled {
          </item>
          <item row="6" column="1">
           <widget class="QComboBox" name="microstates_list_combobox">
+           <property name="toolTip">
+            <string>Choose which source-correlation metric to display</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -450,6 +468,9 @@ QPushButton:disabled {
          </item>
          <item row="1" column="1">
           <widget class="QLineEdit" name="stc_time_input">
+           <property name="toolTip">
+            <string>Current time (ms) along the source time course (read-only)</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
              <horstretch>0</horstretch>
@@ -483,6 +504,9 @@ QPushButton:disabled {
        </item>
        <item row="2" column="0">
         <widget class="QListWidget" name="subjects_list">
+         <property name="toolTip">
+          <string>Subjects available for source visualization (multi-select)</string>
+         </property>
          <property name="sizePolicy">
           <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
            <horstretch>0</horstretch>

@@ -1,0 +1,50 @@
+# Citation File Format (CFF) — https://citation-file-format.github.io/
+# GitHub renders a "Cite this repository" button from this file.
+# When the companion paper is published, fill in the `preferred-citation:`
+# block below and people will be directed to cite the paper instead of
+# the software entry.
+
+cff-version: 1.2.0
+message: "If you use EEG-COMET in your research, please cite it as below."
+title: "EEG-COMET: EEG Comprehensive Microstate Extraction Toolbox"
+abstract: >-
+  EEG-COMET is a comprehensive, free and open-source toolbox for EEG
+  microstate analysis. It integrates quality control, preprocessing,
+  machine-learning-based microstate labeling, advanced feature extraction,
+  and source localization into a single reproducible framework.
+type: software
+license: GPL-3.0-only
+version: "0.2.0"
+date-released: "2026-04-18"
+url: "https://github.com/eeg-comet/eeg-comet"
+repository-code: "https://github.com/eeg-comet/eeg-comet"
+keywords:
+  - EEG
+  - microstates
+  - neuroscience
+  - MNE-Python
+  - source localization
+  - machine learning
+
+# TODO: replace this placeholder with the real author list.
+authors:
+  - name: "SFU eBrain Lab"
+    affiliation: "Simon Fraser University"
+    website: "https://www.ebrainlab.ca"
+  # - family-names: "<lastname>"
+  #   given-names: "<firstname>"
+  #   affiliation: "SFU eBrain Lab, Simon Fraser University"
+  #   orcid: "https://orcid.org/0000-0000-0000-0000"
+
+# When the companion paper is published, uncomment and complete this block.
+# CFF tooling will then prefer this citation over the software entry.
+#
+# preferred-citation:
+#   type: article
+#   title: "<paper title>"
+#   authors:
+#     - family-names: "<lastname>"
+#       given-names: "<firstname>"
+#   journal: "<journal name>"
+#   year: 2026
+#   doi: "10.xxxx/xxxxxx"

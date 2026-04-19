@@ -63,7 +63,6 @@ class SourceVisualizer:
                 self.tess_sources_path, extension=".npy", pattern=pattern
             )
         elif source_mode in ["avg_filtered", "avg_raw"]:
-            # TODO: complete this
             stc_list_path, _ = DataIO().find_data(
                 self.avg_sources_path, extension=".npy", pattern="avg"
             )
@@ -144,8 +143,6 @@ class SourceVisualizer:
         Returns:
             None
         """
-        # [TODO] Need to add plots within the main visualization window
-
         [mystc, stc_avg] = self.preprocess_data(selected_items, source_mode)
 
         print(mystc)
