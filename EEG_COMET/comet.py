@@ -170,6 +170,12 @@ class COMET:
         self.feature_mode = ["averaged"]
         self.feature_types = ["real"]
         self.sliding_window_size = 1
+        # How DUR is summarised across per-segment lengths. Default is
+        # ``geometric`` (geometric mean of run lengths, robust to long-tail
+        # outliers); ``arithmetic`` uses the mean of run lengths with the
+        # (N-1)/fs interval convention and is algebraically consistent with
+        # COV and OCC. See FeatureExtractor for all accepted values.
+        self.duration_method = "geometric"
         self.event_based_sliding = False
         self.selected_events = []
         self.event_matching_mode = "partial"  # "exact", "case_insensitive", or "partial"
@@ -222,7 +228,8 @@ class COMET:
         self.comet_feature_io = FeatureIO()
         self.comet_feature_helper = FeatureHelper()
         self.comet_feature_extractor = FeatureExtractionCoordinator(
-            random_seed=getattr(self, "random_seed", None)
+            random_seed=getattr(self, "random_seed", None),
+            duration_method=getattr(self, "duration_method", "geometric"),
         )
         self.comet_microstate_clusterer = None  # Will be initialized during clustering
 
@@ -567,6 +574,29 @@ class COMET:
 
         feature_types_str = features_config.get("feature_types", "real")
         self.feature_types = [x.strip() for x in feature_types_str.split(",")]
+
+        # Aggregation method for per-segment microstate durations.
+        # Accepted values: arithmetic | geometric | median | trimmed_mean.
+        # ``geometric`` (default) uses the geometric mean of run lengths and
+        # is robust to long-tail outliers; ``arithmetic`` uses the mean of
+        # run lengths with the (N-1)/fs interval convention and is
+        # algebraically consistent with COV and OCC.
+        self.duration_method = features_config.get(
+            "duration_method", "geometric"
+        ).strip()
+        if self.duration_method not in (
+            "arithmetic", "geometric", "median", "trimmed_mean",
+        ):
+            self.logger.warning(
+                "FEATURES",
+                f"Unknown duration_method={self.duration_method!r}; "
+                f"falling back to 'geometric'.",
+            )
+            self.duration_method = "geometric"
+        # Re-instantiate the coordinator if it was already created (e.g. when
+        # ``load_config`` is called after ``__init__``).
+        if hasattr(self, "comet_feature_extractor") and self.comet_feature_extractor is not None:
+            self.comet_feature_extractor.duration_method = self.duration_method
 
         if "OCC" in self.feature_list:
             try:
@@ -3132,7 +3162,8 @@ class COMET:
                                 "window_index": window_index,  # Add window index
                             }
                             coordinator = FeatureExtractionCoordinator(
-                                random_seed=getattr(self, "random_seed", None)
+                                random_seed=getattr(self, "random_seed", None),
+                                duration_method=getattr(self, "duration_method", "geometric"),
                             )
                             feat_res = coordinator.extract_features(
                                 segmentation=seg_stub,

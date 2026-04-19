@@ -68,7 +68,10 @@ class MicrostateBackfitter:
         self.extension = extension
         self.datatype = datatype
         self.sample_rate = sample_rate
-        self.smoothing_parameters = smoothing_parameters if smoothing_parameters else [1e-6, 3, 10]
+        # Fallback defaults must match ``default_config.ini`` (epsilon=1e-6, b=3,
+        # lamb=5). If you change them here, also update the config and the
+        # corresponding fallback inside ``substitute_maps_with_duration``.
+        self.smoothing_parameters = smoothing_parameters if smoothing_parameters else [1e-6, 3, 5]
         self.export_format = export_format
         self.min_correlation_threshold = min_correlation_threshold
         if self.microstate_maps.shape[0] != len(self.microstate_labels):
@@ -333,13 +336,14 @@ class MicrostateBackfitter:
             microstate_maps (numpy.ndarray): Template maps (n_states, n_channels).
             n_states (int): Number of microstate classes.
             smoothing_parameters (list, optional): [epsilon, half_window_size, lambda].
-                Defaults to [1e-6, 3, 10].
+                Defaults to [1e-6, 3, 5] (matches ``default_config.ini``).
 
         Returns:
             numpy.ndarray: Filtered/smoothed segmentation array.
         """
         if smoothing_parameters is None:
-            smoothing_parameters = [1e-6, 3, 10]
+            # Mirror the constructor fallback and ``default_config.ini``.
+            smoothing_parameters = [1e-6, 3, 5]
 
         if option == "smooth":
             # Step 1: Apply Pascual-Marqui temporal smoothing
@@ -361,8 +365,8 @@ class MicrostateBackfitter:
             data_normalized = data_centered / (data_norms[np.newaxis, :] + 1e-10)
             # Step 2: Reject short segments and distribute to neighbors (iterative).
             # Redistribution can create new short segments at split boundaries, so
-            # repeat mark + distribute until no segment <= segments_less_than remains,
-            # matching CARTOOL behavior where the final segmentation has no short segments.
+            # repeat mark + distribute until no segment <= segments_less_than
+            # remains in the final segmentation.
             max_reject_iterations = 15
             for _ in range(max_reject_iterations):
                 marked = self.mark_short_segments(filled_segmentation, segments_less_than)
