@@ -223,7 +223,7 @@ Select which metrics to compute:
 |:--------|:-------------|:------------|
 | Coverage | COV | Proportion of time in each microstate |
 | Occurrence | OCC | Number of appearances per second |
-| Duration | DUR | Average length of each microstate |
+| Duration | DUR | Average length of each microstate (default uses geometric mean of run lengths; see [Feature Extraction]({% link modules/feature-extraction.md %}#mean-duration-dur) for `arithmetic`, `median`, `trimmed_mean` alternatives) |
 | GEV | GEV | Variance explained by each template |
 | Transition Probability | TP | Probabilities of microstate-to-microstate transitions |
 

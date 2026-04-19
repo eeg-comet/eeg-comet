@@ -154,6 +154,21 @@ The automated classifier supports up to 7 canonical classes (A-G). For more than
 
 Use windowed mode for protocols with alternating conditions within a single recording.
 
+### How is mean microstate Duration (DUR) computed?
+
+By default, EEG-COMET reports the **geometric mean** of the per-segment run lengths (`duration_method = geometric`). Run-length distributions of dominant microstates are heavy-tailed, and the geometric mean tracks the typical persistence far better than the arithmetic mean.
+
+Three other aggregations are available via `duration_method` in `[features_config]`:
+
+| Method | Behaviour |
+|:-------|:----------|
+| `geometric` *(default)* | Geometric mean of run lengths × `1000/fs`. Robust to long-tail outliers. |
+| `arithmetic` | `(mean_samples − 1) × 1000/fs`. Keeps `COV ≈ DUR × OCC` exactly. Use this to reproduce earlier EEG-COMET results. |
+| `median` | Median of run lengths × `1000/fs`. Most robust central-tendency estimator. |
+| `trimmed_mean` | 10% trimmed mean (falls back to mean for ≤10 segments). |
+
+See [Feature Extraction → Mean Duration (DUR)]({% link modules/feature-extraction.md %}#mean-duration-dur) for the formulas and trade-offs.
+
 ### How do I analyze event-related microstate changes?
 
 1. Use epoched data with event markers

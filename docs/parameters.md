@@ -86,6 +86,7 @@ feature_list = COV,OCC,MMD
 feature_mode = static
 feature_types = real,surrogate,random
 window_size = 1
+duration_method = geometric
 
 [source_config]
 inverse_method = dSPM
@@ -504,8 +505,28 @@ Parameters for microstate metric computation.
 <td><code>1</code></td>
 <td>Window duration in seconds (for windowed mode).</td>
 </tr>
+<tr>
+<td><code>duration_method</code></td>
+<td>String</td>
+<td><code>geometric</code></td>
+<td>How per-segment microstate run lengths are summarised into the DUR feature. See options below.</td>
+</tr>
 </tbody>
 </table>
+
+### Duration Aggregation Options
+
+The `duration_method` parameter controls how the per-segment run lengths of each microstate are summarised into the reported mean duration (DUR / MMD).
+
+| Value | Description | When to use |
+|:------|:------------|:------------|
+| `geometric` *(default)* | Geometric mean of run lengths × `1000/fs`. | Default; robust to long-tail outliers that inflate the arithmetic mean for high-coverage microstates. |
+| `arithmetic` | Mean of run lengths with the `(N-1)/fs` interval convention. | When DUR must be algebraically consistent with COV and OCC (`COV ≈ DUR × OCC`). |
+| `median` | Median of run lengths × `1000/fs`. | Robust central-tendency reporting. |
+| `trimmed_mean` | 10% symmetric trimmed mean × `1000/fs` (falls back to mean if fewer than 11 segments). | Robust alternative when occasional very long segments distort the mean. |
+
+{: .note }
+> The default switched from `arithmetic` to `geometric` to better reflect the typical persistence of dominant microstates, whose run-length distributions are heavy-tailed. Specify `duration_method = arithmetic` to reproduce results from earlier versions or to keep the COV / DUR / OCC identity exact.
 
 ### Export Format Options
 
