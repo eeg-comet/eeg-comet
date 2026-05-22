@@ -3,20 +3,27 @@ title: Modules
 layout: default
 nav_order: 4
 has_children: true
-description: "Detailed documentation for EEG-COMET processing modules"
+description: "Reference documentation for all ten EEG-COMET processing modules."
 ---
 
-# Processing Modules
+# Processing modules
 {: .no_toc }
 
-EEG-COMET features ten interconnected processing modules that provide comprehensive microstate analysis capabilities.
+EEG-COMET is built from ten interconnected modules. Each module is
+designed to be usable on its own *or* as part of the end-to-end
+pipeline, so you can swap in your own preprocessing, clustering, or
+statistics where needed.
 {: .fs-6 .fw-300 }
 
 ---
 
-## Module Overview
+## Pipeline overview
 
-The modular architecture allows researchers to customize their analysis pipeline while maintaining methodological rigor. Each module addresses specific challenges in microstate analysis.
+The modular architecture lets researchers customize their analysis
+pipeline while maintaining methodological rigor. Each module addresses
+specific challenges in microstate analysis, and all modules share a
+single configuration schema (see the
+[Parameters Reference]({% link parameters.md %})).
 
 <div class="workflow-container">
   <span class="workflow-step">1. Data Loading</span>
@@ -44,9 +51,9 @@ The modular architecture allows researchers to customize their analysis pipeline
 
 ---
 
-## Module Descriptions
+## Modules at a glance
 
-### Data Acquisition & Preparation
+### Data acquisition &amp; preparation
 
 <div class="module-card">
   <h4><a href="{% link modules/data-loading.md %}">📂 1. Data Loading Module</a></h4>
@@ -63,7 +70,7 @@ The modular architecture allows researchers to customize their analysis pipeline
   <p>Three complementary methods for selecting which timepoints contribute to template extraction: GFP peaks, random subsampling, or all timepoints.</p>
 </div>
 
-### Template Identification
+### Template identification
 
 <div class="module-card">
   <h4><a href="{% link modules/cluster-validation.md %}">📊 4. Cluster Number Validation Module</a></h4>
@@ -80,7 +87,7 @@ The modular architecture allows researchers to customize their analysis pipeline
   <p>Automated ML-based classification achieving 98%+ accuracy for canonical microstate labels (A-G), plus manual labeling options for exploratory analyses.</p>
 </div>
 
-### Segmentation & Analysis
+### Segmentation &amp; analysis
 
 <div class="module-card">
   <h4><a href="{% link modules/backfitting.md %}">✂️ 7. Template Backfitting Module</a></h4>
@@ -92,7 +99,7 @@ The modular architecture allows researchers to customize their analysis pipeline
   <p>Classical temporal metrics (COV, OCC, DUR, GEV), transition probabilities, complexity measures (entropy, Lempel-Ziv, Hurst), and event-related dynamics.</p>
 </div>
 
-### Statistical Inference & Interpretation
+### Statistical inference &amp; interpretation
 
 <div class="module-card">
   <h4><a href="{% link modules/statistical-analysis.md %}">🧮 9. Statistical Analysis Module</a></h4>

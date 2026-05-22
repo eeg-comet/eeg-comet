@@ -1,18 +1,40 @@
 # EEG-COMET Documentation Site Configuration
+# Built with Jekyll + Just the Docs theme.
+# https://just-the-docs.com/
+
+# ---------------------------------------------------------------------------
+# Site identity
+# ---------------------------------------------------------------------------
 title: EEG-COMET
-description: EEG Comprehensive Microstate Extraction Toolbox — official documentation
+tagline: EEG Comprehensive Microstate Extraction Toolbox
+description: >-
+  Official documentation for EEG-COMET — an open-source platform for
+  comprehensive EEG microstate analysis with automated quality control,
+  ML-based labeling, advanced feature extraction, and source localization.
 url: "https://eeg-comet.github.io"
 baseurl: "/eeg-comet"
 version: "1.0.0"
-remote_theme: just-the-docs/just-the-docs@v0.8.2
+lang: en
 
-# Logo and branding
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+remote_theme: just-the-docs/just-the-docs@v0.8.2
+color_scheme: comet
 logo: "/assets/images/logo.png"
 
-# Color scheme (custom)
-color_scheme: comet
+# ---------------------------------------------------------------------------
+# Markdown / Kramdown
+# ---------------------------------------------------------------------------
+markdown: kramdown
+kramdown:
+  syntax_highlighter_opts:
+    block:
+      line_numbers: false
 
+# ---------------------------------------------------------------------------
 # Search
+# ---------------------------------------------------------------------------
 search_enabled: true
 search:
   heading_level: 2
@@ -23,23 +45,30 @@ search:
   rel_url: true
   button: false
 
+# ---------------------------------------------------------------------------
 # Navigation
+# ---------------------------------------------------------------------------
 nav_sort: case_insensitive
-
-# Heading anchor links
 heading_anchors: true
+back_to_top: true
+back_to_top_text: "Back to top"
 
-# Footer
-footer_content: "EEG-COMET &copy; 2024-2026 SFU eBrain Lab. Released under the GNU General Public License v3.0."
+# ---------------------------------------------------------------------------
+# Footer / external links
+# ---------------------------------------------------------------------------
+footer_content: >-
+  EEG-COMET &copy; 2024&ndash;2026 SFU eBrain Lab. Released under the
+  <a href="https://github.com/eeg-comet/eeg-comet/blob/stable/LICENSE">GNU General Public License v3.0</a>.
 
-# Aux links (top-right of every page)
 aux_links:
   "GitHub":
     - "https://github.com/eeg-comet/eeg-comet"
+  "Issues":
+    - "https://github.com/eeg-comet/eeg-comet/issues"
   "License":
-    - "https://github.com/eeg-comet/eeg-comet/blob/main/LICENSE"
+    - "https://github.com/eeg-comet/eeg-comet/blob/stable/LICENSE"
   "Cite":
-    - "https://github.com/eeg-comet/eeg-comet/blob/main/CITATION.cff"
+    - "https://github.com/eeg-comet/eeg-comet/blob/stable/CITATION.cff"
 aux_links_new_tab: true
 
 # "Edit this page on GitHub" link rendered at the bottom of every page
@@ -50,14 +79,13 @@ gh_edit_branch: "stable"
 gh_edit_source: docs
 gh_edit_view_mode: "tree"
 
-# Back to top link
-back_to_top: true
-back_to_top_text: "Back to top"
-
-# Code copy button
+# ---------------------------------------------------------------------------
+# UX features
+# ---------------------------------------------------------------------------
 enable_copy_code_button: true
+mermaid:
+  version: "10.9.1"
 
-# Callouts
 callouts_level: quiet
 callouts:
   highlight:
@@ -74,15 +102,33 @@ callouts:
   warning:
     title: Warning
     color: red
+  tip:
+    title: Tip
+    color: green
 
+# ---------------------------------------------------------------------------
 # Plugins
+# ---------------------------------------------------------------------------
 plugins:
   - jekyll-seo-tag
   - jekyll-include-cache
+  - jekyll-sitemap
 
-# Exclude from processing
+# SEO defaults
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /assets/images/logo.png
+
+# ---------------------------------------------------------------------------
+# Build settings
+# ---------------------------------------------------------------------------
 exclude:
   - Gemfile
   - Gemfile.lock
   - README.md
-
+  - vendor
+  - .bundle
+  - .jekyll-cache
+  - node_modules
