@@ -26,25 +26,44 @@ keywords:
   - source localization
   - machine learning
 
-# TODO: replace this placeholder with the real author list.
 authors:
-  - name: "SFU eBrain Lab"
-    affiliation: "Simon Fraser University"
-    website: "https://www.ebrainlab.ca"
-  # - family-names: "<lastname>"
-  #   given-names: "<firstname>"
-  #   affiliation: "SFU eBrain Lab, Simon Fraser University"
-  #   orcid: "https://orcid.org/0000-0000-0000-0000"
+  - family-names: "Kabir"
+    given-names: "Amin"
+    affiliation: "SFU eBrain Lab, Simon Fraser University"
+  - family-names: "Tarailis"
+    given-names: "Povilas"
+    affiliation: "SFU eBrain Lab, Simon Fraser University"
+  - family-names: "Chatterjee"
+    given-names: "Raaj"
+    affiliation: "SFU eBrain Lab, Simon Fraser University"
+  - family-names: "Dhami"
+    given-names: "Prabhjot"
+    affiliation: "SFU eBrain Lab, Simon Fraser University"
+  - family-names: "Farzan"
+    given-names: "Faranak"
+    affiliation: "SFU eBrain Lab, Simon Fraser University"
 
-# When the companion paper is published, uncomment and complete this block.
-# CFF tooling will then prefer this citation over the software entry.
-#
-# preferred-citation:
-#   type: article
-#   title: "<paper title>"
-#   authors:
-#     - family-names: "<lastname>"
-#       given-names: "<firstname>"
-#   journal: "<journal name>"
-#   year: 2026
-#   doi: "10.xxxx/xxxxxx"
+# Companion paper. Update `journal`, `year`, and `doi` once the paper is
+# published. CFF tooling will then prefer this citation over the software entry.
+preferred-citation:
+  type: article
+  title: "EEG-COMET: A Comprehensive Platform for Resting-State and Single-Trial Event-Related Microstate Analysis"
+  authors:
+    - family-names: "Kabir"
+      given-names: "Amin"
+      affiliation: "SFU eBrain Lab, Simon Fraser University"
+    - family-names: "Tarailis"
+      given-names: "Povilas"
+      affiliation: "SFU eBrain Lab, Simon Fraser University"
+    - family-names: "Chatterjee"
+      given-names: "Raaj"
+      affiliation: "SFU eBrain Lab, Simon Fraser University"
+    - family-names: "Dhami"
+      given-names: "Prabhjot"
+      affiliation: "SFU eBrain Lab, Simon Fraser University"
+    - family-names: "Farzan"
+      given-names: "Faranak"
+      affiliation: "SFU eBrain Lab, Simon Fraser University"
+  year: 2026
+  # journal: "<journal name>"
+  # doi: "10.xxxx/xxxxxx"

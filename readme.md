@@ -114,11 +114,11 @@ tests/                     # Pytest suite
 
 ## How to cite
 
-If you use EEG-COMET in academic work, please cite the toolbox. A machine-readable [`CITATION.cff`](CITATION.cff) is provided at the repository root, and GitHub renders a "Cite this repository" button from it. As a fallback citation:
+If you use EEG-COMET in academic work, please cite the companion paper. A machine-readable [`CITATION.cff`](CITATION.cff) is provided at the repository root, and GitHub renders a "Cite this repository" button from it. As a fallback citation:
 
-> SFU eBrain Lab and EEG-COMET contributors. *EEG-COMET: EEG Comprehensive Microstate Extraction Toolbox.* https://github.com/eeg-comet/eeg-comet
+> Kabir, A., Tarailis, P., Chatterjee, R., Dhami, P., & Farzan, F. (2026). *EEG-COMET: A Comprehensive Platform for Resting-State and Single-Trial Event-Related Microstate Analysis.* https://github.com/eeg-comet/eeg-comet
 
-When the companion paper is published, the preferred citation in `CITATION.cff` will be updated to point at it; please cite the paper from that point on.
+Once the paper is published, the journal reference and DOI will be added to `CITATION.cff`; please cite the published paper from that point on.
 
 ## License
 

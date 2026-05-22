@@ -166,17 +166,15 @@ Use the GUI to navigate to your preprocessed EEG data directory. EEG-COMET suppo
 If you use EEG-COMET in a publication, please cite the toolbox. The canonical, machine-readable citation lives in [`CITATION.cff`](https://github.com/eeg-comet/eeg-comet/blob/main/CITATION.cff) at the repository root — GitHub renders a "Cite this repository" button from it. A fallback BibTeX entry:
 
 ```bibtex
-@software{eegcomet,
-  title   = {EEG-COMET: EEG Comprehensive Microstate Extraction Toolbox},
-  author  = {Kabir, Amin and {SFU eBrain Lab}},
+@article{eegcomet,
+  title   = {EEG-COMET: A Comprehensive Platform for Resting-State and Single-Trial Event-Related Microstate Analysis},
+  author  = {Kabir, Amin and Tarailis, Povilas and Chatterjee, Raaj and Dhami, Prabhjot and Farzan, Faranak},
   year    = {2026},
-  version = {1.0.0},
-  url     = {https://github.com/eeg-comet/eeg-comet},
-  license = {GPL-3.0-or-later}
+  url     = {https://github.com/eeg-comet/eeg-comet}
 }
 ```
 
-When a peer-reviewed paper describing the toolbox is available, replace the entry above with the published reference.
+Once the paper is published, update the entry above with the journal and DOI.
 
 ---
 
