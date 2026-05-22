@@ -1,342 +1,48 @@
-// EEG-COMET Custom Color Scheme
-// Inspired by the comet logo - deep maroon/burgundy with neural gradient accents
+// EEG-COMET color scheme for Just the Docs
+// Inspired by the comet logo: deep maroon/burgundy with a neural gradient accent.
+//
+// IMPORTANT: This file only overrides the SCSS color variables consumed by
+// Just the Docs. Custom component styles (hero, feature-grid, etc.) live in
+// `_sass/custom/custom.scss`.
 
-// Primary colors from logo
-$comet-maroon: #8B1538;
+// -----------------------------------------------------------------------------
+// Brand palette
+// -----------------------------------------------------------------------------
+$comet-maroon:   #8B1538;
 $comet-burgundy: #6B1028;
-$comet-dark: #1a1a2e;
-$comet-navy: #16213e;
+$comet-deep:     #4A0A1C;
+$comet-dark:     #1a1a2e;
+$comet-navy:     #16213e;
 
-// Accent colors (neural gradient from logo)
-$neural-coral: #E85D5D;
-$neural-peach: #F5A070;
-$neural-sky: #6BBAEC;
-$neural-ocean: #3D8EBF;
+$neural-coral:   #E85D5D;
+$neural-peach:   #F5A070;
+$neural-sky:     #6BBAEC;
+$neural-ocean:   #3D8EBF;
 
-// Background colors
-$bg-dark: #0f0f1a;
-$bg-light: #fafbfc;
-$bg-code: #1e1e2e;
+$bg-page:        #fafbfc;
+$bg-sidebar:     #ffffff;
+$bg-code:        #f5f6fa;
 
-// Apply to Just the Docs theme
-$link-color: $comet-maroon;
-$btn-primary-color: $comet-maroon;
+// -----------------------------------------------------------------------------
+// Just the Docs variable overrides
+// -----------------------------------------------------------------------------
+$body-background-color:     $bg-page;
+$sidebar-color:             $bg-sidebar;
+$body-text-color:           #1f2328;
+$body-heading-color:        $comet-deep;
 
-// Sidebar styling
-$sidebar-color: $bg-dark;
-$nav-child-link-color: rgba(255, 255, 255, 0.8);
+$link-color:                $comet-maroon;
+$btn-primary-color:         $comet-maroon;
+$base-button-color:         #f7f7f7;
 
-// Code styling
-$code-background-color: $bg-code;
+$nav-child-link-color:      #4a4f57;
+$search-background-color:   #ffffff;
+$search-result-hover-background-color: rgba($comet-maroon, 0.08);
 
-// Custom variables for our extensions
-:root {
-  --comet-primary: #{$comet-maroon};
-  --comet-secondary: #{$comet-burgundy};
-  --comet-accent: #{$neural-coral};
-  --comet-accent-2: #{$neural-sky};
-  --comet-dark: #{$comet-dark};
-  --comet-bg: #{$bg-light};
-  
-  // Gradient for headers
-  --comet-gradient: linear-gradient(135deg, #{$comet-maroon} 0%, #{$neural-coral} 50%, #{$neural-peach} 100%);
-  --neural-gradient: linear-gradient(180deg, #{$neural-coral} 0%, #{$neural-peach} 25%, #{$neural-sky} 75%, #{$neural-ocean} 100%);
-}
+$table-background-color:    #ffffff;
+$feedback-color:            #f6f5f7;
 
-// Custom component styles
-.main-content {
-  h1 {
-    color: var(--comet-primary);
-    border-bottom: 3px solid var(--comet-primary);
-    padding-bottom: 0.5rem;
-  }
-  
-  h2 {
-    color: var(--comet-secondary);
-    margin-top: 2rem;
-  }
-  
-  h3 {
-    color: $comet-dark;
-  }
-}
+$code-background-color:     $bg-code;
+$code-linenumber-color:     #6e7681;
 
-// Hero section for homepage
-.hero-section {
-  background: var(--comet-gradient);
-  color: white;
-  padding: 3rem 2rem;
-  border-radius: 12px;
-  margin-bottom: 2rem;
-  text-align: center;
-  
-  h1 {
-    color: white !important;
-    border: none !important;
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-  }
-  
-  p {
-    font-size: 1.2rem;
-    opacity: 0.95;
-    max-width: 800px;
-    margin: 0 auto;
-  }
-}
-
-// Feature cards
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin: 2rem 0;
-}
-
-.feature-card {
-  background: white;
-  border: 1px solid #e1e4e8;
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(139, 21, 56, 0.15);
-    border-color: var(--comet-primary);
-  }
-  
-  h3 {
-    color: var(--comet-primary);
-    margin-top: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  
-  p {
-    color: #586069;
-    margin-bottom: 0;
-  }
-  
-  .icon {
-    font-size: 1.5rem;
-  }
-}
-
-// Module navigation cards
-.module-card {
-  background: linear-gradient(135deg, white 0%, #f8f9fa 100%);
-  border-left: 4px solid var(--comet-primary);
-  border-radius: 0 8px 8px 0;
-  padding: 1rem 1.5rem;
-  margin: 1rem 0;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background: linear-gradient(135deg, #fff5f7 0%, #fef0f2 100%);
-    transform: translateX(4px);
-  }
-  
-  h4 {
-    margin: 0 0 0.5rem 0;
-    color: var(--comet-primary);
-  }
-  
-  p {
-    margin: 0;
-    color: #586069;
-    font-size: 0.95rem;
-  }
-}
-
-// Step indicators
-.step-indicator {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: var(--comet-primary);
-  color: white;
-  border-radius: 50%;
-  font-weight: bold;
-  margin-right: 0.75rem;
-}
-
-// Parameter tables
-.param-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1rem 0;
-  font-size: 0.95rem;
-  
-  th {
-    background: var(--comet-primary);
-    color: white;
-    padding: 0.75rem 1rem;
-    text-align: left;
-  }
-  
-  td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid #e1e4e8;
-    vertical-align: top;
-  }
-  
-  tr:nth-child(even) {
-    background: #f8f9fa;
-  }
-  
-  tr:hover {
-    background: #fff5f7;
-  }
-  
-  code {
-    background: #f0f0f0;
-    padding: 0.1rem 0.4rem;
-    border-radius: 3px;
-    font-size: 0.85rem;
-  }
-}
-
-// Callout boxes
-.callout {
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  margin: 1rem 0;
-  
-  &.info {
-    background: #e8f4fd;
-    border-left: 4px solid #0366d6;
-  }
-  
-  &.warning {
-    background: #fff8e6;
-    border-left: 4px solid #f9a825;
-  }
-  
-  &.danger {
-    background: #ffeef0;
-    border-left: 4px solid var(--comet-primary);
-  }
-  
-  &.success {
-    background: #e6ffed;
-    border-left: 4px solid #28a745;
-  }
-}
-
-// Workflow diagram styles
-.workflow-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin: 2rem 0;
-  padding: 1.5rem;
-  background: #f8f9fa;
-  border-radius: 12px;
-}
-
-.workflow-step {
-  background: white;
-  border: 2px solid var(--comet-primary);
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  font-weight: 500;
-  color: var(--comet-primary);
-  
-  &.active {
-    background: var(--comet-primary);
-    color: white;
-  }
-}
-
-.workflow-arrow {
-  color: var(--comet-primary);
-  font-size: 1.5rem;
-  font-weight: bold;
-}
-
-// Installation tabs
-.install-tabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: 0;
-  
-  .tab {
-    padding: 0.75rem 1.5rem;
-    background: #e1e4e8;
-    border: none;
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.2s;
-    
-    &:first-child {
-      border-radius: 8px 0 0 0;
-    }
-    
-    &:last-child {
-      border-radius: 0 8px 0 0;
-    }
-    
-    &.active {
-      background: var(--comet-primary);
-      color: white;
-    }
-  }
-}
-
-.install-content {
-  border: 1px solid #e1e4e8;
-  border-radius: 0 8px 8px 8px;
-  padding: 1.5rem;
-  background: white;
-}
-
-// Badge styles
-.badge {
-  display: inline-block;
-  padding: 0.2rem 0.6rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  
-  &.required {
-    background: #ffeef0;
-    color: var(--comet-primary);
-  }
-  
-  &.optional {
-    background: #e8f4fd;
-    color: #0366d6;
-  }
-  
-  &.new {
-    background: #e6ffed;
-    color: #28a745;
-  }
-}
-
-// Responsive adjustments
-@media (max-width: 768px) {
-  .hero-section {
-    padding: 2rem 1rem;
-    
-    h1 {
-      font-size: 1.8rem;
-    }
-    
-    p {
-      font-size: 1rem;
-    }
-  }
-  
-  .feature-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
+$border-color:              #e5e7eb;
