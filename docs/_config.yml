@@ -2,7 +2,7 @@
 title: EEG-COMET
 description: EEG Comprehensive Microstate Extraction Toolbox — official documentation
 url: "https://eeg-comet.github.io"
-baseurl: ""
+baseurl: "/eeg-comet"
 version: "1.0.0"
 remote_theme: just-the-docs/just-the-docs@v0.8.2
 
@@ -46,7 +46,7 @@ aux_links_new_tab: true
 gh_edit_link: true
 gh_edit_link_text: "Edit this page on GitHub"
 gh_edit_repository: "https://github.com/eeg-comet/eeg-comet"
-gh_edit_branch: "main"
+gh_edit_branch: "stable"
 gh_edit_source: docs
 gh_edit_view_mode: "tree"
 
