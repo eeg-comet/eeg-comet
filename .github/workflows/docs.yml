@@ -2,7 +2,7 @@ name: Deploy Documentation
 
 on:
   push:
-    branches: ["main"]
+    branches: ["stable", "main"]
   workflow_dispatch:
 
 permissions:
@@ -25,8 +25,11 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
-          bundler-cache: true
-          working-directory: docs
+      
+      - name: Install documentation dependencies
+        run: |
+          cd docs
+          bundle install
       
       - name: Setup Pages
         id: pages
