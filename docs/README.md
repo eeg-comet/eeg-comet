@@ -58,16 +58,18 @@ docs/
 
 ## Deploying to GitHub Pages
 
-The documentation is automatically deployed when pushed to the `main` branch.
+The documentation is deployed by the GitHub Actions workflow in `.github/workflows/docs.yml`.
+By default, that workflow runs when changes are pushed to `main`, and it can also be triggered manually from the Actions tab.
+
+If you use another release branch (for example, `stable`), update the workflow trigger branch list accordingly.
 
 ### Setup GitHub Pages
 
 1. Go to repository Settings → Pages
-2. Under "Source", select "Deploy from a branch"
-3. Select `main` branch and `/docs` folder
-4. Save
+2. Under "Build and deployment", set Source to **GitHub Actions**
+3. Save
 
-The site will be built and deployed automatically.
+After that, the site is built and deployed automatically by the workflow.
 
 ## Theme
 
