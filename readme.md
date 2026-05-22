@@ -7,7 +7,7 @@
 
 EEG-COMET is an open-source, end-to-end toolbox for **EEG microstate analysis**, developed by the [SFU eBrain Lab](https://www.ebrainlab.ca). It unifies preprocessing, automated cluster validation, machine-learning–based labeling, backfitting, feature extraction, and source localization in one reproducible workflow, accessible from either a GUI or a command-line interface.
 
-> Full documentation: **<https://eeg-comet.github.io>**
+> Full documentation: **<[https://eeg-comet.github.io](https://eeg-comet.github.io/eeg-comet/)>**
 
 ---
 
