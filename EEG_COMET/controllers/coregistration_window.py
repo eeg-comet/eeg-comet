@@ -4,8 +4,13 @@ import os.path
 
 import mne
 from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog, QListWidgetItem, QSizePolicy
+from PyQt5.QtWidgets import QDialog, QListWidgetItem
 
+from gui_utils.responsive import (
+    apply_window_minimum,
+    configure_splitter,
+    expand_canvas,
+)
 from sourcelocalization_utils.coregistration import Coregistration
 from sourcelocalization_utils.coregistration_visualizer import CoregistrationVisualizer
 
@@ -50,10 +55,17 @@ class CoregistrationWindow(QDialog):
         self.coregistration = Coregistration(self.subjects_dir)
         self.coregistration_visualizer = CoregistrationVisualizer(self.subjects_dir)
 
-        # load the ui
-        os.path.dirname(__file__)
         self.ui = uic.loadUi(context.get_resource("CoregistrationWindow.ui"), self)
         self.ui.setWindowTitle("Visualization of the head, sensor, and source space alignment")
+        apply_window_minimum(self, "dialog")
+        if hasattr(self.ui, "coregistration_label"):
+            self.ui.coregistration_label.setProperty("role", "banner")
+        if hasattr(self.ui, "splitter"):
+            configure_splitter(
+                self.ui.splitter,
+                ratio=(1, 2),
+                save_key="coregistration",
+            )
 
         self.ui.manual_coreg_button.clicked.connect(self.manual_coregistration)
         self.ui.auto_coreg_button.clicked.connect(self.automatic_coregistration)
@@ -137,6 +149,6 @@ class CoregistrationWindow(QDialog):
         self.plotter = self.coregistration_visualizer.show_coreg(
             self.selected_subject, self.comet.eeg_info
         ).plotter
-        self.plotter.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        expand_canvas(self.plotter, minimum=(360, 280))
         self.ui.Figure_Layout.addWidget(self.plotter)
         self.plotter.show()

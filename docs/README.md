@@ -83,5 +83,5 @@ To contribute to the documentation:
 
 ## License
 
-This documentation is part of EEG-COMET and is distributed under the same license.
+This documentation is part of EEG-COMET and is distributed under the **GNU General Public License v3.0**. See the [`LICENSE`](../LICENSE) file at the repository root for the full text.
 

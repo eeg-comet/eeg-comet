@@ -25,8 +25,9 @@ from PyQt5.QtWidgets import (
 from clustering_utils.clusterer_optimizer import ClustererOptimizer
 from clustering_utils.microstate_clusterer import MicrostateClusterer
 from data_utils.data_initializer import DataInitializer
-from gui_utils.terminal_logger import get_logger
 from gui_utils.export_utils import get_save_file_path, save_matplotlib_figure
+from gui_utils.responsive import apply_window_minimum, expand_canvas
+from gui_utils.terminal_logger import get_logger
 
  
 
@@ -661,6 +662,29 @@ class OptimizerVisualizationWindow(QMainWindow):
         # Load initial state
         self._initialize_state()
 
+    def closeEvent(self, event):
+        """Disconnect signals and wait for the worker before closing.
+
+        We can't interrupt ``compute_methods_batch`` mid-call, but we can stop
+        its emissions from reaching slots on this (about-to-be-deleted) window.
+        """
+        worker = getattr(self, "worker", None)
+        if worker is not None:
+            for sig_name in ("progress", "finished", "error"):
+                sig = getattr(worker, sig_name, None)
+                if sig is not None:
+                    try:
+                        sig.disconnect()
+                    except (TypeError, RuntimeError):
+                        pass
+            try:
+                if worker.isRunning():
+                    worker.wait(2000)
+            except RuntimeError:
+                pass
+            self.worker = None
+        super().closeEvent(event)
+
     # ========================================================================
     # Initialization Methods
     # ========================================================================
@@ -679,14 +703,15 @@ class OptimizerVisualizationWindow(QMainWindow):
 
     def _setup_ui(self):
         """Set up the UI components."""
-        # Load the UI
         self.ui = uic.loadUi(self.context.get_resource("OptimizerVisualizationWindow.ui"), self)
         self.ui.setWindowTitle("Exploring the number of microstate maps (Modified K-means)")
+        apply_window_minimum(self, "tool")
+        if hasattr(self.ui, "optimizer_top_label"):
+            self.ui.optimizer_top_label.setProperty("role", "banner")
 
-        # Set up the matplotlib figure
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        expand_canvas(self.canvas, minimum=(360, 280))
         self.ui.Figure_Layout.addWidget(self.canvas)
 
     def _setup_font_system(self):
@@ -1029,9 +1054,9 @@ class OptimizerVisualizationWindow(QMainWindow):
     # ========================================================================
 
     def optimizer_visualization_controller(self):
-        """Update UI based on selected optimization method.
+        """Update UI based on the selected optimization method.
 
-        Enhanced to support previously loaded results.
+        Supports both freshly computed results and results loaded from disk.
         """
         optimizer_method = self.ui.optimizer_combobox.currentText()
 
@@ -1352,7 +1377,7 @@ class OptimizerVisualizationWindow(QMainWindow):
     def visualize_selected_method(self):
         """Visualize the currently selected optimization method.
 
-        Enhanced to support previously loaded results and threshold updates.
+        Supports loaded results and threshold updates.
         """
         if not self.all_methods_complete and not self.results_cache:
             print("Cannot visualize: analysis not complete and no loaded results")
@@ -1709,7 +1734,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             )
 
     def _save_plot(self, file_name: str):
-        """Deprecated: retained for compatibility; delegates to export utils.
+        """Save the current plot to ``file_name`` via the export utility.
 
         Args:
           file_name (str): Destination path.

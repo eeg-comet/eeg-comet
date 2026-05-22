@@ -17,7 +17,7 @@ permalink: /
 
 ## What is EEG-COMET?
 
-EEG-COMET is a comprehensive, open-source toolbox that addresses fundamental methodological challenges in EEG microstate analysis. Unlike existing tools that provide only basic functionality, EEG-COMET integrates all essential analytical steps into a unified framework:
+EEG-COMET is a comprehensive, free and open-source toolbox (released under **GPL-3.0**) that addresses fundamental methodological challenges in EEG microstate analysis. Unlike existing tools that provide only basic functionality, EEG-COMET integrates all essential analytical steps into a unified framework:
 
 - **Quality control and preprocessing**
 - **Objective microstate labeling using machine learning**
@@ -111,13 +111,15 @@ EEG-COMET features ten interconnected processing modules that facilitate compreh
 
 ```bash
 # Clone the repository
-git clone https://github.com/eeg-comet/eeg-comet.github.io.git
-cd eeg-comet.github.io
+git clone https://github.com/eeg-comet/eeg-comet.git
+cd eeg-comet
 
 # Create conda environment (recommended)
 conda env create -f environment.yml
 conda activate eegcomet
 ```
+
+See the [Installation Guide]({% link installation.md %}) for `pip` and developer installs.
 
 ### 2. Launch the GUI
 
@@ -161,16 +163,28 @@ Use the GUI to navigate to your preprocessed EEG data directory. EEG-COMET suppo
 
 ## Citation
 
-If you use EEG-COMET in your research, please cite:
+If you use EEG-COMET in a publication, please cite the toolbox. The canonical, machine-readable citation lives in [`CITATION.cff`](https://github.com/eeg-comet/eeg-comet/blob/main/CITATION.cff) at the repository root — GitHub renders a "Cite this repository" button from it. A fallback BibTeX entry:
 
 ```bibtex
-@software{eegcomet2024,
-  title = {EEG-COMET: EEG Comprehensive Microstate Extraction Toolbox},
-  author = {SFU eBrain Lab},
-  year = {2024},
-  url = {https://eeg-comet.github.io}
+@software{eegcomet,
+  title   = {EEG-COMET: EEG Comprehensive Microstate Extraction Toolbox},
+  author  = {Kabir, Amin and {SFU eBrain Lab}},
+  year    = {2026},
+  version = {1.0.0},
+  url     = {https://github.com/eeg-comet/eeg-comet},
+  license = {GPL-3.0-or-later}
 }
 ```
+
+When a peer-reviewed paper describing the toolbox is available, replace the entry above with the published reference.
+
+---
+
+## License
+
+EEG-COMET is released under the **GNU General Public License v3.0**. You are free to use, study, modify, and redistribute the toolbox; any redistributed or modified version (including a fork or a tool that incorporates EEG-COMET) must also be released under GPL-3.0 with the original copyright and license notices intact. See the full text in [`LICENSE`](https://github.com/eeg-comet/eeg-comet/blob/main/LICENSE).
+
+For closed-source or otherwise GPL-incompatible use, please contact the authors to discuss a separate commercial license.
 
 ---
 
@@ -178,7 +192,7 @@ If you use EEG-COMET in your research, please cite:
 
 For questions, bug reports, or contributions:
 
-- **GitHub Issues:** [Report a bug or request a feature](https://github.com/eeg-comet/eeg-comet.github.io/issues)
+- **GitHub Issues:** [Report a bug or request a feature](https://github.com/eeg-comet/eeg-comet/issues)
 - **Lab Website:** [www.ebrainlab.ca](https://www.ebrainlab.ca)
 - **Email:** Contact the development team through the lab website
 
@@ -186,6 +200,6 @@ For questions, bug reports, or contributions:
 
 <p style="text-align: center; color: #666; font-size: 0.9rem;">
   EEG-COMET is developed and maintained by the <a href="https://www.ebrainlab.ca">SFU eBrain Lab</a><br>
-  Released under the MIT License
+  Released under the GNU General Public License v3.0
 </p>
 

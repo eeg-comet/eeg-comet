@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>850</height>
+    <height>700</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -18,8 +18,8 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>800</width>
-    <height>850</height>
+    <width>600</width>
+    <height>500</height>
    </size>
   </property>
   <property name="font">
@@ -44,13 +44,13 @@
       <property name="minimumSize">
        <size>
         <width>0</width>
-        <height>60</height>
+        <height>32</height>
        </size>
       </property>
       <property name="maximumSize">
        <size>
         <width>16777215</width>
-        <height>80</height>
+        <height>16777215</height>
        </size>
       </property>
       <property name="font">
@@ -84,6 +84,9 @@
           <layout class="QHBoxLayout" name="Feature_Type_HLayout">
            <item>
             <widget class="QRadioButton" name="static_radio">
+             <property name="toolTip">
+              <string>Show static (per-recording) feature distributions</string>
+             </property>
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -99,7 +102,7 @@
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>60</height>
+               <height>16777215</height>
               </size>
              </property>
              <property name="text">
@@ -115,6 +118,9 @@
            </item>
            <item>
             <widget class="QRadioButton" name="dynamic_radio">
+             <property name="toolTip">
+              <string>Show dynamic (over-time) feature traces</string>
+             </property>
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -130,7 +136,7 @@
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>60</height>
+               <height>16777215</height>
               </size>
              </property>
              <property name="text">
@@ -147,6 +153,9 @@
           <layout class="QHBoxLayout" name="Files_HLayout">
            <item>
             <widget class="QCheckBox" name="select_all_checkbox">
+             <property name="toolTip">
+              <string>Select all files in the list</string>
+             </property>
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -162,7 +171,7 @@
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>60</height>
+               <height>16777215</height>
               </size>
              </property>
              <property name="text">
@@ -172,6 +181,9 @@
            </item>
            <item>
             <widget class="QCheckBox" name="select_pattern_checkbox">
+             <property name="toolTip">
+              <string>Select only files matching the pattern below</string>
+             </property>
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -187,7 +199,7 @@
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>60</height>
+               <height>16777215</height>
               </size>
              </property>
              <property name="text">
@@ -197,6 +209,9 @@
            </item>
            <item>
             <widget class="QLineEdit" name="select_pattern_input">
+             <property name="toolTip">
+              <string>Substring used to select files</string>
+             </property>
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -212,7 +227,7 @@
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>60</height>
+               <height>16777215</height>
               </size>
              </property>
             </widget>
@@ -236,7 +251,7 @@
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -259,6 +274,9 @@
          </item>
          <item row="7" column="1">
           <widget class="QListWidget" name="all_files_list">
+           <property name="toolTip">
+            <string>All recordings available for plotting (Ctrl/Shift to multi-select)</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -323,7 +341,7 @@
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -353,6 +371,9 @@
          </item>
          <item row="1" column="1">
           <widget class="QComboBox" name="feature_combo">
+           <property name="toolTip">
+            <string>Choose which microstate feature to visualise</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
              <horstretch>0</horstretch>
@@ -368,7 +389,7 @@
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -443,7 +464,7 @@
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="font">
@@ -496,6 +517,9 @@
          </item>
          <item row="9" column="1">
           <widget class="QLineEdit" name="selected_file_lineedit">
+           <property name="toolTip">
+            <string>Currently selected file (read-only)</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
              <horstretch>0</horstretch>
@@ -511,7 +535,7 @@
            <property name="maximumSize">
             <size>
              <width>16777215</width>
-             <height>60</height>
+             <height>16777215</height>
             </size>
            </property>
            <property name="alignment">
@@ -563,6 +587,9 @@
             <layout class="QGridLayout" name="gridLayout_2">
              <item row="3" column="1">
               <widget class="QPushButton" name="plot_all_dynamic_button">
+               <property name="toolTip">
+                <string>Plot dynamic feature traces for every selected file</string>
+               </property>
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -621,6 +648,9 @@ QPushButton:disabled {
              </item>
              <item row="0" column="1">
               <widget class="QPushButton" name="plot_static_box_plot_button">
+               <property name="toolTip">
+                <string>Show the feature as a box plot across selected files</string>
+               </property>
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -657,6 +687,9 @@ QPushButton:disabled {
              </item>
              <item row="1" column="1">
               <widget class="QPushButton" name="plot_static_violin_plot_button">
+               <property name="toolTip">
+                <string>Show the feature as a violin plot across selected files</string>
+               </property>
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -693,6 +726,9 @@ QPushButton:disabled {
              </item>
              <item row="2" column="1">
               <widget class="QPushButton" name="plot_heatmap_button">
+               <property name="toolTip">
+                <string>Show the feature as a heatmap (subjects x microstates)</string>
+               </property>
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -724,6 +760,9 @@ QPushButton:disabled {
              </item>
              <item row="4" column="1">
               <widget class="QPushButton" name="plot_rof_button">
+               <property name="toolTip">
+                <string>Plot ratio-of-frames per microstate</string>
+               </property>
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -771,6 +810,9 @@ QPushButton:disabled {
              </item>
              <item row="5" column="1">
               <widget class="QPushButton" name="plot_rtf_button">
+               <property name="toolTip">
+                <string>Plot ratio-of-total-time per microstate</string>
+               </property>
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -841,6 +883,9 @@ QPushButton:disabled {
              </item>
              <item row="2" column="1">
               <widget class="QPushButton" name="remove_group_a_button">
+               <property name="toolTip">
+                <string>Remove the highlighted files from Group A</string>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -876,6 +921,9 @@ QPushButton:disabled {
              </item>
              <item row="3" column="1">
               <widget class="QPushButton" name="add_group_b_button">
+               <property name="toolTip">
+                <string>Add the matched files to Group B</string>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -911,6 +959,9 @@ QPushButton:disabled {
              </item>
              <item row="1" column="1">
               <widget class="QLineEdit" name="group_a_lineedit">
+               <property name="toolTip">
+                <string>Pattern that identifies files belonging to Group A</string>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -946,6 +997,9 @@ QPushButton:disabled {
              </item>
              <item row="0" column="1">
               <widget class="QPushButton" name="add_group_a_button">
+               <property name="toolTip">
+                <string>Add the matched files to Group A</string>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -981,6 +1035,9 @@ QPushButton:disabled {
              </item>
              <item row="6" column="1">
               <widget class="QPushButton" name="reset_groups_button">
+               <property name="toolTip">
+                <string>Clear both groups and start over</string>
+               </property>
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -1017,6 +1074,9 @@ QPushButton:disabled {
              </item>
              <item row="0" column="2" rowspan="3">
               <widget class="QListWidget" name="group_a_files_list">
+               <property name="toolTip">
+                <string>Files currently assigned to Group A</string>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
                  <horstretch>0</horstretch>
@@ -1040,6 +1100,9 @@ QPushButton:disabled {
              </item>
              <item row="4" column="1">
               <widget class="QLineEdit" name="group_b_lineedit">
+               <property name="toolTip">
+                <string>Pattern that identifies files belonging to Group B</string>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -1075,6 +1138,9 @@ QPushButton:disabled {
              </item>
              <item row="5" column="1">
               <widget class="QPushButton" name="remove_group_b_button">
+               <property name="toolTip">
+                <string>Remove the highlighted files from Group B</string>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -1110,6 +1176,9 @@ QPushButton:disabled {
              </item>
              <item row="3" column="2" rowspan="3">
               <widget class="QListWidget" name="group_b_files_list">
+               <property name="toolTip">
+                <string>Files currently assigned to Group B</string>
+               </property>
                <property name="sizePolicy">
                 <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
                  <horstretch>0</horstretch>
@@ -1149,6 +1218,9 @@ QPushButton:disabled {
              </item>
              <item row="6" column="2" colspan="2">
               <widget class="QPushButton" name="plot_groups_button">
+               <property name="toolTip">
+                <string>Compare Group A vs Group B for the selected feature</string>
+               </property>
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -1185,6 +1257,9 @@ QPushButton:disabled {
              </item>
              <item row="0" column="3" rowspan="6">
               <widget class="QTextEdit" name="compare_groups_textedit">
+               <property name="toolTip">
+                <string>Statistical summary of the group comparison (read-only)</string>
+               </property>
                <property name="readOnly">
                 <bool>true</bool>
                </property>
@@ -1358,26 +1433,41 @@ QPushButton:disabled {
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionTitle_Font_Size">
+   <property name="toolTip">
+    <string>Choose the figure title font size</string>
+   </property>
    <property name="text">
     <string>Title Font Size</string>
    </property>
   </action>
   <action name="actionAxis_Label_Font_Size">
+   <property name="toolTip">
+    <string>Choose the axis-label font size</string>
+   </property>
    <property name="text">
     <string>Axis Label Font Size</string>
    </property>
   </action>
   <action name="actionTick_Label_Font_Size">
+   <property name="toolTip">
+    <string>Choose the tick-label font size</string>
+   </property>
    <property name="text">
     <string>Tick Label Font Size</string>
    </property>
   </action>
   <action name="actionFont_Family">
+   <property name="toolTip">
+    <string>Choose the figure font family</string>
+   </property>
    <property name="text">
     <string>Font Family</string>
    </property>
   </action>
   <action name="actionWhite">
+   <property name="toolTip">
+    <string>Use a white figure background</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1392,6 +1482,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_set1">
+   <property name="toolTip">
+    <string>Use the Set1 colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1406,6 +1499,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="show_legend">
+   <property name="toolTip">
+    <string>Show the legend on figures</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1423,6 +1519,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="show_grid">
+   <property name="toolTip">
+    <string>Show grid lines on figures</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1440,6 +1539,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="show_axes">
+   <property name="toolTip">
+    <string>Show axes on figures</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1457,6 +1559,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="export_feature_image_button">
+   <property name="toolTip">
+    <string>Save the current figure to an image file</string>
+   </property>
    <property name="text">
     <string>Export Figure</string>
    </property>
@@ -1468,6 +1573,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_set2">
+   <property name="toolTip">
+    <string>Use the Set2 colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1482,6 +1590,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_tab10">
+   <property name="toolTip">
+    <string>Use the tab10 colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1499,6 +1610,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_dark2">
+   <property name="toolTip">
+    <string>Use the Dark2 colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1513,6 +1627,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="cmap_accent">
+   <property name="toolTip">
+    <string>Use the Accent colour map</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1527,6 +1644,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="font_times">
+   <property name="toolTip">
+    <string>Use Times New Roman as the figure font</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1544,6 +1664,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="font_arial">
+   <property name="toolTip">
+    <string>Use Arial as the figure font</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1561,6 +1684,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="font_calibri">
+   <property name="toolTip">
+    <string>Use Calibri as the figure font</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1575,6 +1701,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="font_garamond">
+   <property name="toolTip">
+    <string>Use Garamond as the figure font</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1589,6 +1718,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="title_font_small">
+   <property name="toolTip">
+    <string>Set title font size to small</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1603,6 +1735,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="title_font_medium">
+   <property name="toolTip">
+    <string>Set title font size to medium</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1617,6 +1752,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="title_font_large">
+   <property name="toolTip">
+    <string>Set title font size to large</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1634,6 +1772,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="title_font_xlarge">
+   <property name="toolTip">
+    <string>Set title font size to extra-large</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1648,6 +1789,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="label_font_small">
+   <property name="toolTip">
+    <string>Set axis-label font size to small</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1662,6 +1806,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="label_font_medium">
+   <property name="toolTip">
+    <string>Set axis-label font size to medium</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1679,6 +1826,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="label_font_large">
+   <property name="toolTip">
+    <string>Set axis-label font size to large</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1693,6 +1843,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="label_font_xlarge">
+   <property name="toolTip">
+    <string>Set axis-label font size to extra-large</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1707,6 +1860,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="tick_font_small">
+   <property name="toolTip">
+    <string>Set tick-label font size to small</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1724,6 +1880,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="tick_font_medium">
+   <property name="toolTip">
+    <string>Set tick-label font size to medium</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1738,6 +1897,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="tick_font_large">
+   <property name="toolTip">
+    <string>Set tick-label font size to large</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1752,6 +1914,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="tick_font_xlarge">
+   <property name="toolTip">
+    <string>Set tick-label font size to extra-large</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1766,6 +1931,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="legend_font_small">
+   <property name="toolTip">
+    <string>Set legend font size to small</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1780,6 +1948,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="legend_font_medium">
+   <property name="toolTip">
+    <string>Set legend font size to medium</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1797,6 +1968,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="legend_font_large">
+   <property name="toolTip">
+    <string>Set legend font size to large</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -1811,6 +1985,9 @@ QPushButton:disabled {
    </property>
   </action>
   <action name="legend_font_xlarge">
+   <property name="toolTip">
+    <string>Set legend font size to extra-large</string>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>

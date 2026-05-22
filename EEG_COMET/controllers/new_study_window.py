@@ -14,10 +14,16 @@ from mne.viz import plot_topomap
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox, QSizePolicy
+from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from data_utils.data_io import DataIO
 from gui_utils.CheckableComboBox import CheckableComboBox
+from gui_utils.responsive import (
+    apply_window_minimum,
+    configure_splitter,
+    expand_canvas,
+    scroll_wrap_all_tabs,
+)
 from gui_utils.set_widgets_status import set_widgets_status
 
 
@@ -57,6 +63,29 @@ class NewStudyWindow(QDialog):
             | Qt.WindowMaximizeButtonHint
         )
         self.ui.setWindowTitle("New Study - Import EEG Data and Preprocess")
+        apply_window_minimum(self, "tool")
+        if hasattr(self.ui, "step1_study_name_label"):
+            self.ui.step1_study_name_label.setProperty("role", "bannerSymmetric")
+        if hasattr(self.ui, "new_study_tab_widget"):
+            scroll_wrap_all_tabs(self.ui.new_study_tab_widget)
+        if hasattr(self.ui, "splitter_3"):
+            configure_splitter(
+                self.ui.splitter_3,
+                ratio=(2, 3),
+                save_key="new_study_outer",
+            )
+        if hasattr(self.ui, "splitter_2"):
+            configure_splitter(
+                self.ui.splitter_2,
+                ratio=(1, 1),
+                save_key="new_study_right_v",
+            )
+        if hasattr(self.ui, "splitter"):
+            configure_splitter(
+                self.ui.splitter,
+                ratio=(1, 1),
+                save_key="new_study_right_h",
+            )
         self.init_ui_components()
         self.setup_connections()
         self.setup_checkable_font_styling()
@@ -79,7 +108,7 @@ class NewStudyWindow(QDialog):
         self.clean_figure_layout()
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        expand_canvas(self.canvas, minimum=(320, 240))
         self.ui.Figure_Layout.addWidget(self.canvas)
 
     def init_ui_components(self):

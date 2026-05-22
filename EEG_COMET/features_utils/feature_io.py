@@ -5,6 +5,8 @@ import os.path
 import numpy as np
 import pandas as pd
 
+from data_utils.safe_io import safe_pd_read_pickle
+
 
 class FeatureIO:
     """Export/import helpers for calculated microstate features and related time-series."""
@@ -306,7 +308,7 @@ class FeatureIO:
         if import_format == ".csv":
             features = pd.read_csv(file_path)
         elif import_format == ".pkl":
-            features = pd.read_pickle(file_path)
+            features = safe_pd_read_pickle(file_path)
         elif import_format == ".hdf":
             features = pd.read_hdf(file_path, key="features")
         elif import_format == ".json":

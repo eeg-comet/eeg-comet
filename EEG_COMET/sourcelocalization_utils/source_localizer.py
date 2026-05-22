@@ -34,6 +34,8 @@ class SourceLocalizer:
         microstate_maps,
         nperm,
         logger=None,
+        random_seed=None,
+        alpha=0.05,
     ):
         """Initialize the SourceLocalizer."""
         self.subjects_dir = subjects_dir
@@ -57,6 +59,8 @@ class SourceLocalizer:
         self.data_io = DataIO()
         self.source_io = SourceIO()  # Initialize SourceIO
         self.logger = logger
+        self.random_seed = random_seed
+        self.alpha = alpha
 
     def _log(self, message, level="info"):
         """Helper method to log messages using the logger if available, otherwise print."""
@@ -415,29 +419,28 @@ class SourceLocalizer:
 
         t_coeff = self.first_regression(eeg_data, self.microstate_maps)
         beta_coeff = self.second_regression(t_coeff, stc_data)
-        # Permutation of beta over t to determine significance
+        # Permute beta over t to estimate a null distribution. A seeded
+        # Generator and a copy of ``t_coeff`` keep the regression coefficients
+        # untouched and the result reproducible.
+        rng = np.random.default_rng(self.random_seed)
         z_scores = np.zeros(beta_coeff.shape)
         beta_dist = np.zeros((beta_coeff.shape[0], beta_coeff.shape[1], nperm))
         bonferroni = beta_coeff.shape[1]
-        t_shuffle = t_coeff
+        t_shuffle = t_coeff.copy()
         for ii in range(nperm):
-            np.random.shuffle(t_shuffle)
+            rng.shuffle(t_shuffle, axis=0)
             beta_dist[:, :, ii] = self.second_regression(t_shuffle, stc_data)
-            # Reduced logging frequency - only log every 200 permutations to avoid UI freezing
             if (ii % 200) == 0 and ii > 0:
                 self._log(f"TESS permutation progress: {ii}/{nperm}")
         for idx, x in np.ndenumerate(beta_coeff):
             z_scores[idx] = stats.zscore(np.insert(beta_dist[idx[0]][idx[1]][:], 0, x))[0]
         p_values = bonferroni * stats.norm.sf(abs(z_scores))
 
-        # Filter z-scores
-        significance = 0.005  # assuming the nperm=2000
+        # Bonferroni-corrected significance threshold derived from alpha and nperm.
+        significance = self.alpha / max(nperm, 1)
         filtered_z_scores = (p_values < significance) * z_scores
 
         return p_values, z_scores, filtered_z_scores
-
-    # Enhanced methods for SourceLocalizer class in source_localizer.py
-    # Replace the avg_sources_single_file and identify_sources_single_file methods with these improved versions
 
     def avg_sources_single_file(self, segmentation_file_path, stc_data):
         """Averages the source data over times matched with each microstate segment for a single file.

@@ -9,14 +9,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1200</width>
-    <height>1203</height>
+    <width>1000</width>
+    <height>800</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1200</width>
-    <height>1000</height>
+    <width>800</width>
+    <height>600</height>
    </size>
   </property>
   <property name="maximumSize">
@@ -162,8 +162,8 @@ Line {
   <widget class="QWidget" name="centralwidget">
    <property name="minimumSize">
     <size>
-     <width>1200</width>
-     <height>1000</height>
+     <width>0</width>
+     <height>0</height>
     </size>
    </property>
    <layout class="QGridLayout" name="gridLayout">
@@ -182,13 +182,13 @@ Line {
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>60</height>
+            <height>32</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>80</height>
+            <height>16777215</height>
            </size>
           </property>
           <property name="font">
@@ -259,13 +259,13 @@ Line {
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>50</height>
+            <height>32</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>60</height>
+            <height>16777215</height>
            </size>
           </property>
           <property name="font">
@@ -278,7 +278,7 @@ Line {
            </font>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Current Study Name&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Current Study Name</string>
           </property>
           <property name="styleSheet">
            <string notr="true">QLineEdit { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #e8f4f8, stop:0.5 #d4edda, stop:1 #e8f4f8); border: 2px solid #28a745; border-radius: 8px; color: #155724; padding: 8px; }</string>
@@ -302,16 +302,19 @@ Line {
       </item>
       <item>
        <widget class="QCheckBox" name="dark_mode_checkbox">
+        <property name="toolTip">
+         <string>Toggle between light and dark theme</string>
+        </property>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>40</height>
+          <height>24</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>40</height>
+          <height>16777215</height>
          </size>
         </property>
         <property name="font">
@@ -346,13 +349,13 @@ Line {
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>50</height>
+            <height>32</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>60</height>
+            <height>16777215</height>
            </size>
           </property>
           <property name="font">
@@ -367,7 +370,7 @@ Line {
            <cursorShape>PointingHandCursor</cursorShape>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Initiate a New Study from Scratch&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Initiate a New Study from Scratch</string>
           </property>
           <property name="styleSheet">
            <string notr="true">QPushButton {
@@ -393,6 +396,9 @@ QPushButton:hover {
         </item>
         <item row="2" column="1">
          <widget class="QPushButton" name="step0_compare_studies_button">
+          <property name="toolTip">
+           <string>Open the Compare Studies window</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -402,13 +408,13 @@ QPushButton:hover {
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>50</height>
+            <height>32</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>60</height>
+            <height>16777215</height>
            </size>
           </property>
           <property name="font">
@@ -471,13 +477,13 @@ QPushButton:hover {
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>50</height>
+            <height>32</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>60</height>
+            <height>16777215</height>
            </size>
           </property>
           <property name="font">
@@ -492,7 +498,7 @@ QPushButton:hover {
            <cursorShape>PointingHandCursor</cursorShape>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Retrieve Existing Study&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>Retrieve Existing Study</string>
           </property>
           <property name="styleSheet">
            <string notr="true">QPushButton {
@@ -637,9 +643,9 @@ QPushButton:hover {
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-1462</y>
-               <width>1139</width>
-               <height>1740</height>
+               <y>0</y>
+               <width>939</width>
+               <height>1170</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
@@ -672,6 +678,9 @@ QPushButton:hover {
                 </item>
                 <item row="23" column="1" colspan="3">
                  <widget class="QPushButton" name="step2_numberofmaps_elbow_button">
+                  <property name="toolTip">
+                   <string>Visualise the criterion across the k range to inspect the elbow</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -684,13 +693,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -711,6 +720,9 @@ QPushButton:hover {
                 </item>
                 <item row="17" column="2" colspan="2">
                  <widget class="QLineEdit" name="step2_user_k_input">
+                  <property name="toolTip">
+                   <string>Fixed number of microstate maps to extract</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -723,13 +735,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -756,6 +768,9 @@ QPushButton:hover {
                 </item>
                 <item row="29" column="2" colspan="2">
                  <widget class="QLineEdit" name="step2_percent_input">
+                  <property name="toolTip">
+                   <string>Percentage of GFP-peak timepoints used for clustering</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -768,13 +783,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -814,13 +829,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -830,7 +845,7 @@ QPushButton:hover {
                    </font>
                   </property>
                   <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Utilize only the peaks of the global field power for clustering&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>Utilize only the peaks of the global field power for clustering</string>
                   </property>
                   <property name="text">
                    <string>Use GFP Peaks Only - Min Peak Distance (ms)</string>
@@ -863,13 +878,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -890,6 +905,9 @@ QPushButton:hover {
                 </item>
                 <item row="27" column="2" colspan="2">
                  <widget class="QLineEdit" name="step2_kernel_size_input">
+                  <property name="toolTip">
+                   <string>Sliding-window length (samples) for spatial smoothing prior to clustering</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -902,13 +920,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -933,6 +951,9 @@ QPushButton:hover {
                 </item>
                 <item row="32" column="2" colspan="2">
                  <widget class="QLineEdit" name="step2_batch_input">
+                  <property name="toolTip">
+                   <string>Number of subjects per processing batch</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -945,13 +966,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -976,6 +997,9 @@ QPushButton:hover {
                 </item>
                 <item row="22" column="2" colspan="2">
                  <widget class="QSpinBox" name="step2_auto_range_kmax_spinbox">
+                  <property name="toolTip">
+                   <string>Maximum number of maps to test in the automatic search</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -988,13 +1012,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1019,6 +1043,9 @@ QPushButton:hover {
                 </item>
                 <item row="16" column="1" colspan="3">
                  <widget class="QRadioButton" name="step2_user_k_radio">
+                  <property name="toolTip">
+                   <string>Use a fixed user-specified number of microstate maps</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1031,13 +1058,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1059,6 +1086,9 @@ QPushButton:hover {
                 </item>
                 <item row="30" column="2" colspan="2">
                  <widget class="QSlider" name="step2_percent_slider">
+                  <property name="toolTip">
+                   <string>Percentage of GFP-peak timepoints used for clustering</string>
+                  </property>
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                     <horstretch>0</horstretch>
@@ -1068,13 +1098,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1105,6 +1135,9 @@ QPushButton:hover {
                 </item>
                 <item row="18" column="1" colspan="3">
                  <widget class="QRadioButton" name="step2_auto_k_radio">
+                  <property name="toolTip">
+                   <string>Search automatically for the optimal number of maps</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1117,13 +1150,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1179,13 +1212,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1213,13 +1246,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1257,6 +1290,9 @@ QPushButton:hover {
                 </item>
                 <item row="4" column="3">
                  <widget class="QComboBox" name="step2_similarity_combobox">
+                  <property name="toolTip">
+                   <string>Similarity metric used to compare topographies</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1269,13 +1305,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1310,13 +1346,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1349,13 +1385,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1467,6 +1503,9 @@ QPushButton:hover {
                 </item>
                 <item row="7" column="3">
                  <widget class="QRadioButton" name="step2_kmeans_initializer_radio">
+                  <property name="toolTip">
+                   <string>Use k-means++ for centroid initialisation</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1479,13 +1518,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1548,6 +1587,9 @@ QPushButton:hover {
                 </item>
                 <item row="9" column="3">
                  <widget class="QLineEdit" name="step2_numberofrepeats_input">
+                  <property name="toolTip">
+                   <string>Number of independent clustering runs; the run with the highest GEV is kept</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1560,13 +1602,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1613,6 +1655,9 @@ QPushButton:hover {
                 </item>
                 <item row="21" column="2" colspan="2">
                  <widget class="QSpinBox" name="step2_auto_range_kmin_spinbox">
+                  <property name="toolTip">
+                   <string>Minimum number of maps to test in the automatic search</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1625,13 +1670,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1653,6 +1698,9 @@ QPushButton:hover {
                 </item>
                 <item row="20" column="2" colspan="2">
                  <widget class="QComboBox" name="step2_optimizer_combobox">
+                  <property name="toolTip">
+                   <string>Criterion used by the automatic k-optimiser</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1665,13 +1713,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1752,13 +1800,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1788,13 +1836,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1804,7 +1852,7 @@ QPushButton:hover {
                    </font>
                   </property>
                   <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Utilize specific timepoints in the dataset for clustering&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>Utilize specific timepoints in the dataset for clustering</string>
                   </property>
                   <property name="text">
                    <string>Use Random Subset of Data - Subset Fraction (%)</string>
@@ -1819,6 +1867,9 @@ QPushButton:hover {
                 </item>
                 <item row="31" column="1" colspan="3">
                  <widget class="QCheckBox" name="step2_batch_checkbox">
+                  <property name="toolTip">
+                   <string>Process subjects in batches to control memory usage</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1880,6 +1931,9 @@ QPushButton:hover {
                 </item>
                 <item row="1" column="1" colspan="3">
                  <widget class="QComboBox" name="step2_clustermethod_combobox">
+                  <property name="toolTip">
+                   <string>Clustering algorithm (Modified K-Means, TAAHC, ...)</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -1892,13 +1946,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1938,13 +1992,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -1994,13 +2048,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2060,6 +2114,9 @@ QPushButton:hover {
                 </item>
                 <item row="11" column="3">
                  <widget class="QLineEdit" name="step2_maxiter_input">
+                  <property name="toolTip">
+                   <string>Maximum iterations per clustering run</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2072,13 +2129,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2097,6 +2154,9 @@ QPushButton:hover {
                 </item>
                 <item row="13" column="3">
                  <widget class="QLineEdit" name="step2_stopcondition_input">
+                  <property name="toolTip">
+                   <string>Convergence threshold; iterations stop once improvement falls below this</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2109,13 +2169,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2200,6 +2260,9 @@ QPushButton:hover {
                 </item>
                 <item row="6" column="3">
                  <widget class="QRadioButton" name="step2_random_initializer_radio">
+                  <property name="toolTip">
+                   <string>Use random initialisation for centroids</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2212,13 +2275,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2262,6 +2325,9 @@ QPushButton:hover {
                 </item>
                 <item row="2" column="2" colspan="2">
                  <widget class="QCheckBox" name="step2_show_advanced_checkbox">
+                  <property name="toolTip">
+                   <string>Show advanced clustering options</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2274,13 +2340,13 @@ QPushButton:hover {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2320,6 +2386,9 @@ QPushButton:hover {
                  <layout class="QHBoxLayout" name="horizontalLayout">
                   <item>
                    <widget class="QRadioButton" name="step2_ensemble_optimizer_radio">
+                    <property name="toolTip">
+                     <string>Combine multiple criteria to select the optimal k</string>
+                    </property>
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -2332,13 +2401,13 @@ QPushButton:hover {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -2360,6 +2429,9 @@ QPushButton:hover {
                   </item>
                   <item>
                    <widget class="QRadioButton" name="step2_single_optimizer_radio">
+                    <property name="toolTip">
+                     <string>Use a single criterion to select the optimal k</string>
+                    </property>
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -2372,13 +2444,13 @@ QPushButton:hover {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -2451,6 +2523,9 @@ QPushButton:hover {
             </item>
             <item>
              <widget class="QPushButton" name="step2_clustering_button">
+              <property name="toolTip">
+               <string>Run microstate clustering with the current settings</string>
+              </property>
               <property name="enabled">
                <bool>false</bool>
               </property>
@@ -2463,13 +2538,13 @@ QPushButton:hover {
               <property name="minimumSize">
                <size>
                 <width>0</width>
-                <height>50</height>
+                <height>32</height>
                </size>
               </property>
               <property name="maximumSize">
                <size>
                 <width>16777215</width>
-                <height>60</height>
+                <height>16777215</height>
                </size>
               </property>
               <property name="font">
@@ -2564,16 +2639,19 @@ QPushButton:disabled {
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>0</y>
-               <width>1139</width>
-               <height>800</height>
+               <y>-375</y>
+               <width>939</width>
+               <height>600</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_5">
               <item row="0" column="0">
                <layout class="QGridLayout" name="step3_backfit_GLayout">
-                <item row="2" column="1" colspan="4">
-                 <widget class="QRadioButton" name="step3_backfit_peaks_radio">
+                <item row="15" column="4">
+                 <widget class="QLineEdit" name="step3_smooth_segments_b_input">
+                  <property name="toolTip">
+                   <string>Smoothing window half-width (samples) for temporal smoothing</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2586,13 +2664,90 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>5</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="14" column="3">
+                 <widget class="QLabel" name="step3_smooth_segments_b_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Half Window Size (b):</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1" colspan="4">
+                 <widget class="QRadioButton" name="step3_backfit_peaks_radio">
+                  <property name="toolTip">
+                   <string>Backfit only at GFP peaks</string>
+                  </property>
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2609,8 +2764,32 @@ QPushButton:disabled {
                   </attribute>
                  </widget>
                 </item>
-                <item row="14" column="3" colspan="2">
-                 <widget class="QLabel" name="step3_smooth_segments_lambda_label">
+                <item row="17" column="3">
+                 <spacer name="step3_HSpacer2_13">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="17" column="4">
+                 <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
+                  <property name="toolTip">
+                   <string>Smoothing penalty (lambda) used during temporal smoothing</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2623,13 +2802,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2639,15 +2818,60 @@ QPushButton:disabled {
                    </font>
                   </property>
                   <property name="text">
-                   <string>Non-smoothness Penalty:</string>
+                   <string>10</string>
                   </property>
                   <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                   <set>Qt::AlignCenter</set>
                   </property>
                  </widget>
                 </item>
-                <item row="1" column="1" colspan="4">
-                 <widget class="QRadioButton" name="step3_backfit_all_radio">
+                <item row="5" column="5" rowspan="13">
+                 <spacer name="step3_HSpacer2_2">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="5" column="0" rowspan="13">
+                 <spacer name="step3_HSpacer2">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="13" column="4">
+                 <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
+                  <property name="toolTip">
+                   <string>Convergence threshold for the temporal smoothing iteration</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -2660,13 +2884,239 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>1E-6</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="11" column="4">
+                 <widget class="QLineEdit" name="step3_filter_segments_input">
+                  <property name="toolTip">
+                   <string>Minimum allowed microstate segment length</string>
+                  </property>
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>20</string>
+                  </property>
+                  <property name="maxLength">
+                   <number>3</number>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="9" column="1" rowspan="9">
+                 <spacer name="step3_HSpacer2_5">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="12" column="3" colspan="2">
+                 <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Convergence Criterion:</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="1" colspan="4">
+                 <widget class="QCheckBox" name="step3_filter_segments_checkbox">
+                  <property name="toolTip">
+                   <string>Remove very short microstate segments after backfitting</string>
+                  </property>
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                   </font>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
+                  <property name="text">
+                   <string>Filter Transient Segments</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item row="9" column="2" colspan="3">
+                 <widget class="QCheckBox" name="step3_identify_short_checkbox">
+                  <property name="toolTip">
+                   <string>Flag short or unreliable segments in the output</string>
+                  </property>
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Automatically Identify Optimal Smoothing Length</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1" colspan="4">
+                 <widget class="QRadioButton" name="step3_backfit_all_radio">
+                  <property name="toolTip">
+                   <string>Backfit every sample of the recording</string>
+                  </property>
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2686,45 +3136,6 @@ QPushButton:disabled {
                   </attribute>
                  </widget>
                 </item>
-                <item row="6" column="2" colspan="3">
-                 <widget class="QLabel" name="step3_filter_segments_method_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Filter Segments Method:</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-                  </property>
-                 </widget>
-                </item>
                 <item row="10" column="3" colspan="2">
                  <widget class="QLabel" name="step3_window_segments_label">
                   <property name="enabled">
@@ -2739,13 +3150,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -2755,7 +3166,83 @@ QPushButton:disabled {
                    </font>
                   </property>
                   <property name="text">
-                   <string>Window Size (ms):</string>
+                   <string>Reject Segments ≤ (ms):</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="16" column="3" colspan="2">
+                 <widget class="QLabel" name="step3_smooth_segments_lambda_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Non-smoothness Penalty:</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="6" column="2" colspan="3">
+                 <widget class="QLabel" name="step3_filter_segments_method_label">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                    <pointsize>14</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Filter Segments Method:</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -2780,59 +3267,50 @@ QPushButton:disabled {
                   </property>
                  </widget>
                 </item>
-                <item row="7" column="2" colspan="3">
-                 <widget class="QComboBox" name="step3_filter_segments_method_combobox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
+                <item row="13" column="3">
+                 <spacer name="step3_HSpacer2_11">
                   <property name="font">
                    <font>
                     <family>Calibri</family>
-                    <pointsize>14</pointsize>
                    </font>
                   </property>
-                  <item>
-                   <property name="text">
-                    <string>Smooth segments</string>
-                   </property>
-                  </item>
-                  <item>
-                   <property name="text">
-                    <string>Remove short segments</string>
-                   </property>
-                  </item>
-                  <item>
-                   <property name="text">
-                    <string>Replace short segments: nearby dominant microstate</string>
-                   </property>
-                  </item>
-                  <item>
-                   <property name="text">
-                    <string>Replace short segments: half and half</string>
-                   </property>
-                  </item>
-                 </widget>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
                 </item>
                 <item row="6" column="1" rowspan="2">
                  <spacer name="step3_HSpacer2_3">
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Maximum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>5</width>
+                    <height>10</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item row="1" column="5" rowspan="2">
+                 <spacer name="step3_HSpacer1_2">
                   <property name="font">
                    <font>
                     <family>Calibri</family>
@@ -2873,68 +3351,59 @@ QPushButton:disabled {
                   </property>
                  </spacer>
                 </item>
-                <item row="13" column="3">
-                 <spacer name="step3_HSpacer2_11">
+                <item row="7" column="2" colspan="3">
+                 <widget class="QComboBox" name="step3_filter_segments_method_combobox">
+                  <property name="toolTip">
+                   <string>How sub-threshold segments are merged into neighbours</string>
+                  </property>
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>32</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
                   <property name="font">
                    <font>
                     <family>Calibri</family>
+                    <pointsize>14</pointsize>
                    </font>
                   </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>1</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="1" column="5" rowspan="2">
-                 <spacer name="step3_HSpacer1_2">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="10" column="2" rowspan="6">
-                 <spacer name="step3_HSpacer2_7">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>2</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
+                  <item>
+                   <property name="text">
+                    <string>Smooth segments</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Remove short segments</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Replace short segments: nearby dominant microstate</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Replace short segments: half and half</string>
+                   </property>
+                  </item>
+                 </widget>
                 </item>
                 <item row="11" column="3">
                  <spacer name="step3_HSpacer2_9">
@@ -2957,8 +3426,8 @@ QPushButton:disabled {
                   </property>
                  </spacer>
                 </item>
-                <item row="15" column="3">
-                 <spacer name="step3_HSpacer2_13">
+                <item row="10" column="2" rowspan="8">
+                 <spacer name="step3_HSpacer2_7">
                   <property name="font">
                    <font>
                     <family>Calibri</family>
@@ -2972,304 +3441,11 @@ QPushButton:disabled {
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
-                    <width>1</width>
+                    <width>2</width>
                     <height>10</height>
                    </size>
                   </property>
                  </spacer>
-                </item>
-                <item row="15" column="4">
-                 <widget class="QLineEdit" name="step3_smooth_segments_lambda_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>5</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="11" column="4">
-                 <widget class="QLineEdit" name="step3_filter_segments_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>20</string>
-                  </property>
-                  <property name="maxLength">
-                   <number>3</number>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="13" column="4">
-                 <widget class="QLineEdit" name="step3_smooth_segments_epsilon_input">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>1E-6</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="5" column="5" rowspan="11">
-                 <spacer name="step3_HSpacer2_2">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="5" column="0" rowspan="11">
-                 <spacer name="step3_HSpacer2">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="9" column="1" rowspan="7">
-                 <spacer name="step3_HSpacer2_5">
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Maximum</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>5</width>
-                    <height>10</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="5" column="1" colspan="4">
-                 <widget class="QCheckBox" name="step3_filter_segments_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
-                   </font>
-                  </property>
-                  <property name="styleSheet">
-                   <string notr="true"/>
-                  </property>
-                  <property name="text">
-                   <string>Filter Transient Segments</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item row="12" column="3" colspan="2">
-                 <widget class="QLabel" name="step3_smooth_segments_epsilon_label">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Convergence Criterion:</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-                  </property>
-                 </widget>
-                </item>
-                <item row="9" column="2" colspan="3">
-                 <widget class="QCheckBox" name="step3_identify_short_checkbox">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                    <pointsize>14</pointsize>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Automatically Identify Optimal Smoothing Length</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
                 </item>
                 <item row="0" column="0" colspan="6">
                  <widget class="QLabel" name="step3_backfit_label">
@@ -3285,13 +3461,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3310,24 +3486,6 @@ QPushButton:disabled {
                   </property>
                  </widget>
                 </item>
-                <item row="3" column="0" colspan="6">
-                 <widget class="Line" name="step3_line2">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Calibri</family>
-                   </font>
-                  </property>
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
                 <item row="4" column="0" colspan="6">
                  <widget class="QLabel" name="step3_filter_segments_param_label">
                   <property name="enabled">
@@ -3342,13 +3500,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3364,6 +3522,24 @@ QPushButton:disabled {
                   </property>
                   <property name="text">
                    <string>Filter Segments Parameters:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0" colspan="6">
+                 <widget class="Line" name="step3_line2">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Calibri</family>
+                   </font>
+                  </property>
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
                 </item>
@@ -3411,6 +3587,9 @@ QPushButton:disabled {
             </item>
             <item>
              <widget class="QPushButton" name="step3_backfit_button">
+              <property name="toolTip">
+               <string>Run backfitting with the current settings</string>
+              </property>
               <property name="enabled">
                <bool>false</bool>
               </property>
@@ -3513,8 +3692,8 @@ QPushButton:disabled {
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>1139</width>
-               <height>866</height>
+               <width>586</width>
+               <height>566</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_9">
@@ -3522,6 +3701,9 @@ QPushButton:disabled {
                <layout class="QGridLayout" name="feature_GLayout">
                 <item row="10" column="0">
                  <widget class="QCheckBox" name="step4_synthetic_checkbox">
+                  <property name="toolTip">
+                   <string>Generate synthetic surrogate sequences for statistical comparison</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3534,13 +3716,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3558,6 +3740,9 @@ QPushButton:disabled {
                  <layout class="QGridLayout" name="sliding_GLayout">
                   <item row="1" column="0">
                    <widget class="QRadioButton" name="step4_sliding_event_radio">
+                    <property name="toolTip">
+                     <string>Define windows around events</string>
+                    </property>
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3570,13 +3755,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -3595,6 +3780,9 @@ QPushButton:disabled {
                   </item>
                   <item row="0" column="0">
                    <widget class="QRadioButton" name="step4_sliding_fix_radio">
+                    <property name="toolTip">
+                     <string>Define windows of fixed duration</string>
+                    </property>
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3607,13 +3795,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -3635,6 +3823,9 @@ QPushButton:disabled {
                   </item>
                   <item row="0" column="1">
                    <widget class="QLineEdit" name="step4_sliding_fix_input">
+                    <property name="toolTip">
+                     <string>Length (samples) of each sliding analysis window</string>
+                    </property>
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3647,13 +3838,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -3692,13 +3883,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3708,7 +3899,7 @@ QPushButton:disabled {
                    </font>
                   </property>
                   <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Windowed characteristics over sliding windows across the EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>Windowed characteristics over sliding windows across the EEG recordings</string>
                   </property>
                   <property name="text">
                    <string>Extract Windowed Features (Multiple per File)</string>
@@ -3717,6 +3908,9 @@ QPushButton:disabled {
                 </item>
                 <item row="2" column="0">
                  <widget class="QCheckBox" name="step4_feature_occ_checkbox">
+                  <property name="toolTip">
+                   <string>Occurrence: number of times each microstate appears per second</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3729,13 +3923,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3754,6 +3948,9 @@ QPushButton:disabled {
                 </item>
                 <item row="3" column="0">
                  <widget class="QCheckBox" name="step4_feature_dur_checkbox">
+                  <property name="toolTip">
+                   <string>Duration: average time spent in each microstate</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3766,13 +3963,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3791,6 +3988,9 @@ QPushButton:disabled {
                 </item>
                 <item row="10" column="2">
                  <widget class="QCheckBox" name="step4_feature_rof_checkbox">
+                  <property name="toolTip">
+                   <string>Ratio of frames covered by each microstate</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3803,13 +4003,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3828,6 +4028,9 @@ QPushButton:disabled {
                 </item>
                 <item row="5" column="0">
                  <widget class="QCheckBox" name="step4_feature_gev_checkbox">
+                  <property name="toolTip">
+                   <string>Per-microstate Global Explained Variance</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3840,13 +4043,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3865,6 +4068,9 @@ QPushButton:disabled {
                 </item>
                 <item row="11" column="2">
                  <widget class="QCheckBox" name="step4_feature_rtf_checkbox">
+                  <property name="toolTip">
+                   <string>Ratio of total time covered by each microstate</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3877,13 +4083,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3923,6 +4129,9 @@ QPushButton:disabled {
                 </item>
                 <item row="4" column="0">
                  <widget class="QCheckBox" name="step4_feature_cov_checkbox">
+                  <property name="toolTip">
+                   <string>Coverage: fraction of time covered by each microstate</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3935,13 +4144,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -3972,6 +4181,9 @@ QPushButton:disabled {
                 </item>
                 <item row="5" column="2">
                  <widget class="QCheckBox" name="step4_feature_he_checkbox">
+                  <property name="toolTip">
+                   <string>Hurst exponent of the microstate sequence</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -3984,13 +4196,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4015,13 +4227,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4042,6 +4254,9 @@ QPushButton:disabled {
                 </item>
                 <item row="2" column="2">
                  <widget class="QCheckBox" name="step4_feature_tp_checkbox">
+                  <property name="toolTip">
+                   <string>Transition probability matrix between microstates</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -4054,13 +4269,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4076,6 +4291,9 @@ QPushButton:disabled {
                 </item>
                 <item row="6" column="2">
                  <widget class="QCheckBox" name="step4_feature_err_checkbox">
+                  <property name="toolTip">
+                   <string>Per-frame backfitting error</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -4088,13 +4306,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4112,6 +4330,9 @@ QPushButton:disabled {
                  <layout class="QGridLayout" name="event_GLayout">
                   <item row="1" column="0">
                    <widget class="QLineEdit" name="step4_pre_event_input">
+                    <property name="toolTip">
+                     <string>Pre-event window length (samples)</string>
+                    </property>
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -4124,13 +4345,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -4152,6 +4373,9 @@ QPushButton:disabled {
                   </item>
                   <item row="1" column="2">
                    <widget class="QLineEdit" name="step4_post_event_input">
+                    <property name="toolTip">
+                     <string>Post-event window length (samples)</string>
+                    </property>
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -4164,13 +4388,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -4204,13 +4428,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -4243,13 +4467,13 @@ QPushButton:disabled {
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
-                      <height>50</height>
+                      <height>32</height>
                      </size>
                     </property>
                     <property name="maximumSize">
                      <size>
                       <width>16777215</width>
-                      <height>80</height>
+                      <height>16777215</height>
                      </size>
                     </property>
                     <property name="font">
@@ -4326,13 +4550,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4380,13 +4604,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4410,6 +4634,9 @@ QPushButton:disabled {
                 </item>
                 <item row="15" column="0" colspan="3">
                  <widget class="QComboBox" name="step4_outputformats_combobox">
+                  <property name="toolTip">
+                   <string>Output file format for extracted features (CSV, MAT, Pickle, ...)</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -4422,13 +4649,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4473,13 +4700,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4536,6 +4763,9 @@ QPushButton:disabled {
                 </item>
                 <item row="3" column="2">
                  <widget class="QCheckBox" name="step4_feature_er_checkbox">
+                  <property name="toolTip">
+                   <string>Event-related microstate features</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -4548,13 +4778,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4579,13 +4809,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4606,6 +4836,9 @@ QPushButton:disabled {
                 </item>
                 <item row="4" column="2">
                  <widget class="QCheckBox" name="step4_feature_lzc_checkbox">
+                  <property name="toolTip">
+                   <string>Lempel-Ziv complexity of the microstate sequence</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -4618,13 +4851,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4652,13 +4885,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4668,7 +4901,7 @@ QPushButton:disabled {
                    </font>
                   </property>
                   <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Windowed characteristics over sliding windows across the EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>Windowed characteristics over sliding windows across the EEG recordings</string>
                   </property>
                   <property name="text">
                    <string>Extract Pre/Post Event Features</string>
@@ -4689,13 +4922,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4705,7 +4938,7 @@ QPushButton:disabled {
                    </font>
                   </property>
                   <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#0000ff;&quot;&gt;Averaged characteristics over the full span of EEG recordings&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>Averaged characteristics over the full span of EEG recordings</string>
                   </property>
                   <property name="text">
                    <string>Extract Global Features (One per File)</string>
@@ -4726,13 +4959,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4807,6 +5040,9 @@ QPushButton:disabled {
             </item>
             <item>
              <widget class="QPushButton" name="step4_extractfeatures_button">
+              <property name="toolTip">
+               <string>Extract microstate features with the current settings</string>
+              </property>
               <property name="enabled">
                <bool>false</bool>
               </property>
@@ -4921,8 +5157,8 @@ QPushButton:disabled {
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>1139</width>
-               <height>976</height>
+               <width>500</width>
+               <height>650</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
@@ -4930,6 +5166,9 @@ QPushButton:disabled {
                <layout class="QGridLayout" name="source_GLayout">
                 <item row="9" column="1">
                  <widget class="QComboBox" name="step5_spacing_combobox">
+                  <property name="toolTip">
+                   <string>Source-space spacing (oct5 / oct6 / ico4 ...)</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -4942,13 +5181,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -4988,13 +5227,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5060,13 +5299,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5108,6 +5347,9 @@ QPushButton:disabled {
                 </item>
                 <item row="19" column="1">
                  <widget class="QRadioButton" name="step5_use_tess_radio">
+                  <property name="toolTip">
+                   <string>Use TESS-based microstate templates as source seeds</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5120,13 +5362,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5202,6 +5444,9 @@ QPushButton:disabled {
                 </item>
                 <item row="20" column="1">
                  <widget class="QRadioButton" name="step5_use_avg_radio">
+                  <property name="toolTip">
+                   <string>Use the group-averaged microstate templates as source seeds</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5214,13 +5459,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5263,13 +5508,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5314,13 +5559,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>60</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>100</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5341,6 +5586,9 @@ QPushButton:disabled {
                 </item>
                 <item row="12" column="1">
                  <widget class="QRadioButton" name="step5_use_fsaverage_radio">
+                  <property name="toolTip">
+                   <string>Use the FreeSurfer fsaverage template brain</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5353,13 +5601,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5393,13 +5641,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5409,7 +5657,7 @@ QPushButton:disabled {
                    </font>
                   </property>
                   <property name="toolTip">
-                   <string/>
+                   <string>FreeSurfer SUBJECTS_DIR path containing the MRI reconstructions</string>
                   </property>
                   <property name="text">
                    <string>subjects_dir</string>
@@ -5424,6 +5672,9 @@ QPushButton:disabled {
                 </item>
                 <item row="13" column="1">
                  <widget class="QRadioButton" name="step5_use_individual_radio">
+                  <property name="toolTip">
+                   <string>Use each subject's own MRI for the source space</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5436,13 +5687,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5524,6 +5775,9 @@ QPushButton:disabled {
                 </item>
                 <item row="2" column="1">
                  <widget class="QRadioButton" name="step5_bem_mne_radio">
+                  <property name="toolTip">
+                   <string>Use MNE's three-layer BEM solution</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5536,13 +5790,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5576,13 +5830,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5600,6 +5854,9 @@ QPushButton:disabled {
                 </item>
                 <item row="3" column="1">
                  <widget class="QRadioButton" name="step5_bem_openmeeg_radio">
+                  <property name="toolTip">
+                   <string>Use the OpenMEEG BEM solver (more accurate, slower)</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5612,13 +5869,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5670,13 +5927,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5697,6 +5954,9 @@ QPushButton:disabled {
                 </item>
                 <item row="6" column="1">
                  <widget class="QComboBox" name="step5_inverse_method_combobox">
+                  <property name="toolTip">
+                   <string>Inverse-problem solver (MNE / sLORETA / dSPM / eLORETA)</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5709,13 +5969,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5789,6 +6049,9 @@ QPushButton:disabled {
                 </item>
                 <item row="15" column="1">
                  <widget class="QPushButton" name="step5_coreg_button">
+                  <property name="toolTip">
+                   <string>Open the coregistration window to align EEG sensors to the MRI</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5801,13 +6064,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5828,6 +6091,9 @@ QPushButton:disabled {
                 </item>
                 <item row="16" column="1">
                  <widget class="QPushButton" name="step5_estimate_sources_button">
+                  <property name="toolTip">
+                   <string>Run source localisation for every subject</string>
+                  </property>
                   <property name="enabled">
                    <bool>false</bool>
                   </property>
@@ -5840,13 +6106,13 @@ QPushButton:disabled {
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>50</height>
+                    <height>32</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>80</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="font">
@@ -5939,6 +6205,9 @@ QPushButton:disabled {
             </item>
             <item>
              <widget class="QPushButton" name="step5_compute_source_microstate_correlation_button">
+              <property name="toolTip">
+               <string>Compute correlation between source activity and microstate sequences</string>
+              </property>
               <property name="enabled">
                <bool>false</bool>
               </property>
@@ -6052,6 +6321,9 @@ QPushButton:disabled {
         </item>
         <item>
          <widget class="QPushButton" name="step0_exit_button">
+          <property name="toolTip">
+           <string>Close EEG-COMET</string>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -6130,7 +6402,7 @@ QPushButton:hover {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1200</width>
+     <width>1000</width>
      <height>18</height>
     </rect>
    </property>
@@ -6174,6 +6446,9 @@ QPushButton:hover {
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="import_rawdata_action">
+   <property name="toolTip">
+    <string>Import a folder of raw EEG files into the current study</string>
+   </property>
    <property name="text">
     <string>Preprocess Raw Data (.set and other formats)</string>
    </property>
@@ -6184,6 +6459,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="import_settings_action">
+   <property name="toolTip">
+    <string>Load a previously saved settings file</string>
+   </property>
    <property name="text">
     <string>Import Analysis Settings</string>
    </property>
@@ -6194,6 +6472,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="export_settings_action">
+   <property name="toolTip">
+    <string>Save the current settings to a file</string>
+   </property>
    <property name="text">
     <string>Export Analysis Settings</string>
    </property>
@@ -6204,6 +6485,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="load_results_action">
+   <property name="toolTip">
+    <string>Load previously computed results back into the study</string>
+   </property>
    <property name="text">
     <string>Load results for visulaization</string>
    </property>
@@ -6214,6 +6498,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="open_github_action">
+   <property name="toolTip">
+    <string>Open the EEG-COMET GitHub page</string>
+   </property>
    <property name="text">
     <string>Open GitHub Page</string>
    </property>
@@ -6225,6 +6512,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="update_action">
+   <property name="toolTip">
+    <string>Check for and install EEG-COMET updates</string>
+   </property>
    <property name="text">
     <string>Check for updates</string>
    </property>
@@ -6236,6 +6526,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="report_issues_action">
+   <property name="toolTip">
+    <string>Open the GitHub issue tracker</string>
+   </property>
    <property name="text">
     <string>Report issues</string>
    </property>
@@ -6247,6 +6540,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="step0_new_study_action">
+   <property name="toolTip">
+    <string>Create a new study (Ctrl+N)</string>
+   </property>
    <property name="text">
     <string>New Study</string>
    </property>
@@ -6258,6 +6554,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="step0_load_study_action">
+   <property name="toolTip">
+    <string>Open an existing study (Ctrl+L)</string>
+   </property>
    <property name="text">
     <string>Load Study</string>
    </property>
@@ -6269,6 +6568,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="step0_reopen_log_window">
+   <property name="toolTip">
+    <string>Re-open the log window if it has been closed</string>
+   </property>
    <property name="text">
     <string>Show/Hide Log Window</string>
    </property>
@@ -6280,6 +6582,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="step0_compare_studies_action">
+   <property name="toolTip">
+    <string>Open the Compare Studies window</string>
+   </property>
    <property name="text">
     <string>Compare Two Studies</string>
    </property>
@@ -6291,6 +6596,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="view_microstates_action">
+   <property name="toolTip">
+    <string>Open the microstate visualisation window</string>
+   </property>
    <property name="enabled">
     <bool>false</bool>
    </property>
@@ -6305,6 +6613,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="view_backfitting_action">
+   <property name="toolTip">
+    <string>Open the backfitting visualisation window</string>
+   </property>
    <property name="enabled">
     <bool>false</bool>
    </property>
@@ -6319,6 +6630,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="view_features_action">
+   <property name="toolTip">
+    <string>Open the feature visualisation window</string>
+   </property>
    <property name="enabled">
     <bool>false</bool>
    </property>
@@ -6333,6 +6647,9 @@ QPushButton:hover {
    </property>
   </action>
   <action name="view_sources_action">
+   <property name="toolTip">
+    <string>Open the source visualisation window</string>
+   </property>
    <property name="enabled">
     <bool>false</bool>
    </property>
@@ -6351,13 +6668,13 @@ QPushButton:hover {
  <connections/>
  <buttongroups>
   <buttongroup name="OptimizerGroup"/>
-  <buttongroup name="InitializersGroup"/>
-  <buttongroup name="AnatomyGroup"/>
-  <buttongroup name="InputGroup"/>
-  <buttongroup name="NstatesGroup"/>
-  <buttongroup name="BackfitGroup"/>
   <buttongroup name="BEMGroup"/>
   <buttongroup name="SlidingGroup"/>
+  <buttongroup name="InitializersGroup"/>
+  <buttongroup name="AnatomyGroup"/>
   <buttongroup name="SourceGroup"/>
+  <buttongroup name="InputGroup"/>
+  <buttongroup name="BackfitGroup"/>
+  <buttongroup name="NstatesGroup"/>
  </buttongroups>
 </ui>

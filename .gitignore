@@ -1,4 +1,31 @@
+# Output / generated study folders
 /studies
-*.pyc
-*.DS_Store
+
+# IDE / editor metadata
 /.idea
+.idea/
+.vscode/
+*.code-workspace
+
+# Python bytecode and caches
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+**/.ruff_cache/
+
+# Build / packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS metadata
+*.DS_Store
+Thumbs.db

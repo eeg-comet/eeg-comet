@@ -4,17 +4,24 @@ import os
 
 import numpy as np
 import pandas as pd
+
+from data_utils.safe_io import safe_pd_read_pickle
 import seaborn as sns
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import QAbstractItemView, QActionGroup, QMainWindow, QSizePolicy
+from PyQt5.QtWidgets import QAbstractItemView, QActionGroup, QMainWindow
 
 from features_utils.feature_io import FeatureIO
-from gui_utils.set_widgets_status import set_widgets_status
 from gui_utils.export_utils import get_save_file_path, save_matplotlib_figure
+from gui_utils.responsive import (
+    apply_window_minimum,
+    configure_splitter,
+    expand_canvas,
+)
+from gui_utils.set_widgets_status import set_widgets_status
 from scipy.stats import ttest_rel
 from statsmodels.stats.multitest import multipletests
 
@@ -60,10 +67,8 @@ class FeatureVisualizationWindow(QMainWindow):
 
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        self.canvas.setMinimumHeight(100)
-        
-        # Add navigation toolbar for zoom, pan, save, etc.
+        expand_canvas(self.canvas, minimum=(360, 280))
+
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
         self.ui.Figure_Layout.addWidget(self.toolbar)
         self.ui.Figure_Layout.addWidget(self.canvas)
@@ -640,14 +645,24 @@ class FeatureVisualizationWindow(QMainWindow):
         return uic.loadUi(context.get_resource("FeatureVisualizationWindow.ui"), self)
 
     def setup_window(self):
-        """Configure window title and flags.
-
-        Returns:
-          None
-        """
+        """Configure window title, minimum size, and splitter behaviour."""
         self.setWindowTitle("Visualization of the extracted features")
-        # Add maximize button to the window
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        apply_window_minimum(self, "tool")
+        if hasattr(self.ui, "feature_visualization_label"):
+            self.ui.feature_visualization_label.setProperty("role", "banner")
+        if hasattr(self.ui, "splitter_2"):
+            configure_splitter(
+                self.ui.splitter_2,
+                ratio=(1, 2),
+                save_key="feature_visualization_outer",
+            )
+        if hasattr(self.ui, "splitter"):
+            configure_splitter(
+                self.ui.splitter,
+                ratio=(1, 1),
+                save_key="feature_visualization_inner",
+            )
 
     def bind_events(self):
         """Connect UI signals to their handlers.
@@ -2346,7 +2361,7 @@ class FeatureVisualizationWindow(QMainWindow):
             if self.comet.export_format == ".csv":
                 rof_df = pd.read_csv(rof_file)
             elif self.comet.export_format == ".pkl":
-                rof_df = pd.read_pickle(rof_file)
+                rof_df = safe_pd_read_pickle(rof_file)
             elif self.comet.export_format == ".hdf":
                 rof_df = pd.read_hdf(rof_file, key="rof")
             elif self.comet.export_format == ".json":
@@ -2468,7 +2483,7 @@ class FeatureVisualizationWindow(QMainWindow):
             if self.comet.export_format == ".csv":
                 rtf_df = pd.read_csv(rtf_file)
             elif self.comet.export_format == ".pkl":
-                rtf_df = pd.read_pickle(rtf_file)
+                rtf_df = safe_pd_read_pickle(rtf_file)
             elif self.comet.export_format == ".hdf":
                 rtf_df = pd.read_hdf(rtf_file, key="rtf")
             elif self.comet.export_format == ".json":

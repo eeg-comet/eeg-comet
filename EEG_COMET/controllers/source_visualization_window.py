@@ -17,6 +17,11 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import QAbstractItemView, QDialog
 from pyvistaqt import QtInteractor
 
+from gui_utils.responsive import (
+    apply_window_minimum,
+    configure_splitter,
+    expand_canvas,
+)
 from sourcelocalization_utils.source_io import SourceIO
 from sourcelocalization_utils.source_visualizer import SourceVisualizer
 
@@ -69,20 +74,26 @@ class SourceVisualizationWindow(QDialog):
         # Initialize SourceIO
         self.source_io = SourceIO()
 
-        # Load the UI
         self.ui = uic.loadUi(context.get_resource("SourceVisualizationWindow.ui"), self)
         self.ui.setWindowTitle("Visualization of the localized sources")
+        apply_window_minimum(self, "tool")
+        if hasattr(self.ui, "source_visualization_label"):
+            self.ui.source_visualization_label.setProperty("role", "banner")
+        if hasattr(self.ui, "splitter"):
+            configure_splitter(
+                self.ui.splitter,
+                ratio=(1, 2),
+                save_key="source_visualization",
+            )
 
-        # Add microstate labels to combobox
         for m in self.comet.micro_labels:
             self.ui.microstate_combobox.addItem(m)
 
-        # Initialize PyVista plotter
         self.plotter = QtInteractor(self)
-        self.plotter.enable_image_style()  # Enable zoom-only interaction (disable rotation)
+        self.plotter.enable_image_style()
+        expand_canvas(self.plotter, minimum=(360, 280))
         self.Figure_Layout.addWidget(self.plotter)
 
-        # Setup UI components and connections
         self.locate_subjects_dir()
         self.setup_connections()
         self.resize(1000, 800)

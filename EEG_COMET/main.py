@@ -1,50 +1,61 @@
 """EEG-COMET GUI application entrypoint."""
 
+import logging
 import os
 import sys
-import warnings
-import logging
 
 import mne
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication
 
+# Enable high-DPI scaling BEFORE creating QApplication
+# This must be done before any QApplication instance is created
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+
 from controllers.main_microstate_window import MainMicrostateWindow
 from gui_utils.terminal_logger import get_logger
+from gui_utils.ui_scale import UIScale
 
-# Silence TensorFlow warnings before any imports that might use it
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Hide INFO and WARNING messages
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable oneDNN custom operations
-warnings.filterwarnings("ignore", category=UserWarning, module=".*tensorflow.*")
+# Set EEG_COMET_SHOW_MONTAGE_WARNINGS=1 to surface every electrode-position
+# warning emitted by MNE; otherwise these messages are suppressed and the
+# first occurrence is logged once.
+mne.set_log_level("ERROR")
 
-# Suppress MNE warnings about electrode positions globally
-mne.set_log_level('ERROR')
 
-# Also suppress via Python's logging system
 class MNEWarningFilter(logging.Filter):
-    """Filter to suppress specific MNE warnings about electrode positions."""
+    """Filter MNE electrode-position warnings; emit each unique warning once."""
+
+    _SUPPRESSED_NEEDLES = (
+        "Did not find any electrode locations",
+        "digitization points do not correspond",
+    )
+
+    def __init__(self):
+        super().__init__()
+        self._seen: set[str] = set()
+
     def filter(self, record):
-        # Filter out electrode position warnings
         try:
-            if hasattr(record, 'getMessage'):
-                message = record.getMessage()
-                if "Did not find any electrode locations" in message:
-                    return False
-                if "digitization points do not correspond" in message:
-                    return False
-            # Also check record.msg directly
-            if hasattr(record, 'msg') and isinstance(record.msg, str):
-                if "Did not find any electrode locations" in record.msg:
-                    return False
-                if "digitization points do not correspond" in record.msg:
+            message = record.getMessage() if hasattr(record, "getMessage") else ""
+            for needle in self._SUPPRESSED_NEEDLES:
+                if needle in message:
+                    if needle not in self._seen:
+                        self._seen.add(needle)
+                        logging.getLogger("eeg_comet.mne_warnings").warning(
+                            "Suppressing repeated MNE warning: %r", needle
+                        )
                     return False
         except Exception:
-            # If anything goes wrong with filtering, allow the message through
-            pass
+            return True
         return True
 
-# Apply filter to root logger to catch all MNE warnings
-logging.getLogger().addFilter(MNEWarningFilter())
+
+if os.environ.get("EEG_COMET_SHOW_MONTAGE_WARNINGS", "").lower() not in ("1", "true", "yes"):
+    # Attach the filter to the MNE logger only so unrelated libraries are
+    # not affected by this suppression.
+    logging.getLogger("mne").addFilter(MNEWarningFilter())
 
 # Initialize global logger
 logger = get_logger()
@@ -57,10 +68,23 @@ class CustomApplicationContext:
         """Create the QApplication and resolve base path for resources."""
         self.app = QApplication([])
         self.base_path = os.path.dirname(__file__)
+        self.base_qss_template = self._load_base_qss()
 
     def get_resource(self, path):
         """Return the full path of a resource file."""
         return os.path.join(self.base_path, "ui", path)
+
+    def _load_base_qss(self):
+        """Read ``ui/theme.qss`` and return its contents (or ``""`` on miss)."""
+        qss_path = os.path.join(self.base_path, "ui", "theme.qss")
+        if not os.path.exists(qss_path):
+            return ""
+        try:
+            with open(qss_path, "r", encoding="utf-8") as handle:
+                return handle.read()
+        except OSError as exc:
+            logger.warning("STARTUP", f"Could not load theme.qss: {exc}")
+            return ""
 
 
 def run_application():
@@ -80,6 +104,18 @@ def run_application():
         # Initialize main window
         window = MainMicrostateWindow(app_context, parent=None)
 
+        # Now that every widget has been built, install the global UI-scale
+        # controller and let the main window register its menu actions.
+        ui_scale = UIScale(
+            app,
+            base_qss_template=app_context.base_qss_template,
+            base_font_pt=getattr(window, "_base_font_pt", 14),
+            font_family=getattr(window, "_font_family", "Calibri"),
+            theme_qss=getattr(window, "light_style", ""),
+        )
+        window.attach_ui_scale(ui_scale)
+        ui_scale.apply()
+
         # Set the application icon
         icon_path = app_context.get_resource("eeg_comet_logo.png")
         if os.path.exists(icon_path):
@@ -94,24 +130,17 @@ def run_application():
         # Start the application
         exit_code = app.exec_()
 
-        # Cleanup and close all windows
-        # Add final closing message to log window if available
-        if (
-            hasattr(window, "comet")
-            and hasattr(window.comet, "LogWindow")
-            and window.comet.LogWindow
-        ):
-            window.comet.LogWindow.append_log("EEG-COMET Session Ended", log_type="section")
-            window.comet.LogWindow.append_log("Thank you for using EEG-COMET!", log_type="info")
-
-        # Close the main window (this will trigger closeEvent and close all dialogs)
-        if hasattr(window, "close"):
-            window.close()
-
-        # Force close any remaining windows
+        # NOTE: do NOT call back into ``window`` / ``window.comet.LogWindow``
+        # here. The main window's closeEvent has already fired (that's why
+        # exec_ returned), so reaching into Qt widgets at this point can hit
+        # already-deleted C++ objects. The shutdown banner is emitted from
+        # ``MainMicrostateWindow.closeEvent`` and ``LogWindow.closeEvent``.
         for widget in app.topLevelWidgets():
-            if widget.isVisible():
-                widget.close()
+            try:
+                if widget.isVisible():
+                    widget.close()
+            except RuntimeError:
+                pass
 
         # Add separator before shutdown message
         print()  # Empty line

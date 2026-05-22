@@ -3110,7 +3110,7 @@ class ClustererOptimizer:
         Args:
             x_values: K values evaluated.
             y_values: Corresponding metric scores.
-            threshold: Deprecated - kept for backward compatibility.
+            threshold: Unused; accepted for signature compatibility.
             higher_is_better: Direction of optimization for context.
 
         Returns:

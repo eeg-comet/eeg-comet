@@ -7,19 +7,19 @@
     <x>0</x>
     <y>0</y>
     <width>600</width>
-    <height>600</height>
+    <height>500</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>600</width>
-    <height>600</height>
+    <width>400</width>
+    <height>300</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>1200</width>
-    <height>1200</height>
+    <width>16777215</width>
+    <height>16777215</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -33,13 +33,13 @@
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>50</height>
+         <height>32</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>16777215</width>
-         <height>100</height>
+         <height>16777215</height>
         </size>
        </property>
        <property name="font">
@@ -187,6 +187,9 @@
      </item>
      <item>
       <widget class="QPushButton" name="progress_status_button">
+       <property name="toolTip">
+        <string>Show which processing steps are completed for the current study</string>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
@@ -196,13 +199,13 @@
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>50</height>
+         <height>32</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>16777215</width>
-         <height>100</height>
+         <height>16777215</height>
         </size>
        </property>
        <property name="font">
@@ -243,6 +246,9 @@ QPushButton:disabled {
      </item>
      <item>
       <widget class="QPushButton" name="progress_stop_button">
+       <property name="toolTip">
+        <string>Stop the running background process; may take a few seconds to reach a safepoint</string>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
@@ -252,13 +258,13 @@ QPushButton:disabled {
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>50</height>
+         <height>32</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
          <width>16777215</width>
-         <height>100</height>
+         <height>16777215</height>
         </size>
        </property>
        <property name="font">

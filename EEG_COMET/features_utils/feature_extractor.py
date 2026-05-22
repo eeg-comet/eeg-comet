@@ -14,8 +14,26 @@ from features_utils.feature_helper import FeatureHelper
 class FeatureExtractor:
     """The FeatureExtractor class provides methods for extracting microstate features from EEG data."""
 
+    # Allowed values for ``duration_method``. Each entry summarises the list of
+    # per-segment run lengths into the per-microstate mean duration:
+    #   ``geometric``    : geometric mean of run lengths * 1000/fs.
+    #                      Robust to the long-tail run lengths that dominate
+    #                      the arithmetic mean for high-coverage states.
+    #   ``arithmetic``   : arithmetic mean of run lengths, then converted via
+    #                      the (N-1)/fs interval convention so that DUR is
+    #                      algebraically consistent with COV and OCC
+    #                      (DUR == COV * 10 / OCC - 1000 / fs).
+    #   ``median``       : median of run lengths * 1000/fs.
+    #   ``trimmed_mean`` : 10% trimmed mean of run lengths * 1000/fs.
+    _DURATION_METHODS = ("arithmetic", "geometric", "median", "trimmed_mean")
+
     def __init__(
-        self, input_sequence, sampling_rate, sliding_window_size=1, feature_mode="averaged"
+        self,
+        input_sequence,
+        sampling_rate,
+        sliding_window_size=1,
+        feature_mode="averaged",
+        duration_method="geometric",
     ):
         """Initialize the FeatureExtractor class.
 
@@ -24,7 +42,18 @@ class FeatureExtractor:
             sampling_rate (int): The sampling rate of the EEG data.
             sliding_window_size (int): The sliding window size in seconds. Defaults to 1 second.
             feature_mode (str, optional): The feature extraction mode ('averaged' or 'sliding'). Defaults to 'averaged'.
+            duration_method (str, optional): How to summarise per-segment
+                durations. One of ``geometric`` (default; geometric mean of
+                run lengths, robust to long-tail outliers), ``arithmetic``
+                (mean of run lengths with the (N-1)/fs interval convention,
+                kept algebraically consistent with COV and OCC), ``median``
+                or ``trimmed_mean`` (robust alternatives).
         """
+        if duration_method not in self._DURATION_METHODS:
+            raise ValueError(
+                f"duration_method must be one of {self._DURATION_METHODS}, "
+                f"got {duration_method!r}"
+            )
         # Ensure input_sequence contains only hashable types (strings)
         if isinstance(input_sequence, np.ndarray):
             if input_sequence.ndim == 1:
@@ -49,6 +78,7 @@ class FeatureExtractor:
         self.sampling_rate = sampling_rate
         self.sliding_window_size = sliding_window_size
         self.feature_mode = feature_mode
+        self.duration_method = duration_method
 
         # Initialize optional export caches to avoid defining attributes outside __init__
         self._rof_data_for_export = {}
@@ -334,7 +364,12 @@ class FeatureExtractor:
         """
 
         def calculate_average_durations(input_sequence):
-            """Helper function to calculate average durations for a given sequence."""
+            """Helper function to calculate average durations for a given sequence.
+
+            Uses ``self.duration_method`` to decide how per-segment lengths are
+            summarised; see the docstring of ``FeatureExtractor.__init__`` for
+            background on the available methods.
+            """
             durations = {}
             current_element = None
             current_duration = 0
@@ -350,17 +385,39 @@ class FeatureExtractor:
                 else:
                     current_duration += 1
 
-            # Handle the last element in the sequence
             if current_element not in durations:
                 durations[current_element] = []
             durations[current_element].append(current_duration)
 
-            # Calculate the average duration for each element and convert to milliseconds
-            # Subtract 1 to convert sample count to interval count
-            return {
-                key: (sum(value) / len(value) - 1) * 1000 / self.sampling_rate
-                for key, value in durations.items()
-            }
+            ms_per_sample = 1000.0 / self.sampling_rate
+            method = self.duration_method
+            out = {}
+            for key, value in durations.items():
+                arr = np.asarray(value, dtype=float)
+                if arr.size == 0:
+                    continue
+                if method == "arithmetic":
+                    # Mean of segment lengths in samples, converted with the
+                    # (N-1)/fs interval convention. Keeps DUR algebraically
+                    # consistent with COV and OCC.
+                    out[key] = (arr.mean() - 1.0) * ms_per_sample
+                elif method == "geometric":
+                    # Geometric mean of run lengths, multiplied by 1000/fs.
+                    # Robust to the long-tail run lengths that otherwise
+                    # inflate the arithmetic mean for high-coverage states.
+                    out[key] = float(np.exp(np.log(arr).mean()) * ms_per_sample)
+                elif method == "median":
+                    out[key] = float(np.median(arr) * ms_per_sample)
+                elif method == "trimmed_mean":
+                    if arr.size > 10:
+                        sr = np.sort(arr)
+                        trim = max(1, sr.size // 10)
+                        out[key] = float(sr[trim:-trim].mean() * ms_per_sample)
+                    else:
+                        out[key] = float(arr.mean() * ms_per_sample)
+                else:  # pragma: no cover  - guarded in __init__
+                    raise ValueError(f"Unknown duration_method: {method!r}")
+            return out
 
         if self.feature_mode == "averaged":
             # Static mode: calculate average duration for the whole sequence
@@ -497,7 +554,6 @@ class FeatureExtractor:
                             returns a list of dictionaries, where each dictionary represents the entropy representation
                             for each entropy class in a window.
         """
-        # TODO: not completed
         # word_size = 5
         (
             window_entropy_representations,
@@ -1088,8 +1144,30 @@ class MicroSynt:
 class FeatureExtractionCoordinator:
     """Coordinator class for feature extraction that organizes results by mode and type."""
 
-    def __init__(self):
-        """Initialize the coordinator."""
+    def __init__(self, random_seed=None, duration_method="geometric"):
+        """Initialize the coordinator.
+
+        Args:
+          random_seed (int | None): Seed used to deterministically generate
+            ``surrogate`` and ``random`` baseline sequences. Use ``None`` to
+            disable seeding.
+          duration_method (str): Per-segment duration aggregation method
+            forwarded to every ``FeatureExtractor`` this coordinator builds.
+            See :class:`FeatureExtractor` for accepted values.
+        """
+        self.random_seed = random_seed
+        self.duration_method = duration_method
+        # A per-coordinator Generator keeps these shuffles isolated from
+        # numpy's global RNG state.
+        self._rng = np.random.default_rng(random_seed)
+
+    def _shuffle(self, array):
+        """In-place shuffle using the coordinator's RNG."""
+        self._rng.shuffle(array)
+
+    def _choice(self, choices, size):
+        """Random choice using the coordinator's RNG."""
+        return self._rng.choice(choices, size=size)
 
     def extract_features(
         self,
@@ -1188,13 +1266,13 @@ class FeatureExtractionCoordinator:
                 if feature_type == "real":
                     input_sequence = labels
                 elif feature_type == "surrogate":
-                    # Create surrogate data by shuffling
+                    # Create surrogate data by shuffling with the coordinator's RNG.
                     input_sequence = labels.copy()
-                    np.random.shuffle(input_sequence)
+                    self._shuffle(input_sequence)
                 elif feature_type == "random":
                     # Create random data with same length and unique values
                     unique_labels = list(set(labels))
-                    input_sequence = np.random.choice(unique_labels, size=len(labels))
+                    input_sequence = self._choice(unique_labels, size=len(labels))
                 else:
                     input_sequence = labels
 
@@ -1204,6 +1282,7 @@ class FeatureExtractionCoordinator:
                     sampling_rate=sampling_rate,
                     sliding_window_size=sliding_window_size,
                     feature_mode=mode,
+                    duration_method=self.duration_method,
                 )
 
                 # Extract features for this file
@@ -1412,10 +1491,10 @@ class FeatureExtractionCoordinator:
                         pre_input_sequence = pre_labels
                     elif feature_type == "surrogate":
                         pre_input_sequence = pre_labels.copy()
-                        np.random.shuffle(pre_input_sequence)
+                        self._shuffle(pre_input_sequence)
                     elif feature_type == "random":
                         unique_labels = list(set(trial_labels))
-                        pre_input_sequence = np.random.choice(unique_labels, size=len(pre_labels))
+                        pre_input_sequence = self._choice(unique_labels, size=len(pre_labels))
                     else:
                         pre_input_sequence = pre_labels
 
@@ -1425,6 +1504,7 @@ class FeatureExtractionCoordinator:
                             input_sequence=pre_input_sequence,
                             sampling_rate=sampling_rate,
                             feature_mode="averaged",  # Use averaged mode for each window
+                            duration_method=self.duration_method,
                         )
 
                         pre_df = pre_extractor.extract_microstate_features(
@@ -1458,10 +1538,10 @@ class FeatureExtractionCoordinator:
                         post_input_sequence = post_labels
                     elif feature_type == "surrogate":
                         post_input_sequence = post_labels.copy()
-                        np.random.shuffle(post_input_sequence)
+                        self._shuffle(post_input_sequence)
                     elif feature_type == "random":
                         unique_labels = list(set(trial_labels))
-                        post_input_sequence = np.random.choice(unique_labels, size=len(post_labels))
+                        post_input_sequence = self._choice(unique_labels, size=len(post_labels))
                     else:
                         post_input_sequence = post_labels
 
@@ -1471,6 +1551,7 @@ class FeatureExtractionCoordinator:
                             input_sequence=post_input_sequence,
                             sampling_rate=sampling_rate,
                             feature_mode="averaged",  # Use averaged mode for each window
+                            duration_method=self.duration_method,
                         )
 
                         post_df = post_extractor.extract_microstate_features(
@@ -1628,10 +1709,10 @@ class FeatureExtractionCoordinator:
                     pre_input_sequence = pre_labels
                 elif feature_type == "surrogate":
                     pre_input_sequence = pre_labels.copy()
-                    np.random.shuffle(pre_input_sequence)
+                    self._shuffle(pre_input_sequence)
                 elif feature_type == "random":
                     unique_labels = list(set(pre_labels))
-                    pre_input_sequence = np.random.choice(unique_labels, size=len(pre_labels))
+                    pre_input_sequence = self._choice(unique_labels, size=len(pre_labels))
                 else:
                     pre_input_sequence = pre_labels
 
@@ -1641,6 +1722,7 @@ class FeatureExtractionCoordinator:
                         input_sequence=pre_input_sequence,
                         sampling_rate=sampling_rate,
                         feature_mode="averaged",
+                        duration_method=self.duration_method,
                     )
 
                     pre_df = pre_extractor.extract_microstate_features(
@@ -1682,10 +1764,10 @@ class FeatureExtractionCoordinator:
                     post_input_sequence = post_labels
                 elif feature_type == "surrogate":
                     post_input_sequence = post_labels.copy()
-                    np.random.shuffle(post_input_sequence)
+                    self._shuffle(post_input_sequence)
                 elif feature_type == "random":
                     unique_labels = list(set(post_labels))
-                    post_input_sequence = np.random.choice(unique_labels, size=len(post_labels))
+                    post_input_sequence = self._choice(unique_labels, size=len(post_labels))
                 else:
                     post_input_sequence = post_labels
 
@@ -1695,6 +1777,7 @@ class FeatureExtractionCoordinator:
                         input_sequence=post_input_sequence,
                         sampling_rate=sampling_rate,
                         feature_mode="averaged",
+                        duration_method=self.duration_method,
                     )
 
                     post_df = post_extractor.extract_microstate_features(
@@ -1741,8 +1824,7 @@ class FeatureExtractionCoordinator:
             if not filename:
                 return None
 
-            # Try to find and load the original segmentation file
-            # This is a simplified approach - you may need to adjust paths
+            # Try to find and load the original segmentation file.
             segmentation_io = SegmentationIO()
 
             # Try different possible paths/formats

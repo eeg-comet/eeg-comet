@@ -64,7 +64,7 @@ $$\text{OCC}_k = \frac{\text{Number of microstate } k \text{ segments}}{\text{Re
 
 **Average temporal stability** before transitioning.
 
-$$\text{DUR}_k = \frac{\text{Total time in microstate } k}{\text{Number of microstate } k \text{ segments}}$$
+For a microstate $k$ with $N_k$ contiguous segments and per-segment lengths $\ell_{k,1}, \dots, \ell_{k,N_k}$ (in samples), the per-segment lengths are summarised into a single value (in milliseconds) using the configurable `duration_method` parameter.
 
 | Property | Value |
 |:---------|:------|
@@ -72,11 +72,27 @@ $$\text{DUR}_k = \frac{\text{Total time in microstate } k}{\text{Number of micro
 | Typical range | 40-120 ms |
 | Interpretation | Temporal persistence |
 
+#### Aggregation methods (`duration_method`)
+
+EEG-COMET supports four ways of summarising the per-segment run lengths. All return the same units (ms) but differ in how they handle the long-tail distribution that is typical of high-coverage microstates.
+
+| Method | Formula | Notes |
+|:-------|:--------|:------|
+| `geometric` (**default**) | $\text{DUR}_k = \exp\!\left(\frac{1}{N_k}\sum_i \ln \ell_{k,i}\right) \cdot \frac{1000}{f_s}$ | Geometric mean of run lengths. Robust to long-tail outliers that otherwise inflate the arithmetic mean for dominant microstates. |
+| `arithmetic` | $\text{DUR}_k = \left(\bar{\ell}_k - 1\right) \cdot \frac{1000}{f_s}$ | Mean of run lengths converted with the $(N-1)/f_s$ interval convention. Algebraically consistent with COV and OCC (see relationship below). |
+| `median` | $\text{DUR}_k = \operatorname{median}(\ell_{k,i}) \cdot \frac{1000}{f_s}$ | Robust central-tendency estimator. |
+| `trimmed_mean` | 10% symmetric trimmed mean of $\ell_{k,i}$, then $\cdot\,\frac{1000}{f_s}$ | Falls back to the arithmetic mean when fewer than 11 segments are available. |
+
+{: .note }
+> The default switched from `arithmetic` to `geometric` because heavy-tailed run-length distributions on dominant microstates (e.g. when long quiet segments are present) make the arithmetic mean over-estimate the typical persistence. The geometric mean tracks the bulk of the distribution far better.
+
 ### Relationship
 
-The three metrics are mathematically related:
+When `duration_method = arithmetic`, the three classical metrics are algebraically consistent:
 
-$$\text{COV}_k = \text{DUR}_k \times \text{OCC}_k$$
+$$\text{COV}_k \;=\; \left(\text{DUR}_k + \tfrac{1000}{f_s}\right) \cdot \text{OCC}_k \;\big/\; 1000$$
+
+For the other aggregation methods (`geometric`, `median`, `trimmed_mean`) DUR is no longer the arithmetic mean of segment lengths, so the identity $\text{COV}_k = \text{DUR}_k \times \text{OCC}_k$ holds only approximately. Use `arithmetic` if you need DUR, COV and OCC to be exactly self-consistent (e.g. for analytical derivations).
 
 ### Global Explained Variance (GEV)
 
@@ -270,6 +286,7 @@ Measures how inter-microstate transitions systematically change following experi
 | `feature_mode` | Analysis mode | `static` | `static`, `windowed`, `event_related` |
 | `window_size` | Window duration (s) | `1` | 0.5-10 |
 | `feature_types` | Comparison types | `real,surrogate,random` | See below |
+| `duration_method` | DUR aggregation | `geometric` | `geometric`, `arithmetic`, `median`, `trimmed_mean` |
 
 ### Feature List Options
 
@@ -304,6 +321,7 @@ export_format = .csv
 feature_list = COV,OCC,MMD,GEV,TP
 feature_mode = static
 feature_types = real
+duration_method = geometric
 ```
 
 #### Comprehensive Analysis
@@ -314,6 +332,18 @@ export_format = .csv
 feature_list = COV,OCC,MMD,GEV,TP,LZC,ER,HE
 feature_mode = static
 feature_types = real,surrogate
+duration_method = geometric
+```
+
+#### COV-DUR-OCC Algebraic Consistency
+
+Use the arithmetic aggregation when DUR must satisfy `COV ≈ DUR × OCC` exactly (e.g. when reporting all three metrics in tables that should add up):
+
+```ini
+[features_config]
+feature_list = COV,OCC,MMD
+feature_mode = static
+duration_method = arithmetic
 ```
 
 #### Windowed Analysis

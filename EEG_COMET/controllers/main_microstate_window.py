@@ -8,10 +8,14 @@ from enum import Enum
 from typing import Any, cast
 
 import pandas as pd
+
+from data_utils.safe_io import safe_pd_read_pickle
+from gui_utils.parse_input import parse_float, parse_int
 from PyQt5 import QtCore, uic
 from PyQt5.QtCore import QEvent, QObject, Qt, pyqtSignal
-from PyQt5.QtGui import QColor, QFont, QImage, QKeySequence, QPixmap
+from PyQt5.QtGui import QColor, QFont, QFontDatabase, QImage, QKeySequence, QPixmap
 from PyQt5.QtWidgets import (
+    QAction,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -21,6 +25,7 @@ from PyQt5.QtWidgets import (
     QGridLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QRadioButton,
@@ -34,8 +39,9 @@ from PyQt5.QtWidgets import (
 
 from comet import COMET
 from gui_utils.CheckableComboBox import CheckableComboBox
-from gui_utils.terminal_logger import get_logger
+from gui_utils.responsive import apply_window_minimum
 from gui_utils.set_widgets_status import set_widgets_status
+from gui_utils.terminal_logger import get_logger
 
 from .backfitting_visualization_window import BackfittingVisualizationWindow
 from .compare_studies_window import CompareStudiesWindow
@@ -298,6 +304,8 @@ class WidgetGroups:
             self.ui.step3_smooth_segments_epsilon_input,
             self.ui.step3_smooth_segments_lambda_label,
             self.ui.step3_smooth_segments_lambda_input,
+            self.ui.step3_smooth_segments_b_label,
+            self.ui.step3_smooth_segments_b_input,
         ]
 
     def _get_identify_short_widgets(self):
@@ -533,9 +541,11 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.initialize_log_window()
         self.comet.LogWindow.show()
 
-        # Load UI
         self.ui = uic.loadUi(context.get_resource("MainMicrostateWindow.ui"), self)
         self.ui.setWindowTitle("EEG-COMET")
+        apply_window_minimum(self, "main")
+        if hasattr(self.ui, "comet_label"):
+            self.ui.comet_label.setProperty("role", "banner")
 
         # Theme stylesheets
         # Dark theme stylesheet
@@ -576,17 +586,11 @@ class MainMicrostateWindow(QMainWindow):
         # Initialize UI state
         self._update_ui_state()
 
-        # Base font parameters (fixed size, no scaling)
+        # Base font parameters (the UIScale controller will multiply by the
+        # current scale factor when it is attached).
         self._base_font_pt = 14
-
-        # Set default application font / stylesheet safely (instance may be None)
-        app_instance = QApplication.instance()
-        if app_instance is not None:
-            cast(QApplication, app_instance).setFont(QFont("Calibri", self._base_font_pt))
-            cast(QApplication, app_instance).setStyleSheet(self.light_style)
-
-        # Initial font scaling
-        self._update_font_sizes()
+        self._font_family = self._get_cross_platform_font()
+        self.ui_scale = None  # Populated via attach_ui_scale() from main.py.
 
         # Initialize interactive tooltip
         self._interactive_tooltip = None
@@ -609,24 +613,132 @@ class MainMicrostateWindow(QMainWindow):
         Args:
           checked (bool): True to enable dark mode, False for light mode.
         """
-        app_instance = QApplication.instance()
-        if app_instance is not None:
-            if checked:
-                cast(QApplication, app_instance).setStyleSheet(self.dark_style)
-            else:
-                cast(QApplication, app_instance).setStyleSheet(self.light_style)
-
-        # Re-apply current font after stylesheet change
-        self._update_font_sizes()
-
-        # Update logo to suit current theme
+        theme_qss = self.dark_style if checked else self.light_style
+        if self.ui_scale is not None:
+            self.ui_scale.set_theme(theme_qss)
+        else:
+            app_instance = QApplication.instance()
+            if app_instance is not None:
+                cast(QApplication, app_instance).setStyleSheet(theme_qss)
+            self._update_font_sizes()
         self._update_logo()
 
+    def attach_ui_scale(self, ui_scale) -> None:
+        """Bind the global :class:`UIScale` controller and build the menu.
+
+        Called by ``main.py`` once every dialog has been instantiated, so
+        the very first :meth:`UIScale.apply` call already touches every
+        widget the application will use.
+
+        Args:
+          ui_scale: The shared :class:`gui_utils.ui_scale.UIScale` instance.
+        """
+        self.ui_scale = ui_scale
+        self._install_ui_size_menu()
+
+    def _install_ui_size_menu(self) -> None:
+        """Add a ``UI Size`` submenu to the File menu with three actions."""
+        if self.ui_scale is None:
+            return
+        file_menu = self.findChild(QMenu, "menuImport")
+        if file_menu is None:
+            return
+        if getattr(self, "_ui_size_menu_installed", False):
+            return
+        self._ui_size_menu_installed = True
+
+        ui_size_menu = QMenu("UI Size", file_menu)
+
+        def _make_action(text: str, sequences: list, slot) -> QAction:
+            # Deduplicate by the integer key combination Qt actually matches
+            # against. Sequences like "Ctrl++", "Ctrl+Shift+=" and
+            # QKeySequence.ZoomIn collapse to the same chord on most layouts;
+            # registering two of them on one action raises Qt's
+            # "Ambiguous shortcut overload" warning even though they're the
+            # same physical keystroke.
+            seen: set = set()
+            unique: list = []
+            for seq in sequences:
+                key = QKeySequence(seq)
+                if key.isEmpty():
+                    continue
+                token = int(key[0])
+                if token == 0 or token in seen:
+                    continue
+                seen.add(token)
+                unique.append(key)
+            action = QAction(text, self)
+            action.setShortcuts(unique)
+            # Make the shortcut work from any window in the app, not only
+            # when the main window has focus.
+            action.setShortcutContext(Qt.ApplicationShortcut)
+            action.triggered.connect(slot)
+            return action
+
+        # Bind exactly one sequence per action: Qt's shortcut matcher
+        # already accepts Ctrl+Plus for both the main-row "+" (Shift+= on
+        # most layouts) and the numpad "+", so adding extra aliases like
+        # "Ctrl+Shift+=" only produces "Ambiguous shortcut overload"
+        # warnings without any behavioural benefit.
+        self.action_ui_size_increase = _make_action(
+            "Increase",
+            [Qt.CTRL + Qt.Key_Plus],
+            self.ui_scale.increase,
+        )
+        self.action_ui_size_decrease = _make_action(
+            "Decrease",
+            [Qt.CTRL + Qt.Key_Minus],
+            self.ui_scale.decrease,
+        )
+        self.action_ui_size_reset = _make_action(
+            "Reset to Default",
+            [Qt.CTRL + Qt.Key_0],
+            self.ui_scale.reset,
+        )
+
+        ui_size_menu.addAction(self.action_ui_size_increase)
+        ui_size_menu.addAction(self.action_ui_size_decrease)
+        ui_size_menu.addSeparator()
+        ui_size_menu.addAction(self.action_ui_size_reset)
+        file_menu.addSeparator()
+        file_menu.addMenu(ui_size_menu)
+
     # Font Helpers
+    def _get_cross_platform_font(self) -> str:
+        """Get a cross-platform font family that works on Windows, macOS, and Linux.
+
+        Returns:
+            str: Font family name that is available on the current system.
+        """
+        font_db = QFontDatabase()
+        available_fonts = font_db.families()
+
+        # Preferred fonts in order: Calibri (Windows), then cross-platform alternatives
+        preferred_fonts = [
+            "Calibri",           # Windows
+            "Segoe UI",          # Windows fallback
+            "SF Pro Text",       # macOS
+            "Helvetica Neue",    # macOS fallback
+            "Ubuntu",            # Ubuntu Linux
+            "Noto Sans",         # Linux (widely available)
+            "DejaVu Sans",       # Linux fallback
+            "Liberation Sans",   # Linux fallback
+            "Arial",             # Universal fallback
+            "sans-serif",        # Generic fallback
+        ]
+
+        for font in preferred_fonts:
+            if font in available_fonts:
+                return font
+
+        # If none found, return system default
+        return QApplication.font().family()
+
     def _update_font_sizes(self):
         """Set fixed application font size (no scaling)."""
         # Use fixed font size - no scaling based on window size
-        new_font = QFont("Calibri", self._base_font_pt)
+        font_family = getattr(self, "_font_family", "Calibri")
+        new_font = QFont(font_family, self._base_font_pt)
 
         app_instance = QApplication.instance()
         if app_instance is not None:
@@ -653,15 +765,6 @@ class MainMicrostateWindow(QMainWindow):
                 # Update cached font property
                 props["font"] = font
 
-    def resizeEvent(self, event):
-        """Handle window resize event.
-
-        Args:
-          event (QResizeEvent): Resize event.
-        """
-        super().resizeEvent(event)
-        # Font scaling disabled - fonts remain at fixed size
-
     def _init_processing_flags(self):
         """Initialize processing flags."""
         self.processing_flags = ProcessingFlags()
@@ -681,7 +784,7 @@ class MainMicrostateWindow(QMainWindow):
             "coregistration": CoregistrationWindow(self.context, tbx=self.comet),
         }
 
-        # Assign to UI for backward compatibility
+        # Expose dialogs as attributes on the UI object for use elsewhere.
         for name, dialog in self.dialogs.items():
             setattr(self.ui, f"{name.replace('_', '').title()}Window", dialog)
 
@@ -944,24 +1047,30 @@ class MainMicrostateWindow(QMainWindow):
 
             def _show_interactive_tooltip(self, pos, text):
                 """Show interactive tooltip at position."""
-                # Hide existing tooltip first
-                if self.main_window._interactive_tooltip:
-                    self.main_window._interactive_tooltip.hide()
-                    self.main_window._interactive_tooltip.deleteLater()
+                existing = self.main_window._interactive_tooltip
+                if existing is not None:
+                    try:
+                        existing.hide()
+                        existing.deleteLater()
+                    except RuntimeError:
+                        pass
+                    self.main_window._interactive_tooltip = None
 
-                # Create new tooltip
                 self.main_window._interactive_tooltip = InteractiveTooltip()
                 self.main_window._interactive_tooltip.show_at_position(pos, text)
 
             def _hide_tooltip_if_not_hovered(self, pos):
                 """Hide tooltip if click is outside tooltip area."""
-                if (
-                    self.main_window._interactive_tooltip
-                    and self.main_window._interactive_tooltip.isVisible()
-                ):
-                    tooltip_rect = self.main_window._interactive_tooltip.geometry()
-                    if not tooltip_rect.contains(pos):
-                        self.main_window._interactive_tooltip.hide()
+                tip = self.main_window._interactive_tooltip
+                if tip is None:
+                    return
+                try:
+                    if tip.isVisible():
+                        tooltip_rect = tip.geometry()
+                        if not tooltip_rect.contains(pos):
+                            tip.hide()
+                except RuntimeError:
+                    self.main_window._interactive_tooltip = None
 
         self._tip_filter = _RightClickTipFilter(self)
 
@@ -1414,9 +1523,11 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_optimizer_combobox.setEnabled(True)
 
     def _update_auto_k_parameter_label(self):
-        """Update auto-k parameter label - now uses majority vote across all methods."""
-        # This method is kept for compatibility but no longer needed
-        # Auto-k selection now uses majority vote across all methods automatically
+        """Update the auto-k parameter label.
+
+        Auto-k selection uses a majority vote across all methods, so no
+        per-method label update is required here.
+        """
         pass
 
     def _handle_batch_processing_settings(self):
@@ -1439,7 +1550,14 @@ class MainMicrostateWindow(QMainWindow):
             self.ui.step2_batch_input.setText(default_batch)
 
         self.comet.batch_size = (
-            int(self.ui.step2_batch_input.text())
+            parse_int(
+                self.ui.step2_batch_input,
+                default=10000 if is_taahc else 1000,
+                minimum=1,
+                field_name="batch_size",
+                show_dialog=True,
+                parent=self,
+            )
             if self.ui.step2_batch_checkbox.isChecked()
             else None
         )
@@ -1666,7 +1784,7 @@ class MainMicrostateWindow(QMainWindow):
                 if self.comet.export_format == ".csv":
                     df = pd.read_csv(averaged_path, nrows=0)
                 elif self.comet.export_format == ".pkl":
-                    df = pd.read_pickle(averaged_path)
+                    df = safe_pd_read_pickle(averaged_path)
                 elif self.comet.export_format == ".hdf":
                     df = pd.read_hdf(averaged_path, key="features")
                 else:
@@ -1702,7 +1820,7 @@ class MainMicrostateWindow(QMainWindow):
                 if self.comet.export_format == ".csv":
                     df = pd.read_csv(variability_path, nrows=0)
                 elif self.comet.export_format == ".pkl":
-                    df = pd.read_pickle(variability_path)
+                    df = safe_pd_read_pickle(variability_path)
                 elif self.comet.export_format == ".hdf":
                     df = pd.read_hdf(variability_path, key="variability")
                 else:
@@ -2251,7 +2369,14 @@ class MainMicrostateWindow(QMainWindow):
         # Smoothing parameters
         if self.ui.step2_kernel_size_input.text():
             self.comet.smoothing_gfp = True
-            self.comet.smoothing_distance = int(self.ui.step2_kernel_size_input.text())
+            self.comet.smoothing_distance = parse_int(
+                self.ui.step2_kernel_size_input,
+                default=10,
+                minimum=1,
+                field_name="smoothing_distance (ms)",
+                show_dialog=True,
+                parent=self,
+            )
             self.comet.min_distance_size = int(
                 self.comet.smoothing_distance / (1000 / self.comet.sample_rate)
             )
@@ -2272,9 +2397,30 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.use_percentages = None
 
         # Clustering parameters
-        self.comet.clustering_tolerance = float(self.ui.step2_stopcondition_input.text())
-        self.comet.max_iterations = int(self.ui.step2_maxiter_input.text())
-        self.comet.number_of_repeats = int(self.ui.step2_numberofrepeats_input.text())
+        self.comet.clustering_tolerance = parse_float(
+            self.ui.step2_stopcondition_input,
+            default=1e-6,
+            minimum=0.0,
+            field_name="clustering_tolerance",
+            show_dialog=True,
+            parent=self,
+        )
+        self.comet.max_iterations = parse_int(
+            self.ui.step2_maxiter_input,
+            default=500,
+            minimum=1,
+            field_name="max_iterations",
+            show_dialog=True,
+            parent=self,
+        )
+        self.comet.number_of_repeats = parse_int(
+            self.ui.step2_numberofrepeats_input,
+            default=5,
+            minimum=1,
+            field_name="number_of_repeats",
+            show_dialog=True,
+            parent=self,
+        )
 
         # K range for auto mode
         if self.ui.step2_auto_k_radio.isChecked():
@@ -2481,7 +2627,15 @@ class MainMicrostateWindow(QMainWindow):
         self.comet.stopping_parameter = ""
         self.comet.kmin = ""
         self.comet.kmax = ""
-        self.comet.number_of_maps = int(self.ui.step2_user_k_input.text())
+        self.comet.number_of_maps = parse_int(
+            self.ui.step2_user_k_input,
+            default=4,
+            minimum=2,
+            maximum=20,
+            field_name="number_of_maps (k)",
+            show_dialog=True,
+            parent=self,
+        )
 
     def _set_clustering_parameters(self):
         """Set general clustering parameters."""
@@ -2497,8 +2651,13 @@ class MainMicrostateWindow(QMainWindow):
 
         # Batch size
         if self.ui.step2_batch_checkbox.isChecked():
-            self.comet.batch_size = (
-                int(self.ui.step2_batch_input.text()) if self.ui.step2_batch_input.text() else 1000
+            self.comet.batch_size = parse_int(
+                self.ui.step2_batch_input,
+                default=1000,
+                minimum=1,
+                field_name="batch_size",
+                show_dialog=True,
+                parent=self,
             )
         else:
             self.comet.batch_size = None
@@ -2510,6 +2669,14 @@ class MainMicrostateWindow(QMainWindow):
 
     def _auto_open_microstate_visualization(self):
         """Automatically open microstate visualization window after clustering."""
+        # The 500 ms QTimer.singleShot that schedules this can fire after the
+        # main window has already started tearing down; bail out if so.
+        try:
+            if not self.isVisible():
+                return
+        except RuntimeError:
+            return
+
         # Check if microstate maps are available
         if not hasattr(self.comet, "best_maps") or self.comet.best_maps is None:
             return
@@ -2661,12 +2828,17 @@ class MainMicrostateWindow(QMainWindow):
         # Filter segments
         if self.ui.step3_filter_segments_checkbox.isChecked():
             self.comet.filter_segments = True
-            # Get the value in milliseconds from the input
-            filter_segments_ms = int(self.ui.step3_filter_segments_input.text())
+            # Get the value in milliseconds from the input (defensive parse)
+            filter_segments_ms = parse_int(
+                self.ui.step3_filter_segments_input,
+                default=20,
+                minimum=1,
+                field_name="filter_segments_less_than (ms)",
+                show_dialog=True,
+                parent=self,
+            )
             # Store in milliseconds (used by comet.py when not identifying optimal window)
             self.comet.filter_segments_less_than = filter_segments_ms
-            # Also convert to samples for the b parameter (used by smoothing)
-            filter_segments_samples = int(filter_segments_ms / (1000 / self.comet.sample_rate))
 
             # Set filter method
             method_map = {
@@ -2680,9 +2852,30 @@ class MainMicrostateWindow(QMainWindow):
 
             # Set smooth parameters if needed
             if self.comet.filter_segments_option == "smooth":
-                self.comet.epsilon = float(self.ui.step3_smooth_segments_epsilon_input.text())
-                self.comet.b = filter_segments_samples
-                self.comet.lamb = int(self.ui.step3_smooth_segments_lambda_input.text())
+                self.comet.epsilon = parse_float(
+                    self.ui.step3_smooth_segments_epsilon_input,
+                    default=1e-6,
+                    minimum=0.0,
+                    field_name="epsilon",
+                    show_dialog=True,
+                    parent=self,
+                )
+                self.comet.b = parse_int(
+                    self.ui.step3_smooth_segments_b_input,
+                    default=3,
+                    minimum=1,
+                    field_name="b (window size, samples)",
+                    show_dialog=True,
+                    parent=self,
+                )
+                self.comet.lamb = parse_int(
+                    self.ui.step3_smooth_segments_lambda_input,
+                    default=5,
+                    minimum=0,
+                    field_name="lambda (smoothness penalty)",
+                    show_dialog=True,
+                    parent=self,
+                )
             else:
                 self.comet.epsilon = ""
                 self.comet.b = ""
@@ -2800,14 +2993,15 @@ class MainMicrostateWindow(QMainWindow):
             if self.ui.step4_sliding_fix_radio.isChecked():
                 # Fixed time interval sliding
                 self.comet.event_based_sliding = False
-                # Get custom window size from input (in seconds)
-                try:
-                    window_size = int(self.ui.step4_sliding_fix_input.text())
-                    if window_size <= 0:
-                        window_size = 1  # Default to 1 second if invalid
-                    self.comet.sliding_window_size = window_size
-                except (ValueError, AttributeError):
-                    self.comet.sliding_window_size = 1  # Default to 1 second
+                # Get custom window size from input (in seconds), defensive parse.
+                self.comet.sliding_window_size = parse_int(
+                    self.ui.step4_sliding_fix_input,
+                    default=1,
+                    minimum=1,
+                    field_name="sliding_window_size (s)",
+                    show_dialog=True,
+                    parent=self,
+                )
             else:
                 # Event-based sliding using selected events
                 self.comet.event_based_sliding = True
@@ -3092,10 +3286,15 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.LogWindow.append_log("Thank you for using EEG-COMET!", log_type="info")
             self.comet.LogWindow.close()
 
-        # Close microstate visualization window if open
+        # Close microstate visualization window if open. Qt may already have
+        # destroyed the underlying C++ object during shutdown, so guard the
+        # access to avoid `RuntimeError: wrapped C/C++ object has been deleted`.
         if hasattr(self, "_microstate_window") and self._microstate_window is not None:
-            if self._microstate_window.isVisible():
-                self._microstate_window.close()
+            try:
+                if self._microstate_window.isVisible():
+                    self._microstate_window.close()
+            except RuntimeError:
+                pass
             self._microstate_window = None
 
         # Reset window creation flags
@@ -3107,10 +3306,15 @@ class MainMicrostateWindow(QMainWindow):
         self._microstate_labeling_just_finished = False
         self._loading_study = False
 
-        # Close interactive tooltip
-        if self._interactive_tooltip:
-            self._interactive_tooltip.hide()
-            self._interactive_tooltip.deleteLater()
+        # Close interactive tooltip (Qt may already have destroyed the C++ object
+        # if it was reaped earlier in shutdown; guard against the dangling proxy).
+        if self._interactive_tooltip is not None:
+            try:
+                self._interactive_tooltip.hide()
+                self._interactive_tooltip.deleteLater()
+            except RuntimeError:
+                pass
+            self._interactive_tooltip = None
 
         # Close all dialogs
         for name, dialog in self.dialogs.items():
@@ -3134,9 +3338,8 @@ class MainMicrostateWindow(QMainWindow):
 
         event.accept()
 
-    # Utility method for updating the main window controller
     def mainwindow_controller(self):
-        """Legacy method for backward compatibility."""
+        """Refresh the main window UI state."""
         self._update_ui_state()
 
     def _disable_post_clustering_features(self):

@@ -40,7 +40,7 @@ For optimal performance, especially with large datasets or source localization:
 
 - **RAM:** 16-32 GB
 - **CPU:** Multi-core processor (4+ cores)
-- **GPU:** Not required, but CUDA-compatible GPU accelerates TensorFlow operations
+- **GPU:** Not required. Microstate classification runs on the CPU via [ONNX Runtime](https://onnxruntime.ai); no CUDA / cuDNN setup is necessary.
 
 ---
 
@@ -66,8 +66,8 @@ Conda provides better dependency management and is the recommended installation 
 **Step 1: Clone the Repository**
 
 ```bash
-git clone https://github.com/eeg-comet/eeg-comet.github.io.git
-cd eeg-comet.github.io
+git clone https://github.com/eeg-comet/eeg-comet.git
+cd eeg-comet
 ```
 
 {: .note }
@@ -90,7 +90,7 @@ conda activate eegcomet
 **Step 4: Verify Installation**
 
 ```bash
-python -c "import mne; import sklearn; import tensorflow; print('Installation successful!')"
+python -c "import mne, sklearn, onnxruntime, PyQt5; print('Installation successful!')"
 ```
 
 ---
@@ -103,14 +103,14 @@ Use pip if you prefer Python's built-in virtual environment or don't have Conda 
 
 ```powershell
 # Clone the repository
-git clone https://github.com/eeg-comet/eeg-comet.github.io.git
-cd eeg-comet.github.io
+git clone https://github.com/eeg-comet/eeg-comet.git
+cd eeg-comet
 
 # Create virtual environment
-python -m venv eegcomet
+python -m venv .venv
 
 # Activate the environment
-.\eegcomet\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 
 # Install dependencies
 pip install -r requirements.txt
@@ -120,14 +120,14 @@ pip install -r requirements.txt
 
 ```bash
 # Clone the repository
-git clone https://github.com/eeg-comet/eeg-comet.github.io.git
-cd eeg-comet.github.io
+git clone https://github.com/eeg-comet/eeg-comet.git
+cd eeg-comet
 
 # Create virtual environment
-python3 -m venv eegcomet
+python3 -m venv .venv
 
 # Activate the environment
-source eegcomet/bin/activate
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -135,41 +135,66 @@ pip install -r requirements.txt
 
 ---
 
-## Launching EEG-COMET
+### Method 3: Editable / Developer Install
 
-After installation, launch the graphical interface:
+If you plan to modify EEG-COMET, install it in editable mode together with the development extras (tests, linters, build tools):
 
 ```bash
-# Navigate to the EEG_COMET directory
-cd EEG_COMET
-
-# Launch the GUI
-python main.py
+git clone https://github.com/eeg-comet/eeg-comet.git
+cd eeg-comet
+pip install -e ".[dev]"
 ```
 
-The main window should appear:
+This wires up the `eeg-comet` (GUI) and `eeg-comet-cli` (terminal) console scripts declared in `pyproject.toml`. See the [`pyproject.toml`](https://github.com/eeg-comet/eeg-comet/blob/main/pyproject.toml) for available extras (`test`, `lint`, `docs`, `dev`, `all`).
+
+---
+
+## Launching EEG-COMET
+
+After installation, launch the graphical interface using either of the supported entry points:
+
+```bash
+# 1) From the source tree (works for clone + conda / venv installs)
+cd EEG_COMET
+python main.py
+
+# 2) From any directory (works after `pip install -e .` or `pip install eeg-comet`)
+eeg-comet
+```
+
+A terminal-only entry point is also available:
+
+```bash
+eeg-comet-cli --help
+```
 
 {: .highlight }
-> On first launch, EEG-COMET may take a few moments to load as it initializes the neural network model for microstate classification.
+> On first launch, EEG-COMET may take a few moments to load as it initializes the ONNX classification model and warms up Qt / pyvista resources.
 
 ---
 
 ## Key Dependencies
 
-EEG-COMET relies on several major scientific Python packages:
+EEG-COMET relies on several major scientific Python packages. The versions below are the pins used in [`requirements.txt`](https://github.com/eeg-comet/eeg-comet/blob/main/requirements.txt) for the reproducible install; `pyproject.toml` declares looser minimum bounds for PyPI installs.
 
-| Package | Version | Purpose |
-|:--------|:--------|:--------|
+| Package | Pinned version | Purpose |
+|:--------|:---------------|:--------|
 | `mne` | 1.8.0 | EEG data handling and processing |
 | `mne-bids` | 0.16.0 | BIDS format support |
+| `mne-qt-browser` | 0.6.3 | Interactive raw-data browser |
 | `scikit-learn` | 1.5.0 | Clustering algorithms and validation |
-| `tensorflow` | 2.16.2 | Neural network for microstate classification |
-| `onnxruntime` | 1.19.0 | Optimized model inference |
-| `statsmodels` | 0.14.4 | Statistical analysis (GEE, LMM) |
+| `onnxruntime` | 1.19.0 | CNN microstate-classification inference |
+| `statsmodels` | 0.14.4 | Statistical analysis (GEE, LMM, GLMM) |
 | `pyvista` | 0.45.2 | 3D visualization for source localization |
+| `pyvistaqt` | 0.11.2 | Qt embedding for pyvista plots |
 | `PyQt5` | 5.15.11 | Graphical user interface |
+| `QDarkStyle` | 3.2.3 | Application theming |
 | `pandas` | 2.3.0 | Data manipulation and export |
 | `seaborn` | 0.13.2 | Statistical visualizations |
+| `h5py` | 3.14.0 | HDF5 export support |
+
+{: .note }
+> EEG-COMET does **not** depend on TensorFlow. The microstate classifier is shipped as an ONNX file (`EEG_COMET/models/model_v2.onnx`) and executed by `onnxruntime` on the CPU — no CUDA / cuDNN setup is required.
 
 ---
 
@@ -184,8 +209,8 @@ If you see "qt.qpa.plugin: Could not find the Qt platform plugin", try:
 </div>
 
 <div class="callout warning">
-<strong>TensorFlow GPU Not Detected</strong><br>
-EEG-COMET works without GPU acceleration. If you want GPU support, install CUDA-compatible drivers and cuDNN. See the <a href="https://www.tensorflow.org/install/gpu">TensorFlow GPU guide</a>.
+<strong>ONNX Runtime fails to load the classifier</strong><br>
+Make sure <code>EEG_COMET/models/model_v2.onnx</code> exists in your install (it is bundled with the wheel and the source tarball). If it is missing, re-clone the repository or reinstall the package.
 </div>
 
 <div class="callout warning">
@@ -211,10 +236,11 @@ conda env create -f environment.yml
 
 If you encounter issues not covered here:
 
-1. Check the [GitHub Issues](https://github.com/eeg-comet/eeg-comet.github.io/issues) for similar problems
+1. Check the [GitHub Issues](https://github.com/eeg-comet/eeg-comet/issues) for similar problems
 2. Create a new issue with:
    - Your operating system and version
    - Python version (`python --version`)
+   - EEG-COMET version (`python -c "import EEG_COMET; print(EEG_COMET.__version__)"`)
    - Complete error message
    - Steps to reproduce the issue
 
@@ -226,7 +252,7 @@ To update to the latest version:
 
 ```bash
 # Navigate to the repository directory
-cd eeg-comet.github.io
+cd eeg-comet
 
 # Pull latest changes
 git pull origin main

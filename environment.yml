@@ -22,4 +22,3 @@ dependencies:
     - scikit-learn==1.5.0
     - seaborn==0.13.2
     - statsmodels==0.14.4
-    - tensorflow==2.16.2

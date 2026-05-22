@@ -34,7 +34,7 @@ EEG-COMET is developed by the [SFU eBrain Lab](https://www.ebrainlab.ca) at Simo
 
 ### Is EEG-COMET free to use?
 
-Yes, EEG-COMET is open-source and free for academic and research use.
+Yes. EEG-COMET is free and open-source software released under the **GNU General Public License v3.0**. You are free to use, study, modify, and redistribute it. Any redistributed or modified version (including a fork or a tool that incorporates EEG-COMET) must also be released under GPL-3.0 with the copyright and license notices intact. For closed-source or otherwise GPL-incompatible use, please contact the authors to discuss a separate commercial license.
 
 ### What operating systems are supported?
 
@@ -153,6 +153,21 @@ The automated classifier supports up to 7 canonical classes (A-G). For more than
 - **Windowed:** Values computed in sliding windows, tracking changes over time
 
 Use windowed mode for protocols with alternating conditions within a single recording.
+
+### How is mean microstate Duration (DUR) computed?
+
+By default, EEG-COMET reports the **geometric mean** of the per-segment run lengths (`duration_method = geometric`). Run-length distributions of dominant microstates are heavy-tailed, and the geometric mean tracks the typical persistence far better than the arithmetic mean.
+
+Three other aggregations are available via `duration_method` in `[features_config]`:
+
+| Method | Behaviour |
+|:-------|:----------|
+| `geometric` *(default)* | Geometric mean of run lengths × `1000/fs`. Robust to long-tail outliers. |
+| `arithmetic` | `(mean_samples − 1) × 1000/fs`. Keeps `COV ≈ DUR × OCC` exactly. Use this to reproduce earlier EEG-COMET results. |
+| `median` | Median of run lengths × `1000/fs`. Most robust central-tendency estimator. |
+| `trimmed_mean` | 10% trimmed mean (falls back to mean for ≤10 segments). |
+
+See [Feature Extraction → Mean Duration (DUR)]({% link modules/feature-extraction.md %}#mean-duration-dur) for the formulas and trade-offs.
 
 ### How do I analyze event-related microstate changes?
 
@@ -283,7 +298,7 @@ Include in your methods:
 
 ### Where can I report bugs?
 
-Submit issues on GitHub: [github.com/eeg-comet/eeg-comet.github.io/issues](https://github.com/eeg-comet/eeg-comet.github.io/issues)
+Submit issues on GitHub: [github.com/eeg-comet/eeg-comet/issues](https://github.com/eeg-comet/eeg-comet/issues)
 
 Include:
 - Operating system and version

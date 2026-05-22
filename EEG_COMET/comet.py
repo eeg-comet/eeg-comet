@@ -22,7 +22,6 @@ from clustering_utils.microstate_clusterer import MicrostateClusterer
 from clustering_utils.microstate_io import MicrostateIO
 from clustering_utils.microstate_labeler import MicrostateLabeler
 from clustering_utils.microstate_visualizer import reset_electrode_warning
-from PyQt5.QtCore import Qt
 from controllers.logging_window import LogWindow
 from controllers.microstate_visualization_window import MicrostateVisualizationWindow
 from data_utils.data_initializer import DataInitializer
@@ -162,6 +161,7 @@ class COMET:
         self.epsilon = 1e-6
         self.b = 3
         self.lamb = 5
+        self.min_correlation_threshold = False
         self.filter_segments_less_than_ms = 0
 
         # Features
@@ -170,6 +170,12 @@ class COMET:
         self.feature_mode = ["averaged"]
         self.feature_types = ["real"]
         self.sliding_window_size = 1
+        # How DUR is summarised across per-segment lengths. Default is
+        # ``geometric`` (geometric mean of run lengths, robust to long-tail
+        # outliers); ``arithmetic`` uses the mean of run lengths with the
+        # (N-1)/fs interval convention and is algebraically consistent with
+        # COV and OCC. See FeatureExtractor for all accepted values.
+        self.duration_method = "geometric"
         self.event_based_sliding = False
         self.selected_events = []
         self.event_matching_mode = "partial"  # "exact", "case_insensitive", or "partial"
@@ -221,7 +227,10 @@ class COMET:
         self.comet_segmentation_io = SegmentationIO()
         self.comet_feature_io = FeatureIO()
         self.comet_feature_helper = FeatureHelper()
-        self.comet_feature_extractor = FeatureExtractionCoordinator()
+        self.comet_feature_extractor = FeatureExtractionCoordinator(
+            random_seed=getattr(self, "random_seed", None),
+            duration_method=getattr(self, "duration_method", "geometric"),
+        )
         self.comet_microstate_clusterer = None  # Will be initialized during clustering
 
         # Load or create configuration
@@ -324,7 +333,6 @@ class COMET:
         config["clustering_config"]["clustering_tolerance"] = "1e-6"
         config["clustering_config"]["similarity_metric"] = "Spatial Correlation"
         config["clustering_config"]["number_of_repeats"] = "5"
-
         # Set default backfitting values
         config["backfitting_config"]["backfit_to"] = "all"
         config["backfitting_config"]["identify_short_window"] = "False"
@@ -334,6 +342,7 @@ class COMET:
         config["backfitting_config"]["epsilon"] = "1e-6"
         config["backfitting_config"]["b"] = "3"
         config["backfitting_config"]["lamb"] = "5"
+        config["backfitting_config"]["min_correlation_threshold"] = "False"
 
         # Set default feature extraction values
         config["features_config"]["export_format"] = ".csv"
@@ -544,6 +553,14 @@ class COMET:
             self.lamb = backfitting_config.getint("lamb", 5)
         except (ValueError, TypeError):
             self.lamb = 5
+        _corr_thresh = backfitting_config.get("min_correlation_threshold", "False").strip()
+        if _corr_thresh in ("", "False", "false", "0"):
+            self.min_correlation_threshold = False
+        else:
+            try:
+                self.min_correlation_threshold = float(_corr_thresh)
+            except (ValueError, TypeError):
+                self.min_correlation_threshold = False
 
         # Feature Extraction Configs
         features_config = self.config["features_config"]
@@ -557,6 +574,29 @@ class COMET:
 
         feature_types_str = features_config.get("feature_types", "real")
         self.feature_types = [x.strip() for x in feature_types_str.split(",")]
+
+        # Aggregation method for per-segment microstate durations.
+        # Accepted values: arithmetic | geometric | median | trimmed_mean.
+        # ``geometric`` (default) uses the geometric mean of run lengths and
+        # is robust to long-tail outliers; ``arithmetic`` uses the mean of
+        # run lengths with the (N-1)/fs interval convention and is
+        # algebraically consistent with COV and OCC.
+        self.duration_method = features_config.get(
+            "duration_method", "geometric"
+        ).strip()
+        if self.duration_method not in (
+            "arithmetic", "geometric", "median", "trimmed_mean",
+        ):
+            self.logger.warning(
+                "FEATURES",
+                f"Unknown duration_method={self.duration_method!r}; "
+                f"falling back to 'geometric'.",
+            )
+            self.duration_method = "geometric"
+        # Re-instantiate the coordinator if it was already created (e.g. when
+        # ``load_config`` is called after ``__init__``).
+        if hasattr(self, "comet_feature_extractor") and self.comet_feature_extractor is not None:
+            self.comet_feature_extractor.duration_method = self.duration_method
 
         if "OCC" in self.feature_list:
             try:
@@ -852,7 +892,6 @@ class COMET:
                 dig_count = len(eeg_info['dig']) if eeg_info.get('dig') else 0
                 self.LogWindow.append_log(f"Saving EEG info with {dig_count} digitization points from processed data", log_type="info")
         else:
-            # Fallback: Create a basic Info object (legacy behavior)
             eeg_info = mne.create_info(
                 ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sample_rate
             )
@@ -1505,8 +1544,10 @@ class COMET:
             self._on_preprocessing_finished()
 
     def run_clustering(self):
-        """Perform clustering on preprocessed EEG data with automatic or manual k selection
-        Enhanced with proper TAAHC progress tracking and batch processing support.
+        """Perform clustering on preprocessed EEG data.
+
+        Supports automatic or manual k selection, TAAHC progress tracking,
+        and batch processing.
         """
         # Reset microstate labeling flag since new clustering will invalidate previous labels
         self.done_microstate_labeling = False
@@ -1792,9 +1833,8 @@ class COMET:
                     # Update UI message and call callback to reset main window
                     if hasattr(self, "LogWindow") and self.LogWindow is not None:
                         self.LogWindow.append_log("🔄 Clustering ready to restart with new parameters", log_type="info")
-                        # Reset progress UI
-                        self.LogWindow.ui.progress_label.setText("Ready for clustering")
-                        self.LogWindow.ui.progress_stop_button.setEnabled(False)
+                        self.LogWindow.set_progress_label("Ready for clustering")
+                        self.LogWindow.set_progress_stop_enabled(False)
                     
                     # Call clustering completion callback to update main window UI
                     if self.clustering_completed_callback is not None:
@@ -2373,6 +2413,7 @@ class COMET:
             sample_rate=self.sample_rate,
             smoothing_parameters=[self.epsilon, self.b, self.lamb],
             export_format=self.export_format,
+            min_correlation_threshold=getattr(self, "min_correlation_threshold", False),
         )
 
         # Identify optimal window size if requested
@@ -2681,7 +2722,7 @@ class COMET:
                     f"Replacing segments less than {self.filter_segments_less_than_ms}ms using half-and-half method")
             elif self.filter_segments_option == "smooth":
                 self.logger.processing_info("BACKFITTING", 
-                    f"Smoothing segments with window size {self.filter_segments_less_than_ms}ms and lambda {self.lamb}")
+                    f"Smoothing segments: reject ≤ {self.filter_segments_less_than_ms}ms, half-window b={self.b}, lambda={self.lamb}")
 
         # Perform backfitting on all files
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -2970,7 +3011,7 @@ class COMET:
                                         matched = True
                                         break
                             
-                            else:  # default to "partial" for backward compatibility
+                            else:  # default to "partial" matching
                                 # Try exact match first
                                 matched = desc in self.selected_events
                                 
@@ -3120,7 +3161,10 @@ class COMET:
                                 "event_name": ev_label,  # Add event name
                                 "window_index": window_index,  # Add window index
                             }
-                            coordinator = FeatureExtractionCoordinator()
+                            coordinator = FeatureExtractionCoordinator(
+                                random_seed=getattr(self, "random_seed", None),
+                                duration_method=getattr(self, "duration_method", "geometric"),
+                            )
                             feat_res = coordinator.extract_features(
                                 segmentation=seg_stub,
                                 feature_list=self.feature_list,
@@ -3262,9 +3306,7 @@ class COMET:
                                 time = time_unique * n_trials  # Already a list, can multiply directly
                         elif len(time_unique) == num_samples:
                             time = time_unique
-                    # TODO: handle other formats (pkl, hdf, json) similarly if needed
                 except Exception as _e_time:
-                    # Fallback to old behaviour if reading fails
                     time = None
 
                 if time is None:
@@ -3685,11 +3727,11 @@ class COMET:
             for subject_dir in os.listdir(stc_path):
                 subject_path = os.path.join(stc_path, subject_dir)
                 if os.path.isdir(subject_path):
-                    # Check if this subject directory contains any stc files
-                    # Include multiple formats:
-                    # - .h5: HDF5 format (current default)
+                    # Check if this subject directory contains any stc files.
+                    # Supported formats:
+                    # - .h5: HDF5 format
                     # - .stc: MNE standard format (may have -lh.stc/-rh.stc hemispheres)
-                    # - .pkl/.npy: Pickle/numpy formats (legacy)
+                    # - .pkl/.npy: pickle and numpy formats
                     stc_files = [f for f in os.listdir(subject_path) 
                                 if f.endswith(('.stc', '.pkl', '.npy', '.h5', '-lh.stc', '-rh.stc'))]
                     if stc_files:
@@ -3867,6 +3909,7 @@ class COMET:
             microstate_maps=self.best_maps,
             nperm=self.nperm,
             logger=self.logger,
+            random_seed=getattr(self, "random_seed", None),
         )
 
         # Make sure the stc_path is set correctly in the source localizer
@@ -3909,11 +3952,10 @@ class COMET:
             )
             # Properly handle completion when nothing needs processing
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                # Show a brief message in the progress UI
-                self.LogWindow.ui.progress_label.setText("All files already processed")
-                self.LogWindow.ui.progress_bar.setValue(total_files)
-                self.LogWindow.ui.progress_bar.setMaximum(total_files)
-                self.LogWindow.ui.progress_lineedit.setText(f"✅ All {total_files} files already completed")
+                self.LogWindow.set_progress_label("All files already processed")
+                self.LogWindow.set_progress_max(total_files)
+                self.LogWindow.set_progress_value(total_files)
+                self.LogWindow.set_progress_text(f"✅ All {total_files} files already completed")
                 # Call completion callback
                 if self.LogWindow.process_finished_callback:
                     self.LogWindow.process_finished_callback()
@@ -3989,6 +4031,7 @@ class COMET:
                 microstate_maps=self.best_maps,
                 nperm=self.nperm,
                 logger=self.logger,
+                random_seed=getattr(self, "random_seed", None),
             )
 
         # Ensure directories are created and paths are set
@@ -4065,11 +4108,10 @@ class COMET:
             )
             # Properly handle completion when nothing needs processing
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
-                # Show a brief message in the progress UI
-                self.LogWindow.ui.progress_label.setText("All files already processed")
-                self.LogWindow.ui.progress_bar.setValue(files_with_stc)
-                self.LogWindow.ui.progress_bar.setMaximum(files_with_stc)
-                self.LogWindow.ui.progress_lineedit.setText(f"✅ All {files_with_stc} files already completed")
+                self.LogWindow.set_progress_label("All files already processed")
+                self.LogWindow.set_progress_max(files_with_stc)
+                self.LogWindow.set_progress_value(files_with_stc)
+                self.LogWindow.set_progress_text(f"✅ All {files_with_stc} files already completed")
                 # Call completion callback
                 if self.LogWindow.process_finished_callback:
                     self.LogWindow.process_finished_callback()
@@ -4158,7 +4200,6 @@ class COMET:
         self.config["clustering_config"]["clustering_tolerance"] = str(self.clustering_tolerance)
         self.config["clustering_config"]["similarity_metric"] = self.similarity_metric
         self.config["clustering_config"]["number_of_repeats"] = str(self.number_of_repeats)
-
         self.config["backfitting_config"]["backfit_to"] = self.backfit_to
         self.config["backfitting_config"]["identify_short_window"] = str(self.identify_short_window)
         self.config["backfitting_config"]["filter_segments"] = str(self.filter_segments)
@@ -4169,6 +4210,9 @@ class COMET:
         self.config["backfitting_config"]["epsilon"] = str(self.epsilon)
         self.config["backfitting_config"]["b"] = str(self.b)
         self.config["backfitting_config"]["lamb"] = str(self.lamb)
+        self.config["backfitting_config"]["min_correlation_threshold"] = (
+            str(self.min_correlation_threshold) if self.min_correlation_threshold is not False else "False"
+        )
 
         self.config["features_config"]["export_format"] = self.export_format
         self.config["features_config"]["feature_list"] = ", ".join(self.feature_list)
@@ -4320,15 +4364,16 @@ class COMET:
             # Ensure logs are saved
             self._save_logs()
 
-            # Launch microstate labeling window
-            self._launch_microstate_labeling()
-
             # Notify any registered callbacks (e.g., GUI updates)
+            # The callback is responsible for opening the visualization window
             if (
                 hasattr(self, "clustering_completed_callback")
                 and self.clustering_completed_callback is not None
             ):
                 self.clustering_completed_callback()
+            else:
+                # Only launch window directly if no callback is registered (non-GUI mode or standalone)
+                self._launch_microstate_labeling()
 
         except Exception as e:
             error_msg = f"Error in clustering completion handler: {str(e)}"
@@ -4373,8 +4418,16 @@ class COMET:
             # Ensure logs are saved
             self._save_logs()
 
-            # Launch microstate labeling window
-            self._launch_microstate_labeling()
+            # Notify any registered callbacks (e.g., GUI updates)
+            # The callback is responsible for opening the visualization window
+            if (
+                hasattr(self, "clustering_completed_callback")
+                and self.clustering_completed_callback is not None
+            ):
+                self.clustering_completed_callback()
+            else:
+                # Only launch window directly if no callback is registered (non-GUI mode or standalone)
+                self._launch_microstate_labeling()
 
         else:
             self.logger.error("CLUSTERING", "Clustering failed - no valid results obtained")

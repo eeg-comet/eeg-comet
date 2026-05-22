@@ -1,8 +1,9 @@
 # EEG-COMET Documentation Site Configuration
 title: EEG-COMET
-description: EEG Comprehensive Microstate Extraction Toolbox - Complete Documentation
+description: EEG Comprehensive Microstate Extraction Toolbox — official documentation
 url: "https://eeg-comet.github.io"
 baseurl: ""
+version: "1.0.0"
 remote_theme: just-the-docs/just-the-docs@v0.8.2
 
 # Logo and branding
@@ -29,13 +30,25 @@ nav_sort: case_insensitive
 heading_anchors: true
 
 # Footer
-footer_content: "EEG-COMET &copy; 2024 SFU eBrain Lab. Distributed under the MIT License."
+footer_content: "EEG-COMET &copy; 2024-2026 SFU eBrain Lab. Released under the GNU General Public License v3.0."
 
-# Aux links (GitHub repo link)
+# Aux links (top-right of every page)
 aux_links:
   "GitHub":
-    - "https://github.com/eeg-comet/eeg-comet.github.io"
+    - "https://github.com/eeg-comet/eeg-comet"
+  "License":
+    - "https://github.com/eeg-comet/eeg-comet/blob/main/LICENSE"
+  "Cite":
+    - "https://github.com/eeg-comet/eeg-comet/blob/main/CITATION.cff"
 aux_links_new_tab: true
+
+# "Edit this page on GitHub" link rendered at the bottom of every page
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub"
+gh_edit_repository: "https://github.com/eeg-comet/eeg-comet"
+gh_edit_branch: "main"
+gh_edit_source: docs
+gh_edit_view_mode: "tree"
 
 # Back to top link
 back_to_top: true

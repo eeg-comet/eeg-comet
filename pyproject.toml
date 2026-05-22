@@ -1,0 +1,269 @@
+# =============================================================================
+# Build system
+# =============================================================================
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+# =============================================================================
+# Project metadata (PEP 621)
+# =============================================================================
+[project]
+name = "eeg-comet"
+description = "End-to-end toolbox for EEG microstate analysis: preprocessing, clustering, ML-based labeling, backfitting, feature extraction, and source localization."
+readme = "readme.md"
+requires-python = ">=3.10,<3.13"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+keywords = [
+    "eeg",
+    "microstates",
+    "neuroscience",
+    "mne",
+    "source-localization",
+    "clustering",
+    "machine-learning",
+]
+authors = [
+    { name = "Amin Kabir" },
+]
+maintainers = [
+    { name = "SFU eBrain Lab", url = "https://www.ebrainlab.ca" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: MacOS X",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "Natural Language :: English",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dynamic = ["version"]
+
+# -----------------------------------------------------------------------------
+# Runtime dependencies
+# -----------------------------------------------------------------------------
+# ``requirements.txt`` remains the source of truth for fully pinned
+# reproducible installs; the bounds below capture the minimum supported
+# contract so PyPI wheels work in a wider range of environments.
+dependencies = [
+    "numpy>=1.26,<2.0",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "seaborn>=0.13",
+    "scikit-learn>=1.3",
+    "statsmodels>=0.14",
+    "mne>=1.6",
+    "mne-bids>=0.15",
+    "mne-qt-browser>=0.6",
+    "pyprep>=0.4",
+    "eeglabio>=0.0.2",
+    "invertmeeg>=0.1",
+    "PyQt5>=5.15",
+    "pyvista>=0.43",
+    "pyvistaqt>=0.11",
+    "QDarkStyle>=3.2",
+    "onnxruntime>=1.16",
+    "h5py>=3.10",
+    "tqdm>=4.65",
+    "pooch>=1.7",
+    "rich>=13.0",
+]
+
+# -----------------------------------------------------------------------------
+# Optional dependency groups
+# -----------------------------------------------------------------------------
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4",
+    "pytest-qt>=4.4",
+    "pytest-cov>=4.1",
+]
+lint = [
+    "ruff>=0.4",
+]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+]
+dev = [
+    "eeg-comet[test,lint]",
+    "build>=1.0",
+    "twine>=5.0",
+]
+all = [
+    "eeg-comet[test,lint,docs]",
+]
+
+# -----------------------------------------------------------------------------
+# Entry points
+# -----------------------------------------------------------------------------
+# NOTE: these point at the package-qualified module paths that will work after
+# the in-progress import refactor (currently many modules use unqualified
+# top-level imports such as ``from controllers.x import Y`` which only resolve
+# when ``EEG_COMET/`` itself is on sys.path). Until that refactor lands, the
+# canonical way to launch the toolbox remains ``cd EEG_COMET && python main.py``.
+[project.gui-scripts]
+# GUI entry: registered as a "gui-script" so on Windows it does not spawn a
+# console window alongside the Qt application.
+eeg-comet = "EEG_COMET.main:run_application"
+
+[project.scripts]
+# CLI entry: registered as a regular console script so stdout/stderr are
+# attached to the launching terminal.
+eeg-comet-cli = "EEG_COMET.terminal_version:main"
+
+# -----------------------------------------------------------------------------
+# Useful URLs (rendered on the PyPI project page)
+# -----------------------------------------------------------------------------
+[project.urls]
+Homepage      = "https://eeg-comet.github.io"
+Documentation = "https://eeg-comet.github.io"
+Source        = "https://github.com/eeg-comet/eeg-comet"
+Issues        = "https://github.com/eeg-comet/eeg-comet/issues"
+Changelog     = "https://github.com/eeg-comet/eeg-comet/releases"
+Citation      = "https://github.com/eeg-comet/eeg-comet/blob/main/CITATION.cff"
+
+# =============================================================================
+# Hatchling configuration
+# =============================================================================
+# The version is the single source of truth in ``EEG_COMET/__init__.py``
+# (``__version__``); bump it there and the build picks it up automatically.
+[tool.hatch.version]
+path = "EEG_COMET/__init__.py"
+
+# Wheel layout: ship the ``EEG_COMET`` package verbatim, including bundled
+# resources (UI files, theme, ONNX model, default config) needed at runtime.
+[tool.hatch.build.targets.wheel]
+packages = ["EEG_COMET"]
+include = [
+    "EEG_COMET/models/*.onnx",
+    "EEG_COMET/default_config.ini",
+    "EEG_COMET/**/*.ui",
+    "EEG_COMET/**/*.qss",
+    "EEG_COMET/**/*.png",
+    "EEG_COMET/**/*.svg",
+]
+
+# Source distribution layout: include tests, environment recipes, and
+# project metadata so ``pip install`` from sdist reproduces the repo.
+[tool.hatch.build.targets.sdist]
+include = [
+    "EEG_COMET",
+    "tests",
+    "requirements.txt",
+    "environment.yml",
+    "readme.md",
+    "pyproject.toml",
+    "LICENSE",
+    "CITATION.cff",
+]
+exclude = [
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/.pytest_cache",
+    "**/.ruff_cache",
+    "**/.mypy_cache",
+]
+
+# =============================================================================
+# Tooling
+# =============================================================================
+# Ruff replaces both Black (formatting) and isort (import sorting) here, so
+# keeping a single tool config avoids drift between formatters.
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+    "EEG_COMET/models",
+    "EEG_COMET/views",
+    "build",
+    "dist",
+    "docs",
+]
+
+[tool.ruff.lint]
+# For 1.0.0 we run ruff in "bug-catcher" mode only — the rule sets below flag
+# real defects (syntax errors, undefined names, malformed format strings,
+# unused/duplicated imports that hide bugs) without forcing a stylistic
+# rewrite of the existing codebase. Style/refactor rule families (UP, SIM,
+# RET, B, I, D, ...) can be re-enabled incrementally in a later release once
+# the corresponding cleanups have landed.
+select = [
+    "E9",  # pycodestyle runtime / syntax errors
+    "F63", # pyflakes "is" / membership comparisons
+    "F7",  # pyflakes statement-level errors (e.g. break outside loop)
+    "F82", # pyflakes undefined / unused names (F821, F811, F823, ...)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "EEG_COMET",
+    # Legacy unqualified imports still in use; remove these once the import
+    # refactor lands and every module uses ``EEG_COMET.<subpackage>``.
+    "comet",
+    "config",
+    "controllers",
+    "gui_utils",
+    "data_utils",
+    "clustering_utils",
+    "backfitting_utils",
+    "features_utils",
+    "sourcelocalization_utils",
+    "pipeline",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# -----------------------------------------------------------------------------
+# Pytest
+# -----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "slow: marks tests as slow (deselect with -m 'not slow')",
+    "gui: marks tests that require a working Qt display",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:mne.*",
+    "ignore::PendingDeprecationWarning",
+]
+
+# -----------------------------------------------------------------------------
+# Coverage (used by ``pytest --cov`` from the ``test`` extra)
+# -----------------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["EEG_COMET"]
+omit = [
+    "EEG_COMET/models/*",
+    "EEG_COMET/ui/*",
+    "tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

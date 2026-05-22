@@ -37,12 +37,17 @@ Before starting, ensure you have:
 
 ## Step 1: Launch EEG-COMET
 
-Activate your environment and start the GUI:
+Activate your environment and start the GUI. Both entry points open the same interface:
 
 ```bash
 conda activate eegcomet
+
+# Option A — from the source tree
 cd EEG_COMET
 python main.py
+
+# Option B — from anywhere, after `pip install -e .`
+eeg-comet
 ```
 
 The main window will appear with the processing pipeline interface.
@@ -165,10 +170,10 @@ Click **"Run Clustering"** to extract templates.
 ### Automated Classification (Recommended)
 
 1. Click **"Auto-Label"**
-2. The CNN classifier assigns canonical labels (A, B, C, D, E, F, G)
+2. The CNN classifier (bundled as `EEG_COMET/models/model_v2.onnx`, run via ONNX Runtime) assigns canonical labels (A, B, C, D, E, F, G)
 3. Review assignments in the visualization panel
 
-The classifier achieves **98%+ accuracy** on validation datasets from 1,157 subjects.
+The classifier achieves **98%+ accuracy** on validation datasets aggregated from 1,157 subjects.
 
 ### Manual Labeling
 
@@ -218,7 +223,7 @@ Select which metrics to compute:
 |:--------|:-------------|:------------|
 | Coverage | COV | Proportion of time in each microstate |
 | Occurrence | OCC | Number of appearances per second |
-| Duration | DUR | Average length of each microstate |
+| Duration | DUR | Average length of each microstate (default uses geometric mean of run lengths; see [Feature Extraction]({% link modules/feature-extraction.md %}#mean-duration-dur) for `arithmetic`, `median`, `trimmed_mean` alternatives) |
 | GEV | GEV | Variance explained by each template |
 | Transition Probability | TP | Probabilities of microstate-to-microstate transitions |
 

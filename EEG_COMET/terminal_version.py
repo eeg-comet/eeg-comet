@@ -20,11 +20,6 @@ sys.path.append(str(Path(__file__).parent))
 from comet import COMET
 from gui_utils.terminal_logger import get_logger
 
-# Silence TensorFlow warnings before any imports that might use it
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Hide INFO and WARNING messages
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable oneDNN custom operations
-warnings.filterwarnings("ignore", category=UserWarning, module=".*tensorflow.*")
-
 
 def display_welcome_message():
     """Display the welcome message for EEG-COMET terminal version."""
