@@ -18,29 +18,21 @@ EEG-COMET features ten interconnected processing modules that provide comprehens
 
 The modular architecture allows researchers to customize their analysis pipeline while maintaining methodological rigor. Each module addresses specific challenges in microstate analysis.
 
-<div class="workflow-container">
-  <span class="workflow-step">1. Data Loading</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">2. Preprocessing</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">3. Data Selection</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">4. Validation</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">5. Clustering</span>
-</div>
+```mermaid
+flowchart LR
+    A([1. Data&nbsp;Loading]) --> B([2. Preprocessing])
+    B --> C([3. Data&nbsp;Selection])
+    C --> D([4. Validation])
+    D --> E([5. Clustering])
+    E --> F([6. Labeling])
+    F --> G([7. Backfitting])
+    G --> H([8. Features])
+    H --> I([9. Statistics])
+    I --> J([10. Sources])
 
-<div class="workflow-container">
-  <span class="workflow-step">6. Labeling</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">7. Backfitting</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">8. Features</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">9. Statistics</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">10. Sources</span>
-</div>
+    classDef comet fill:#8B1538,stroke:#6B1028,color:#ffffff,stroke-width:1px,rx:6,ry:6;
+    class A,B,C,D,E,F,G,H,I,J comet;
+```
 
 ---
 

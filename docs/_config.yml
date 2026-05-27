@@ -2,14 +2,18 @@
 title: EEG-COMET
 description: EEG Comprehensive Microstate Extraction Toolbox — official documentation
 url: "https://eeg-comet.github.io"
-baseurl: ""
+baseurl: "/eeg-comet"
 version: "1.0.0"
-remote_theme: just-the-docs/just-the-docs@v0.8.2
+
+# Theme is installed via the Gemfile (gem "just-the-docs"). We use `theme:` rather
+# than `remote_theme:` because the latter requires the `jekyll-remote-theme`
+# plugin which is not enabled here.
+theme: just-the-docs
 
 # Logo and branding
 logo: "/assets/images/logo.png"
 
-# Color scheme (custom)
+# Color scheme (custom — defined in _sass/color_schemes/comet.scss)
 color_scheme: comet
 
 # Search
@@ -57,8 +61,12 @@ back_to_top_text: "Back to top"
 # Code copy button
 enable_copy_code_button: true
 
-# Callouts
-callouts_level: quiet
+# Mermaid diagrams (rendered via just-the-docs' built-in support)
+mermaid:
+  version: "10.9.0"
+
+# Callouts (loud shows the colored title bar; quiet hides it)
+callouts_level: loud
 callouts:
   highlight:
     color: yellow

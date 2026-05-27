@@ -13,6 +13,15 @@ permalink: /
   <p>A powerful, open-source platform for comprehensive EEG microstate analysis with automated workflows, machine learning-based classification, and advanced statistical methods.</p>
 </div>
 
+<p align="center" style="margin: 1.5rem 0;">
+  <a href="https://github.com/eeg-comet/eeg-comet/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License: GPL-3.0"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%E2%80%933.12-blue.svg" alt="Python 3.10–3.12"></a>
+  <a href="{% link installation.md %}"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="Platforms"></a>
+  <a href="https://github.com/eeg-comet/eeg-comet"><img src="https://img.shields.io/badge/status-beta-orange.svg" alt="Status: Beta"></a>
+  <a href="https://github.com/eeg-comet/eeg-comet/actions/workflows/docs.yml"><img src="https://github.com/eeg-comet/eeg-comet/actions/workflows/docs.yml/badge.svg" alt="Docs build"></a>
+  <a href="https://github.com/eeg-comet/eeg-comet/actions/workflows/ci.yml"><img src="https://github.com/eeg-comet/eeg-comet/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
+
 ---
 
 ## What is EEG-COMET?
@@ -68,27 +77,21 @@ Developed by the [SFU eBrain Lab](https://www.ebrainlab.ca), EEG-COMET eliminate
 
 EEG-COMET features ten interconnected processing modules that facilitate comprehensive microstate analysis:
 
-<div class="workflow-container">
-  <span class="workflow-step">Data Loading</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Preprocessing</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Data Selection</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Validation</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Clustering</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Labeling</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Backfitting</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Features</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Statistics</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">Sources</span>
-</div>
+```mermaid
+flowchart LR
+    A([1. Data&nbsp;Loading]) --> B([2. Preprocessing])
+    B --> C([3. Data&nbsp;Selection])
+    C --> D([4. Validation])
+    D --> E([5. Clustering])
+    E --> F([6. Labeling])
+    F --> G([7. Backfitting])
+    G --> H([8. Features])
+    H --> I([9. Statistics])
+    I --> J([10. Sources])
+
+    classDef comet fill:#8B1538,stroke:#6B1028,color:#ffffff,stroke-width:1px,rx:6,ry:6;
+    class A,B,C,D,E,F,G,H,I,J comet;
+```
 
 | Module | Description |
 |:-------|:------------|
