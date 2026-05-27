@@ -7,7 +7,7 @@
 
 EEG-COMET is an open-source, end-to-end toolbox for **EEG microstate analysis**, developed by the [SFU eBrain Lab](https://www.ebrainlab.ca). It unifies preprocessing, automated cluster validation, machine-learning–based labeling, backfitting, feature extraction, and source localization in one reproducible workflow, accessible from either a GUI or a command-line interface.
 
-> Full documentation: **<[https://eeg-comet.github.io](https://eeg-comet.github.io/eeg-comet/)>**
+> Full documentation: **<https://eeg-comet.github.io/eeg-comet/>**
 
 ---
 
@@ -80,7 +80,7 @@ eeg-comet
 eeg-comet-cli --help
 ```
 
-The CLI consumes the same configuration schema as the GUI; see the [Parameters Reference](https://eeg-comet.github.io/parameters.html) for all options.
+The CLI consumes the same configuration schema as the GUI; see the [Parameters Reference](https://eeg-comet.github.io/eeg-comet/parameters.html) for all options.
 
 ### First steps
 
@@ -88,7 +88,7 @@ The CLI consumes the same configuration schema as the GUI; see the [Parameters R
 2. Select data, validate the cluster count, run clustering, and label microstates.
 3. Backfit, extract features, and (optionally) source-localize the templates.
 
-A full walkthrough lives in the [Getting Started guide](https://eeg-comet.github.io/getting-started.html).
+A full walkthrough lives in the [Getting Started guide](https://eeg-comet.github.io/eeg-comet/getting-started.html).
 
 > **Important.** Apply proper artifact rejection — particularly ocular artifacts — *before* importing data into EEG-COMET. Microstate analysis is highly sensitive to residual artifacts.
 
