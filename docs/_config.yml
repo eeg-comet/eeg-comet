@@ -19,7 +19,11 @@ lang: en
 # ---------------------------------------------------------------------------
 # Theme
 # ---------------------------------------------------------------------------
-remote_theme: just-the-docs/just-the-docs@v0.8.2
+# `theme:` (not `remote_theme:`) — the just-the-docs gem is already provisioned
+# in docs/Gemfile, so we avoid needing the jekyll-remote-theme plugin (which
+# is *not* enabled in the plugins list below). Without this, GitHub Pages
+# silently fails to load the theme and the site falls back to bare HTML.
+theme: just-the-docs
 color_scheme: comet
 logo: "/assets/images/logo.png"
 
