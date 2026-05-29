@@ -79,12 +79,12 @@ cd eeg-comet
 conda env create -f environment.yml
 ```
 
-This creates an environment named `eegcomet` with all required dependencies.
+This creates an environment named `eeg-comet` with all required dependencies, and installs the `eeg_comet` package itself (editable) so the `eeg-comet` / `eeg-comet-cli` entry points are registered.
 
 **Step 3: Activate the Environment**
 
 ```bash
-conda activate eegcomet
+conda activate eeg-comet
 ```
 
 **Step 4: Verify Installation**
@@ -107,13 +107,14 @@ git clone https://github.com/eeg-comet/eeg-comet.git
 cd eeg-comet
 
 # Create virtual environment
-python -m venv .venv
+python -m venv eeg-comet
 
 # Activate the environment
-.\.venv\Scripts\Activate.ps1
+.\eeg-comet\Scripts\Activate.ps1
 
-# Install dependencies
+# Install dependencies, then the package itself
 pip install -r requirements.txt
+pip install -e .
 ```
 
 #### macOS / Linux
@@ -124,13 +125,14 @@ git clone https://github.com/eeg-comet/eeg-comet.git
 cd eeg-comet
 
 # Create virtual environment
-python3 -m venv .venv
+python3 -m venv eeg-comet
 
 # Activate the environment
-source .venv/bin/activate
+source eeg-comet/bin/activate
 
-# Install dependencies
+# Install dependencies, then the package itself
 pip install -r requirements.txt
+pip install -e .
 ```
 
 ---
@@ -154,12 +156,11 @@ This wires up the `eeg-comet` (GUI) and `eeg-comet-cli` (terminal) console scrip
 After installation, launch the graphical interface using either of the supported entry points:
 
 ```bash
-# 1) From the source tree (works for clone + conda / venv installs)
-cd EEG_COMET
-python main.py
-
-# 2) From any directory (works after `pip install -e .` or `pip install eeg-comet`)
+# 1) Console script (works after `pip install -e .` or `pip install eeg-comet`)
 eeg-comet
+
+# 2) Equivalent: run the package module directly
+python -m eeg_comet.main
 ```
 
 A terminal-only entry point is also available:
@@ -194,7 +195,7 @@ EEG-COMET relies on several major scientific Python packages. The versions below
 | `h5py` | 3.14.0 | HDF5 export support |
 
 {: .note }
-> EEG-COMET does **not** depend on TensorFlow. The microstate classifier is shipped as an ONNX file (`EEG_COMET/models/model_v2.onnx`) and executed by `onnxruntime` on the CPU — no CUDA / cuDNN setup is required.
+> EEG-COMET does **not** depend on TensorFlow. The microstate classifier is shipped as an ONNX file (`eeg_comet/models/model_v2.onnx`) and executed by `onnxruntime` on the CPU — no CUDA / cuDNN setup is required.
 
 ---
 
@@ -210,7 +211,7 @@ If you see "qt.qpa.plugin: Could not find the Qt platform plugin", try:
 
 <div class="callout warning">
 <strong>ONNX Runtime fails to load the classifier</strong><br>
-Make sure <code>EEG_COMET/models/model_v2.onnx</code> exists in your install (it is bundled with the wheel and the source tarball). If it is missing, re-clone the repository or reinstall the package.
+Make sure <code>eeg_comet/models/model_v2.onnx</code> exists in your install (it is bundled with the wheel and the source tarball). If it is missing, re-clone the repository or reinstall the package.
 </div>
 
 <div class="callout warning">
@@ -226,7 +227,7 @@ If you experience dependency conflicts:
 ```bash
 # Remove existing environment
 conda deactivate
-conda env remove -n eegcomet
+conda env remove -n eeg-comet
 
 # Recreate from scratch
 conda env create -f environment.yml
@@ -240,7 +241,7 @@ If you encounter issues not covered here:
 2. Create a new issue with:
    - Your operating system and version
    - Python version (`python --version`)
-   - EEG-COMET version (`python -c "import EEG_COMET; print(EEG_COMET.__version__)"`)
+   - EEG-COMET version (`python -c "import eeg_comet; print(eeg_comet.__version__)"`)
    - Complete error message
    - Steps to reproduce the issue
 
@@ -258,7 +259,7 @@ cd eeg-comet
 git pull origin main
 
 # Update dependencies
-conda activate eegcomet
+conda activate eeg-comet
 pip install -r requirements.txt --upgrade
 ```
 

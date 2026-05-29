@@ -112,20 +112,18 @@ all = [
 # -----------------------------------------------------------------------------
 # Entry points
 # -----------------------------------------------------------------------------
-# NOTE: these point at the package-qualified module paths that will work after
-# the in-progress import refactor (currently many modules use unqualified
-# top-level imports such as ``from controllers.x import Y`` which only resolve
-# when ``EEG_COMET/`` itself is on sys.path). Until that refactor lands, the
-# canonical way to launch the toolbox remains ``cd EEG_COMET && python main.py``.
+# Every module imports via the fully-qualified ``eeg_comet.<subpackage>``
+# path, so these console/GUI scripts resolve correctly once the distribution
+# is installed (``pip install eeg-comet`` or ``pip install -e .``).
 [project.gui-scripts]
 # GUI entry: registered as a "gui-script" so on Windows it does not spawn a
 # console window alongside the Qt application.
-eeg-comet = "EEG_COMET.main:run_application"
+eeg-comet = "eeg_comet.main:run_application"
 
 [project.scripts]
 # CLI entry: registered as a regular console script so stdout/stderr are
 # attached to the launching terminal.
-eeg-comet-cli = "EEG_COMET.terminal_version:main"
+eeg-comet-cli = "eeg_comet.terminal_version:main"
 
 # -----------------------------------------------------------------------------
 # Useful URLs (rendered on the PyPI project page)
@@ -141,29 +139,29 @@ Citation      = "https://github.com/eeg-comet/eeg-comet/blob/main/CITATION.cff"
 # =============================================================================
 # Hatchling configuration
 # =============================================================================
-# The version is the single source of truth in ``EEG_COMET/__init__.py``
+# The version is the single source of truth in ``eeg_comet/__init__.py``
 # (``__version__``); bump it there and the build picks it up automatically.
 [tool.hatch.version]
-path = "EEG_COMET/__init__.py"
+path = "eeg_comet/__init__.py"
 
-# Wheel layout: ship the ``EEG_COMET`` package verbatim, including bundled
+# Wheel layout: ship the ``eeg_comet`` package verbatim, including bundled
 # resources (UI files, theme, ONNX model, default config) needed at runtime.
 [tool.hatch.build.targets.wheel]
-packages = ["EEG_COMET"]
+packages = ["eeg_comet"]
 include = [
-    "EEG_COMET/models/*.onnx",
-    "EEG_COMET/default_config.ini",
-    "EEG_COMET/**/*.ui",
-    "EEG_COMET/**/*.qss",
-    "EEG_COMET/**/*.png",
-    "EEG_COMET/**/*.svg",
+    "eeg_comet/models/*.onnx",
+    "eeg_comet/default_config.ini",
+    "eeg_comet/**/*.ui",
+    "eeg_comet/**/*.qss",
+    "eeg_comet/**/*.png",
+    "eeg_comet/**/*.svg",
 ]
 
 # Source distribution layout: include tests, environment recipes, and
 # project metadata so ``pip install`` from sdist reproduces the repo.
 [tool.hatch.build.targets.sdist]
 include = [
-    "EEG_COMET",
+    "eeg_comet",
     "tests",
     "requirements.txt",
     "environment.yml",
@@ -190,8 +188,8 @@ exclude = [
 line-length = 100
 target-version = "py310"
 extend-exclude = [
-    "EEG_COMET/models",
-    "EEG_COMET/views",
+    "eeg_comet/models",
+    "eeg_comet/views",
     "build",
     "dist",
     "docs",
@@ -212,21 +210,7 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = [
-    "EEG_COMET",
-    # Legacy unqualified imports still in use; remove these once the import
-    # refactor lands and every module uses ``EEG_COMET.<subpackage>``.
-    "comet",
-    "config",
-    "controllers",
-    "gui_utils",
-    "data_utils",
-    "clustering_utils",
-    "backfitting_utils",
-    "features_utils",
-    "sourcelocalization_utils",
-    "pipeline",
-]
+known-first-party = ["eeg_comet"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -253,10 +237,10 @@ filterwarnings = [
 # -----------------------------------------------------------------------------
 [tool.coverage.run]
 branch = true
-source = ["EEG_COMET"]
+source = ["eeg_comet"]
 omit = [
-    "EEG_COMET/models/*",
-    "EEG_COMET/ui/*",
+    "eeg_comet/models/*",
+    "eeg_comet/ui/*",
     "tests/*",
 ]
 

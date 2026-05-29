@@ -18,7 +18,7 @@ import pytest
 
 @pytest.fixture
 def study_manifest():
-    return pytest.importorskip("data_utils.study_manifest")
+    return pytest.importorskip("eeg_comet.data_utils.study_manifest")
 
 
 def test_record_and_verify_round_trip(tmp_path, study_manifest):

@@ -40,21 +40,26 @@ cd eeg-comet
 
 ```bash
 conda env create -f environment.yml
-conda activate eegcomet
+conda activate eeg-comet
 ```
+
+The conda recipe also installs the package itself (editable), so the
+`eeg-comet` / `eeg-comet-cli` entry points are ready to use.
 
 ### Option B — Python venv + pip
 
 ```bash
 # Windows (PowerShell)
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+python -m venv eeg-comet
+.\eeg-comet\Scripts\Activate.ps1
 pip install -r requirements.txt
+pip install -e .
 
 # macOS / Linux
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv eeg-comet
+source eeg-comet/bin/activate
 pip install -r requirements.txt
+pip install -e .
 ```
 
 > **Developing on EEG-COMET?** Use `pip install -e ".[dev]"` from the repo root to install the package in editable mode together with the test/lint extras declared in [`pyproject.toml`](pyproject.toml).
@@ -63,15 +68,17 @@ pip install -r requirements.txt
 
 ### Graphical interface
 
-```bash
-cd EEG_COMET
-python main.py
-```
-
-After installation as a package, the same GUI is available as a console script:
+Once the package is installed (`pip install -e .` or `pip install eeg-comet`),
+launch the GUI from any directory via the console script:
 
 ```bash
 eeg-comet
+```
+
+Equivalently, you can run the package module directly:
+
+```bash
+python -m eeg_comet.main
 ```
 
 ### Command-line interface
@@ -95,7 +102,7 @@ A full walkthrough lives in the [Getting Started guide](https://eeg-comet.github
 ## Project layout
 
 ```
-EEG_COMET/                 # Application package
+eeg_comet/                 # Application package (importable as ``eeg_comet``)
 ├── controllers/           # PyQt5 window controllers
 ├── ui/                    # Qt Designer .ui files and theme.qss
 ├── clustering_utils/      # Modified K-means, TAAHC, optimizer

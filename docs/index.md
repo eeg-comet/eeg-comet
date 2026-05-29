@@ -136,7 +136,7 @@ full pipeline end-to-end or use individual modules independently.
 git clone https://github.com/eeg-comet/eeg-comet.git
 cd eeg-comet
 conda env create -f environment.yml
-conda activate eegcomet
+conda activate eeg-comet
 ```
 
 See the [Installation Guide]({% link installation.md %}) for `pip` and
@@ -144,14 +144,15 @@ developer (editable) installs.
 
 ### 2. Launch the GUI
 
+After installing the package (the conda recipe above already does this, or run
+`pip install -e .`), launch the GUI from any directory:
+
 ```bash
-cd EEG_COMET
-python main.py
+eeg-comet
 ```
 
-After installing the package, an `eeg-comet` console script and a
-`eeg-comet-cli` terminal entry point are also available from any
-directory.
+Equivalently, run the package module directly with `python -m eeg_comet.main`.
+A `eeg-comet-cli` terminal entry point is also available.
 
 ### 3. Load preprocessed data
 

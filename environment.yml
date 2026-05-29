@@ -1,4 +1,4 @@
-name: eegcomet
+name: eeg-comet
 channels:
   - conda-forge
   - defaults
@@ -22,3 +22,6 @@ dependencies:
     - scikit-learn==1.5.0
     - seaborn==0.13.2
     - statsmodels==0.14.4
+    # Install the eeg_comet package itself (editable) so the
+    # ``eeg-comet`` / ``eeg-comet-cli`` entry points are registered.
+    - -e .

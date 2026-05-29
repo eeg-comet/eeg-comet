@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from config import (
+from eeg_comet.config import (
     CONFIG_FORMAT_VERSION,
     BackfittingConfig,
     ClusteringConfig,

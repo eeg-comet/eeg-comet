@@ -19,7 +19,7 @@ import pytest
 @pytest.fixture
 def clusterer():
     pytest.importorskip("numpy")
-    mc = pytest.importorskip("clustering_utils.microstate_clusterer")
+    mc = pytest.importorskip("eeg_comet.clustering_utils.microstate_clusterer")
     return mc.MicrostateClusterer
 
 

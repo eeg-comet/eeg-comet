@@ -4,7 +4,7 @@ name: CI
 #
 # * Lint runs ruff in "bug-catcher" mode only (see [tool.ruff.lint] in
 #   pyproject.toml). It will not fail on stylistic issues.
-# * Tests are smoke tests only — they import EEG_COMET and verify the
+# * Tests are smoke tests only — they import eeg_comet and verify the
 #   advertised version. They intentionally avoid the heavy GUI / scientific
 #   stack (PyQt5, pyvista, vtk, mne, ...) which is hard to install on bare
 #   GitHub runners without xvfb / system Qt libraries. A real cross-platform
@@ -40,7 +40,7 @@ jobs:
 
       - name: Ruff (lint, bug-catcher rules only)
         # We pass --select on the CLI rather than relying solely on
-        # pyproject.toml because ruff treats EEG_COMET/ as a nested project
+        # pyproject.toml because ruff treats eeg_comet/ as a nested project
         # root (it contains __init__.py) and that interaction can cause the
         # repo-level [tool.ruff.lint] select list to be ignored. The CLI
         # value below is the source of truth; pyproject.toml mirrors it for
@@ -49,7 +49,7 @@ jobs:
           ruff check \
             --select E9,F63,F7,F82 \
             --no-cache \
-            EEG_COMET tests
+            eeg_comet tests
 
   smoke-test:
     name: Smoke test (ubuntu / py3.11)

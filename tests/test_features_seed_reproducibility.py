@@ -13,7 +13,7 @@ import pytest
 @pytest.fixture
 def coordinator_cls():
     pytest.importorskip("numpy")
-    fe = pytest.importorskip("features_utils.feature_extractor")
+    fe = pytest.importorskip("eeg_comet.features_utils.feature_extractor")
     return fe.FeatureExtractionCoordinator
 
 

@@ -1,4 +1,4 @@
-"""Tests for the :mod:`pipeline.runner` facade.
+"""Tests for the :mod:`eeg_comet.pipeline.runner` facade.
 
 Verify the runner's behaviour without booting Qt or any of the heavy
 MNE/numpy code by exercising it against a minimal ``COMET`` stand-in.
@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from pipeline import NullCallbacks, PipelineRunner
-from pipeline.runner import StageResult
+from eeg_comet.pipeline import NullCallbacks, PipelineRunner
+from eeg_comet.pipeline.runner import StageResult
 
 
 class FakeComet:

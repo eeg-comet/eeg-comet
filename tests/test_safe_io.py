@@ -1,4 +1,4 @@
-"""Tests for ``EEG_COMET/data_utils/safe_io.py``.
+"""Tests for ``eeg_comet/data_utils/safe_io.py``.
 
 Cover the warning behaviour, the env-var opt-in, and the manifest
 hash-mismatch rejection.
@@ -16,7 +16,7 @@ import pytest
 
 @pytest.fixture
 def safe_io():
-    return pytest.importorskip("data_utils.safe_io")
+    return pytest.importorskip("eeg_comet.data_utils.safe_io")
 
 
 def _write_pickle(path: Path, payload):

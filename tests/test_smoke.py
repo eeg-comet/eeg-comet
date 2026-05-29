@@ -1,6 +1,6 @@
 """Smoke tests for the EEG-COMET package.
 
-These tests deliberately avoid actually importing ``EEG_COMET`` at runtime
+These tests deliberately avoid actually importing ``eeg_comet`` at runtime
 because doing so cascades into the full GUI / scientific stack (PyQt5,
 pyvista, mne, ...) which is impractical to install on a bare CI runner
 without xvfb and Qt platform libraries.
@@ -8,10 +8,10 @@ without xvfb and Qt platform libraries.
 Instead we perform two cheap, dependency-free checks that still catch the
 most common regressions:
 
-1. ``EEG_COMET/__init__.py`` declares a non-empty ``__version__``, and that
+1. ``eeg_comet/__init__.py`` declares a non-empty ``__version__``, and that
    version matches the source-of-truth path declared in ``pyproject.toml``
    (``[tool.hatch.version]``).
-2. Every ``.py`` file under ``EEG_COMET/`` is at least syntactically valid
+2. Every ``.py`` file under ``eeg_comet/`` is at least syntactically valid
    Python (compile-level only — no execution, no import resolution).
 
 A real cross-platform test suite that actually imports the package can be
@@ -28,11 +28,11 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_PACKAGE_ROOT = _REPO_ROOT / "EEG_COMET"
+_PACKAGE_ROOT = _REPO_ROOT / "eeg_comet"
 
 
 def _read_declared_version() -> str:
-    """Return the ``__version__`` literal from ``EEG_COMET/__init__.py``."""
+    """Return the ``__version__`` literal from ``eeg_comet/__init__.py``."""
     init_path = _PACKAGE_ROOT / "__init__.py"
     init_text = init_path.read_text(encoding="utf-8")
     match = re.search(r"""__version__\s*=\s*['"]([^'"]+)['"]""", init_text)
@@ -48,7 +48,7 @@ def test_version_is_non_empty_string() -> None:
 
 
 def test_version_matches_pyproject_source() -> None:
-    """``pyproject.toml`` and ``EEG_COMET/__init__.py`` must agree.
+    """``pyproject.toml`` and ``eeg_comet/__init__.py`` must agree.
 
     ``pyproject.toml`` declares ``[tool.hatch.version] path = "..."`` so the
     build always reads the version from a single source of truth. This test
@@ -70,8 +70,8 @@ def test_version_matches_pyproject_source() -> None:
     hatch_version_path = (
         cfg.get("tool", {}).get("hatch", {}).get("version", {}).get("path")
     )
-    assert hatch_version_path == "EEG_COMET/__init__.py", (
-        "[tool.hatch.version].path should point at EEG_COMET/__init__.py; "
+    assert hatch_version_path == "eeg_comet/__init__.py", (
+        "[tool.hatch.version].path should point at eeg_comet/__init__.py; "
         f"got {hatch_version_path!r}"
     )
 
@@ -80,7 +80,7 @@ def test_version_matches_pyproject_source() -> None:
 
 
 def test_all_modules_are_syntactically_valid() -> None:
-    """Every Python file under ``EEG_COMET/`` must parse cleanly.
+    """Every Python file under ``eeg_comet/`` must parse cleanly.
 
     This catches the kind of regression the previous CI would have caught
     via ``import``-based testing (e.g. a stray syntax error introduced in a

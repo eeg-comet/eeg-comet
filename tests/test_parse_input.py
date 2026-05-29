@@ -1,4 +1,4 @@
-"""Tests for ``EEG_COMET/gui_utils/parse_input.py``.
+"""Tests for ``eeg_comet/gui_utils/parse_input.py``.
 
 Verify that an empty, missing, or non-numeric ``QLineEdit`` text falls back
 to the supplied default and that values outside ``[minimum, maximum]`` are
@@ -13,7 +13,7 @@ import pytest
 
 @pytest.fixture
 def parse_input():
-    return pytest.importorskip("gui_utils.parse_input")
+    return pytest.importorskip("eeg_comet.gui_utils.parse_input")
 
 
 class FakeLineEdit:

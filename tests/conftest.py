@@ -1,8 +1,10 @@
 """Pytest configuration shared by the EEG-COMET test suite.
 
-Adds the ``EEG_COMET/`` package directory to ``sys.path`` so tests can use
-``from config import CometConfig`` etc., matching the import layout used by
-the rest of the codebase.
+Ensures the repository root is importable so tests can use the installed
+package layout, e.g. ``from eeg_comet.config import CometConfig``. When the
+package has been installed (``pip install -e .``) this is redundant but
+harmless; when running straight from a checkout it lets ``import eeg_comet``
+resolve against the ``eeg_comet/`` directory at the repo root.
 
 A deterministic synthetic EEG fixture (32 channels, 30 s @ 250 Hz) is
 exposed for clustering and feature checks. It is built lazily so collection
@@ -19,10 +21,9 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PACKAGE_DIR = REPO_ROOT / "EEG_COMET"
 
-if str(PACKAGE_DIR) not in sys.path:
-    sys.path.insert(0, str(PACKAGE_DIR))
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 @pytest.fixture(scope="session")
@@ -65,7 +66,7 @@ def tmp_study_dir(tmp_path):
 def _reset_pickle_warning_state():
     """Each test starts from a clean ``safe_io`` warned-paths cache."""
     try:
-        from data_utils import safe_io  # type: ignore
+        from eeg_comet.data_utils import safe_io  # type: ignore
     except Exception:
         yield
         return

@@ -40,14 +40,13 @@ Before starting, ensure you have:
 Activate your environment and start the GUI. Both entry points open the same interface:
 
 ```bash
-conda activate eegcomet
+conda activate eeg-comet
 
-# Option A — from the source tree
-cd EEG_COMET
-python main.py
-
-# Option B — from anywhere, after `pip install -e .`
+# Option A — console script (after `pip install -e .` or `pip install eeg-comet`)
 eeg-comet
+
+# Option B — run the package module directly
+python -m eeg_comet.main
 ```
 
 The main window will appear with the processing pipeline interface.
@@ -170,7 +169,7 @@ Click **"Run Clustering"** to extract templates.
 ### Automated Classification (Recommended)
 
 1. Click **"Auto-Label"**
-2. The CNN classifier (bundled as `EEG_COMET/models/model_v2.onnx`, run via ONNX Runtime) assigns canonical labels (A, B, C, D, E, F, G)
+2. The CNN classifier (bundled as `eeg_comet/models/model_v2.onnx`, run via ONNX Runtime) assigns canonical labels (A, B, C, D, E, F, G)
 3. Review assignments in the visualization panel
 
 The classifier achieves **98%+ accuracy** on validation datasets aggregated from 1,157 subjects.
