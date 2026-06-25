@@ -83,7 +83,7 @@ recon-all -s subject_id -i T1.nii -all
 
 ### Minimum Norm Estimate (MNE)
 
-**Basic distributed source method** minimizing overall source power.
+**Basic distributed source method** minimizing overall source power (Hämäläinen & Ilmoniemi, 1994).
 
 $$\hat{J} = R \cdot G^T (G \cdot R \cdot G^T + \lambda C)^{-1} \cdot M$$
 
@@ -95,7 +95,7 @@ $$\hat{J} = R \cdot G^T (G \cdot R \cdot G^T + \lambda C)^{-1} \cdot M$$
 
 ### Dynamic Statistical Parametric Mapping (dSPM)
 
-**Noise-normalized MNE** providing statistical maps.
+**Noise-normalized MNE** providing statistical maps (Dale et al., 2000).
 
 $$\text{dSPM} = \frac{\text{MNE}}{\sqrt{\text{variance}}}$$
 
@@ -109,7 +109,7 @@ $$\text{dSPM} = \frac{\text{MNE}}{\sqrt{\text{variance}}}$$
 
 ### Standardized Low-Resolution Electromagnetic Tomography (sLORETA)
 
-**Current density normalized** by estimated variance.
+**Current density normalized** by estimated variance (Pascual-Marqui, 2002).
 
 | Property | Value |
 |:---------|:------|
@@ -119,7 +119,7 @@ $$\text{dSPM} = \frac{\text{MNE}}{\sqrt{\text{variance}}}$$
 
 ### Exact Low-Resolution Electromagnetic Tomography (eLORETA)
 
-**Improved sLORETA** with exact zero localization error.
+**Improved sLORETA** with exact zero localization error (Pascual-Marqui et al., 2011).
 
 | Property | Value |
 |:---------|:------|
@@ -164,7 +164,7 @@ Source reconstruction at each timepoint, then aggregated by microstate.
 
 ### TESS Method
 
-**Topographic Electrophysiological State Source Imaging** - specialized for microstate analysis.
+**Topographic Electrophysiological State Source Imaging** - specialized for microstate analysis (Custo et al., 2014, 2017).
 
 **Two-stage approach:**
 
@@ -297,7 +297,7 @@ Using PyVista:
 
 ### Microstate-Network Associations
 
-Canonical microstates have been associated with specific networks:
+Canonical microstates have been associated with specific networks (Britz et al., 2010; Custo et al., 2017):
 
 | Microstate | Associated Regions | Networks |
 |:-----------|:-------------------|:---------|
@@ -393,11 +393,15 @@ Set SUBJECTS_DIR environment variable. Verify freesurfer preprocessing completed
 
 Key methodological references for source localization:
 
-- Michel, C. M., et al. (2004). EEG source imaging
-- Pascual-Marqui, R. D. (2002). sLORETA
-- Pascual-Marqui, R. D. (2007). eLORETA
-- Dale, A. M., et al. (2000). dSPM
-- Custo, A., et al. (2014). TESS method
+- Hämäläinen, M. S., & Ilmoniemi, R. J. (1994). Interpreting magnetic fields of the brain: minimum norm estimates. *Medical & Biological Engineering & Computing*, 32(1), 35–42. [https://doi.org/10.1007/BF02512476](https://doi.org/10.1007/BF02512476)
+- Dale, A. M., Liu, A. K., Fischl, B. R., Buckner, R. L., Belliveau, J. W., Lewine, J. D., & Halgren, E. (2000). Dynamic statistical parametric mapping: Combining fMRI and MEG for high-resolution imaging of cortical activity. *Neuron*, 26(1), 55–67. [https://doi.org/10.1016/S0896-6273(00)81138-1](https://doi.org/10.1016/S0896-6273(00)81138-1)
+- Pascual-Marqui, R. D. (2002). Standardized low-resolution brain electromagnetic tomography (sLORETA): technical details. *Methods and Findings in Experimental and Clinical Pharmacology*, 24(Suppl D), 5–12.
+- Pascual-Marqui, R. D., Lehmann, D., Koukkou, M., Kochi, K., Anderer, P., Saletu, B., Tanaka, H., Hirata, K., John, E. R., Prichep, L., Biscay-Lirio, R., & Kinoshita, T. (2011). Assessing interactions in the brain with exact low-resolution electromagnetic tomography (eLORETA). *Philosophical Transactions of the Royal Society A*, 369(1952), 3768–3784. [https://doi.org/10.1098/rsta.2011.0081](https://doi.org/10.1098/rsta.2011.0081)
+- Michel, C. M., Murray, M. M., Lantz, G., Gonzalez, S., Spinelli, L., & Grave de Peralta, R. (2004). EEG source imaging. *Clinical Neurophysiology*, 115(10), 2195–2222. [https://doi.org/10.1016/j.clinph.2004.06.001](https://doi.org/10.1016/j.clinph.2004.06.001)
+- Custo, A., Vulliemoz, S., Grouiller, F., Van De Ville, D., & Michel, C. M. (2014). EEG source imaging of brain states using spatiotemporal regression. *NeuroImage*, 96, 106–116. [https://doi.org/10.1016/j.neuroimage.2014.04.002](https://doi.org/10.1016/j.neuroimage.2014.04.002)
+- Custo, A., Van De Ville, D., Wells, W. M., Tomescu, M. I., Brunet, D., & Michel, C. M. (2017). Electroencephalographic resting-state networks: Source localization of microstates. *Brain Connectivity*, 7(10), 671–682. [https://doi.org/10.1089/brain.2016.0476](https://doi.org/10.1089/brain.2016.0476)
+- Britz, J., Van De Ville, D., & Michel, C. M. (2010). BOLD correlates of EEG topography reveal rapid resting-state network dynamics. *NeuroImage*, 52(4), 1162–1170. [https://doi.org/10.1016/j.neuroimage.2010.02.052](https://doi.org/10.1016/j.neuroimage.2010.02.052)
+- Gramfort, A., Luessi, M., Larson, E., et al. (2013). MEG and EEG data analysis with MNE-Python. *Frontiers in Neuroscience*, 7, 267. [https://doi.org/10.3389/fnins.2013.00267](https://doi.org/10.3389/fnins.2013.00267)
 
 ---
 

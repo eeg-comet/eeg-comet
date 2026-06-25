@@ -1,0 +1,12 @@
+{%- comment -%}
+  Render TeX/LaTeX math written in kramdown `$$ ... $$` blocks using MathJax.
+  Enabled site-wide via `math: mathjax` in `_config.yml`; can be overridden
+  per page via the `math` front-matter variable.
+{%- endcomment -%}
+
+{% assign math = page.math | default: layout.math | default: site.math %}
+
+{% case math %}
+  {% when "mathjax" %}
+    {% include mathjax.html %}
+{% endcase %}

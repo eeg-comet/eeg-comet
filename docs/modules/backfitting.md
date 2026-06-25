@@ -25,7 +25,7 @@ Template assignment with segment duration optimization and refinement strategies
 
 ## Overview
 
-After identifying and labeling microstates, each time point in the continuous EEG recording is assigned to the template with the highest spatial correlation through a **backfitting** process. This produces a preliminary segmentation that often requires refinement to handle implausibly short segments.
+After identifying and labeling microstates, each time point in the continuous EEG recording is assigned to the template with the highest spatial correlation through a **backfitting** process (Pascual-Marqui et al., 1995; Brunet et al., 2011). This produces a preliminary segmentation that often requires refinement to handle implausibly short segments.
 
 ### Two Key Decisions
 
@@ -62,7 +62,7 @@ The raw backfitting produces many very short segments:
 - Brief segments likely represent noise or transitions
 
 {: .note }
-> Empirical data suggests typical microstate durations of 40-120 ms. Segments far below this range warrant scrutiny.
+> Empirical data suggests typical microstate durations of 40-120 ms. Segments far below this range warrant scrutiny (Koenig et al., 2002; Michel & Koenig, 2018).
 
 ---
 
@@ -182,7 +182,7 @@ After:  A A [A C] C C C C  (first half to A, second half to C)
 
 ### Strategy 4: Sequential Smoothing (`smooth`)
 
-**Apply temporal smoothing considering both past and future context.**
+**Apply temporal smoothing considering both past and future context.** This implements the window-based smoothing algorithm of Pascual-Marqui et al. (1995), where the window half-width `b` and the non-smoothness penalty `lambda` control the trade-off between local context and label stability.
 
 ```
 Algorithm:
@@ -358,6 +358,15 @@ This is expected with strict thresholds. If problematic, switch to length-preser
 <strong>Smoothing doesn't converge</strong><br>
 Increase epsilon or reduce maximum iterations. Check for data quality issues.
 </div>
+
+---
+
+## References
+
+- Pascual-Marqui, R. D., Michel, C. M., & Lehmann, D. (1995). Segmentation of brain electrical activity into microstates: model estimation and validation. *IEEE Transactions on Biomedical Engineering*, 42(7), 658–665. [https://doi.org/10.1109/10.391164](https://doi.org/10.1109/10.391164)
+- Brunet, D., Murray, M. M., & Michel, C. M. (2011). Spatiotemporal analysis of multichannel EEG: CARTOOL. *Computational Intelligence and Neuroscience*, 2011, 813870. [https://doi.org/10.1155/2011/813870](https://doi.org/10.1155/2011/813870)
+- Koenig, T., Prichep, L., Lehmann, D., Valdes Sosa, P., Braeker, E., Kleinlogel, H., Isenhart, R., & John, E. R. (2002). Millisecond by millisecond, year by year: Normative EEG microstates and developmental stages. *NeuroImage*, 16(1), 41–48. [https://doi.org/10.1006/nimg.2002.1070](https://doi.org/10.1006/nimg.2002.1070)
+- Michel, C. M., & Koenig, T. (2018). EEG microstates as a tool for studying the temporal dynamics of whole-brain neuronal networks: A review. *NeuroImage*, 180, 577–593. [https://doi.org/10.1016/j.neuroimage.2017.11.062](https://doi.org/10.1016/j.neuroimage.2017.11.062)
 
 ---
 

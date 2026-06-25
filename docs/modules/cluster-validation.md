@@ -33,7 +33,11 @@ Selecting the optimal number of microstate templates is an important methodologi
 All validation methods use spatial correlation as the primary similarity measure, treating topographies differing only in voltage sign as the same underlying neural configuration (polarity invariance).
 
 {: .note }
-> Evidence indicates that choosing fewer than 4 microstates may oversimplify network dynamics. Investigating 5 or more states is recommended for reliable results.
+> Evidence indicates that choosing fewer than 4 microstates may oversimplify network dynamics. Investigating 5 or more states is recommended for reliable results (Michel & Koenig, 2018; Koenig et al., 2024).
+
+### How the criteria are computed
+
+All ten criteria are evaluated on a polarity-invariant basis: cluster membership and every distance/dispersion term are derived from the absolute spatial correlation between a topography and its assigned template, so that maps differing only in voltage sign are treated as the same configuration (Pascual-Marqui et al., 1995; Michel & Koenig, 2018). For each candidate K in `[kmin, kmax]`, clustering is run once and all selected criteria are scored from that solution. Within-cluster dispersion uses the polarity-invariant distance `d = 1 - |r|` (Tibshirani et al., 2001), and the information criteria treat each template as an average-referenced, unit-normalized topography with `C - 1` free parameters (so the model has `K x (C - 1)` parameters in total).
 
 ---
 
@@ -61,6 +65,8 @@ Measures the proportion of total topographic variance explained by templates.
 |:---------------|:-------|
 | Look for "elbow" | Where additional clusters yield diminishing returns |
 
+**Reference:** Pascual-Marqui et al., 1995; Michel & Koenig, 2018
+
 ---
 
 ### Category B: Separation-Based Methods
@@ -77,6 +83,8 @@ Measures clustering consistency by comparing within-cluster similarity to betwee
 | Close to 0 | Overlapping clusters |
 | Negative | Possible misassignments |
 
+**Reference:** Rousseeuw, 1987
+
 #### 4. Dunn Index
 
 Ratio of minimum inter-cluster to maximum intra-cluster correlation.
@@ -84,6 +92,8 @@ Ratio of minimum inter-cluster to maximum intra-cluster correlation.
 | Interpretation | Best K |
 |:---------------|:-------|
 | Higher values | Compact, well-separated patterns |
+
+**Reference:** Dunn, 1974
 
 #### 5. Davies-Bouldin Index
 
@@ -93,6 +103,8 @@ Average similarity between each cluster and its most similar counterpart.
 |:---------------|:-------|
 | Lower values | Better-separated configurations |
 
+**Reference:** Davies & Bouldin, 1979
+
 #### 6. Calinski-Harabasz Index
 
 Ratio of between-cluster to within-cluster variance.
@@ -100,6 +112,8 @@ Ratio of between-cluster to within-cluster variance.
 | Interpretation | Best K |
 |:---------------|:-------|
 | Higher values | Stronger coherence, clearer boundaries |
+
+**Reference:** Caliński & Harabasz, 1974
 
 ---
 
@@ -115,6 +129,8 @@ Compares observed clustering quality against expectations from random topographi
 |:---------------|:-------|
 | Maximum gap | Solutions exceeding chance-level organization |
 
+**Reference:** Tibshirani, Walther & Hastie, 2001
+
 #### 8. AIC (Akaike Information Criterion)
 
 Model selection criterion penalizing solutions with excessive parameters.
@@ -122,6 +138,8 @@ Model selection criterion penalizing solutions with excessive parameters.
 | Interpretation | Best K |
 |:---------------|:-------|
 | Minimum AIC | Best balance of fit and complexity |
+
+**Reference:** Akaike, 1974
 
 #### 9. BIC (Bayesian Information Criterion)
 
@@ -131,6 +149,8 @@ Similar to AIC but with stronger penalty for model complexity.
 |:---------------|:-------|
 | Minimum BIC | More parsimonious solutions |
 
+**Reference:** Schwarz, 1978
+
 #### 10. Krzanowski-Lai Criterion
 
 Evaluates relative improvement across successive cluster numbers.
@@ -138,6 +158,8 @@ Evaluates relative improvement across successive cluster numbers.
 | Interpretation | Best K |
 |:---------------|:-------|
 | Maximum value | Where additional clusters provide meaningful differentiation |
+
+**Reference:** Krzanowski & Lai, 1988
 
 ---
 
@@ -204,6 +226,9 @@ Select K most frequently chosen across all criteria.
 2. Tally votes for each K value
 3. Select K with most votes
 4. In case of ties, use CV or BIC as tiebreaker
+
+{: .note }
+> Combining multiple complementary criteria rather than relying on a single index is recommended for objective, reproducible microstate-count selection (Michel & Koenig, 2018; Koenig et al., 2024; Michel et al., 2024).
 
 ---
 
@@ -341,6 +366,23 @@ Gap statistic requires generating null distributions, increasing memory needs.
 - Use GFP peaks for initial validation
 - Run detailed validation on representative subset
 - Parallelize across K values when possible
+
+---
+
+## References
+
+- Pascual-Marqui, R. D., Michel, C. M., & Lehmann, D. (1995). Segmentation of brain electrical activity into microstates: model estimation and validation. *IEEE Transactions on Biomedical Engineering*, 42(7), 658–665. [https://doi.org/10.1109/10.391164](https://doi.org/10.1109/10.391164)
+- Michel, C. M., & Koenig, T. (2018). EEG microstates as a tool for studying the temporal dynamics of whole-brain neuronal networks: A review. *NeuroImage*, 180, 577–593. [https://doi.org/10.1016/j.neuroimage.2017.11.062](https://doi.org/10.1016/j.neuroimage.2017.11.062)
+- Rousseeuw, P. J. (1987). Silhouettes: A graphical aid to the interpretation and validation of cluster analysis. *Journal of Computational and Applied Mathematics*, 20, 53–65. [https://doi.org/10.1016/0377-0427(87)90125-7](https://doi.org/10.1016/0377-0427(87)90125-7)
+- Dunn, J. C. (1974). Well-separated clusters and optimal fuzzy partitions. *Journal of Cybernetics*, 4(1), 95–104. [https://doi.org/10.1080/01969727408546059](https://doi.org/10.1080/01969727408546059)
+- Davies, D. L., & Bouldin, D. W. (1979). A cluster separation measure. *IEEE Transactions on Pattern Analysis and Machine Intelligence*, PAMI-1(2), 224–227. [https://doi.org/10.1109/TPAMI.1979.4766909](https://doi.org/10.1109/TPAMI.1979.4766909)
+- Caliński, T., & Harabasz, J. (1974). A dendrite method for cluster analysis. *Communications in Statistics*, 3(1), 1–27. [https://doi.org/10.1080/03610927408827101](https://doi.org/10.1080/03610927408827101)
+- Tibshirani, R., Walther, G., & Hastie, T. (2001). Estimating the number of clusters in a data set via the gap statistic. *Journal of the Royal Statistical Society: Series B*, 63(2), 411–423. [https://doi.org/10.1111/1467-9868.00293](https://doi.org/10.1111/1467-9868.00293)
+- Akaike, H. (1974). A new look at the statistical model identification. *IEEE Transactions on Automatic Control*, 19(6), 716–723. [https://doi.org/10.1109/TAC.1974.1100705](https://doi.org/10.1109/TAC.1974.1100705)
+- Schwarz, G. (1978). Estimating the dimension of a model. *The Annals of Statistics*, 6(2), 461–464. [https://doi.org/10.1214/aos/1176344136](https://doi.org/10.1214/aos/1176344136)
+- Krzanowski, W. J., & Lai, Y. T. (1988). A criterion for determining the number of groups in a data set using sum-of-squares clustering. *Biometrics*, 44(1), 23–34. [https://doi.org/10.2307/2531893](https://doi.org/10.2307/2531893)
+- Koenig, T., Diezig, S., Kalburgi, S. N., et al. (2024). EEG-Meta-Microstates: Towards a more objective use of resting-state EEG microstate findings across studies. *Brain Topography*, 37(2), 218–231. [https://doi.org/10.1007/s10548-023-00993-6](https://doi.org/10.1007/s10548-023-00993-6)
+- Michel, C. M., Brechet, L., Schiller, B., et al. (2024). Current state of EEG/ERP microstate research. *Brain Topography*, 37, 169–180. [https://doi.org/10.1007/s10548-024-01037-3](https://doi.org/10.1007/s10548-024-01037-3)
 
 ---
 

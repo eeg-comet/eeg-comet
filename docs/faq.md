@@ -317,8 +317,10 @@ We welcome contributions! See the GitHub repository for:
 ### Where can I learn more about microstate analysis?
 
 Key references:
-- Michel & Koenig (2018) - Review of EEG microstates
-- Khanna et al. (2015) - Microstate analysis methods
-- Lehmann et al. (1987) - Original microstate concept
-- Murray et al. (2008) - TAAHC algorithm
+- Michel, C. M., & Koenig, T. (2018). EEG microstates as a tool for studying the temporal dynamics of whole-brain neuronal networks: A review. *NeuroImage*, 180, 577–593. [https://doi.org/10.1016/j.neuroimage.2017.11.062](https://doi.org/10.1016/j.neuroimage.2017.11.062)
+- Khanna, A., Pascual-Leone, A., Michel, C. M., & Farzan, F. (2015). Microstates in resting-state EEG: Current status and future directions. *Neuroscience & Biobehavioral Reviews*, 49, 105–113. [https://doi.org/10.1016/j.neubiorev.2014.12.010](https://doi.org/10.1016/j.neubiorev.2014.12.010)
+- Lehmann, D., Ozaki, H., & Pal, I. (1987). EEG alpha map series: Brain micro-states by space-oriented adaptive segmentation. *Electroencephalography and Clinical Neurophysiology*, 67(3), 271–288. [https://doi.org/10.1016/0013-4694(87)90025-3](https://doi.org/10.1016/0013-4694(87)90025-3)
+- Murray, M. M., Brunet, D., & Michel, C. M. (2008). Topographic ERP analyses: A step-by-step tutorial review. *Brain Topography*, 20(4), 249–264. [https://doi.org/10.1007/s10548-008-0054-5](https://doi.org/10.1007/s10548-008-0054-5)
+- Tarailis, P., Koenig, T., Michel, C. M., & Griškova-Bulanova, I. (2024). The functional aspects of resting EEG microstates: A systematic review. *Brain Topography*, 37(2), 181–217. [https://doi.org/10.1007/s10548-023-00958-9](https://doi.org/10.1007/s10548-023-00958-9)
+- Michel, C. M., Brechet, L., Schiller, B., et al. (2024). Current state of EEG/ERP microstate research. *Brain Topography*, 37, 169–180. [https://doi.org/10.1007/s10548-024-01037-3](https://doi.org/10.1007/s10548-024-01037-3)
 
