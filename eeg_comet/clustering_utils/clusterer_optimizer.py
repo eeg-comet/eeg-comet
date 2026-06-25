@@ -32,17 +32,43 @@ Example usage:
 
 import os
 import time
-import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, Union
 
 import numpy as np
-from scipy.stats import pearsonr
 
 from eeg_comet.clustering_utils.microstate_clusterer import MicrostateClusterer
 from eeg_comet.data_utils.data_initializer import DataInitializer
 
-warnings.filterwarnings("ignore")
+# Metrics for which a higher score indicates a better clustering solution.
+# Single source of truth used by every selection path (single-method,
+# batch/ensemble and majority vote) so they can never disagree.
+_HIGHER_IS_BETTER = {
+    "gev": True,
+    "kl": True,
+    "sil": True,
+    "dunn": True,
+    "ch": True,
+    "gap": True,
+    "db": False,
+    "cv": False,
+    "aic": False,
+    "bic": False,
+}
+
+# Human-readable names used when building OptimizationResult objects.
+_METHOD_DISPLAY_NAMES = {
+    "gev": "Global Explained Variance Criterion",
+    "db": "Davies-Bouldin Criterion",
+    "cv": "Cross-Validation Criterion",
+    "kl": "Krzanowski-Lai Criterion",
+    "sil": "Silhouette Coefficient",
+    "dunn": "Dunn Index",
+    "ch": "Calinski-Harabasz Index",
+    "gap": "Gap Statistic",
+    "aic": "Akaike Information Criterion",
+    "bic": "Bayesian Information Criterion",
+}
 
 
 @dataclass(init=False)
@@ -513,10 +539,14 @@ class ClustererOptimizer:
 
         # Compute KL score
         try:
-            # For KL criterion, we need to compute W_q and M_q
+            # For KL criterion, we need to compute W_q and M_q. The dimensional
+            # correction uses the topography dimensionality (n_channels), matching
+            # _compute_M_q and the batch/visualisation paths so every KL code path
+            # agrees. (Previously this used n_samples, which made the exponent ~0
+            # and collapsed M_q to W_q, silently breaking KL in the majority vote.)
             W_q = self._compute_W_q(self.maps2use, best_labels, clustering_result["maps"])
-            n_samples = self.maps2use.shape[1]
-            M_q = W_q * (k ** (2.0 / n_samples))
+            n_channels = self.maps2use.shape[0]
+            M_q = W_q * (k ** (2.0 / n_channels))
             clustering_result["W_q"] = W_q
             clustering_result["M_q"] = M_q
 
@@ -1138,28 +1168,36 @@ class ClustererOptimizer:
     
     @staticmethod
     def _spatial_correlation(X, Y):
-        """Calculate spatial correlation between topographic maps.
-        
+        """Calculate polarity-invariant spatial correlation between topographies.
+
+        Returns the matrix of absolute Pearson correlation coefficients between
+        every row of ``X`` and every row of ``Y``. The computation is fully
+        vectorised (mean-centre, unit-normalise, single matrix product), which
+        is orders of magnitude faster than the previous element-wise
+        ``np.corrcoef`` double loop and is what makes the separation-based
+        criteria (silhouette, Dunn, gap) tractable on group-level data.
+
         Args:
             X: First set of maps (n_maps, n_channels) or (n_channels,).
             Y: Second set of maps (n_maps, n_channels) or (n_channels,).
-            
+
         Returns:
-            np.ndarray: Correlation matrix of shape (X.shape[0], Y.shape[0]).
+            np.ndarray: |correlation| matrix of shape (X.shape[0], Y.shape[0]),
+                clipped to [0, 1]. Constant (zero-variance) rows yield 0.
         """
-        # Handle both 1D and 2D inputs
-        if X.ndim == 1:
-            X = X.reshape(1, -1)
-        if Y.ndim == 1:
-            Y = Y.reshape(1, -1)
-        
-        # Calculate correlations
-        correlations = np.zeros((X.shape[0], Y.shape[0]))
-        for i in range(X.shape[0]):
-            for j in range(Y.shape[0]):
-                corr_coeff = np.corrcoef(X[i], Y[j])[0, 1]
-                correlations[i, j] = np.abs(corr_coeff) if not np.isnan(corr_coeff) else 0.0
-        
+        X = np.atleast_2d(np.asarray(X, dtype=np.float64))
+        Y = np.atleast_2d(np.asarray(Y, dtype=np.float64))
+
+        # Mean-centre each map (Pearson correlation removes the spatial mean).
+        Xc = X - X.mean(axis=1, keepdims=True)
+        Yc = Y - Y.mean(axis=1, keepdims=True)
+
+        # Unit-normalise; a tiny epsilon keeps constant maps finite (-> 0 corr).
+        Xn = Xc / (np.linalg.norm(Xc, axis=1, keepdims=True) + 1e-12)
+        Yn = Yc / (np.linalg.norm(Yc, axis=1, keepdims=True) + 1e-12)
+
+        correlations = np.abs(Xn @ Yn.T)
+        np.clip(correlations, 0.0, 1.0, out=correlations)
         return correlations
 
     # ============================================================================
@@ -1310,113 +1348,126 @@ class ClustererOptimizer:
         return cv_score
 
     @staticmethod
-    def silhouette_coefficient_correlation(data: np.ndarray, labels: np.ndarray) -> float:
-        """Calculate silhouette coefficient using absolute correlation coefficient as similarity measure.
-        
-        The silhouette coefficient is a measure of how similar an object is to its own 
-        cluster compared to other clusters. It ranges from -1 to 1, where higher values 
-        indicate better clustering. This implementation uses correlation-based distances 
-        for polarity-invariant microstate clustering.
-        
-        The silhouette coefficient for a point i is defined as:
-        s(i) = (b(i) - a(i)) / max(a(i), b(i))
-        
-        Where:
-        - a(i): mean distance from point i to all other points in the same cluster
-        - b(i): minimum mean distance from point i to points in any other cluster
-        - Distance is computed as 1 - |correlation coefficient|
-        
+    def silhouette_coefficient_correlation(
+        data: np.ndarray,
+        labels: np.ndarray,
+        max_samples: int = 2000,
+        random_seed: int = 42,
+    ) -> float:
+        """Silhouette coefficient using polarity-invariant correlation distance.
+
+        The silhouette coefficient measures how similar a point is to its own
+        cluster compared to other clusters (range -1..1, higher is better).
+        Distance is ``1 - |correlation|`` so polarity is ignored.
+
+        The implementation is fully vectorised (distance matrix plus one-hot
+        cluster aggregation) and, because it is inherently O(n²) in memory,
+        reproducibly sub-samples the data to ``max_samples`` points. This keeps
+        the cost bounded on group-level data (tens of thousands of GFP peaks)
+        where the previous O(n²) Python loop could run for hours or exhaust RAM.
+
         Args:
-            data: The input data where each column is a time point/sample 
-                with shape (n_channels, n_samples).
-            labels: Cluster labels for each data point with shape (n_samples,).
-        
+            data: Input data, shape (n_channels, n_samples).
+            labels: Cluster label per sample, shape (n_samples,).
+            max_samples: Maximum number of samples used (sub-sampled if larger).
+            random_seed: Seed for reproducible sub-sampling.
+
         Returns:
-            float: Average silhouette coefficient across all data points. Higher values 
-                indicate better clustering quality.
-        
+            float: Mean silhouette coefficient (0.0 if undefined).
+
         Raises:
             ValueError: If data and labels have mismatched dimensions.
         """
-        data = np.array(data)
-        labels = np.array(labels)
-        
-        # Ensure data is in correct format (n_channels, n_samples)
+        data = np.asarray(data)
+        labels = np.asarray(labels)
+
         if data.shape[1] != labels.shape[0]:
             raise ValueError(
                 f"Data samples ({data.shape[1]}) must match labels length ({labels.shape[0]})"
             )
-        
-        n_samples = data.shape[1]
-        
-        # Check if we have valid clustering
+
+        # Reproducible sub-sampling to keep the O(n²) distance matrix tractable.
+        if max_samples is not None and data.shape[1] > max_samples:
+            rng = np.random.RandomState(random_seed)
+            idx = rng.choice(data.shape[1], size=max_samples, replace=False)
+            data = data[:, idx]
+            labels = labels[idx]
+
         unique_labels = np.unique(labels)
         n_clusters = len(unique_labels)
-        
         if n_clusters <= 1:
-            return 0.0  # Silhouette coefficient is undefined for single cluster
-        
-        # Pre-compute correlation matrix for efficiency (O(n²) but vectorized)
-        # This is much faster than individual pearsonr calls
-        correlation_matrix = ClustererOptimizer._spatial_correlation(data.T, data.T)
-        distance_matrix = 1 - np.abs(correlation_matrix)
-        
-        silhouette_scores = []
-        
-        for i in range(n_samples):
-            current_label = labels[i]
-            
-            # Calculate a(i): average distance within same cluster
-            same_cluster_mask = (labels == current_label) & (np.arange(n_samples) != i)
-            same_cluster_indices = np.where(same_cluster_mask)[0]
-            
-            if len(same_cluster_indices) == 0:
-                # If point is alone in cluster, a(i) = 0
-                a_i = 0.0
-            else:
-                # Use pre-computed distances
-                a_i = np.mean(distance_matrix[i, same_cluster_indices])
-            
-            # Calculate b(i): minimum average distance to other clusters
-            b_i = np.inf
-            
-            for other_label in unique_labels:
-                if other_label == current_label:
-                    continue
-                    
-                other_cluster_mask = (labels == other_label)
-                other_cluster_indices = np.where(other_cluster_mask)[0]
-                
-                if len(other_cluster_indices) > 0:
-                    # Use pre-computed distances
-                    avg_distance_to_cluster = np.mean(distance_matrix[i, other_cluster_indices])
-                    b_i = min(b_i, avg_distance_to_cluster)
-            
-            # Calculate silhouette coefficient for point i
-            if max(a_i, b_i) == 0:
-                s_i = 0.0  # Handle division by zero
-            else:
-                s_i = (b_i - a_i) / max(a_i, b_i)
-            
-            silhouette_scores.append(s_i)
-        
-        return np.mean(silhouette_scores)
+            return 0.0  # Silhouette coefficient is undefined for a single cluster
+
+        n = data.shape[1]
+
+        # Pairwise correlation distance matrix (vectorised).
+        distance_matrix = 1.0 - ClustererOptimizer._spatial_correlation(data.T, data.T)
+        np.fill_diagonal(distance_matrix, 0.0)
+
+        # One-hot cluster membership (n x K) for vectorised aggregation.
+        col_of_label = {lab: j for j, lab in enumerate(unique_labels)}
+        col_idx = np.array([col_of_label[lab] for lab in labels])
+        onehot = np.zeros((n, n_clusters))
+        onehot[np.arange(n), col_idx] = 1.0
+        cluster_sizes = onehot.sum(axis=0)  # (K,)
+
+        # Sum of distances from each point to each cluster (n x K).
+        sum_to_cluster = distance_matrix @ onehot
+
+        # a(i): mean intra-cluster distance, excluding the point itself.
+        own_sizes = cluster_sizes[col_idx]
+        own_sum = sum_to_cluster[np.arange(n), col_idx]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            a = np.where(own_sizes > 1, own_sum / np.maximum(own_sizes - 1, 1), 0.0)
+
+        # b(i): minimum mean distance to any other cluster.
+        mean_to_cluster = np.full_like(sum_to_cluster, np.inf)
+        nonempty = cluster_sizes > 0
+        mean_to_cluster[:, nonempty] = sum_to_cluster[:, nonempty] / cluster_sizes[nonempty]
+        mean_to_cluster[np.arange(n), col_idx] = np.inf  # exclude own cluster
+        b = mean_to_cluster.min(axis=1)
+
+        denom = np.maximum(a, b)
+        s = np.where(denom > 0, (b - a) / denom, 0.0)
+        return float(np.mean(s))
 
     @staticmethod
-    def compute_dunn_index(data: np.ndarray, labels: np.ndarray, maps: np.ndarray) -> float:
-        """Compute Dunn Index using spatial correlation distances.
-        
-        The Dunn Index is the ratio of minimum inter-cluster to maximum intra-cluster distance.
-        Higher values indicate better clustering (compact clusters with clear separation).
-        
+    def compute_dunn_index(
+        data: np.ndarray,
+        labels: np.ndarray,
+        maps: np.ndarray,
+        max_samples: int = 2000,
+        random_seed: int = 42,
+    ) -> float:
+        """Compute Dunn Index using polarity-invariant correlation distances.
+
+        The Dunn Index is the ratio of minimum inter-cluster to maximum
+        intra-cluster distance. Higher values indicate better clustering
+        (compact, well-separated clusters).
+
+        The data is reproducibly sub-sampled to ``max_samples`` points so the
+        inter-cluster pairwise comparison stays bounded on group-level data.
+
         Args:
             data: Data matrix of shape (n_channels, n_samples).
             labels: Cluster labels for each sample.
             maps: Cluster centers of shape (n_clusters, n_channels).
-            
+            max_samples: Maximum number of samples used (sub-sampled if larger).
+            random_seed: Seed for reproducible sub-sampling.
+
         Returns:
             float: Dunn Index (higher is better).
         """
+        data = np.asarray(data)
+        labels = np.asarray(labels)
+
+        # Reproducible sub-sampling keeps the pairwise distances tractable.
+        if max_samples is not None and data.shape[1] > max_samples:
+            rng = np.random.RandomState(random_seed)
+            idx = rng.choice(data.shape[1], size=max_samples, replace=False)
+            data = data[:, idx]
+            labels = labels[idx]
+
         unique_labels = np.unique(labels)
         n_clusters = len(unique_labels)
         
@@ -1443,34 +1494,45 @@ class ClustererOptimizer:
                     distances = 1 - correlations
                     min_inter = min(min_inter, np.min(distances))
         
-        # Calculate maximum intra-cluster distance
+        # Calculate maximum intra-cluster distance. The data is already capped to
+        # ``max_samples`` above, so the full per-cluster correlation matrix is
+        # bounded and deterministic (no further random sampling needed).
         max_intra = 0.0
         for label in unique_labels:
             cluster_mask = labels == label
             cluster_size = np.sum(cluster_mask)
-            
+
             if cluster_size > 1:
                 cluster_data = data[:, cluster_mask]
-                
-                # For small clusters, compute full correlation matrix
-                if cluster_size <= 50:  # Increased threshold for better accuracy
-                    correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
-                    np.fill_diagonal(correlations, 1.0)
-                    distances = 1 - correlations
-                    max_intra = max(max_intra, np.max(distances))
-                else:
-                    # For large clusters, use sampling but with more samples
-                    n_samples = min(50, cluster_size)  # Increased sample size
-                    sample_indices = np.random.choice(cluster_size, n_samples, replace=False)
-                    sample_data = cluster_data[:, sample_indices]
-                    
-                    correlations = ClustererOptimizer._spatial_correlation(sample_data.T, sample_data.T)
-                    np.fill_diagonal(correlations, 1.0)
-                    distances = 1 - correlations
-                    max_intra = max(max_intra, np.max(distances))
-        
+                correlations = ClustererOptimizer._spatial_correlation(
+                    cluster_data.T, cluster_data.T
+                )
+                np.fill_diagonal(correlations, 1.0)
+                distances = 1 - correlations
+                max_intra = max(max_intra, np.max(distances))
+
         # Dunn index
         return min_inter / max_intra if max_intra > 0 else 0.0
+
+    @staticmethod
+    def _reference_map(data: np.ndarray) -> np.ndarray:
+        """Compute a polarity-invariant grand-mean topography.
+
+        The arithmetic mean of GFP-peak maps is meaningless because each map has
+        an arbitrary voltage sign, so a plain ``np.mean`` collapses toward zero.
+        Instead we use the leading left singular vector of the column-normalised
+        data, which is the dominant topographic axis irrespective of polarity.
+
+        Args:
+            data: Data matrix of shape (n_channels, n_samples).
+
+        Returns:
+            np.ndarray: Reference topography of shape (n_channels,).
+        """
+        data_norm = data / (np.linalg.norm(data, axis=0, keepdims=True) + 1e-12)
+        # Economy SVD: u has shape (n_channels, min(n_channels, n_samples)).
+        u, _, _ = np.linalg.svd(data_norm, full_matrices=False)
+        return u[:, 0]
 
     @staticmethod
     def compute_calinski_harabasz_index(data: np.ndarray, labels: np.ndarray, maps: np.ndarray) -> float:
@@ -1494,8 +1556,8 @@ class ClustererOptimizer:
         if n_clusters == 1:
             return 0.0
         
-        # Global centroid
-        global_centroid = np.mean(data, axis=1)
+        # Polarity-invariant grand-mean topography (see _reference_map).
+        global_centroid = ClustererOptimizer._reference_map(data)
         
         # Between-cluster variance
         between_var = 0.0
@@ -1529,99 +1591,111 @@ class ClustererOptimizer:
         return ch_index
 
     @staticmethod
-    def compute_gap_statistic(data: np.ndarray, labels: np.ndarray, maps: np.ndarray, n_refs: int = 5) -> tuple[float, float]:
-        """Compute Gap Statistic using spatial correlation.
-        
-        The Gap Statistic compares clustering quality to random reference distribution.
-        Maximum gap indicates optimal number of clusters.
-        
+    def _within_dispersion(data: np.ndarray, labels: np.ndarray, n_clusters: int) -> float:
+        """Pooled within-cluster dispersion using correlation distance.
+
+        W = sum_r (1 / (2 n_r)) * sum_{i,j in r} d(i, j), with
+        d = 1 - |correlation| (polarity-invariant), per Tibshirani et al. (2001).
+        """
+        W = 0.0
+        for k in range(n_clusters):
+            cluster_data = data[:, labels == k]
+            if cluster_data.shape[1] > 1:
+                distances = 1.0 - ClustererOptimizer._spatial_correlation(
+                    cluster_data.T, cluster_data.T
+                )
+                np.fill_diagonal(distances, 0.0)
+                W += np.sum(distances) / (2.0 * cluster_data.shape[1])
+        return W
+
+    @staticmethod
+    def compute_gap_statistic(
+        data: np.ndarray,
+        labels: np.ndarray,
+        maps: np.ndarray,
+        n_refs: int = 10,
+        max_samples: int = 1500,
+        random_seed: int = 42,
+    ) -> tuple[float, float]:
+        """Compute the Gap Statistic (Tibshirani et al., 2001).
+
+        The gap compares the observed within-cluster dispersion to that expected
+        under a reference null distribution. Reference data are drawn uniformly
+        from a box aligned with the data's principal components (Tibshirani's
+        method (b)), which respects the data covariance instead of using plain
+        i.i.d. Gaussian noise. All distances are polarity-invariant
+        (``1 - |correlation|``).
+
         Args:
             data: Data matrix of shape (n_channels, n_samples).
             labels: Cluster labels for each sample.
             maps: Cluster centers of shape (n_clusters, n_channels).
-            n_refs: Number of reference datasets to generate.
-            
+            n_refs: Number of reference datasets (B).
+            max_samples: Cap on samples used (reproducibly sub-sampled).
+            random_seed: Seed for reproducible references/sub-sampling.
+
         Returns:
-            tuple[float, float]: (gap_statistic, gap_std).
+            tuple[float, float]: (gap, s_k) where ``s_k`` is the standard error
+                of the reference dispersion inflated by sqrt(1 + 1/B), suitable
+                for Tibshirani's selection rule.
         """
+        data = np.asarray(data, dtype=np.float64)
+        labels = np.asarray(labels)
+        rng = np.random.RandomState(random_seed)
+
+        # Reproducible sub-sampling keeps the pairwise dispersions tractable.
+        if max_samples is not None and data.shape[1] > max_samples:
+            idx = rng.choice(data.shape[1], size=max_samples, replace=False)
+            data = data[:, idx]
+            labels = labels[idx]
+
         unique_labels = np.unique(labels)
         n_clusters = len(unique_labels)
-        
-        # Calculate within-cluster dispersion for actual data
-        W_k = 0.0
-        for i, label in enumerate(unique_labels):
-            cluster_mask = labels == label
-            cluster_data = data[:, cluster_mask]
-            if cluster_data.shape[1] > 1:
-                correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
-                distances = 1 - correlations
-                # Remove diagonal (self-correlations)
-                np.fill_diagonal(distances, 0.0)
-                W_k += np.sum(distances) / (2 * cluster_data.shape[1])
-        
-        # Generate reference datasets and calculate expected dispersion
-        W_k_refs = []
+
+        # Relabel to contiguous 0..K-1 so _within_dispersion can index by cluster.
+        remap = {lab: k for k, lab in enumerate(unique_labels)}
+        labels_c = np.array([remap[lab] for lab in labels])
+
+        W_k = ClustererOptimizer._within_dispersion(data, labels_c, n_clusters)
+        if W_k <= 0:
+            return 0.0, 0.0
+
+        # Principal-component bounding box for the reference distribution.
+        Xt = data.T  # (n_samples, n_channels)
+        mean_vec = Xt.mean(axis=0)
+        Xc = Xt - mean_vec
+        _, _, Vt = np.linalg.svd(Xc, full_matrices=False)  # Vt: (comp, n_channels)
+        Xproj = Xc @ Vt.T
+        proj_min = Xproj.min(axis=0)
+        proj_max = Xproj.max(axis=0)
+
+        log_W_refs = []
         for _ in range(n_refs):
-            # Create random reference data preserving topographic structure
-            ref_data = np.random.randn(*data.shape)
-            # Normalize to maintain similar properties to EEG data
-            norms = np.linalg.norm(ref_data, axis=0, keepdims=True)
-            norms[norms == 0] = 1.0  # Avoid division by zero
-            ref_data = ref_data / norms
-            
-            # Use simplified clustering for reference data (much faster)
-            try:
-                # Generate random initial maps
-                ref_initial_maps = np.random.randn(n_clusters, data.shape[0])
-                ref_initial_maps = ref_initial_maps / np.linalg.norm(ref_initial_maps, axis=1, keepdims=True)
-                
-                # Simple k-means without full MicrostateClusterer overhead
-                # Just do a few iterations for reference data
-                ref_maps = ref_initial_maps.copy()
-                for _ in range(10):  # Reduced iterations
-                    # Calculate segmentation
-                    ref_activation = ref_maps.dot(ref_data)
-                    ref_labels = np.argmax(np.abs(ref_activation), axis=0)
-                    
-                    # Update cluster centers
-                    for k in range(n_clusters):
-                        cluster_mask = ref_labels == k
-                        if np.sum(cluster_mask) > 0:
-                            ref_maps[k] = np.mean(ref_data[:, cluster_mask], axis=1)
-                            ref_maps[k] = ref_maps[k] / np.linalg.norm(ref_maps[k])
-                
-                # Calculate final segmentation
-                ref_activation = ref_maps.dot(ref_data)
-                ref_labels = np.argmax(np.abs(ref_activation), axis=0)
-                
-                W_k_ref = 0.0
+            # Uniform draw inside the rotated bounding box, mapped back.
+            Z = rng.uniform(proj_min, proj_max, size=Xproj.shape)
+            ref_data = (Z @ Vt + mean_vec).T  # (n_channels, n_samples)
+
+            # Lightweight polarity-invariant k-means on the reference data.
+            ref_maps = ref_data[:, rng.choice(ref_data.shape[1], n_clusters, replace=False)].T
+            ref_maps = ref_maps / (np.linalg.norm(ref_maps, axis=1, keepdims=True) + 1e-12)
+            ref_labels = np.zeros(ref_data.shape[1], dtype=int)
+            for _ in range(10):
+                ref_labels = np.argmax(np.abs(ref_maps @ ref_data), axis=0)
                 for k in range(n_clusters):
-                    cluster_mask = ref_labels == k
-                    if np.sum(cluster_mask) > 1:
-                        cluster_data = ref_data[:, cluster_mask]
-                        # Use sampling for large clusters
-                        if cluster_data.shape[1] > 20:
-                            sample_indices = np.random.choice(cluster_data.shape[1], 20, replace=False)
-                            cluster_data = cluster_data[:, sample_indices]
-                        
-                        correlations = ClustererOptimizer._spatial_correlation(cluster_data.T, cluster_data.T)
-                        distances = 1 - correlations
-                        np.fill_diagonal(distances, 0.0)
-                        W_k_ref += np.sum(distances) / (2 * cluster_data.shape[1])
-                W_k_refs.append(W_k_ref)
-            except Exception:
-                # If clustering fails, use a default value
-                W_k_refs.append(W_k)
-        
-        # Calculate gap statistic
-        if W_k > 0 and W_k_refs:
-            gap = np.mean(np.log(W_k_refs)) - np.log(W_k)
-            gap_std = np.std(np.log(W_k_refs))
-        else:
-            gap = 0.0
-            gap_std = 0.0
-        
-        return gap, gap_std
+                    members = ref_data[:, ref_labels == k]
+                    if members.shape[1] > 0:
+                        centre = members.mean(axis=1)
+                        ref_maps[k] = centre / (np.linalg.norm(centre) + 1e-12)
+
+            W_ref = ClustererOptimizer._within_dispersion(ref_data, ref_labels, n_clusters)
+            log_W_refs.append(np.log(W_ref) if W_ref > 0 else np.log(W_k))
+
+        log_W_refs = np.asarray(log_W_refs)
+        gap = float(np.mean(log_W_refs) - np.log(W_k))
+        # Standard error inflated per Tibshirani's selection rule.
+        sd = float(np.std(log_W_refs))
+        s_k = sd * np.sqrt(1.0 + 1.0 / max(n_refs, 1))
+        return gap, s_k
 
     @staticmethod
     def compute_information_criteria(data: np.ndarray, labels: np.ndarray, maps: np.ndarray, criterion: str = 'AIC') -> float:
@@ -1643,10 +1717,14 @@ class ClustererOptimizer:
         n_features = data.shape[0]
         unique_labels = np.unique(labels)
         n_clusters = len(unique_labels)
-        n_params = n_clusters * n_features  # Parameters for centroids
+        # Free parameters of the microstate model: each template is a topography
+        # with (n_channels - 1) degrees of freedom (it is average-referenced and
+        # unit-normalised), giving q * (C - 1) parameters.
+        n_params = n_clusters * max(n_features - 1, 1)
         
-        # Calculate residual variance using spatial correlation
-        residual_var = 0.0
+        # Residual sum of squares from the polarity-invariant model fit:
+        # each sample's unexplained fraction is (1 - |corr to its template|)^2.
+        residual_ss = 0.0
         for i, label in enumerate(unique_labels):
             cluster_mask = labels == label
             cluster_data = data[:, cluster_mask]
@@ -1655,11 +1733,12 @@ class ClustererOptimizer:
                     cluster_data.T, maps[i].reshape(1, -1)
                 )
                 distances = 1 - correlations.flatten()
-                residual_var += np.sum(distances ** 2)
-        
-        # Approximate log-likelihood
-        if residual_var > 0:
-            log_likelihood = -n_samples * np.log(residual_var / n_samples)
+                residual_ss += np.sum(distances ** 2)
+
+        # Gaussian log-likelihood under an i.i.d. residual model:
+        # ll = -n/2 * log(RSS / n) (constants dropped, identical across k).
+        if residual_ss > 0:
+            log_likelihood = -0.5 * n_samples * np.log(residual_ss / n_samples)
         else:
             log_likelihood = 0.0
         
@@ -2805,6 +2884,23 @@ class ClustererOptimizer:
         )
         self._log_message(f"Vote distribution: {vote_distribution}")
 
+        # Populate self.results with a per-metric OptimizationResult so that
+        # get_all_results() (consumed by the pipeline and the visualisation
+        # window) returns the full curves after a majority-vote run. Without
+        # this, downstream code received an empty results dict.
+        for metric in methods:
+            scores = metric_votes[metric]["scores"]
+            metric_optimal_k = metric_votes[metric]["optimal_k"]
+            if metric_optimal_k is None:
+                metric_optimal_k = optimal_k
+            self.results[metric] = OptimizationResult(
+                k_values=self.k_range.copy(),
+                scores=list(scores),
+                optimal_k=metric_optimal_k,
+                method_name=_METHOD_DISPLAY_NAMES.get(metric, metric),
+                higher_is_better=_HIGHER_IS_BETTER.get(metric, True),
+            )
+
         # Store results for later access
         self.majority_vote_results = {
             "k_results": k_results,
@@ -2820,8 +2916,14 @@ class ClustererOptimizer:
     ) -> int:
         """Find optimal k for a specific metric.
 
+        Delegates to the shared :meth:`_intelligent_k_selection` so that the
+        majority-vote pipeline, the single-method optimisers and the GUI
+        ensemble all select k the same way for a given metric (previously the
+        majority vote used a plain argmin/argmax and could disagree with the
+        curves shown in the visualisation window).
+
         Args:
-            metric: Metric name ('gev', 'db', 'cv', 'kl').
+            metric: Metric code (e.g. 'gev', 'db', 'cv', 'kl').
             k_values: List of k values.
             scores: Scores for each k value.
 
@@ -2829,50 +2931,12 @@ class ClustererOptimizer:
             int: Optimal k value.
         """
         if not scores or not k_values:
-            return k_values[0] if k_values else 2
+            return k_values[0] if k_values else self.kmin
 
-        # Handle methods based on optimization direction
-        if metric == "db":
-            # Lower is better - find minimum
-            min_idx = np.argmin(scores)
-            return k_values[min_idx]
-        if metric == "gev":
-            # Global Explained Variance - use elbow method
-            return self._find_elbow_point(k_values, scores, higher_is_better=True)
-        if metric == "cv":
-            # Cross validation - typically lower is better
-            min_idx = np.argmin(scores)
-            return k_values[min_idx]
-        if metric == "kl":
-            # Krzanowski-Lai - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if metric == "sil":
-            # Silhouette coefficient - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if metric == "dunn":
-            # Dunn Index - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if metric == "ch":
-            # Calinski-Harabasz Index - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if metric == "gap":
-            # Gap Statistic - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if metric == "aic":
-            # AIC - lower is better
-            min_idx = np.argmin(scores)
-            return k_values[min_idx]
-        if metric == "bic":
-            # BIC - lower is better
-            min_idx = np.argmin(scores)
-            return k_values[min_idx]
-        # Default to first k value
-        return k_values[0]
+        higher_is_better = _HIGHER_IS_BETTER.get(metric, True)
+        return self._intelligent_k_selection(
+            list(k_values), list(scores), higher_is_better=higher_is_better
+        )
 
     def get_all_results(self) -> dict[str, OptimizationResult]:
         """Get all computed results.

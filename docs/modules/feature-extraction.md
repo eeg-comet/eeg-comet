@@ -36,6 +36,8 @@ EEG-COMET provides a comprehensive suite of microstate metrics spanning:
 
 ## Classical Temporal Metrics
 
+The classical microstate parameters (coverage, occurrence, mean duration, and global explained variance) follow the definitions established in the foundational and normative microstate literature (Lehmann et al., 1987; Koenig et al., 2002; Michel & Koenig, 2018; Khanna et al., 2015).
+
 ### Coverage (COV)
 
 **Proportional temporal dominance** of each microstate.
@@ -64,7 +66,7 @@ $$\text{OCC}_k = \frac{\text{Number of microstate } k \text{ segments}}{\text{Re
 
 **Average temporal stability** before transitioning.
 
-For a microstate $k$ with $N_k$ contiguous segments and per-segment lengths $\ell_{k,1}, \dots, \ell_{k,N_k}$ (in samples), the per-segment lengths are summarised into a single value (in milliseconds) using the configurable `duration_method` parameter.
+For a microstate $$k$$ with $$N_k$$ contiguous segments and per-segment lengths $$\ell_{k,1}, \dots, \ell_{k,N_k}$$ (in samples), the per-segment lengths are summarised into a single value (in milliseconds) using the configurable `duration_method` parameter.
 
 | Property | Value |
 |:---------|:------|
@@ -78,10 +80,10 @@ EEG-COMET supports four ways of summarising the per-segment run lengths. All ret
 
 | Method | Formula | Notes |
 |:-------|:--------|:------|
-| `geometric` (**default**) | $\text{DUR}_k = \exp\!\left(\frac{1}{N_k}\sum_i \ln \ell_{k,i}\right) \cdot \frac{1000}{f_s}$ | Geometric mean of run lengths. Robust to long-tail outliers that otherwise inflate the arithmetic mean for dominant microstates. |
-| `arithmetic` | $\text{DUR}_k = \left(\bar{\ell}_k - 1\right) \cdot \frac{1000}{f_s}$ | Mean of run lengths converted with the $(N-1)/f_s$ interval convention. Algebraically consistent with COV and OCC (see relationship below). |
-| `median` | $\text{DUR}_k = \operatorname{median}(\ell_{k,i}) \cdot \frac{1000}{f_s}$ | Robust central-tendency estimator. |
-| `trimmed_mean` | 10% symmetric trimmed mean of $\ell_{k,i}$, then $\cdot\,\frac{1000}{f_s}$ | Falls back to the arithmetic mean when fewer than 11 segments are available. |
+| `geometric` (**default**) | $$\text{DUR}_k = \exp\!\left(\frac{1}{N_k}\sum_i \ln \ell_{k,i}\right) \cdot \frac{1000}{f_s}$$ | Geometric mean of run lengths. Robust to long-tail outliers that otherwise inflate the arithmetic mean for dominant microstates. |
+| `arithmetic` | $$\text{DUR}_k = \left(\bar{\ell}_k - 1\right) \cdot \frac{1000}{f_s}$$ | Mean of run lengths converted with the $$(N-1)/f_s$$ interval convention. Algebraically consistent with COV and OCC (see relationship below). |
+| `median` | $$\text{DUR}_k = \operatorname{median}(\ell_{k,i}) \cdot \frac{1000}{f_s}$$ | Robust central-tendency estimator. |
+| `trimmed_mean` | 10% symmetric trimmed mean of $$\ell_{k,i}$$, then $$\cdot\,\frac{1000}{f_s}$$ | Falls back to the arithmetic mean when fewer than 11 segments are available. |
 
 {: .note }
 > The default switched from `arithmetic` to `geometric` because heavy-tailed run-length distributions on dominant microstates (e.g. when long quiet segments are present) make the arithmetic mean over-estimate the typical persistence. The geometric mean tracks the bulk of the distribution far better.
@@ -92,7 +94,7 @@ When `duration_method = arithmetic`, the three classical metrics are algebraical
 
 $$\text{COV}_k \;=\; \left(\text{DUR}_k + \tfrac{1000}{f_s}\right) \cdot \text{OCC}_k \;\big/\; 1000$$
 
-For the other aggregation methods (`geometric`, `median`, `trimmed_mean`) DUR is no longer the arithmetic mean of segment lengths, so the identity $\text{COV}_k = \text{DUR}_k \times \text{OCC}_k$ holds only approximately. Use `arithmetic` if you need DUR, COV and OCC to be exactly self-consistent (e.g. for analytical derivations).
+For the other aggregation methods (`geometric`, `median`, `trimmed_mean`) DUR is no longer the arithmetic mean of segment lengths, so the identity $$\text{COV}_k = \text{DUR}_k \times \text{OCC}_k$$ holds only approximately. Use `arithmetic` if you need DUR, COV and OCC to be exactly self-consistent (e.g. for analytical derivations).
 
 ### Global Explained Variance (GEV)
 
@@ -145,7 +147,7 @@ By convention, self-transitions (A→A) are excluded or set to zero, as consecut
 
 ### Entropy Rate (ER)
 
-**Information content conditional on sequential history.**
+**Information content conditional on sequential history** (von Wegner et al., 2017).
 
 $$H_r = -\sum_i p_i \sum_j p_{j|i} \log_2 p_{j|i}$$
 
@@ -157,7 +159,7 @@ $$H_r = -\sum_i p_i \sum_j p_{j|i} \log_2 p_{j|i}$$
 
 ### Lempel-Ziv Complexity (LZC)
 
-**Algorithmic assessment of sequence diversity.**
+**Algorithmic assessment of sequence diversity** (Lempel & Ziv, 1976; von Wegner et al., 2017).
 
 Counts the number of distinct patterns in the microstate sequence, normalized by sequence length.
 
@@ -169,7 +171,7 @@ Counts the number of distinct patterns in the microstate sequence, normalized by
 
 ### Hurst Exponent (HE)
 
-**Long-range temporal correlations** across multiple timescales.
+**Long-range temporal correlations** across multiple timescales. Microstate sequences exhibit scale-free, long-range dependent dynamics (Van de Ville et al., 2010).
 
 | Value | Pattern Type |
 |:------|:-------------|
@@ -419,6 +421,18 @@ sub-01,1000,3000,A,0.27,3.1,87.1
 5. **Consider multiple export formats**
    - CSV for general use
    - HDF for large datasets
+
+---
+
+## References
+
+- Lehmann, D., Ozaki, H., & Pal, I. (1987). EEG alpha map series: Brain micro-states by space-oriented adaptive segmentation. *Electroencephalography and Clinical Neurophysiology*, 67(3), 271–288. [https://doi.org/10.1016/0013-4694(87)90025-3](https://doi.org/10.1016/0013-4694(87)90025-3)
+- Koenig, T., Prichep, L., Lehmann, D., Valdes Sosa, P., Braeker, E., Kleinlogel, H., Isenhart, R., & John, E. R. (2002). Millisecond by millisecond, year by year: Normative EEG microstates and developmental stages. *NeuroImage*, 16(1), 41–48. [https://doi.org/10.1006/nimg.2002.1070](https://doi.org/10.1006/nimg.2002.1070)
+- Khanna, A., Pascual-Leone, A., Michel, C. M., & Farzan, F. (2015). Microstates in resting-state EEG: Current status and future directions. *Neuroscience & Biobehavioral Reviews*, 49, 105–113. [https://doi.org/10.1016/j.neubiorev.2014.12.010](https://doi.org/10.1016/j.neubiorev.2014.12.010)
+- Michel, C. M., & Koenig, T. (2018). EEG microstates as a tool for studying the temporal dynamics of whole-brain neuronal networks: A review. *NeuroImage*, 180, 577–593. [https://doi.org/10.1016/j.neuroimage.2017.11.062](https://doi.org/10.1016/j.neuroimage.2017.11.062)
+- Lempel, A., & Ziv, J. (1976). On the complexity of finite sequences. *IEEE Transactions on Information Theory*, 22(1), 75–81. [https://doi.org/10.1109/TIT.1976.1055501](https://doi.org/10.1109/TIT.1976.1055501)
+- von Wegner, F., Tagliazucchi, E., & Laufs, H. (2017). Information-theoretical analysis of resting state EEG microstate sequences — non-Markovianity, non-stationarity and periodicities. *NeuroImage*, 158, 99–111. [https://doi.org/10.1016/j.neuroimage.2017.06.062](https://doi.org/10.1016/j.neuroimage.2017.06.062)
+- Van de Ville, D., Britz, J., & Michel, C. M. (2010). EEG microstate sequences in healthy humans at rest reveal scale-free dynamics. *Proceedings of the National Academy of Sciences*, 107(42), 18179–18184. [https://doi.org/10.1073/pnas.1007841107](https://doi.org/10.1073/pnas.1007841107)
 
 ---
 

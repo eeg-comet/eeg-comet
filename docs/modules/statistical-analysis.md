@@ -49,7 +49,7 @@ Compare microstate features calculated over entire recordings between conditions
 
 ### Variance Homogeneity
 
-Welch's t-test is automatically applied when Levene's test indicates unequal variances, providing robust inference without requiring equal variance assumptions.
+Welch's t-test (Welch, 1947) is automatically applied when Levene's test indicates unequal variances, providing robust inference without requiring equal variance assumptions.
 
 ### Multiple Comparison Correction
 
@@ -59,6 +59,8 @@ Given comparisons across multiple microstates and features:
 |:-------|:--------|:---------|
 | **FDR** (False Discovery Rate) | Expected false positives | Exploratory analyses |
 | **Bonferroni** | Family-wise error | Confirmatory analyses |
+
+The FDR procedure controls the expected proportion of false positives (Benjamini & Hochberg, 1995).
 
 **Number of comparisons:**
 - K microstates × N features = total comparisons
@@ -91,7 +93,7 @@ Comparing microstate features before and after events at the single-trial level 
 
 ### Framework 1: Generalized Estimating Equations (GEE)
 
-**Population-averaged inference** accounting for within-subject correlations.
+**Population-averaged inference** accounting for within-subject correlations (Liang & Zeger, 1986).
 
 | Feature | Description |
 |:--------|:------------|
@@ -113,7 +115,7 @@ Comparing microstate features before and after events at the single-trial level 
 
 ### Framework 2: Linear Mixed-Effects Models (LMM)
 
-**Subject-specific inference** explicitly modeling random effects.
+**Subject-specific inference** explicitly modeling random effects (Laird & Ware, 1982).
 
 | Feature | Description |
 |:--------|:------------|
@@ -127,10 +129,10 @@ Comparing microstate features before and after events at the single-trial level 
 $$Y_{ij} = \beta_0 + \beta_1 X_{ij} + u_i + \varepsilon_{ij}$$
 
 Where:
-- $Y_{ij}$ = Feature for trial j in subject i
-- $\beta_0, \beta_1$ = Fixed effects
-- $u_i$ = Random subject effect
-- $\varepsilon_{ij}$ = Residual error
+- $$Y_{ij}$$ = Feature for trial j in subject i
+- $$\beta_0, \beta_1$$ = Fixed effects
+- $$u_i$$ = Random subject effect
+- $$\varepsilon_{ij}$$ = Residual error
 
 ### Framework 3: Generalized Linear Mixed Models (GLMM)
 
@@ -166,7 +168,7 @@ Event-related analyses with hundreds of timepoints create:
 
 ### Cluster-Based Permutation Testing
 
-**Principle:** Test clusters of adjacent timepoints showing consistent effects, rather than individual samples.
+**Principle:** Test clusters of adjacent timepoints showing consistent effects, rather than individual samples (Maris & Oostenveld, 2007).
 
 **Algorithm:**
 
@@ -184,14 +186,14 @@ Event-related analyses with hundreds of timepoints create:
 
 ### Threshold-Free Cluster Enhancement (TFCE)
 
-**Enhancement** that eliminates arbitrary threshold selection.
+**Enhancement** that eliminates arbitrary threshold selection (Smith & Nichols, 2009).
 
 $$\text{TFCE}(t) = \int_0^{h(t)} e(h)^E \cdot h^H \, dh$$
 
 Where:
-- $h(t)$ = statistic height at point t
-- $e(h)$ = cluster extent at height h
-- $E, H$ = enhancement parameters
+- $$h(t)$$ = statistic height at point t
+- $$e(h)$$ = cluster extent at height h
+- $$E, H$$ = enhancement parameters
 
 | Advantage | Description |
 |:----------|:------------|
@@ -358,6 +360,19 @@ Random effects variance estimated at zero. Simplify random effects structure. Mo
 <strong>No significant clusters</strong><br>
 Effect may be small or variable. Increase sample size. Consider ROI-based approach.
 </div>
+
+---
+
+## References
+
+- Welch, B. L. (1947). The generalization of "Student's" problem when several different population variances are involved. *Biometrika*, 34(1–2), 28–35. [https://doi.org/10.1093/biomet/34.1-2.28](https://doi.org/10.1093/biomet/34.1-2.28)
+- Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate: A practical and powerful approach to multiple testing. *Journal of the Royal Statistical Society: Series B*, 57(1), 289–300. [https://doi.org/10.1111/j.2517-6161.1995.tb02031.x](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x)
+- Liang, K.-Y., & Zeger, S. L. (1986). Longitudinal data analysis using generalized linear models. *Biometrika*, 73(1), 13–22. [https://doi.org/10.1093/biomet/73.1.13](https://doi.org/10.1093/biomet/73.1.13)
+- Laird, N. M., & Ware, J. H. (1982). Random-effects models for longitudinal data. *Biometrics*, 38(4), 963–974. [https://doi.org/10.2307/2529876](https://doi.org/10.2307/2529876)
+- Maris, E., & Oostenveld, R. (2007). Nonparametric statistical testing of EEG- and MEG-data. *Journal of Neuroscience Methods*, 164(1), 177–190. [https://doi.org/10.1016/j.jneumeth.2007.03.024](https://doi.org/10.1016/j.jneumeth.2007.03.024)
+- Smith, S. M., & Nichols, T. E. (2009). Threshold-free cluster enhancement: Addressing problems of smoothing, threshold dependence and localisation in cluster inference. *NeuroImage*, 44(1), 83–98. [https://doi.org/10.1016/j.neuroimage.2008.03.061](https://doi.org/10.1016/j.neuroimage.2008.03.061)
+- Gramfort, A., Luessi, M., Larson, E., et al. (2013). MEG and EEG data analysis with MNE-Python. *Frontiers in Neuroscience*, 7, 267. [https://doi.org/10.3389/fnins.2013.00267](https://doi.org/10.3389/fnins.2013.00267)
+- Seabold, S., & Perktold, J. (2010). statsmodels: Econometric and statistical modeling with Python. *Proceedings of the 9th Python in Science Conference*, 92–96. [https://doi.org/10.25080/Majora-92bf1922-011](https://doi.org/10.25080/Majora-92bf1922-011)
 
 ---
 

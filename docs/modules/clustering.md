@@ -61,7 +61,7 @@ During assignment, both polarities are tested:
 
 $$\text{similarity} = \max(|r|, |-r|)$$
 
-where $r$ is the Pearson correlation between topographies.
+where $$r$$ is the Pearson correlation between topographies.
 
 ### Convergence Criteria
 

@@ -83,7 +83,7 @@ A major methodological concern in microstate analysis is how filters affect temp
 | **Narrow** | 4-15 Hz | Focus on dominant microstate frequencies |
 
 {: .note }
-> The 2-20 Hz range is most commonly used in microstate research, highlighting key topographic patterns while reducing noise.
+> The 2-20 Hz range is most commonly used in microstate research, highlighting key topographic patterns while reducing noise (Michel & Koenig, 2018; Khanna et al., 2015).
 
 ### Configuration Parameters
 
@@ -321,6 +321,13 @@ Check that filter frequencies are appropriate for your sampling rate. Low-pass s
 <strong>Overly smooth topographies</strong><br>
 Reduce or disable spatial smoothing. High electrode density data often needs no smoothing.
 </div>
+
+---
+
+## References
+
+- Michel, C. M., & Koenig, T. (2018). EEG microstates as a tool for studying the temporal dynamics of whole-brain neuronal networks: A review. *NeuroImage*, 180, 577–593. [https://doi.org/10.1016/j.neuroimage.2017.11.062](https://doi.org/10.1016/j.neuroimage.2017.11.062)
+- Khanna, A., Pascual-Leone, A., Michel, C. M., & Farzan, F. (2015). Microstates in resting-state EEG: Current status and future directions. *Neuroscience & Biobehavioral Reviews*, 49, 105–113. [https://doi.org/10.1016/j.neubiorev.2014.12.010](https://doi.org/10.1016/j.neubiorev.2014.12.010)
 
 ---
 

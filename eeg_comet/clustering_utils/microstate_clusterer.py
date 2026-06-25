@@ -25,7 +25,9 @@ class MicrostateClusterer:
         best_maps (ndarray, optional): Best microstate maps found during clustering.
     """
 
-    def __init__(self, n_states, batch_size=None, n_inits=10, max_iter=500, tolerance=1e-6):
+    def __init__(
+        self, n_states, batch_size=None, n_inits=10, max_iter=500, tolerance=1e-6, random_seed=None
+    ):
         """Initialize the MicrostateClusterer with clustering parameters.
 
         Args:
@@ -35,12 +37,15 @@ class MicrostateClusterer:
             n_inits (int, optional): Number of clustering initializations to try. Default is 10.
             max_iter (int, optional): Maximum number of iterations per clustering attempt. Default is 500.
             tolerance (float, optional): Convergence tolerance threshold. Default is 1e-6.
+            random_seed (int, optional): Seed applied to NumPy's global RNG at the start of
+                ``modified_kmeans`` for reproducible runs. Default is None (no seeding).
         """
         self.n_states = n_states
         self.batch_size = batch_size
         self.number_of_repeats = n_inits
         self.max_iterations = max_iter
         self.clustering_tolerance = tolerance
+        self.random_seed = random_seed
         self.best_maps = None
         self.logger = get_logger()
 
@@ -77,6 +82,10 @@ class MicrostateClusterer:
             brain electrical activity into microstates: model estimation and validation.
             IEEE Transactions on Biomedical Engineering, 42(7), 658-665.
         """
+        # Seed the global RNG for reproducibility when requested.
+        if self.random_seed is not None:
+            np.random.seed(self.random_seed)
+
         # Initial setup
         n_channels, n_samples = data.shape
         maps = initial_maps.copy()

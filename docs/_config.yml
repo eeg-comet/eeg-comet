@@ -32,9 +32,14 @@ logo: "/assets/images/logo.png"
 # ---------------------------------------------------------------------------
 markdown: kramdown
 kramdown:
+  math_engine: mathjax
   syntax_highlighter_opts:
     block:
       line_numbers: false
+
+# Render LaTeX math (kramdown `$$ ... $$` blocks) site-wide via MathJax.
+# See docs/_includes/head_custom.html and docs/_includes/mathjax.html.
+math: mathjax
 
 # ---------------------------------------------------------------------------
 # Search

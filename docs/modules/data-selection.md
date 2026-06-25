@@ -39,11 +39,11 @@ Each method is optimized for different experimental setups and analytical goals.
 
 ### Concept
 
-Global Field Power (GFP) measures the spatial standard deviation of scalp potentials at each time point. GFP peaks represent moments of maximum field strength, offering optimal signal-to-noise ratio for identifying topographic patterns.
+Global Field Power (GFP) measures the spatial standard deviation of scalp potentials at each time point (Lehmann & Skrandies, 1980; Skrandies, 1990). GFP peaks represent moments of maximum field strength, offering optimal signal-to-noise ratio for identifying topographic patterns, and have been the traditional basis for microstate template extraction since the earliest segmentation work (Lehmann et al., 1987; Pascual-Marqui et al., 1995).
 
 ### Algorithm
 
-1. Calculate GFP at each timepoint: $GFP(t) = \sqrt{\frac{1}{N}\sum_{i=1}^{N}(V_i(t) - \bar{V}(t))^2}$
+1. Calculate GFP at each timepoint: $$GFP(t) = \sqrt{\frac{1}{N}\sum_{i=1}^{N}(V_i(t) - \bar{V}(t))^2}$$
 2. Identify local maxima in GFP time series
 3. Apply prominence and minimum inter-peak interval criteria
 4. Use only peak timepoints for clustering
@@ -284,6 +284,17 @@ Regardless of selection method, always validate clustering quality:
 4. **Validate thoroughly**
    - Use full-dataset GEV regardless of method
    - Check template interpretability
+
+---
+
+## References
+
+- Lehmann, D., & Skrandies, W. (1980). Reference-free identification of components of checkerboard-evoked multichannel potential fields. *Electroencephalography and Clinical Neurophysiology*, 48(6), 609–621. [https://doi.org/10.1016/0013-4694(80)90419-8](https://doi.org/10.1016/0013-4694(80)90419-8)
+- Skrandies, W. (1990). Global field power and topographic similarity. *Brain Topography*, 3(1), 137–141. [https://doi.org/10.1007/BF01128870](https://doi.org/10.1007/BF01128870)
+- Lehmann, D., Ozaki, H., & Pal, I. (1987). EEG alpha map series: Brain micro-states by space-oriented adaptive segmentation. *Electroencephalography and Clinical Neurophysiology*, 67(3), 271–288. [https://doi.org/10.1016/0013-4694(87)90025-3](https://doi.org/10.1016/0013-4694(87)90025-3)
+- Pascual-Marqui, R. D., Michel, C. M., & Lehmann, D. (1995). Segmentation of brain electrical activity into microstates: model estimation and validation. *IEEE Transactions on Biomedical Engineering*, 42(7), 658–665. [https://doi.org/10.1109/10.391164](https://doi.org/10.1109/10.391164)
+- Murray, M. M., Brunet, D., & Michel, C. M. (2008). Topographic ERP analyses: A step-by-step tutorial review. *Brain Topography*, 20(4), 249–264. [https://doi.org/10.1007/s10548-008-0054-5](https://doi.org/10.1007/s10548-008-0054-5)
+- Michel, C. M., & Koenig, T. (2018). EEG microstates as a tool for studying the temporal dynamics of whole-brain neuronal networks: A review. *NeuroImage*, 180, 577–593. [https://doi.org/10.1016/j.neuroimage.2017.11.062](https://doi.org/10.1016/j.neuroimage.2017.11.062)
 
 ---
 
