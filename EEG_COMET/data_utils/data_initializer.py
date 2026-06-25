@@ -137,7 +137,11 @@ class DataInitializer:
             else:
                 peaks, _ = find_peaks(gfp, distance=min_dist)
         maps = data[:, peaks]
-        maps /= np.linalg.norm(maps, axis=1, keepdims=True)
+        # Normalise each topography (column) to unit L2 norm. axis=0 takes the
+        # norm across channels for every selected time point; the previous
+        # axis=1 normalised each channel's time course instead, which rescaled
+        # channels and distorted the topographies fed to clustering/GEV.
+        maps = maps / (np.linalg.norm(maps, axis=0, keepdims=True) + 1e-12)
         return maps, peaks
 
     @staticmethod

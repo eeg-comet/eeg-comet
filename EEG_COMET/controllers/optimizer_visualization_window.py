@@ -75,6 +75,15 @@ class OptimizedOptimizerWorker(QThread):
         recomputation across methods.
         """
         try:
+            # Stream per-k progress from the optimizer to the GUI as a percentage
+            # so the progress bar advances during the run instead of jumping to
+            # 100% only at the end.
+            def _forward_progress(current, total, message):
+                pct = int(current / total * 100) if total else 0
+                self.progress.emit(min(pct, 99), 100, message)
+
+            self.optimizer.progress_callback = _forward_progress
+
             # Use the optimised batch computation to minimise repeated work
             batch_results = self.optimizer.compute_methods_batch(
                 self.methods_to_run, self.parameters
@@ -99,160 +108,6 @@ class OptimizedOptimizerWorker(QThread):
             error_msg = f"Error in optimization: {str(e)}\n{traceback.format_exc()}"
             print(f"[ERROR] {error_msg}")
             self.error.emit(error_msg)
-
-    @staticmethod
-    def _compute_metric(method, clustering_result, k):
-        """Compute a specific metric on the clustering result.
-
-        Args:
-          method (str): Method code.
-          clustering_result (dict): Result object with metric entries.
-          k (int): Number of clusters.
-
-        Returns:
-          float: Metric score.
-        """
-        metric_map = {
-            "gev": "gev",
-            "db": "davies_bouldin",
-            "cv": "cv_score",
-            "kl": "kl_score",
-            "sil": "silhouette_score",
-            "dunn": "dunn_index",
-            "ch": "calinski_harabasz_index",
-            "gap": "gap_statistic",
-            "aic": "aic_score",
-            "bic": "bic_score",
-        }
-
-        metric_key = metric_map.get(method)
-        if metric_key and metric_key in clustering_result:
-            return clustering_result[metric_key]
-        raise ValueError(f"Metric {method} not found in clustering result")
-
-    def _find_optimal_k(self, method, k_values, scores):
-        """Find optimal K based on method and scores.
-
-        Args:
-          method (str): Method code.
-          k_values (list[int]): Candidate K values.
-          scores (list[float]): Scores for each K.
-
-        Returns:
-          int: Optimal K value.
-        """
-        if not scores or not k_values:
-            return k_values[0] if k_values else 2
-
-        # Handle methods based on optimization direction
-        if method == "db":
-            # Lower is better - find minimum
-            min_idx = np.argmin(scores)
-            return k_values[min_idx]
-        if method == "gev":
-            # Global Explained Variance - use elbow method
-            threshold = self.parameters.get(method, 5.0)
-            return self._find_elbow_point(k_values, scores, threshold, higher_is_better=True)
-        if method == "cv":
-            # Cross validation - typically lower is better
-            min_idx = np.argmin(scores)
-            return k_values[min_idx]
-        if method == "kl":
-            # Krzanowski-Lai - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if method == "sil":
-            # Silhouette coefficient - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if method == "dunn":
-            # Dunn Index - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if method == "ch":
-            # Calinski-Harabasz Index - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if method == "gap":
-            # Gap Statistic - higher is better
-            max_idx = np.argmax(scores)
-            return k_values[max_idx]
-        if method == "aic":
-            # AIC - lower is better
-            min_idx = np.argmin(scores)
-            return k_values[min_idx]
-        if method == "bic":
-            # BIC - lower is better
-            min_idx = np.argmin(scores)
-            return k_values[min_idx]
-        # Default to first k value
-        return k_values[0]
-
-    @staticmethod
-    def _find_elbow_point(k_values, scores, threshold, higher_is_better=True):
-        """Find elbow point using threshold for percentage change.
-
-        Args:
-          k_values (list[int]): Candidate K values.
-          scores (list[float]): Metric scores for each K.
-          threshold (float): Percent change threshold.
-          higher_is_better (bool): Unused here; retained for API consistency.
-
-        Returns:
-          int: Selected K value at the elbow.
-        """
-        if len(scores) < 2:
-            return k_values[0]
-
-        for i in range(1, len(scores)):
-            # Calculate percentage change
-            if scores[i - 1] != 0:
-                change_percent = abs((scores[i] - scores[i - 1]) / scores[i - 1]) * 100
-            else:
-                change_percent = 100.0
-
-            # Check if improvement is below threshold
-            if change_percent < threshold:
-                return k_values[i]
-
-        # If no elbow found, return the last K
-        return k_values[-1]
-
-    @staticmethod
-    def _is_higher_better(method):
-        """Return whether higher scores are better for a method.
-
-        Args:
-          method (str): Method code.
-
-        Returns:
-          bool: True if higher scores are better.
-        """
-        return method in ["gev", "kl", "sil", "dunn", "ch", "gap"]
-
-    @staticmethod
-    def _get_method_display_name(method):
-        """Get display name for a method code.
-
-        Args:
-          method (str): Method code.
-
-        Returns:
-          str: Human-readable method name.
-        """
-        name_map = {
-            "gev": "Global Explained Variance Criterion",
-            "db": "Davies-Bouldin Criterion",
-            "cv": "Cross Validation Criterion",
-            "kl": "Krzanowski-Lai Criterion",
-            "sil": "Silhouette Coefficient",
-            "dunn": "Dunn Index",
-            "ch": "Calinski-Harabasz Index",
-            "gap": "Gap Statistic",
-            "aic": "Akaike Information Criterion",
-            "bic": "Bayesian Information Criterion",
-        }
-        return name_map.get(method, method)
 
 
 # ============================================================================
@@ -668,6 +523,15 @@ class OptimizerVisualizationWindow(QMainWindow):
         We can't interrupt ``compute_methods_batch`` mid-call, but we can stop
         its emissions from reaching slots on this (about-to-be-deleted) window.
         """
+        # Ask the optimizer to stop so the background batch exits at the next
+        # k boundary rather than running to completion after the window closes.
+        optimizer = getattr(self, "optimizer", None)
+        if optimizer is not None and hasattr(optimizer, "stop"):
+            try:
+                optimizer.stop()
+            except Exception:
+                pass
+
         worker = getattr(self, "worker", None)
         if worker is not None:
             for sig_name in ("progress", "finished", "error"):
