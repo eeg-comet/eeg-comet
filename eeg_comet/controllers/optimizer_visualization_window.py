@@ -6,17 +6,16 @@ independent modified K-means and consolidated metrics implementations.
 """
 
 import time
-import traceback
+from collections import Counter
 from typing import Any, Optional
 
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt5 import uic
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QActionGroup,
-    QApplication,
     QMainWindow,
     QMessageBox,
     QSizePolicy,
@@ -28,88 +27,6 @@ from eeg_comet.data_utils.data_initializer import DataInitializer
 from eeg_comet.gui_utils.export_utils import get_save_file_path, save_matplotlib_figure
 from eeg_comet.gui_utils.responsive import apply_window_minimum, expand_canvas
 from eeg_comet.gui_utils.terminal_logger import get_logger
-
- 
-
-# ============================================================================
-# Worker Thread Classes
-# ============================================================================
-
-
-class OptimizedOptimizerWorker(QThread):
-    """Optimized worker thread for computing metrics across K values.
-
-    Args:
-      optimizer: Instance providing batch metric computation APIs.
-      methods_to_run (list[str]): Method codes to compute (e.g., ["gev", "db"]).
-      parameters (dict | None): Optional per-method parameters (e.g., thresholds).
-
-    Signals:
-      progress (pyqtSignal): Emits (current:int, total:int, message:str).
-      finished (pyqtSignal): Emits results dict when all methods complete.
-      error (pyqtSignal): Emits error message when an exception occurs.
-    """
-
-    progress = pyqtSignal(int, int, str)  # current, total, message
-    finished = pyqtSignal(dict)  # results
-    error = pyqtSignal(str)
-
-    def __init__(self, optimizer, methods_to_run, parameters=None):
-        """Create worker with optimizer, methods list, and optional parameters.
-
-        Args:
-          optimizer: Optimizer instance used to compute metrics.
-          methods_to_run (list[str]): Method codes to compute.
-          parameters (dict | None): Optional per-method parameters.
-        """
-        super().__init__()
-        self.optimizer = optimizer
-        self.methods_to_run = methods_to_run
-        self.parameters = parameters or {}
-        self.results = {}
-
-    def run(self):
-        """Execute the requested optimization methods.
-
-        Delegates to the underlying optimizer batch API to avoid redundant
-        recomputation across methods.
-        """
-        try:
-            # Stream per-k progress from the optimizer to the GUI as a percentage
-            # so the progress bar advances during the run instead of jumping to
-            # 100% only at the end.
-            def _forward_progress(current, total, message):
-                pct = int(current / total * 100) if total else 0
-                self.progress.emit(min(pct, 99), 100, message)
-
-            self.optimizer.progress_callback = _forward_progress
-
-            # Use the optimised batch computation to minimise repeated work
-            batch_results = self.optimizer.compute_methods_batch(
-                self.methods_to_run, self.parameters
-            )
-
-            # Convert to the expected window cache structure
-            for method, result_obj in batch_results.items():
-                self.results[method] = {
-                    "method": method,
-                    "result": result_obj,
-                    "optimal_k": result_obj.optimal_k,
-                    "original_optimal_k": result_obj.optimal_k,
-                    "k_values": result_obj.k_values,
-                    "scores": result_obj.scores,
-                    "threshold": self.parameters.get(method, None),
-                }
-
-            self.progress.emit(100, 100, "All optimisations complete")
-            self.finished.emit(self.results)
-
-        except Exception as e:
-            error_msg = f"Error in optimization: {str(e)}\n{traceback.format_exc()}"
-            print(f"[ERROR] {error_msg}")
-            self.error.emit(error_msg)
-
-
 # ============================================================================
 # Extended Optimizer Class - Uses ClustererOptimizer metrics
 # ============================================================================
@@ -518,13 +435,14 @@ class OptimizerVisualizationWindow(QMainWindow):
         self._initialize_state()
 
     def closeEvent(self, event):
-        """Disconnect signals and wait for the worker before closing.
+        """Detach from the shared log worker before closing.
 
-        We can't interrupt ``compute_methods_batch`` mid-call, but we can stop
-        its emissions from reaching slots on this (about-to-be-deleted) window.
+        The analyses run on ``comet.LogWindow``'s worker thread, so we can't
+        interrupt ``compute_methods_batch`` mid-call. We can, however, ask the
+        optimizer to stop at the next k boundary and detach our callbacks so
+        the (possibly still running) worker never touches this deleted window.
         """
-        # Ask the optimizer to stop so the background batch exits at the next
-        # k boundary rather than running to completion after the window closes.
+        # Stop so the batch exits at the next k boundary instead of running on.
         optimizer = getattr(self, "optimizer", None)
         if optimizer is not None and hasattr(optimizer, "stop"):
             try:
@@ -532,22 +450,32 @@ class OptimizerVisualizationWindow(QMainWindow):
             except Exception:
                 pass
 
-        worker = getattr(self, "worker", None)
-        if worker is not None:
-            for sig_name in ("progress", "finished", "error"):
-                sig = getattr(worker, sig_name, None)
-                if sig is not None:
-                    try:
-                        sig.disconnect()
-                    except (TypeError, RuntimeError):
-                        pass
-            try:
-                if worker.isRunning():
-                    worker.wait(2000)
-            except RuntimeError:
-                pass
-            self.worker = None
+        self._detach_from_log_worker()
         super().closeEvent(event)
+
+    def _detach_from_log_worker(self):
+        """Disconnect this window's callbacks from the shared log worker.
+
+        Safe to call multiple times. Leaves the worker running (it will finish
+        or stop on its own) but ensures its signals no longer reach slots on
+        this window.
+        """
+        log_window = getattr(self.comet, "LogWindow", None)
+        if log_window is None:
+            return
+
+        if getattr(log_window, "process_finished_callback", None) == self._on_analyses_process_finished:
+            log_window.process_finished_callback = None
+
+        if getattr(log_window, "current_optimizer", None) is getattr(self, "optimizer", None):
+            log_window.current_optimizer = None
+
+        worker = getattr(log_window, "worker_thread", None)
+        if worker is not None:
+            try:
+                worker.progress_updated.disconnect(self._on_log_worker_progress)
+            except (TypeError, RuntimeError):
+                pass
 
     # ========================================================================
     # Initialization Methods
@@ -557,12 +485,15 @@ class OptimizerVisualizationWindow(QMainWindow):
         """Initialize core data structures."""
         self.optimizer = None
         self.results_cache = {}
-        self.worker = None
         self.all_methods_complete = False
         self.last_used_parameters = {}
+        self._pending_methods = []
+        self._pending_parameters = {}
+        self._pending_results = None
+        self._pending_kmin = None
+        self._pending_kmax = None
         self.current_font_family = "Arial"
         self.current_font_size = "Large"
-        # Logger
         self.logger = get_logger()
 
     def _setup_ui(self):
@@ -1021,8 +952,39 @@ class OptimizerVisualizationWindow(QMainWindow):
     # Analysis Methods
     # ========================================================================
 
+    def run_analyses_from_dialog(self, kmin: int, kmax: int, threshold: float = 5.0):
+        """Run all analyses head-lessly via the shared log worker.
+
+        Entry point for the main window's k-range dialog: this window is not
+        shown, the analyses run in the log window, and results are reported
+        there on completion. Reuses the exact log-worker path of
+        :meth:`run_all_analyses`.
+
+        Args:
+          kmin (int): Minimum number of microstates (clusters) to explore.
+          kmax (int): Maximum number of microstates (clusters) to explore.
+          threshold (float): GEV elbow threshold percentage.
+        """
+        self._load_comet_parameters()
+
+        # Seed the inputs read by run_all_analyses; an empty cache skips its
+        # overwrite prompt.
+        self.results_cache = {}
+        self.ui.optimizer_min_input.setText(str(kmin))
+        self.ui.optimizer_max_input.setText(str(kmax))
+        self.ui.optimizer_stopping_threshold_input.setText(str(threshold))
+
+        self.optimizer = None
+        self.run_all_analyses()
+
     def run_all_analyses(self):
-        """Run optimization for all available methods using modified K-means."""
+        """Run optimization for all methods via the shared log worker thread.
+
+        The heavy work (map/peak generation and per-k metric computation) is
+        executed on ``comet.LogWindow``'s worker thread instead of blocking the
+        UI. This keeps the application responsive and opens the log window with
+        live progress, exactly like the other analysis steps in the app.
+        """
         # Ask user if they want to overwrite existing results
         if self.results_cache:
             reply = QMessageBox.question(
@@ -1036,29 +998,50 @@ class OptimizerVisualizationWindow(QMainWindow):
             if reply == QMessageBox.No:
                 return
 
-        # Reset button text
-        self.ui.optimizer_button.setText("Run All Analyses")
+        # Widgets must only be read on the UI thread, so validate the range here.
+        try:
+            kmin = int(self.ui.optimizer_min_input.text())
+            kmax = int(self.ui.optimizer_max_input.text())
+        except ValueError:
+            print("Error: Invalid K range")
+            self.ui.statusbar.showMessage("Error: Invalid K range")
+            return
 
-        # Disable button during computation
+        if kmin < 2:
+            kmin = 2
+            self.ui.optimizer_min_input.setText("2")
+
+        if kmax <= kmin:
+            kmax = kmin + 5
+            self.ui.optimizer_max_input.setText(str(kmax))
+
+        parameters = self._get_method_parameters()
+        if parameters is None:
+            return
+
+        # Hand values to the worker thread, which must not read widgets.
+        self._pending_kmin = kmin
+        self._pending_kmax = kmax
+        self._pending_methods = ["gev", "db", "cv", "kl", "sil", "dunn", "ch", "gap", "aic", "bic"]
+        self._pending_parameters = parameters
+        self._pending_results = None
+
+        self.ui.optimizer_button.setText("Run All Analyses")
         self.ui.optimizer_button.setEnabled(False)
         self.ui.optimizer_progressbar.setValue(0)
-
-        # Clear previous results
         self.results_cache.clear()
         self.all_methods_complete = False
 
-        # Initialize optimizer if needed
-        if self.optimizer is None:
-            self._initialize_optimizer()
+        if not hasattr(self.comet, "LogWindow") or self.comet.LogWindow is None:
+            self.comet.initialize_log_window()
+        log_window = self.comet.LogWindow
+        self.logger = get_logger(log_window)
 
-        # Verify K range
-        kmin = int(self.ui.optimizer_min_input.text())
-        kmax = int(self.ui.optimizer_max_input.text())
-
-        if kmin >= kmax:
-            print(f"Error: Invalid K range. Min ({kmin}) must be less than Max ({kmax})")
+        if log_window.worker_thread is not None and log_window.worker_thread.isRunning():
             self.ui.optimizer_button.setEnabled(True)
-            self.ui.statusbar.showMessage("Error: Invalid K range")
+            self.ui.statusbar.showMessage(
+                "A background task is already running; please wait for it to finish"
+            )
             return
 
         self.logger.processing_info(
@@ -1066,24 +1049,93 @@ class OptimizerVisualizationWindow(QMainWindow):
             f"Running visualization analyses (modified K-means), k range {kmin}-{kmax}, total {kmax-kmin+1}",
         )
 
-        # Get all methods to run
-        all_methods = ["gev", "db", "cv", "kl", "sil", "dunn", "ch", "gap", "aic", "bic"]
+        log_window.process_finished_callback = self._on_analyses_process_finished
+        log_window.setup_progress_dialog(
+            window_title="Optimal Number of Clusters",
+            label_text="Running all optimization analyses \u2026",
+            tasks=100,
+            processing_func=self._run_all_analyses_processing,
+        )
+        # A title without the "Clustering" keyword avoids the repetition banner.
+        log_window.current_step = "CLUSTERING"
 
-        # Get parameters from UI for methods that need them
-        parameters = self._get_method_parameters()
+        if log_window.worker_thread is not None:
+            try:
+                log_window.worker_thread.progress_updated.connect(self._on_log_worker_progress)
+            except Exception:
+                pass
 
-        if parameters is None:
-            return  # Error occurred in parameter validation
+    def _run_all_analyses_processing(self, *args, worker=None):
+        """Run every optimisation method on the shared log worker thread.
 
-        # Create and start optimized worker thread
-        self.worker = OptimizedOptimizerWorker(self.optimizer, all_methods, parameters)
-        self.worker.progress.connect(self._update_progress)
-        self.worker.finished.connect(self._on_all_analyses_finished)
-        self.worker.error.connect(self._on_optimization_error)
-        self.worker.start()
+        Executed off the UI thread by :class:`logging_window.Worker`. Progress
+        is forwarded to the worker so the log window (and this window's own
+        progress bar) show a live percentage while it runs.
+
+        Args:
+          worker: The :class:`logging_window.Worker` running this function.
+            Used to emit progress and honour stop requests.
+
+        Returns:
+          tuple[bool, str]: ``(success, message)`` consumed by the worker.
+        """
+        try:
+            if self.optimizer is None:
+                self._initialize_optimizer()
+
+            # Expose the optimizer so the log window's Stop button can halt it.
+            log_window = getattr(self.comet, "LogWindow", None)
+            if log_window is not None:
+                log_window.current_optimizer = self.optimizer
+
+            def _forward_progress(current, total, message):
+                if worker is not None and getattr(worker, "stopped", False):
+                    return
+                pct = int(current / total * 100) if total else 0
+                if worker is not None:
+                    worker.progress_updated.emit(min(pct, 99), message)
+
+            self.optimizer.progress_callback = _forward_progress
+
+            batch_results = self.optimizer.compute_methods_batch(
+                self._pending_methods, self._pending_parameters
+            )
+
+            results = {}
+            for method, result_obj in batch_results.items():
+                results[method] = {
+                    "method": method,
+                    "result": result_obj,
+                    "optimal_k": result_obj.optimal_k,
+                    "original_optimal_k": result_obj.optimal_k,
+                    "k_values": result_obj.k_values,
+                    "scores": result_obj.scores,
+                    "threshold": self._pending_parameters.get(method, None),
+                }
+
+            self._pending_results = results
+
+            if worker is not None:
+                worker.progress_updated.emit(100, "All optimisations complete")
+
+            return True, "All optimization analyses completed successfully."
+
+        except RuntimeError as exc:
+            self._pending_results = None
+            if "stop" in str(exc).lower():
+                return False, "Optimization stopped by user."
+            raise
+        except Exception:
+            self._pending_results = None
+            raise
 
     def _initialize_optimizer(self):
-        """Initialize the optimizer with data using modified K-means."""
+        """Initialize the optimizer with data using modified K-means.
+
+        Uses the K range validated on the UI thread (``self._pending_kmin`` /
+        ``self._pending_kmax``) so this method can safely run on the worker
+        thread without touching Qt widgets.
+        """
         # Generate maps and peaks
         self.maps2use, self.peaks2use = DataInitializer().generate_maps_and_peaks(
             self.preprocessed_data_path,
@@ -1093,20 +1145,8 @@ class OptimizerVisualizationWindow(QMainWindow):
             self.min_distance_size,
         )
 
-        # Create optimized optimizer
-        kmin = int(self.ui.optimizer_min_input.text())
-        kmax = int(self.ui.optimizer_max_input.text())
-
-        # Validate K range
-        if kmin < 2:
-            kmin = 2
-            self.ui.optimizer_min_input.setText("2")
-            print("Adjusted kmin to 2 (minimum allowed)")
-
-        if kmax <= kmin:
-            kmax = kmin + 5
-            self.ui.optimizer_max_input.setText(str(kmax))
-            print(f"Adjusted kmax to {kmax} (must be greater than kmin)")
+        kmin = self._pending_kmin
+        kmax = self._pending_kmax
 
         # Use the microstate-specific optimizer with modified K-means
         self.optimizer = OptimizedMicrostateClustererOptimizer(
@@ -1153,17 +1193,39 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         return parameters
 
-    def _update_progress(self, current: int, total: int, message: str):
-        """Update progress bar.
+    def _on_log_worker_progress(self, value: int, message: str):
+        """Mirror the shared log worker's progress on this window.
 
         Args:
-          current (int): Current progress value.
-          total (int): Total progress range upper bound.
+          value (int): Progress percentage (0-100).
           message (str): Status message to show.
         """
-        self.ui.optimizer_progressbar.setValue(current)
+        self.ui.optimizer_progressbar.setValue(int(value))
         self.ui.statusbar.showMessage(message)
-        QApplication.processEvents()  # Keep UI responsive
+
+    def _on_analyses_process_finished(self, success: bool = True):
+        """Finalize a run once the shared log worker finishes.
+
+        Runs on the UI thread (invoked from ``LogWindow.process_finished``).
+        Detaches this window from the shared worker, then either applies the
+        computed results or restores the idle UI state.
+
+        Args:
+          success (bool): Whether the worker completed successfully.
+        """
+        self._detach_from_log_worker()
+        self.ui.optimizer_button.setEnabled(True)
+
+        if success and self._pending_results:
+            self._on_all_analyses_finished(self._pending_results)
+        else:
+            self.ui.optimizer_progressbar.setValue(0)
+            self.ui.optimizer_button.setText(
+                "Re-run All Analyses" if self.results_cache else "Run All Analyses"
+            )
+            self.ui.statusbar.showMessage("Optimization did not complete")
+
+        self._pending_results = None
 
     def _on_all_analyses_finished(self, all_results: dict[str, Any]):
         """Handle completion of all analyses and save results.
@@ -1203,11 +1265,22 @@ class OptimizerVisualizationWindow(QMainWindow):
     def _display_optimization_summary(self, results: dict[str, Any]):
         """Display summary of optimization results.
 
+        Prints to the console and, when a logger bound to the log window is
+        available, also reports the per-criterion optimal number of microstates
+        and a majority-vote recommendation into the log window.
+
         Args:
           results (dict[str, Any]): Results keyed by method code.
         """
         print("\n[CLUSTERING] Optimization results summary:")
 
+        logger = getattr(self, "logger", None)
+        if logger is not None:
+            logger.section_header(
+                "CLUSTERING", "Optimal Number of Microstates - Results"
+            )
+
+        optimal_ks = []
         for method_code, method_results in results.items():
             method_name = self._get_method_name(method_code)
             optimal_k = method_results["optimal_k"]
@@ -1220,19 +1293,25 @@ class OptimizerVisualizationWindow(QMainWindow):
             )
             print(f"[CLUSTERING] {method_name}: Optimal k = {optimal_k}{threshold_info}")
 
+            if optimal_k:
+                optimal_ks.append(optimal_k)
+            if logger is not None:
+                logger.processing_success(
+                    "CLUSTERING",
+                    f"{method_name}: optimal number of microstates = "
+                    f"{optimal_k}{threshold_info}",
+                )
+
+        if logger is not None and optimal_ks:
+            most_common_k, votes = Counter(optimal_ks).most_common(1)[0]
+            logger.processing_info(
+                "CLUSTERING",
+                f"Most frequently suggested number of microstates: {most_common_k} "
+                f"({votes}/{len(optimal_ks)} criteria)",
+            )
+
         print("[CLUSTERING] All results computed using modified K-means algorithm")
         print("[CLUSTERING] Results saved and available for visualization")
-
-    def _on_optimization_error(self, error_msg: str):
-        """Handle optimization error.
-
-        Args:
-          error_msg (str): Error message.
-        """
-        print(f"[ERROR] Optimization error: {error_msg}")
-        self.ui.optimizer_button.setEnabled(True)
-        self.ui.optimizer_progressbar.setValue(0)
-        self.ui.statusbar.showMessage(f"Error: {error_msg}")
 
     # ========================================================================
     # Visualization Methods

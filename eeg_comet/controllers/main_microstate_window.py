@@ -20,7 +20,10 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDesktopWidget,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
     QGraphicsDropShadowEffect,
     QGridLayout,
     QLabel,
@@ -51,6 +54,66 @@ from .microstate_visualization_window import MicrostateVisualizationWindow
 from .new_study_window import NewStudyWindow
 from .optimizer_visualization_window import OptimizerVisualizationWindow
 from .source_visualization_window import SourceVisualizationWindow
+
+
+class MicrostateRangeDialog(QDialog):
+    """Prompt for the range of microstate counts (k) to explore.
+
+    Presents a minimum and maximum spin box plus a ``Process`` button. When the
+    user accepts, the chosen range is available via :attr:`kmin` / :attr:`kmax`.
+    """
+
+    def __init__(self, kmin: int = 2, kmax: int = 10, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Explore Number of Microstates")
+        self.setModal(True)
+
+        info = QLabel(
+            "Select the range of cluster counts (k) to evaluate.\n"
+            "The analysis runs in the log window and reports the optimal\n"
+            "number of microstates for each criterion.",
+            self,
+        )
+
+        form = QFormLayout()
+        self.min_spin = QSpinBox(self)
+        self.min_spin.setRange(2, 100)
+        self.min_spin.setValue(max(2, int(kmin)))
+        self.max_spin = QSpinBox(self)
+        self.max_spin.setRange(2, 100)
+        self.max_spin.setValue(max(int(kmax), int(kmin) + 1))
+        form.addRow("Minimum number of microstates:", self.min_spin)
+        form.addRow("Maximum number of microstates:", self.max_spin)
+
+        buttons = QDialogButtonBox(self)
+        buttons.addButton("Process", QDialogButtonBox.AcceptRole)
+        buttons.addButton(QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(info)
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+
+    def _on_accept(self):
+        """Validate the range before accepting."""
+        if self.max_spin.value() <= self.min_spin.value():
+            QMessageBox.warning(
+                self,
+                "Invalid Range",
+                "The maximum number of microstates must be greater than the minimum.",
+            )
+            return
+        self.accept()
+
+    @property
+    def kmin(self) -> int:
+        return self.min_spin.value()
+
+    @property
+    def kmax(self) -> int:
+        return self.max_spin.value()
 
 
 class WidgetMode(Enum):
@@ -2428,43 +2491,27 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
 
     def visualize_elbow(self):
-        """Visualize optimization plots for determining optimal clusters."""
+        """Prompt for a k range, then run the analyses inside the log window."""
         self._update_comet_clustering_parameters()
 
-        # Check for existing optimization results
-        if (
-            hasattr(self.comet, "optimization_results")
-            and self.comet.optimization_results
-            and self.comet.choose_number_of_maps == "auto"
-        ):
+        default_kmin = int(getattr(self.comet, "kmin", 2) or 2)
+        default_kmax = int(getattr(self.comet, "kmax", 10) or 10)
 
-            # Use existing results
-            self.dialogs["optimizer"].results_cache = {}
+        dialog = MicrostateRangeDialog(default_kmin, default_kmax, parent=self)
+        if dialog.exec_() != QDialog.Accepted:
+            return
 
-            for method_code, result in self.comet.optimization_results.items():
-                if method_code != "majority_vote":
-                    cache_key = f"{method_code}_None"
-                    self.dialogs["optimizer"].results_cache[cache_key] = {
-                        "method": method_code,
-                        "result": result,
-                        "optimal_k": result.optimal_k,
-                        "k_values": result.k_values,
-                        "scores": result.scores,
-                    }
-        else:
-            self.dialogs["optimizer"].results_cache = {}
+        kmin = dialog.kmin
+        kmax = dialog.kmax
+        self.comet.kmin = kmin
+        self.comet.kmax = kmax
 
-        # Update parameters
-        self.dialogs["optimizer"]._load_comet_parameters()
+        if not hasattr(self.comet, "LogWindow") or self.comet.LogWindow is None:
+            self.comet.initialize_log_window()
+        self.comet.LogWindow.show()
 
-        if hasattr(self.comet, "kmin"):
-            self.dialogs["optimizer"].ui.optimizer_min_input.setText(str(self.comet.kmin))
-        if hasattr(self.comet, "kmax"):
-            self.dialogs["optimizer"].ui.optimizer_max_input.setText(str(self.comet.kmax))
-
-        self.dialogs["optimizer"].optimizer = None
-        self.dialogs["optimizer"].setWindowModality(QtCore.Qt.ApplicationModal)
-        self.dialogs["optimizer"].showMaximized()
+        # The optimizer window is not shown; only its log-worker wiring is used.
+        self.dialogs["optimizer"].run_analyses_from_dialog(kmin, kmax)
 
     def do_clustering(self):
         """Perform clustering with confirmation dialog."""

@@ -39,6 +39,7 @@ from PyQt5.QtCore import (
     QSettings,
     Qt,
     QThread,
+    QTimer,
     pyqtSignal,
     pyqtSlot,
 )
@@ -358,6 +359,14 @@ class LogWindow(QWidget):
         self.current_step: Optional[str] = None
 
         self._is_saving_logs = False
+
+        # Persisting reads the whole document and rewrites the log file, so a
+        # burst of appends is coalesced into one debounced save to keep the UI
+        # thread responsive.
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(400)
+        self._save_timer.timeout.connect(self._flush_log_to_comet)
 
         # Navigation / filter state.
         self._section_counter = 0
@@ -721,10 +730,28 @@ class LogWindow(QWidget):
 
     @pyqtSlot()
     def _save_log_to_comet(self) -> None:
-        if self.comet_instance is None or self._is_saving_logs:
+        """Schedule a debounced persist of the log to disk.
+
+        The expensive read+write happens in :meth:`_flush_log_to_comet` when
+        the timer fires.
+        """
+        if self.comet_instance is None:
             return
         if not self._is_main_thread():
             QMetaObject.invokeMethod(self, "_save_log_to_comet", Qt.QueuedConnection)
+            return
+        # Leaving a pending timer running bounds staleness during a continuous
+        # stream instead of deferring the flush until it pauses.
+        if not self._save_timer.isActive():
+            self._save_timer.start()
+
+    @pyqtSlot()
+    def _flush_log_to_comet(self) -> None:
+        """Persist the current log content to disk immediately (UI thread)."""
+        if self.comet_instance is None or self._is_saving_logs:
+            return
+        if not self._is_main_thread():
+            QMetaObject.invokeMethod(self, "_flush_log_to_comet", Qt.QueuedConnection)
             return
         self._is_saving_logs = True
         try:
@@ -1169,7 +1196,9 @@ class LogWindow(QWidget):
                         step="SHUTDOWN")
         self.append_log("Thank you for using EEG-COMET!", log_type="info",
                         step="SHUTDOWN")
-        self._save_log_to_comet()
+        # Flush synchronously so a pending debounced save isn't lost.
+        self._save_timer.stop()
+        self._flush_log_to_comet()
         self._persist_settings()
         event.accept()
 
