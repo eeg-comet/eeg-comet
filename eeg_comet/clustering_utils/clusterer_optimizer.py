@@ -2626,20 +2626,41 @@ class ClustererOptimizer:
         return results
 
     @staticmethod
-    def _compute_W_q(data: np.ndarray, segmentation: np.ndarray, maps: np.ndarray) -> float:
+    def _compute_W_q(
+        data: np.ndarray,
+        segmentation: np.ndarray,
+        maps: np.ndarray,
+        max_samples: int = 2000,
+        random_seed: int = 42,
+    ) -> float:
         """Compute W_q (measure of dispersion) for KL criterion.
 
         W_q = sum_{r=1}^q (1/(2*n_r)) * D_r where D_r = sum_{u,v in cluster r} distance(u, v)^2.
         Uses correlation-based distance to respect polarity invariance of microstates.
 
+        The per-cluster pairwise correlation matrix is O(n_r^2), so the data is
+        reproducibly sub-sampled to ``max_samples`` points to stay tractable on
+        group-level data (matching the silhouette/Dunn/gap metrics).
+
         Args:
             data: Data matrix (n_channels, n_samples).
             segmentation: Cluster labels for each sample.
             maps: Cluster centers (n_clusters, n_channels).
+            max_samples: Maximum number of samples used (sub-sampled if larger).
+            random_seed: Seed for reproducible sub-sampling.
 
         Returns:
             float: W_q value.
         """
+        data = np.asarray(data)
+        segmentation = np.asarray(segmentation)
+
+        if max_samples is not None and data.shape[1] > max_samples:
+            rng = np.random.RandomState(random_seed)
+            idx = rng.choice(data.shape[1], size=max_samples, replace=False)
+            data = data[:, idx]
+            segmentation = segmentation[idx]
+
         n_clusters = maps.shape[0]
         W_q = 0.0
 
