@@ -225,7 +225,7 @@ Select K most frequently chosen across all criteria.
 1. Compute optimal K for each criterion
 2. Tally votes for each K value
 3. Select K with most votes
-4. In case of ties, use CV or BIC as tiebreaker
+4. In case of ties, the smallest K among the tied values is chosen (the more parsimonious solution)
 
 {: .note }
 > Combining multiple complementary criteria rather than relying on a single index is recommended for objective, reproducible microstate-count selection (Michel & Koenig, 2018; Koenig et al., 2024; Michel et al., 2024).
@@ -242,7 +242,7 @@ Select K most frequently chosen across all criteria.
 | `kmin` | Minimum K to evaluate | `2` | 2-10 |
 | `kmax` | Maximum K to evaluate | `10` | 4-15 |
 | `stopping_mode` | Selection strategy | `majority_vote` | See below |
-| `stopping_parameter` | Criterion threshold | `10` | 1-100 |
+| `stopping_parameter` | GEV elbow gain threshold (percent): the minimum relative GEV increase that justifies an additional cluster | `10` | 1-100 |
 
 ### Stopping Modes
 
@@ -251,10 +251,14 @@ Select K most frequently chosen across all criteria.
 | `majority_vote` | Consensus across all criteria |
 | `gev` | Use Global Explained Variance |
 | `cv` | Use Cross-Validation Criterion |
-| `sil` | Use Silhouette Score |
-| `ch` | Use Calinski-Harabasz Index |
 | `db` | Use Davies-Bouldin Index |
-| `residual` | Use residual variance |
+| `kl` | Use Krzanowski-Lai Criterion |
+| `sil` | Use Silhouette Score |
+| `dunn` | Use Dunn Index |
+| `ch` | Use Calinski-Harabasz Index |
+| `gap` | Use Gap Statistic |
+| `aic` | Use Akaike Information Criterion |
+| `bic` | Use Bayesian Information Criterion |
 
 ### Example Configuration
 
