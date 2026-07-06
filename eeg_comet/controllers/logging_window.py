@@ -1,11 +1,12 @@
 """Logging window with hierarchical formatting and smart navigation.
 
-The window keeps a single :class:`QTextEdit` document, but every appended
-block carries :class:`LogBlockData` describing its severity, originating
-processing step, and the auto-numbered section (``\u00a7N``) it belongs
-to. That metadata is what powers the search/severity/step filter toolbar
-and the collapsible sections sidebar without ever rebuilding the
-document.
+Appended messages are kept as an ordered list of :class:`LogRecord`
+objects (severity, processing step, message, owning section, and the
+section timestamp). That model drives both the :class:`QTextEdit` body
+and a step-grouped sidebar tree, and is persisted as a JSON sidecar so a
+reloaded session rebuilds identically. Each rendered block still carries
+:class:`LogBlockData` so the severity/step/search filters can hide lines
+without rebuilding the document.
 
 Public API (unchanged for callers outside this module):
     * :meth:`LogWindow.append_log` ``(message, log_type="info", step=None)``
@@ -25,11 +26,12 @@ Public API (unchanged for callers outside this module):
       ``log_clustering_progress`` / ``show_study_status``
 """
 
+import json
 import os.path
 import re
 import traceback
 from datetime import datetime
-from typing import Optional, Set
+from typing import List, Optional, Set
 
 from PyQt5 import uic
 from PyQt5.QtCore import (
@@ -47,6 +49,7 @@ from PyQt5.QtGui import (
     QColor,
     QFont,
     QFontDatabase,
+    QTextBlockFormat,
     QTextBlockUserData,
     QTextCharFormat,
     QTextCursor,
@@ -57,11 +60,11 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QSplitter,
     QTextEdit,
     QToolButton,
+    QTreeWidget,
+    QTreeWidgetItem,
     QWidget,
 )
 
@@ -221,10 +224,15 @@ LEVEL_FG = {
     "success": "#28a745",
 }
 
-SECTION_FG = "#5d6d7e"
+SECTION_FG = "#34495e"
 SETTINGS_FG = "#7f8c8d"
 
-LEVEL_FROM_ICON = {v: k for k, v in LEVEL_ICON.items()}
+# Subtle background tint applied behind section header blocks.
+SECTION_BG = "#eef2f6"
+
+# Pixel column where entry message text starts (the emoji icon sits to the
+# left of this tab stop, so messages stay aligned regardless of glyph width).
+ENTRY_TAB_PX = 30.0
 
 # Step inference: when a call site doesn't pass an explicit ``step``, the
 # message body is scanned for these tokens (case-insensitive) so the step
@@ -280,14 +288,6 @@ _LEADING_EMOJI_RE = re.compile(
     re.UNICODE,
 )
 
-_SECTION_HEADER_RE = re.compile(
-    r"^[=\u2550]+\s*\u00a7(\d+)\s+([^=\u2550]+?)\s*[=\u2550]+$"
-)
-_ENTRY_LINE_RE = re.compile(
-    r"^(\d{2}:\d{2}:\d{2})\s+(\S+(?:\ufe0f)?)\s+(.*)$"
-)
-
-
 def _infer_step_from_text(text: str) -> Optional[str]:
     if not text:
         return None
@@ -296,6 +296,57 @@ def _infer_step_from_text(text: str) -> Optional[str]:
         if any(k in low for k in keys):
             return step
     return None
+
+
+class LogRecord:
+    """A structured log entry: the source of truth for the window.
+
+    The QTextEdit body and the sidebar tree are both rendered from a list
+    of these records, and the list is what gets persisted (as JSON) so a
+    reloaded session rebuilds identically instead of being re-parsed from
+    formatted text.
+
+    Attributes:
+      kind: ``"entry"``, ``"section"``, ``"settings"`` or ``"raw"``
+        (a verbatim line imported from a legacy plain-text log).
+      level: Severity/``log_type`` for entries (``"info"``, ``"error"``,
+        \u2026); ``"section"`` / ``"settings"`` for the other kinds.
+      step: Processing step key (e.g. ``"CLUSTERING"``) or ``None``.
+      message: Entry text, section title, or settings body.
+      section_id: Id of the owning section (``0`` before any section).
+      ts: Timestamp string. Only populated (and only shown) for sections.
+    """
+
+    __slots__ = ("kind", "level", "step", "message", "section_id", "ts")
+
+    def __init__(self, kind, level, step, message, section_id, ts=""):
+        self.kind = kind
+        self.level = level or "info"
+        self.step = step or None
+        self.message = message or ""
+        self.section_id = int(section_id or 0)
+        self.ts = ts or ""
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": self.kind,
+            "level": self.level,
+            "step": self.step,
+            "message": self.message,
+            "section_id": self.section_id,
+            "ts": self.ts,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "LogRecord":
+        return cls(
+            kind=d.get("kind", "entry"),
+            level=d.get("level", "info"),
+            step=d.get("step"),
+            message=d.get("message", ""),
+            section_id=d.get("section_id", 0),
+            ts=d.get("ts", ""),
+        )
 
 
 class LogBlockData(QTextBlockUserData):
@@ -329,11 +380,13 @@ class LogWindow(QWidget):
     """Log window with hierarchical formatting, filters, and section nav.
 
     The window starts from ``ui/LogWindow.ui`` and then injects a toolbar
-    above the existing :class:`QTextEdit` plus a left :class:`QListWidget`
-    sidebar (wrapped in a :class:`QSplitter`) that lists every section
-    header emitted during the session. Click a sidebar entry to jump to
-    that section; use the toolbar to filter by severity / step or to
-    incrementally search the document.
+    above the existing :class:`QTextEdit` plus a left :class:`QTreeWidget`
+    sidebar (wrapped in a :class:`QSplitter`) that groups every section by
+    its processing step, with the section time attached. Click a step or
+    section to jump to it; use the toolbar to filter by severity / step or
+    to incrementally search the document. Body text and the sidebar are
+    both rendered from an ordered list of :class:`LogRecord` objects, which
+    is also what gets persisted (as a JSON sidecar) for faithful reloads.
 
     Args:
       comet_instance: Optional COMET instance used to persist the log
@@ -368,6 +421,12 @@ class LogWindow(QWidget):
         self._save_timer.setInterval(400)
         self._save_timer.timeout.connect(self._flush_log_to_comet)
 
+        # Structured model: the ordered records that drive both the body
+        # rendering and the sidebar tree, and that get persisted as JSON.
+        self._records: List[LogRecord] = []
+        # step key -> top-level QTreeWidgetItem for that step group.
+        self._step_nodes = {}
+
         # Navigation / filter state.
         self._section_counter = 0
         self._current_section_id = 0
@@ -384,15 +443,30 @@ class LogWindow(QWidget):
     # ------------------------------------------------------------------
 
     def _apply_log_font(self) -> None:
-        """Set a monospaced font on the log so the time/icon columns line up."""
+        """Monospaced body font + a fixed tab stop for the icon/message column.
+
+        Emoji glyphs are not fixed-width, so alignment can't rely on space
+        padding. Each entry is ``icon\\tmessage`` and the tab stop pins the
+        message column at :data:`ENTRY_TAB_PX` regardless of glyph width.
+        Wrapping is disabled so styled headers and long lines never fold;
+        a horizontal scrollbar appears instead.
+        """
+        editor = self.ui.log_text_area
         families = QFontDatabase().families()
         preferred = ("Consolas", "Cascadia Mono", "Menlo", "DejaVu Sans Mono",
                      "Liberation Mono", "Courier New", "Monospace")
         family = next((f for f in preferred if f in families), preferred[-1])
         font = QFont(family)
         font.setStyleHint(QFont.Monospace)
-        font.setPointSizeF(self.ui.log_text_area.font().pointSizeF() or 11.0)
-        self.ui.log_text_area.setFont(font)
+        font.setPointSizeF(editor.font().pointSizeF() or 11.0)
+        editor.setFont(font)
+
+        editor.setLineWrapMode(QTextEdit.NoWrap)
+        editor.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        try:
+            editor.setTabStopDistance(ENTRY_TAB_PX)
+        except AttributeError:
+            editor.setTabStopWidth(int(ENTRY_TAB_PX))
 
     def _build_navigation_ui(self) -> None:
         """Inject the toolbar + sections sidebar around the existing QTextEdit."""
@@ -412,15 +486,16 @@ class LogWindow(QWidget):
         splitter.setChildrenCollapsible(True)
         splitter.setHandleWidth(6)
 
-        self._sections_list = QListWidget(splitter)
-        self._sections_list.setObjectName("sections_list")
-        self._sections_list.setMinimumWidth(160)
-        self._sections_list.setMaximumWidth(420)
-        self._sections_list.setUniformItemSizes(True)
-        self._sections_list.itemActivated.connect(self._on_section_clicked)
-        self._sections_list.itemClicked.connect(self._on_section_clicked)
+        self._sections_tree = QTreeWidget(splitter)
+        self._sections_tree.setObjectName("sections_tree")
+        self._sections_tree.setHeaderHidden(True)
+        self._sections_tree.setMinimumWidth(180)
+        self._sections_tree.setMaximumWidth(460)
+        self._sections_tree.setIndentation(12)
+        self._sections_tree.itemActivated.connect(self._on_section_clicked)
+        self._sections_tree.itemClicked.connect(self._on_section_clicked)
 
-        splitter.addWidget(self._sections_list)
+        splitter.addWidget(self._sections_tree)
         splitter.addWidget(log_text)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
@@ -543,74 +618,83 @@ class LogWindow(QWidget):
             return
 
         body = self._strip_leading_emoji(str(log))
-        icon = LEVEL_ICON.get(log_type, LEVEL_ICON["info"])
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        line = f"{timestamp}  {icon}  {body}"
-
         inferred_step = step or self.current_step or _infer_step_from_text(body)
-        color = LEVEL_FG.get(log_type)
-        bold = log_type == "error"
 
-        self._append_block(
-            line,
-            level=log_type,
-            step=inferred_step,
-            section_id=self._current_section_id,
-            role="entry",
-            color=color,
-            bold=bold,
-        )
+        self._add_record("entry", log_type, inferred_step, body,
+                         self._current_section_id)
+        self._render_entry(body, log_type, inferred_step, self._current_section_id)
         self._save_log_to_comet()
 
-    def _append_section_header(self, title: str, step: Optional[str] = None) -> None:
+    def _render_entry(self, body, log_type, step, section_id) -> None:
+        # ``icon\tmessage``: the tab stop pins the message column so variable
+        # width emoji don't break alignment.
+        icon = LEVEL_ICON.get(log_type, LEVEL_ICON["info"])
+        self._append_block(
+            f"{icon}\t{body}",
+            level=log_type,
+            step=step,
+            section_id=section_id,
+            role="entry",
+            color=LEVEL_FG.get(log_type),
+            bold=log_type == "error",
+        )
+
+    def _append_section_header(self, title: str, step: Optional[str] = None,
+                               ts: Optional[str] = None) -> None:
         title = (title or "Section").strip()
         self._section_counter += 1
         self._current_section_id = self._section_counter
         if not step:
             step = self.current_step or _infer_step_from_text(title)
+        timestamp = ts or datetime.now().strftime("%H:%M:%S")
 
-        sep_width = 60
-        inner = f" \u00a7{self._section_counter} {title.upper()} "
-        pad = max(2, sep_width - len(inner))
-        left = "\u2550" * (pad // 2)
-        right = "\u2550" * (pad - (pad // 2))
-        banner = f"{left}{inner}{right}"
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        self._append_block(
-            "", level="section", step=step,
-            section_id=self._current_section_id, role="blank",
-        )
-        self._append_block(
-            banner, level="section", step=step,
-            section_id=self._current_section_id, role="header",
-            color=SECTION_FG, bold=True,
-        )
-        self._append_block(
-            f"   started {timestamp}",
-            level="section", step=step,
-            section_id=self._current_section_id, role="header",
-            color=SETTINGS_FG,
-        )
-
-        item = QListWidgetItem(f"\u00a7{self._section_counter}  {title}")
-        item.setData(Qt.UserRole, self._current_section_id)
-        self._sections_list.addItem(item)
-        self._sections_list.scrollToItem(item)
+        self._add_record("section", "section", step, title,
+                         self._current_section_id, ts=timestamp)
+        self._render_section(title, step, timestamp, self._current_section_id)
         self._save_log_to_comet()
+
+    def _render_section(self, title, step, timestamp, section_id) -> None:
+        icon = LEVEL_ICON["section"]
+        self._append_block(
+            f"{icon}  {title}    \u00b7  {timestamp}",
+            level="section", step=step, section_id=section_id,
+            role="header", color=SECTION_FG, bold=True,
+        )
+        self._add_section_to_tree(step, title, timestamp, section_id)
+
+    def _add_section_to_tree(self, step, title, timestamp, section_id) -> None:
+        step_key = step or "GENERAL"
+        parent = self._step_nodes.get(step_key)
+        if parent is None:
+            label = STEP_LABELS.get(
+                step_key, (step_key or "General").replace("_", " ").title()
+            )
+            parent = QTreeWidgetItem([label])
+            parent.setData(0, Qt.UserRole, section_id)
+            font = parent.font(0)
+            font.setBold(True)
+            parent.setFont(0, font)
+            self._sections_tree.addTopLevelItem(parent)
+            self._step_nodes[step_key] = parent
+
+        child = QTreeWidgetItem([f"{title}    \u00b7  {timestamp}"])
+        child.setData(0, Qt.UserRole, section_id)
+        parent.addChild(child)
+        parent.setExpanded(True)
+        self._sections_tree.scrollToItem(child)
 
     def _append_settings_block(self, body: str, step: Optional[str] = None) -> None:
         if not step:
             step = self.current_step or _infer_step_from_text(body) or "CONFIGURATION"
+        self._add_record("settings", "settings", step, body,
+                         self._current_section_id)
+        self._render_settings(body, step, self._current_section_id)
+        self._save_log_to_comet()
 
-        divider = "\u00b7" * 50
+    def _render_settings(self, body, step, section_id) -> None:
         self._append_block(
-            divider, level="info", step=step,
-            section_id=self._current_section_id, role="settings", color=SETTINGS_FG,
-        )
-        self._append_block(
-            "\U0001f4cb  CONFIGURATION", level="info", step=step,
-            section_id=self._current_section_id, role="settings", bold=True,
+            "\U0001f4cb\tCONFIGURATION", level="info", step=step,
+            section_id=section_id, role="settings", bold=True, color=SETTINGS_FG,
         )
         for raw in (body or "").splitlines():
             stripped = raw.strip()
@@ -618,18 +702,16 @@ class LogWindow(QWidget):
                 continue
             if ":" in stripped:
                 key, value = stripped.split(":", 1)
-                line = f"   {key.strip():<22} {value.strip()}"
+                line = f"\t{key.strip()}: {value.strip()}"
             else:
-                line = f"   {stripped}"
+                line = f"\t{stripped}"
             self._append_block(
                 line, level="info", step=step,
-                section_id=self._current_section_id, role="settings",
+                section_id=section_id, role="settings", color=SETTINGS_FG,
             )
-        self._append_block(
-            divider, level="info", step=step,
-            section_id=self._current_section_id, role="settings", color=SETTINGS_FG,
-        )
-        self._save_log_to_comet()
+
+    def _add_record(self, kind, level, step, message, section_id, ts="") -> None:
+        self._records.append(LogRecord(kind, level, step, message, section_id, ts))
 
     # ------------------------------------------------------------------
     # Block insertion (thread-safe)
@@ -684,10 +766,17 @@ class LogWindow(QWidget):
         if non_empty_doc:
             cursor.insertBlock()
 
+        cursor.setBlockFormat(self._block_format_for_role(role))
+
         char_fmt = QTextCharFormat()
         if color:
             char_fmt.setForeground(QColor(color))
         if bold:
+            char_fmt.setFontWeight(QFont.Bold)
+        if role == "header":
+            # Render section headers as styled blocks instead of ASCII banners.
+            base = self.ui.log_text_area.font().pointSizeF() or 11.0
+            char_fmt.setFontPointSize(base + 1.0)
             char_fmt.setFontWeight(QFont.Bold)
         cursor.setCharFormat(char_fmt)
 
@@ -703,19 +792,34 @@ class LogWindow(QWidget):
         self._apply_filters_to_block(block)
         self._scroll_if_at_bottom()
 
+    @staticmethod
+    def _block_format_for_role(role: str) -> QTextBlockFormat:
+        fmt = QTextBlockFormat()
+        if role == "header":
+            fmt.setBackground(QColor(SECTION_BG))
+            fmt.setTopMargin(10.0)
+            fmt.setBottomMargin(4.0)
+            fmt.setLeftMargin(2.0)
+        return fmt
+
     # ------------------------------------------------------------------
     # Replace / read content
     # ------------------------------------------------------------------
 
     def replace_log(self, log_text: str) -> None:
-        self.ui.log_text_area.setPlainText(log_text or "")
-        self._reparse_blocks_metadata()
+        self._load_from_plaintext(log_text or "")
         self._save_log_to_comet()
 
     def get_log_content(self) -> str:
         return self.ui.log_text_area.toPlainText()
 
     def set_log_content(self, log_content) -> None:
+        # Prefer the structured JSON sidecar so a reloaded session rebuilds
+        # exactly; fall back to a best-effort plain-text import otherwise.
+        records = self._load_records_json()
+        if records is not None:
+            self._rebuild_from_records(records)
+            return
         if not log_content:
             return
         if not isinstance(log_content, str):
@@ -724,8 +828,7 @@ class LogWindow(QWidget):
             clean = log_content.encode("utf-8", errors="replace").decode("utf-8")
         except Exception:
             clean = log_content
-        self.ui.log_text_area.setPlainText(clean)
-        self._reparse_blocks_metadata()
+        self._load_from_plaintext(clean)
         self._save_log_to_comet()
 
     @pyqtSlot()
@@ -758,57 +861,104 @@ class LogWindow(QWidget):
             log_content = self.get_log_content()
             self.comet_instance.log_text = log_content
             self.comet_instance.save_logs_to_file()
+            self._write_records_json()
         finally:
             self._is_saving_logs = False
 
-    def _reparse_blocks_metadata(self) -> None:
-        """Reconstruct :class:`LogBlockData` for every block after a bulk load."""
-        self._sections_list.clear()
+    # ------------------------------------------------------------------
+    # Structured model persistence / rebuild
+    # ------------------------------------------------------------------
+
+    def _records_json_path(self) -> Optional[str]:
+        path = getattr(self.comet_instance, "log_file_path", None)
+        if not path:
+            return None
+        root, _ = os.path.splitext(path)
+        return root + ".records.json"
+
+    def _write_records_json(self) -> None:
+        path = self._records_json_path()
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump([r.to_dict() for r in self._records], f, ensure_ascii=False)
+        except Exception:
+            pass
+
+    def _load_records_json(self) -> Optional[List[LogRecord]]:
+        path = self._records_json_path()
+        if not path or not os.path.exists(path):
+            return None
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            return None
+        if not isinstance(data, list) or not data:
+            # Empty/invalid sidecar: fall back to plain text so a good .txt
+            # log isn't clobbered by an accidental empty rebuild.
+            return None
+        return [LogRecord.from_dict(d) for d in data if isinstance(d, dict)]
+
+    def _reset_model(self) -> None:
+        self.ui.log_text_area.clear()
+        self._sections_tree.clear()
+        self._step_nodes.clear()
+        self._records = []
         self._section_counter = 0
         self._current_section_id = 0
 
-        doc = self.ui.log_text_area.document()
-        block = doc.firstBlock()
-        while block.isValid():
-            text = block.text()
-            level = "info"
-            role = "entry"
-            step = self.current_step
-
-            sec_match = _SECTION_HEADER_RE.match(text)
-            if sec_match:
-                self._section_counter = max(
-                    self._section_counter, int(sec_match.group(1))
-                )
-                self._current_section_id = self._section_counter
-                title = sec_match.group(2).strip()
-                level = "section"
-                role = "header"
-                step = _infer_step_from_text(title) or step
-                item = QListWidgetItem(
-                    f"\u00a7{self._current_section_id}  {title.title()}"
-                )
-                item.setData(Qt.UserRole, self._current_section_id)
-                self._sections_list.addItem(item)
-            else:
-                entry_match = _ENTRY_LINE_RE.match(text)
-                if entry_match:
-                    icon = entry_match.group(2)
-                    level = LEVEL_FROM_ICON.get(icon, "info")
-                    step = (
-                        _infer_step_from_text(entry_match.group(3))
-                        or step
+    def _rebuild_from_records(self, records: List[LogRecord]) -> None:
+        self._reset_model()
+        editor = self.ui.log_text_area
+        editor.setUpdatesEnabled(False)
+        try:
+            for rec in records:
+                self._records.append(rec)
+                if rec.kind == "section":
+                    self._section_counter += 1
+                    self._current_section_id = self._section_counter
+                    rec.section_id = self._current_section_id
+                    self._render_section(
+                        rec.message, rec.step, rec.ts, self._current_section_id
                     )
-                elif not text.strip():
-                    role = "blank"
+                elif rec.kind == "settings":
+                    self._render_settings(rec.message, rec.step, rec.section_id)
+                elif rec.kind == "raw":
+                    self._append_block(
+                        rec.message, level=rec.level, step=rec.step,
+                        section_id=rec.section_id, role="entry",
+                    )
+                else:
+                    self._render_entry(
+                        rec.message, rec.level, rec.step, rec.section_id
+                    )
+        finally:
+            editor.setUpdatesEnabled(True)
+        self._refilter_all()
+        self._scroll_to_end()
 
-            block.setUserData(LogBlockData(
-                level=level,
-                step=step,
-                section_id=self._current_section_id,
-                role=role,
-            ))
-            block = block.next()
+    def _load_from_plaintext(self, text: str) -> None:
+        """Best-effort import of a legacy plain-text log (no JSON sidecar)."""
+        self._reset_model()
+        editor = self.ui.log_text_area
+        editor.setUpdatesEnabled(False)
+        try:
+            for line in (text or "").splitlines():
+                if not line.strip():
+                    continue
+                # Legacy lines already carry their own text/glyphs; store them
+                # as ``raw`` so they render verbatim now and after any reload.
+                self._records.append(
+                    LogRecord("raw", "info", self.current_step, line, 0)
+                )
+                self._append_block(
+                    line, level="info", step=self.current_step,
+                    section_id=0, role="entry",
+                )
+        finally:
+            editor.setUpdatesEnabled(True)
         self._refilter_all()
 
     # ------------------------------------------------------------------
@@ -904,10 +1054,10 @@ class LogWindow(QWidget):
     # Section folding / sidebar
     # ------------------------------------------------------------------
 
-    def _on_section_clicked(self, item: QListWidgetItem) -> None:
+    def _on_section_clicked(self, item: QTreeWidgetItem, _column: int = 0) -> None:
         if item is None:
             return
-        sid = item.data(Qt.UserRole)
+        sid = item.data(0, Qt.UserRole)
         self._scroll_to_section(int(sid) if sid is not None else 0)
 
     def _scroll_to_section(self, section_id: int) -> None:
@@ -1153,10 +1303,7 @@ class LogWindow(QWidget):
         self.setVisible(not self.isVisible())
 
     def clear_logs(self):
-        self.ui.log_text_area.clear()
-        self._sections_list.clear()
-        self._section_counter = 0
-        self._current_section_id = 0
+        self._reset_model()
         self._save_log_to_comet()
 
     def export_logs(self, file_path):
