@@ -13,7 +13,7 @@ dependencies:
     - mne-bids==0.16.0
     - mne-qt-browser==0.6.3
     - onnxruntime==1.19.0
-    - opencv-python==4.11.0.86
+    - opencv-python-headless==4.11.0.86
     - pandas==2.3.0
     - pyprep==0.4.3
     - PyQt5==5.15.11
