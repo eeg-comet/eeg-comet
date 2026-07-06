@@ -69,7 +69,9 @@ class DataInitializer:
         return initial_centers
 
     @staticmethod
-    def extract_gfp_peaks_and_maps(data, use_percentages=None, min_dist=None, random_seed=None):
+    def extract_gfp_peaks_and_maps(
+        data, use_percentages=None, min_dist=None, random_seed=None, normalize=True
+    ):
         """Extract Global Field Power (GFP) peaks and corresponding topographical maps.
 
         GFP is calculated as the standard deviation across channels at each time point.
@@ -87,11 +89,15 @@ class DataInitializer:
                 If 0, no minimum distance is enforced. Only used when use_percentages is None
             random_seed (int, optional): Random seed for reproducible random sampling.
                 Only used when use_percentages is provided and < 100. Defaults to None
+            normalize (bool): If True (default), normalize each topography to unit
+                L2 norm (required for clustering). Set False to keep the original
+                amplitudes, which GEV needs so its GFP² weighting is meaningful.
 
         Returns:
             tuple: Contains:
                 - maps (numpy.ndarray): Topographical maps at selected timepoints,
-                  shape (n_channels, n_selected_points), normalized to unit length
+                  shape (n_channels, n_selected_points), unit-normalized when
+                  ``normalize`` is True
                 - peaks (numpy.ndarray): Indices of selected timepoints in the original data
 
         Notes:
@@ -137,11 +143,11 @@ class DataInitializer:
             else:
                 peaks, _ = find_peaks(gfp, distance=min_dist)
         maps = data[:, peaks]
-        # Normalise each topography (column) to unit L2 norm. axis=0 takes the
-        # norm across channels for every selected time point; the previous
-        # axis=1 normalised each channel's time course instead, which rescaled
-        # channels and distorted the topographies fed to clustering/GEV.
-        maps = maps / (np.linalg.norm(maps, axis=0, keepdims=True) + 1e-12)
+        # Normalise each topography (column) to unit L2 norm across channels for
+        # clustering. GEV instead needs the raw amplitudes so its GFP² weighting
+        # emphasises high-power moments (normalize=False preserves them).
+        if normalize:
+            maps = maps / (np.linalg.norm(maps, axis=0, keepdims=True) + 1e-12)
         return maps, peaks
 
     @staticmethod
@@ -152,6 +158,7 @@ class DataInitializer:
         use_percentages=None,
         min_dist=None,
         random_seed=None,
+        normalize=True,
     ):
         """Generate GFP maps and peak indices from multiple preprocessed EEG files.
 
@@ -168,6 +175,8 @@ class DataInitializer:
                 Defaults to None
             random_seed (int, optional): Random seed for reproducible random sampling.
                 Only used when use_percentages is provided. Defaults to None
+            normalize (bool): If True (default), unit-normalize each topography
+                (for clustering). Set False to preserve raw amplitudes for GEV.
 
         Returns:
             tuple: Contains:
@@ -198,11 +207,11 @@ class DataInitializer:
             if use_percentages is not None and random_seed is not None:
                 file_seed = random_seed + counter  # Different seed for each file
                 maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(
-                    eeg_data, use_percentages, min_dist, file_seed
+                    eeg_data, use_percentages, min_dist, file_seed, normalize=normalize
                 )
             else:
                 maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(
-                    eeg_data, use_percentages, min_dist
+                    eeg_data, use_percentages, min_dist, normalize=normalize
                 )
 
             if counter == 0:

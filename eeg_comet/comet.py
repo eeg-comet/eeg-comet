@@ -1181,11 +1181,14 @@ class COMET:
 
     def compute_gev_all_data(self):
         """Compute Global Explained Variance for all data."""
+        # normalize=False keeps raw amplitudes so GEV's GFP² weighting is
+        # meaningful (unit-normalized topographies would flatten GFP).
         all_data, _ = self.comet_data_initializer.generate_maps_and_peaks(
             preprocessed_folder=self.preprocessed_data_path,
             extension=self.extension,
             datatype=self.datatype,
             use_percentages=100,
+            normalize=False,
         )
         return self.comet_microstate_clusterer.compute_gev(data=all_data, maps=self.best_maps)
 

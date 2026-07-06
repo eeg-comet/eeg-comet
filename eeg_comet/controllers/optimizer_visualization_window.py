@@ -86,30 +86,15 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
             logger=logger,
         )
 
-        # Ensure we have a logger instance
-        if logger is None:
-            logger = get_logger()
-        self.logger = logger
+        self.logger = logger if logger is not None else get_logger()
 
-        # Prepare data in the correct format for modified K-means (n_channels, n_samples)
+        # Modified K-means expects (n_channels, n_samples).
         if self.maps2use.shape[0] > self.maps2use.shape[1]:
             self.eeg_data = self.maps2use.T
-            self.logger.processing_info(
-                "CLUSTERING", "Data matrix transposed to channels × samples"
-            )
         else:
             self.eeg_data = self.maps2use
 
-        # Validate data size and provide memory warnings
-        n_channels, n_samples = self.eeg_data.shape
-
         self.batch_size = batch_size
-
-        if self.logger is None:
-            self.logger = get_logger()
-        self.logger.processing_info(
-            "CLUSTERING", f"Visualization optimizer ready (k={kmin}-{kmax})"
-        )
 
     def _perform_single_clustering(self, k):
         """Perform modified K-means clustering for a single K value.
@@ -492,6 +477,7 @@ class OptimizerVisualizationWindow(QMainWindow):
         self._pending_results = None
         self._pending_kmin = None
         self._pending_kmax = None
+        self._show_window_on_finish = False
         self.current_font_family = "Arial"
         self.current_font_size = "Large"
         self.logger = get_logger()
@@ -501,8 +487,6 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.ui = uic.loadUi(self.context.get_resource("OptimizerVisualizationWindow.ui"), self)
         self.ui.setWindowTitle("Exploring the number of microstate maps (Modified K-means)")
         apply_window_minimum(self, "tool")
-        if hasattr(self.ui, "optimizer_top_label"):
-            self.ui.optimizer_top_label.setProperty("role", "banner")
 
         self.figure = Figure(tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.figure)
@@ -526,9 +510,9 @@ class OptimizerVisualizationWindow(QMainWindow):
 
     def _setup_connections(self):
         """Set up all signal-slot connections."""
-        # Main controls
-        self.ui.optimizer_combobox.activated.connect(self.optimizer_visualization_controller)
-        self.ui.optimizer_button.clicked.connect(self.run_all_analyses)
+        # Changing the method both refreshes the parameter row and redraws the
+        # figure, so the plot always matches the selected criterion.
+        self.ui.optimizer_combobox.currentIndexChanged.connect(self._on_method_changed)
         self.ui.visualize_button.clicked.connect(self.visualize_selected_method)
         self.ui.export_figure_image_button.triggered.connect(self.export_plot)
 
@@ -566,29 +550,18 @@ class OptimizerVisualizationWindow(QMainWindow):
 
     def _setup_with_results(self):
         """Set up UI when previous results are available."""
-        # Enable visualization UI
         self._enable_visualization_ui()
 
-        # Update button text
-        self.ui.optimizer_button.setText("Re-run All Analyses")
-
-        # Set status message
         method_count = len(self.results_cache)
         k_range = self._get_k_range_text()
         status_msg = f"Loaded {method_count} optimization method(s){k_range} - Ready to visualize!"
         self.ui.statusbar.showMessage(status_msg)
 
-        print(f"Loaded previous optimization results for {len(self.results_cache)} methods")
-        print("Visualization UI enabled - ready to display results")
-
     def _setup_without_results(self):
         """Set up UI when no previous results are available."""
-        # Disable visualization initially
         self._disable_visualization_ui()
-
-        # Add status message
         self.ui.statusbar.showMessage(
-            "Ready - Using polarity-independent modified K-means algorithm"
+            "No optimization results yet - run the analysis from the clustering step first"
         )
 
     def _get_k_range_text(self) -> str:
@@ -628,87 +601,24 @@ class OptimizerVisualizationWindow(QMainWindow):
             previous_results = self.comet.load_optimization_results()
             if previous_results:
                 self.results_cache = previous_results
-                print(
-                    f"Successfully loaded previous optimization results for {len(previous_results)} methods"
-                )
-
-                # Log the loaded results
-                self._log_loaded_results(previous_results)
-
-                # Update GUI to reflect loaded results
                 self._update_gui_for_loaded_results()
-
             else:
                 self.results_cache = {}
         except Exception as e:
             print(f"Error loading previous optimization results: {str(e)}")
             self.results_cache = {}
 
-    def _log_loaded_results(self, results: dict[str, Any]):
-        """Log loaded optimization results.
-
-        Args:
-          results (dict[str, Any]): Cached results keyed by method code.
-        """
-        print("Loaded optimization results:")
-        for method_code, method_results in results.items():
-            method_name = self._get_method_name(method_code)
-            optimal_k = method_results["optimal_k"]
-            k_range = f"{min(method_results['k_values'])}-{max(method_results['k_values'])}"
-            threshold_info = (
-                f" (threshold: {method_results['threshold']}%)" if method_results.get("threshold") else ""
-            )
-            print(f"  {method_name}: k={optimal_k}, range={k_range}{threshold_info}")
-
     def _update_gui_for_loaded_results(self):
-        """Update GUI elements when previous results are loaded."""
+        """Populate the method selector and draw the first method's plot."""
         if not self.results_cache:
-            print("No results to update GUI with")
             return
 
-        print("Updating GUI for loaded optimization results...")
-
-        # 1. Enable all visualization UI elements
         self._enable_visualization_ui()
-
-        # 2. Populate K range from loaded results
-        self._update_k_range_from_results()
-
-        # 3. Populate method combo box with available methods
         self._populate_method_combo_box()
-
-        # 4. Set the default method and update parameters
         self._set_default_method_selection()
-
-        # 5. Update last used parameters from loaded results
         self._restore_method_parameters()
-
-        # 6. Update the visualization controller for the current method
         self.optimizer_visualization_controller()
-
-        # 7. Automatically display the first available method
         self._auto_display_first_method()
-
-        print("GUI successfully updated for loaded results")
-
-    def _update_k_range_from_results(self):
-        """Update K range input fields based on loaded results."""
-        if not self.results_cache:
-            return
-
-        # Get K range from the first available result
-        first_result = next(iter(self.results_cache.values()))
-        k_values = first_result.get("k_values", [])
-
-        if k_values:
-            kmin = min(k_values)
-            kmax = max(k_values)
-
-            # Update the UI input fields
-            self.ui.optimizer_min_input.setText(str(kmin))
-            self.ui.optimizer_max_input.setText(str(kmax))
-
-            print(f"Updated K range to: {kmin} - {kmax}")
 
     def _populate_method_combo_box(self):
         """Populate the method combo box with available methods from loaded results."""
@@ -723,11 +633,13 @@ class OptimizerVisualizationWindow(QMainWindow):
             if method_code in method_display_names:
                 available_methods.append(method_display_names[method_code])
 
-        # Clear and populate combo box
+        # Populate without emitting currentIndexChanged; the first draw is
+        # triggered explicitly by _auto_display_first_method.
+        self.ui.optimizer_combobox.blockSignals(True)
         self.ui.optimizer_combobox.clear()
         if available_methods:
             self.ui.optimizer_combobox.addItems(available_methods)
-            print(f"Populated combo box with {len(available_methods)} methods: {available_methods}")
+        self.ui.optimizer_combobox.blockSignals(False)
 
     def _set_default_method_selection(self):
         """Set the default method selection in the combo box."""
@@ -741,26 +653,35 @@ class OptimizerVisualizationWindow(QMainWindow):
             if method_code in self.results_cache:
                 method_name = self._get_method_name(method_code)
 
-                # Find and select this method in the combo box
+                # Select without triggering a redraw; the caller draws explicitly.
+                self.ui.optimizer_combobox.blockSignals(True)
                 for i in range(self.ui.optimizer_combobox.count()):
                     if self.ui.optimizer_combobox.itemText(i) == method_name:
                         self.ui.optimizer_combobox.setCurrentIndex(i)
-                        print(f"Set default method selection to: {method_name}")
                         break
+                self.ui.optimizer_combobox.blockSignals(False)
                 break
+
+    def _on_method_changed(self, *args):
+        """Redraw the figure whenever the user picks a different method.
+
+        Refreshes the parameter row (threshold visibility/value) for the chosen
+        method, then re-plots it so the figure always matches the dropdown.
+        """
+        self.optimizer_visualization_controller()
+
+        if self.results_cache and self.ui.visualize_button.isEnabled():
+            self.visualize_selected_method()
 
     def _restore_method_parameters(self):
         """Restore method parameters from loaded results."""
         if not self.results_cache:
             return
 
-        # Restore last used parameters for all methods
         for method_code, results in self.results_cache.items():
             threshold = results.get("threshold")
             if threshold is not None:
                 self.last_used_parameters[method_code] = threshold
-
-        print(f"Restored parameters for {len(self.last_used_parameters)} methods")
 
     def _auto_display_first_method(self):
         """Automatically display the first available method."""
@@ -768,14 +689,9 @@ class OptimizerVisualizationWindow(QMainWindow):
             return
 
         try:
-            # Trigger the controller to update the UI for the selected method
             self.optimizer_visualization_controller()
-
-            # Auto-visualize the first method
             if self.ui.visualize_button.isEnabled():
-                print("Auto-displaying first method visualization...")
                 self.visualize_selected_method()
-
         except Exception as e:
             print(f"Error auto-displaying first method: {str(e)}")
 
@@ -784,13 +700,8 @@ class OptimizerVisualizationWindow(QMainWindow):
         try:
             if self.results_cache and self.comet:
                 self.comet.save_optimization_results(self.results_cache)
-
-                # Save the updated configuration
                 if self.comet.auto_save:
                     self.comet.save_config()
-                    print("Optimization results saved to configuration file")
-            else:
-                print("No results to save or COMET instance not available")
         except Exception as e:
             print(f"Error saving optimization results: {str(e)}")
 
@@ -819,14 +730,10 @@ class OptimizerVisualizationWindow(QMainWindow):
     def verify_and_fix_ui_state(self):
         """Verify and fix the UI state based on available results."""
         if self.results_cache and len(self.results_cache) > 0:
-            # We have results, ensure UI is enabled
             if not self.ui.visualize_button.isEnabled():
-                print("Fixing UI state: Enabling visualization controls")
                 self._enable_visualization_ui()
 
-            # Ensure combo box is populated
             if self.ui.optimizer_combobox.count() == 0:
-                print("Fixing UI state: Populating method combo box")
                 self._populate_method_combo_box()
                 self._set_default_method_selection()
 
@@ -837,28 +744,24 @@ class OptimizerVisualizationWindow(QMainWindow):
             )
 
         else:
-            # No results, ensure UI is disabled
             if self.ui.visualize_button.isEnabled():
-                print("Fixing UI state: Disabling visualization controls")
                 self._disable_visualization_ui()
 
-            self.ui.statusbar.showMessage("No optimization results available - Run analysis first")
+            self.ui.statusbar.showMessage(
+                "No optimization results available - run the analysis from the clustering step first"
+            )
 
     # ========================================================================
     # UI Controller Methods
     # ========================================================================
 
     def optimizer_visualization_controller(self):
-        """Update UI based on the selected optimization method.
-
-        Supports both freshly computed results and results loaded from disk.
-        """
+        """Update the parameter row for the selected optimization method."""
         optimizer_method = self.ui.optimizer_combobox.currentText()
 
         if not optimizer_method:
             return
 
-        # Define parameter labels for each method
         param_labels = {
             "Cross Validation Criterion": "",
             "Global Explained Variance Criterion": "Threshold (%):",
@@ -868,35 +771,21 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         label = param_labels.get(optimizer_method, "")
         self.ui.optimizer_stop_condition_label.setText(label)
-
-        # Show/hide parameter input based on method
         self.ui.optimizer_stopping_threshold_input.setVisible(label != "")
 
-        # Set values based on loaded results or defaults
         method_code = self._get_method_code(optimizer_method)
 
-        # First, try to get value from loaded results
         if method_code in self.results_cache:
-            cached_result = self.results_cache[method_code]
-            threshold = cached_result.get("threshold")
-
+            threshold = self.results_cache[method_code].get("threshold")
             if threshold is not None:
                 self.ui.optimizer_stopping_threshold_input.setText(str(threshold))
-                print(f"Set threshold from loaded results: {threshold}")
             else:
-                # Set default values if no threshold in loaded results
                 self._set_default_threshold(optimizer_method)
-
-        # Second, try last used parameters
         elif method_code in self.last_used_parameters:
-            # Restore last used value
             self.ui.optimizer_stopping_threshold_input.setText(
                 str(self.last_used_parameters[method_code])
             )
-            print(f"Set threshold from last used: {self.last_used_parameters[method_code]}")
-
         else:
-            # Set default values
             self._set_default_threshold(optimizer_method)
 
     def _set_default_threshold(self, optimizer_method: str):
@@ -904,13 +793,11 @@ class OptimizerVisualizationWindow(QMainWindow):
         if optimizer_method in ["Global Explained Variance Criterion", "Elbow - Residual Variance"]:
             self.ui.optimizer_stopping_threshold_input.setText("5")
         else:
-            # No threshold needed
             self.ui.optimizer_stopping_threshold_input.clear()
 
     def _on_threshold_changed(self):
-        """Handle threshold change by automatically updating visualization."""
+        """Redraw when the GEV threshold changes."""
         if self.all_methods_complete and self.ui.visualize_button.isEnabled():
-            # Only update if we have results and the current method uses thresholds
             method_code = self._get_method_code(self.ui.optimizer_combobox.currentText())
             if method_code in ["gev"]:
                 self.visualize_selected_method()
@@ -967,12 +854,13 @@ class OptimizerVisualizationWindow(QMainWindow):
         """
         self._load_comet_parameters()
 
-        # Seed the inputs read by run_all_analyses; an empty cache skips its
-        # overwrite prompt.
         self.results_cache = {}
-        self.ui.optimizer_min_input.setText(str(kmin))
-        self.ui.optimizer_max_input.setText(str(kmax))
+        self._pending_kmin = kmin
+        self._pending_kmax = kmax
         self.ui.optimizer_stopping_threshold_input.setText(str(threshold))
+
+        # Reveal the window once the headless run finishes.
+        self._show_window_on_finish = True
 
         self.optimizer = None
         self.run_all_analyses()
@@ -983,37 +871,24 @@ class OptimizerVisualizationWindow(QMainWindow):
         The heavy work (map/peak generation and per-k metric computation) is
         executed on ``comet.LogWindow``'s worker thread instead of blocking the
         UI. This keeps the application responsive and opens the log window with
-        live progress, exactly like the other analysis steps in the app.
+        live progress, exactly like the other analysis steps in the app. The k
+        range is taken from ``self._pending_kmin`` / ``self._pending_kmax`` (set
+        by :meth:`run_analyses_from_dialog`).
         """
-        # Ask user if they want to overwrite existing results
-        if self.results_cache:
-            reply = QMessageBox.question(
-                self,
-                "Overwrite Previous Results?",
-                "Previous optimization results exist. Do you want to re-run the analysis and overwrite them?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
-            )
-
-            if reply == QMessageBox.No:
-                return
-
-        # Widgets must only be read on the UI thread, so validate the range here.
+        # Validate the range handed in by the k-range dialog.
         try:
-            kmin = int(self.ui.optimizer_min_input.text())
-            kmax = int(self.ui.optimizer_max_input.text())
-        except ValueError:
+            kmin = int(self._pending_kmin)
+            kmax = int(self._pending_kmax)
+        except (TypeError, ValueError):
             print("Error: Invalid K range")
             self.ui.statusbar.showMessage("Error: Invalid K range")
             return
 
         if kmin < 2:
             kmin = 2
-            self.ui.optimizer_min_input.setText("2")
 
         if kmax <= kmin:
             kmax = kmin + 5
-            self.ui.optimizer_max_input.setText(str(kmax))
 
         parameters = self._get_method_parameters()
         if parameters is None:
@@ -1026,9 +901,6 @@ class OptimizerVisualizationWindow(QMainWindow):
         self._pending_parameters = parameters
         self._pending_results = None
 
-        self.ui.optimizer_button.setText("Run All Analyses")
-        self.ui.optimizer_button.setEnabled(False)
-        self.ui.optimizer_progressbar.setValue(0)
         self.results_cache.clear()
         self.all_methods_complete = False
 
@@ -1038,7 +910,6 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.logger = get_logger(log_window)
 
         if log_window.worker_thread is not None and log_window.worker_thread.isRunning():
-            self.ui.optimizer_button.setEnabled(True)
             self.ui.statusbar.showMessage(
                 "A background task is already running; please wait for it to finish"
             )
@@ -1177,12 +1048,10 @@ class OptimizerVisualizationWindow(QMainWindow):
             if threshold_value <= 0:
                 print("Error: Threshold must be positive")
                 self.ui.statusbar.showMessage("Error: Threshold must be positive")
-                self.ui.optimizer_button.setEnabled(True)
                 return None
         except ValueError:
             print("Error: Invalid threshold value")
             self.ui.statusbar.showMessage("Error: Invalid threshold value")
-            self.ui.optimizer_button.setEnabled(True)
             return None
 
         # Apply threshold to methods that use it
@@ -1194,13 +1063,12 @@ class OptimizerVisualizationWindow(QMainWindow):
         return parameters
 
     def _on_log_worker_progress(self, value: int, message: str):
-        """Mirror the shared log worker's progress on this window.
+        """Mirror the shared log worker's progress on this window's status bar.
 
         Args:
           value (int): Progress percentage (0-100).
           message (str): Status message to show.
         """
-        self.ui.optimizer_progressbar.setValue(int(value))
         self.ui.statusbar.showMessage(message)
 
     def _on_analyses_process_finished(self, success: bool = True):
@@ -1214,15 +1082,11 @@ class OptimizerVisualizationWindow(QMainWindow):
           success (bool): Whether the worker completed successfully.
         """
         self._detach_from_log_worker()
-        self.ui.optimizer_button.setEnabled(True)
 
         if success and self._pending_results:
             self._on_all_analyses_finished(self._pending_results)
         else:
-            self.ui.optimizer_progressbar.setValue(0)
-            self.ui.optimizer_button.setText(
-                "Re-run All Analyses" if self.results_cache else "Run All Analyses"
-            )
+            self._show_window_on_finish = False
             self.ui.statusbar.showMessage("Optimization did not complete")
 
         self._pending_results = None
@@ -1236,51 +1100,47 @@ class OptimizerVisualizationWindow(QMainWindow):
         self.all_methods_complete = True
         self.results_cache = all_results
 
-        # CRITICAL: Save results to COMET configuration
         self._save_results_to_comet()
 
-        # Enable visualization controls
-        self._enable_visualization_ui()
+        # Populate the selector and draw the first method so the window is
+        # usable the moment it is shown (also enables the controls).
+        self._update_gui_for_loaded_results()
 
-        # Re-enable run button and update text
-        self.ui.optimizer_button.setEnabled(True)
-        self.ui.optimizer_button.setText("Re-run All Analyses")
-        self.ui.optimizer_progressbar.setValue(100)
         self.ui.statusbar.showMessage(
             "All modified K-means optimization methods completed and saved!"
         )
 
-        # Update visualization controller for first method
-        self.optimizer_visualization_controller()
-
-        print("\n" + "=" * 60)
-        print("ALL MICROSTATE OPTIMIZATION METHODS COMPLETED AND SAVED!")
-        print("Using modified K-means (polarity-independent)")
-        print("Using consolidated metrics from ClustererOptimizer (single source of truth)")
-        print("=" * 60)
-
-        # Display detailed results
         self._display_optimization_summary(all_results)
 
-    def _display_optimization_summary(self, results: dict[str, Any]):
-        """Display summary of optimization results.
+        # When launched headlessly from the k-range dialog, reveal the window.
+        if self._show_window_on_finish:
+            self._show_window_on_finish = False
+            self.show()
+            self.setWindowState(
+                (self.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive
+            )
+            self.raise_()
+            self.activateWindow()
 
-        Prints to the console and, when a logger bound to the log window is
-        available, also reports the per-criterion optimal number of microstates
-        and a majority-vote recommendation into the log window.
+    def _display_optimization_summary(self, results: dict[str, Any]):
+        """Log the per-criterion optimal k and a boundary-aware consensus.
 
         Args:
           results (dict[str, Any]): Results keyed by method code.
         """
-        print("\n[CLUSTERING] Optimization results summary:")
-
         logger = getattr(self, "logger", None)
-        if logger is not None:
-            logger.section_header(
-                "CLUSTERING", "Optimal Number of Microstates - Results"
-            )
+        if logger is None:
+            return
 
-        optimal_ks = []
+        logger.section_header("CLUSTERING", "Optimal Number of Microstates - Results")
+
+        # Criteria whose optimum lands on kmin/kmax rarely found real interior
+        # structure (Davies-Bouldin, Calinski-Harabasz and Dunn reward the
+        # fewest clusters), so they are flagged and left out of the consensus.
+        kmin, kmax = self._get_result_k_bounds(results)
+
+        interior_ks = []
+        boundary_count = 0
         for method_code, method_results in results.items():
             method_name = self._get_method_name(method_code)
             optimal_k = method_results["optimal_k"]
@@ -1291,27 +1151,51 @@ class OptimizerVisualizationWindow(QMainWindow):
                 if threshold is not None and method_code in ["gev"]
                 else ""
             )
-            print(f"[CLUSTERING] {method_name}: Optimal k = {optimal_k}{threshold_info}")
+
+            is_boundary = (
+                optimal_k is not None and kmin is not None and optimal_k in (kmin, kmax)
+            )
+            boundary_info = " — boundary pick, excluded from consensus" if is_boundary else ""
 
             if optimal_k:
-                optimal_ks.append(optimal_k)
-            if logger is not None:
-                logger.processing_success(
-                    "CLUSTERING",
-                    f"{method_name}: optimal number of microstates = "
-                    f"{optimal_k}{threshold_info}",
-                )
+                if is_boundary:
+                    boundary_count += 1
+                else:
+                    interior_ks.append(optimal_k)
 
-        if logger is not None and optimal_ks:
-            most_common_k, votes = Counter(optimal_ks).most_common(1)[0]
-            logger.processing_info(
+            logger.processing_success(
                 "CLUSTERING",
-                f"Most frequently suggested number of microstates: {most_common_k} "
-                f"({votes}/{len(optimal_ks)} criteria)",
+                f"{method_name}: optimal number of microstates = "
+                f"{optimal_k}{threshold_info}{boundary_info}",
             )
 
-        print("[CLUSTERING] All results computed using modified K-means algorithm")
-        print("[CLUSTERING] Results saved and available for visualization")
+        if interior_ks:
+            most_common_k, votes = Counter(interior_ks).most_common(1)[0]
+            message = (
+                f"Most frequently suggested number of microstates: {most_common_k} "
+                f"({votes}/{len(interior_ks)} interior criteria)"
+            )
+            if boundary_count:
+                message += (
+                    f"; {boundary_count} boundary pick(s) at k={kmin}/{kmax} excluded"
+                )
+            logger.processing_info("CLUSTERING", message)
+        elif boundary_count:
+            logger.warning(
+                "CLUSTERING",
+                "All criteria selected the k-range boundaries (kmin/kmax); no "
+                "interior consensus - consider widening the k range or relying on "
+                "GEV/Cross-Validation/KL.",
+            )
+
+    @staticmethod
+    def _get_result_k_bounds(results: dict[str, Any]) -> tuple[Optional[int], Optional[int]]:
+        """Return the (kmin, kmax) explored across the optimisation results."""
+        for method_results in results.values():
+            k_values = method_results.get("k_values")
+            if k_values:
+                return min(k_values), max(k_values)
+        return None, None
 
     # ========================================================================
     # Visualization Methods
@@ -1383,86 +1267,35 @@ class OptimizerVisualizationWindow(QMainWindow):
           method_code (str): Method code (e.g., 'gev').
           new_threshold (float): New threshold percentage.
         """
-        print(
-            f"\nRecalculating optimal K for {self._get_method_name(method_code)} with new threshold: {new_threshold}%"
-        )
-
-        # Get the existing results
         cached_results = self.results_cache[method_code]
         k_values = cached_results["k_values"]
         scores = cached_results["scores"]
 
-        # Filter out NaN values for optimal K finding
         valid_scores = [(k, s) for k, s in zip(k_values, scores) if not np.isnan(s)]
 
         if valid_scores:
             valid_k_values, valid_scores_list = zip(*valid_scores)
 
-            # Use the same elbow detection algorithm with the new threshold
-            # Delegate elbow detection to the optimiser implementation to avoid
-            # duplicate local logic.
-            optimal_k = self.optimizer._find_elbow_point(
-                list(valid_k_values),
-                list(valid_scores_list),
-                threshold=new_threshold,
-                higher_is_better=(method_code == "gev"),
-            )
+            # The threshold field only applies to GEV; other methods keep the
+            # threshold-independent Kneedle elbow.
+            if method_code == "gev":
+                optimal_k = self.optimizer._find_gev_threshold_elbow(
+                    list(valid_k_values), list(valid_scores_list), new_threshold
+                )
+            else:
+                optimal_k = self.optimizer._find_elbow_point(
+                    list(valid_k_values),
+                    list(valid_scores_list),
+                    threshold=new_threshold,
+                    higher_is_better=(method_code == "gev"),
+                )
         else:
             optimal_k = k_values[0] if k_values else 2
 
-        # Update the cached results with new optimal K and threshold
         cached_results["optimal_k"] = optimal_k
         cached_results["threshold"] = new_threshold
         cached_results["result"].optimal_k = optimal_k
-
-        # Update the last used parameters
         self.last_used_parameters[method_code] = new_threshold
-
-        print(
-            f"New optimal K: {optimal_k} (was: {cached_results.get('original_optimal_k', 'unknown')})"
-        )
-
-    @staticmethod
-    def _find_elbow_point_for_visualization(
-        k_values: list[int],
-        scores: list[float],
-        threshold: float,
-        higher_is_better: bool = True,
-    ) -> int:
-        """Find elbow point using threshold for percentage change (visualization updates).
-
-        Args:
-          k_values (list[int]): Candidate K values.
-          scores (list[float]): Metric scores.
-          threshold (float): Percentage change threshold.
-          higher_is_better (bool): If True, higher scores are better.
-
-        Returns:
-          int: Selected K value.
-        """
-        if len(scores) < 2:
-            return k_values[0]
-
-        print(f"  Finding elbow point with threshold {threshold}%:")
-
-        for i in range(1, len(scores)):
-            # Calculate percentage change
-            if scores[i - 1] != 0:
-                change_percent = abs((scores[i] - scores[i - 1]) / scores[i - 1]) * 100
-            else:
-                change_percent = 100.0
-
-            print(f"    K={k_values[i - 1]} to K={k_values[i]}: {change_percent:.2f}% change")
-
-            # Check if improvement is below threshold
-            if change_percent < threshold:
-                print(
-                    f"    Elbow detected at K={k_values[i]} (change {change_percent:.2f}% < threshold {threshold}%)"
-                )
-                return k_values[i]
-
-        print(f"    No elbow found with threshold {threshold}%, returning last K={k_values[-1]}")
-        return k_values[-1]
 
     def _display_results(self, results: dict[str, Any]):
         """Display optimization results.
@@ -1761,7 +1594,6 @@ class OptimizerVisualizationWindow(QMainWindow):
 
             # Reset UI state
             self._disable_visualization_ui()
-            self.ui.optimizer_button.setText("Run All Analyses")
 
             # Clear the plot
             self.figure.clear()

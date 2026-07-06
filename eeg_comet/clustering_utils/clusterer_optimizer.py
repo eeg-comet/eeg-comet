@@ -253,13 +253,16 @@ class ClustererOptimizer:
         """
         if self._full_dataset is None and self.preprocessed_data_path:
             try:
-                # Load entire dataset (100% of data)
+                # Load the entire dataset with raw amplitudes (normalize=False) so
+                # GEV's GFP² weighting reflects true field power instead of being
+                # flattened by per-sample unit normalization.
                 self._full_dataset, _ = DataInitializer.generate_maps_and_peaks(
                     preprocessed_folder=self.preprocessed_data_path,
                     extension=self.extension,
                     datatype=self.datatype,
                     use_percentages=100,  # Use entire dataset
                     min_dist=None,  # Not relevant for full dataset
+                    normalize=False,
                 )
             except Exception as e:
                 print(f"Warning: Could not load full dataset for GEV calculation: {e}")
@@ -508,6 +511,9 @@ class ClustererOptimizer:
         clustering_result["gev"] = best_gev
         clustering_result["residual"] = best_residual
 
+        # One organised line per k instead of one log entry per metric.
+        metric_parts: list[str] = [f"GEV={best_gev:.4f}"]
+
         # Compute Davies-Bouldin score
         if k >= 2:
             try:
@@ -515,7 +521,7 @@ class ClustererOptimizer:
                     data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["davies_bouldin"] = db_score
-                self._log_message(f"k={k}: Davies-Bouldin = {db_score:.4f}")
+                metric_parts.append(f"Davies-Bouldin={db_score:.4f}")
             except Exception as e:
                 self._log_message(
                     f"Error computing Davies-Bouldin for k={k}: {str(e)}", level="error"
@@ -530,7 +536,7 @@ class ClustererOptimizer:
                 self.maps2use, clustering_result["maps"], best_labels
             )
             clustering_result["cv_score"] = cv_score
-            self._log_message(f"k={k}: Cross-Validation = {cv_score:.4f}")
+            metric_parts.append(f"Cross-Validation={cv_score:.4f}")
         except Exception as e:
             self._log_message(
                 f"Error computing Cross-Validation for k={k}: {str(e)}", level="error"
@@ -565,7 +571,7 @@ class ClustererOptimizer:
                     data=self.maps2use, labels=best_labels
                 )
                 clustering_result["silhouette_score"] = sil_score
-                self._log_message(f"k={k}: Silhouette = {sil_score:.4f}")
+                metric_parts.append(f"Silhouette={sil_score:.4f}")
             except Exception as e:
                 self._log_message(
                     f"Error computing Silhouette for k={k}: {str(e)}", level="error"
@@ -581,7 +587,7 @@ class ClustererOptimizer:
                     data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["dunn_index"] = dunn_score
-                self._log_message(f"k={k}: Dunn Index = {dunn_score:.4f}")
+                metric_parts.append(f"Dunn Index={dunn_score:.4f}")
             except Exception as e:
                 self._log_message(
                     f"Error computing Dunn Index for k={k}: {str(e)}", level="error"
@@ -597,7 +603,7 @@ class ClustererOptimizer:
                     data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["calinski_harabasz_index"] = ch_score
-                self._log_message(f"k={k}: Calinski-Harabasz = {ch_score:.4f}")
+                metric_parts.append(f"Calinski-Harabasz={ch_score:.4f}")
             except Exception as e:
                 self._log_message(
                     f"Error computing Calinski-Harabasz for k={k}: {str(e)}", level="error"
@@ -613,7 +619,7 @@ class ClustererOptimizer:
             )
             clustering_result["gap_statistic"] = gap_score
             clustering_result["gap_std"] = gap_std
-            self._log_message(f"k={k}: Gap Statistic = {gap_score:.4f}")
+            metric_parts.append(f"Gap Statistic={gap_score:.4f}")
         except Exception as e:
             self._log_message(
                 f"Error computing Gap Statistic for k={k}: {str(e)}", level="error"
@@ -627,7 +633,7 @@ class ClustererOptimizer:
                 data=self.maps2use, labels=best_labels, maps=clustering_result["maps"], criterion='AIC'
             )
             clustering_result["aic_score"] = aic_score
-            self._log_message(f"k={k}: AIC = {aic_score:.4f}")
+            metric_parts.append(f"AIC={aic_score:.4f}")
         except Exception as e:
             self._log_message(
                 f"Error computing AIC for k={k}: {str(e)}", level="error"
@@ -640,12 +646,14 @@ class ClustererOptimizer:
                 data=self.maps2use, labels=best_labels, maps=clustering_result["maps"], criterion='BIC'
             )
             clustering_result["bic_score"] = bic_score
-            self._log_message(f"k={k}: BIC = {bic_score:.4f}")
+            metric_parts.append(f"BIC={bic_score:.4f}")
         except Exception as e:
             self._log_message(
                 f"Error computing BIC for k={k}: {str(e)}", level="error"
             )
             clustering_result["bic_score"] = np.nan
+
+        self._log_message(f"k={k} metrics  |  " + "   ".join(metric_parts))
 
     # ============================================================================
     # PLOT GENERATION METHODS
@@ -2322,7 +2330,11 @@ class ClustererOptimizer:
         total_steps = len(self.k_range)
         for step_index, k in enumerate(self.k_range):
             self._check_stop()
-            self._update_progress(step_index + 1, total_steps, f"Computing metrics for k={k}")
+            # Report progress by how many k's are already finished (step_index),
+            # not step_index + 1: emitting the +1 here marked a k as done before
+            # its work ran, so the final k jumped to 100% (shown as 99%) at its
+            # start. 100% is emitted once by the caller after the batch finishes.
+            self._update_progress(step_index, total_steps, f"Computing metrics for k={k}")
 
             try:
                 result = self._get_clustering_result(k)
@@ -2448,9 +2460,15 @@ class ClustererOptimizer:
                     self._log_message("No valid GEV scores found in ensemble", level="warning")
                     optimal_k = self.kmin
                 else:
-                    optimal_k = self._intelligent_k_selection(
-                        self.k_range, gev_scores, higher_is_better=True
-                    )
+                    gev_threshold = parameters.get("gev")
+                    if gev_threshold is not None and gev_threshold > 0:
+                        optimal_k = self._find_gev_threshold_elbow(
+                            self.k_range, gev_scores, gev_threshold
+                        )
+                    else:
+                        optimal_k = self._intelligent_k_selection(
+                            self.k_range, gev_scores, higher_is_better=True
+                        )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
                     scores=gev_scores,
@@ -3243,3 +3261,36 @@ class ClustererOptimizer:
         
         # Fallback to midpoint if no clear elbow
         return x_vals[len(x_vals) // 2]
+
+    @staticmethod
+    def _find_gev_threshold_elbow(
+        k_values: list[int],
+        scores: list[float],
+        threshold: float,
+    ) -> int:
+        """Select k as the last k whose relative GEV gain met ``threshold`` percent.
+
+        This is the criterion the GUI's "Threshold (%)" field controls, unlike
+        the generic Kneedle elbow which ignores the threshold.
+
+        Args:
+            k_values: Candidate k values (ascending).
+            scores: GEV score for each k (higher is better).
+            threshold: Minimum relative gain (percent) worth an extra cluster.
+
+        Returns:
+            int: Selected k value.
+        """
+        valid_pairs = [(k, s) for k, s in zip(k_values, scores) if not np.isnan(s)]
+        if len(valid_pairs) < 2:
+            return valid_pairs[0][0] if valid_pairs else (k_values[0] if k_values else 2)
+
+        valid_k, valid_scores = zip(*valid_pairs)
+
+        for i in range(1, len(valid_scores)):
+            prev = valid_scores[i - 1]
+            change_percent = abs((valid_scores[i] - prev) / prev) * 100.0 if prev != 0 else 100.0
+            if change_percent < threshold:
+                return valid_k[i - 1]
+
+        return valid_k[-1]
