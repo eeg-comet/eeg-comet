@@ -310,7 +310,7 @@ Parameters for data selection, validation, and template extraction.
 <td><code>stopping_parameter</code></td>
 <td>Integer</td>
 <td><code>10</code></td>
-<td>Threshold for stopping criteria (1-100).</td>
+<td>GEV elbow gain threshold as a percent (1-100): the minimum relative GEV increase that justifies adding another cluster.</td>
 </tr>
 <tr>
 <td><code>use_percentages</code></td>
@@ -358,10 +358,14 @@ Parameters for data selection, validation, and template extraction.
 | `majority_vote` | Consensus across all validation criteria |
 | `gev` | Global Explained Variance |
 | `cv` | Cross-Validation Criterion |
-| `sil` | Silhouette Score |
-| `ch` | Calinski-Harabasz Index |
 | `db` | Davies-Bouldin Index |
-| `residual` | Residual variance |
+| `kl` | Krzanowski-Lai Criterion |
+| `sil` | Silhouette Score |
+| `dunn` | Dunn Index |
+| `ch` | Calinski-Harabasz Index |
+| `gap` | Gap Statistic |
+| `aic` | Akaike Information Criterion |
+| `bic` | Bayesian Information Criterion |
 
 ### Clustering Method Options
 
