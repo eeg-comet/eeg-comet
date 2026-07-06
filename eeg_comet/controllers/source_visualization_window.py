@@ -86,7 +86,7 @@ class SourceVisualizationWindow(QDialog):
                 save_key="source_visualization",
             )
 
-        for m in self.comet.micro_labels:
+        for m in self.comet.microstate_labels:
             self.ui.microstate_combobox.addItem(m)
 
         self.plotter = QtInteractor(self)
@@ -232,7 +232,7 @@ class SourceVisualizationWindow(QDialog):
             return False
 
         files = [f for f in os.listdir(subject_path) if f.endswith(".npy")]
-        expected_files = [f"{subject_name}_{label}.npy" for label in self.comet.micro_labels]
+        expected_files = [f"{subject_name}_{label}.npy" for label in self.comet.microstate_labels]
 
         # Check if all expected files exist
         missing_files = [f for f in expected_files if f not in files]
@@ -420,8 +420,8 @@ class SourceVisualizationWindow(QDialog):
 
             # Add title
             microstate_label_display = (
-                self.comet.micro_labels[microstate_idx]
-                if microstate_idx < len(self.comet.micro_labels)
+                self.comet.microstate_labels[microstate_idx]
+                if microstate_idx < len(self.comet.microstate_labels)
                 else f"State {microstate_idx}"
             )
 
@@ -463,9 +463,9 @@ class SourceVisualizationWindow(QDialog):
             brain_images = []
             valid_microstates = []
 
-            for idx, microstate_label in enumerate(self.comet.micro_labels):
+            for idx, microstate_label in enumerate(self.comet.microstate_labels):
                 print(
-                    f"Processing microstate {microstate_label} ({idx + 1}/{len(self.comet.micro_labels)})"
+                    f"Processing microstate {microstate_label} ({idx + 1}/{len(self.comet.microstate_labels)})"
                 )
                 microstate_data = self._load_avg_data(all_available_subjects, idx)
 
@@ -683,7 +683,7 @@ class SourceVisualizationWindow(QDialog):
             # Load data for all microstates
             all_microstate_data = {}
 
-            for idx, microstate_label in enumerate(self.comet.micro_labels):
+            for idx, microstate_label in enumerate(self.comet.microstate_labels):
                 microstate_data = self._load_avg_data(selected_subjects, idx)
                 if microstate_data is not None:
                     all_microstate_data[microstate_label] = microstate_data
@@ -814,8 +814,8 @@ class SourceVisualizationWindow(QDialog):
         Returns:
           np.ndarray | None: Averaged per-vertex array or None.
         """
-        if microstate_idx < len(self.comet.micro_labels):
-            microstate_label = self.comet.micro_labels[microstate_idx]
+        if microstate_idx < len(self.comet.microstate_labels):
+            microstate_label = self.comet.microstate_labels[microstate_idx]
         else:
             microstate_label = str(microstate_idx)
 
@@ -896,7 +896,7 @@ class SourceVisualizationWindow(QDialog):
                 print("No subjects found with averaged source data for export")
                 return
 
-            for idx, microstate_label in enumerate(self.comet.micro_labels):
+            for idx, microstate_label in enumerate(self.comet.microstate_labels):
                 microstate_data = self._load_avg_data(all_available_subjects, idx)
                 if microstate_data is None:
                     continue

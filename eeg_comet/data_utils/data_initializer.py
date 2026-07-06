@@ -19,7 +19,7 @@ class DataInitializer:
         pass
 
     @staticmethod
-    def initialize_cluster_centers(maps2use, n_states, initializer):
+    def initialize_cluster_centers(maps_to_use, n_states, initializer):
         """Initialize cluster centers for k-means clustering in microstate analysis.
 
         Implements two initialization strategies for microstate clustering:
@@ -30,7 +30,7 @@ class DataInitializer:
         Both methods normalize the resulting centers to unit length.
 
         Args:
-            maps2use (numpy.ndarray): Array of potential microstate maps with shape (n_channels, n_samples)
+            maps_to_use (numpy.ndarray): Array of potential microstate maps with shape (n_channels, n_samples)
             n_states (int): Number of microstate clusters to identify
             initializer (str): Initialization method, either 'K-Means++' or 'Random'
 
@@ -44,33 +44,33 @@ class DataInitializer:
             for EEG topographies.
         """
         if initializer == "K-Means++":
-            initial_idx = np.random.choice(np.size(maps2use, 1))
-            initial_centers = [maps2use[:, initial_idx]]
+            initial_idx = np.random.choice(np.size(maps_to_use, 1))
+            initial_centers = [maps_to_use[:, initial_idx]]
             for _ in range(1, n_states):
                 dists = np.array(
                     [
                         min(float(abs(correlate(d, c, mode="valid")[0])) for c in initial_centers)
-                        for d in maps2use.T
+                        for d in maps_to_use.T
                     ]
                 )
                 probs = dists / dists.sum()
-                next_idx = np.random.choice(np.size(maps2use, 1), p=probs)
-                next_centroid = maps2use[:, next_idx]
+                next_idx = np.random.choice(np.size(maps_to_use, 1), p=probs)
+                next_centroid = maps_to_use[:, next_idx]
                 initial_centers.append(next_centroid)
             initial_centers = np.array(initial_centers)
 
         else:
             # initializer == 'Random'
             random_state = np.random.RandomState(None)
-            initial_peaks = random_state.choice(np.size(maps2use, 1), size=n_states, replace=False)
-            initial_centers = maps2use[:, initial_peaks].T
+            initial_peaks = random_state.choice(np.size(maps_to_use, 1), size=n_states, replace=False)
+            initial_centers = maps_to_use[:, initial_peaks].T
 
         initial_centers /= np.linalg.norm(initial_centers, axis=1, keepdims=True)
         return initial_centers
 
     @staticmethod
     def extract_gfp_peaks_and_maps(
-        data, use_percentages=None, min_dist=None, random_seed=None, normalize=True
+        data, data_percentage=None, min_dist=None, random_seed=None, normalize=True
     ):
         """Extract Global Field Power (GFP) peaks and corresponding topographical maps.
 
@@ -80,15 +80,15 @@ class DataInitializer:
 
         Args:
             data (numpy.ndarray): EEG data array with shape (n_channels, n_timepoints)
-            use_percentages (float, optional): If provided, selects timepoints based on percentage:
+            data_percentage (float, optional): If provided, selects timepoints based on percentage:
                 - None: Use GFP peak detection with min_dist
                 - 0-99: Randomly selects this percentage of timepoints 
                 - 100: Uses ALL timepoints (entire data)
                 Value should be between 0-100. Defaults to None (use peak detection)
             min_dist (int, optional): Minimum distance between peaks in samples.
-                If 0, no minimum distance is enforced. Only used when use_percentages is None
+                If 0, no minimum distance is enforced. Only used when data_percentage is None
             random_seed (int, optional): Random seed for reproducible random sampling.
-                Only used when use_percentages is provided and < 100. Defaults to None
+                Only used when data_percentage is provided and < 100. Defaults to None
             normalize (bool): If True (default), normalize each topography to unit
                 L2 norm (required for clustering). Set False to keep the original
                 amplitudes, which GEV needs so its GFP² weighting is meaningful.
@@ -102,25 +102,25 @@ class DataInitializer:
 
         Notes:
             Three data selection modes:
-            1. use_percentages=None: GFP peak detection (with min_dist constraint)
-            2. use_percentages<100: Random subset of data points 
-            3. use_percentages=100: All data points (entire dataset)
+            1. data_percentage=None: GFP peak detection (with min_dist constraint)
+            2. data_percentage<100: Random subset of data points 
+            3. data_percentage=100: All data points (entire dataset)
         """
         gfp = np.std(data, axis=0)
 
-        if use_percentages is not None:
-            if use_percentages == 100:
+        if data_percentage is not None:
+            if data_percentage == 100:
                 # Use entire data - all time points for clustering
                 peaks = np.arange(data.shape[1])
             else:
                 # Use random subset of data based on percentage
-                num_samples = int(data.shape[1] * (int(use_percentages) / 100))
+                n_samples = int(data.shape[1] * (int(data_percentage) / 100))
                 if random_seed is not None:
                     # Set random seed for reproducible sampling
                     rng = np.random.RandomState(random_seed)
-                    peaks = rng.choice(data.shape[1], size=num_samples, replace=False)
+                    peaks = rng.choice(data.shape[1], size=n_samples, replace=False)
                 else:
-                    peaks = np.random.choice(data.shape[1], size=num_samples, replace=False)
+                    peaks = np.random.choice(data.shape[1], size=n_samples, replace=False)
         else:
             if min_dist == 0:
                 min_dist = None
@@ -154,8 +154,8 @@ class DataInitializer:
     def generate_maps_and_peaks(
         preprocessed_folder,
         extension,
-        datatype,
-        use_percentages=None,
+        data_type,
+        data_percentage=None,
         min_dist=None,
         random_seed=None,
         normalize=True,
@@ -168,21 +168,21 @@ class DataInitializer:
         Args:
             preprocessed_folder (str): Directory containing preprocessed EEG files
             extension (str): File extension to match (e.g., '.set', '.vhdr')
-            datatype (str): Type of EEG data - 'raw' or 'epoched'
-            use_percentages (float, optional): Percentage of data points to randomly
+            data_type (str): Type of EEG data - 'raw' or 'epoched'
+            data_percentage (float, optional): Percentage of data points to randomly
                 select instead of using peak detection (0-100). Defaults to None
             min_dist (int, optional): Minimum distance between peaks in samples.
                 Defaults to None
             random_seed (int, optional): Random seed for reproducible random sampling.
-                Only used when use_percentages is provided. Defaults to None
+                Only used when data_percentage is provided. Defaults to None
             normalize (bool): If True (default), unit-normalize each topography
                 (for clustering). Set False to preserve raw amplitudes for GEV.
 
         Returns:
             tuple: Contains:
-                - maps2use (numpy.ndarray): Concatenated topographical maps from all files,
+                - maps_to_use (numpy.ndarray): Concatenated topographical maps from all files,
                   shape (n_channels, total_peaks)
-                - peaks2use (numpy.ndarray): Concatenated indices of peaks from all files
+                - peaks_to_use (numpy.ndarray): Concatenated indices of peaks from all files
 
         Notes:
             This method is particularly useful for group-level microstate analysis
@@ -190,36 +190,36 @@ class DataInitializer:
         """
         data_io = DataIO()
         all_preprocessed_paths, _ = data_io.find_data(preprocessed_folder, extension)
-        maps2use, peaks2use = [], []
+        maps_to_use, peaks_to_use = [], []
         counter = 0
 
-        # When use_percentages is set together with random_seed, reproducibility
+        # When data_percentage is set together with random_seed, reproducibility
         # is achieved by deriving a distinct per-file seed
         # (``file_seed = random_seed + counter``) below and passing it to
         # ``extract_gfp_peaks_and_maps``. This yields a stable but different
         # random sample within each file across runs.
         for eeg_path in all_preprocessed_paths:
-            eeg = data_io.load_eeg(eeg_path, datatype)
-            eeg_data = data_io.get_eeg_data(eeg, datatype)
+            eeg = data_io.load_eeg(eeg_path, data_type)
+            eeg_data = data_io.get_eeg_data(eeg, data_type)
 
             # For random sampling with seed, we need to pass a different seed for each file
             # to ensure different samples but reproducible results
-            if use_percentages is not None and random_seed is not None:
+            if data_percentage is not None and random_seed is not None:
                 file_seed = random_seed + counter  # Different seed for each file
                 maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(
-                    eeg_data, use_percentages, min_dist, file_seed, normalize=normalize
+                    eeg_data, data_percentage, min_dist, file_seed, normalize=normalize
                 )
             else:
                 maps, peaks = DataInitializer.extract_gfp_peaks_and_maps(
-                    eeg_data, use_percentages, min_dist, normalize=normalize
+                    eeg_data, data_percentage, min_dist, normalize=normalize
                 )
 
             if counter == 0:
-                maps2use = maps
-                peaks2use = peaks
+                maps_to_use = maps
+                peaks_to_use = peaks
             else:
-                maps2use = np.hstack((maps2use, maps))
-                peaks2use = np.hstack((peaks2use, peaks))
+                maps_to_use = np.hstack((maps_to_use, maps))
+                peaks_to_use = np.hstack((peaks_to_use, peaks))
             counter = counter + 1
 
-        return maps2use, peaks2use
+        return maps_to_use, peaks_to_use

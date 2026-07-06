@@ -32,7 +32,7 @@ class BackfittingVisualizationWindow(QMainWindow):
     mapping across the dataset for legend consistency.
 
     Attributes:
-      datatype (str): Data type, either "raw" or "epoched".
+      data_type (str): Data type, either "raw" or "epoched".
       preprocessed_data_path (str): Folder containing preprocessed EEG files.
       segmentation_path (str): Folder containing segmentation label files.
       extension (str): EEG file extension (for discovery).
@@ -58,7 +58,7 @@ class BackfittingVisualizationWindow(QMainWindow):
         super().__init__(parent)
 
         # Initialize variables
-        self.datatype = ""
+        self.data_type = ""
         self.preprocessed_data_path = ""
         self.segmentation_path = ""
         self.extension = ""
@@ -299,12 +299,12 @@ class BackfittingVisualizationWindow(QMainWindow):
                 self.show_backfitting()
 
     def set_data_paths(
-        self, datatype, preprocessed_data_path, segmentation_path, extension, export_format
+        self, data_type, preprocessed_data_path, segmentation_path, extension, export_format
     ):
         """Configure data locations and initialize filename selection.
 
         Args:
-          datatype (str): "raw" for continuous data or "epoched" for trials.
+          data_type (str): "raw" for continuous data or "epoched" for trials.
           preprocessed_data_path (str): Folder containing preprocessed EEG files.
           segmentation_path (str): Folder containing segmentation label files.
           extension (str): EEG file extension (e.g., ".fif").
@@ -313,13 +313,13 @@ class BackfittingVisualizationWindow(QMainWindow):
         Returns:
           None
         """
-        self.datatype = datatype
+        self.data_type = data_type
         self.preprocessed_data_path = preprocessed_data_path
         self.segmentation_path = segmentation_path
         self.extension = extension
         self.export_format = export_format
 
-        # Refresh UI visibility based on datatype
+        # Refresh UI visibility based on data_type
         self.backfitting_visualization_controller()
 
         # Populate the filename combobox and auto-select first item
@@ -381,7 +381,7 @@ class BackfittingVisualizationWindow(QMainWindow):
         """
         return all(
             [
-                self.datatype,
+                self.data_type,
                 self.preprocessed_data_path,
                 self.segmentation_path,
                 self.extension,
@@ -406,7 +406,7 @@ class BackfittingVisualizationWindow(QMainWindow):
         # Check if required paths are set
         if not all(
             [
-                self.datatype,
+                self.data_type,
                 self.preprocessed_data_path,
                 self.segmentation_path,
                 self.extension,
@@ -430,7 +430,7 @@ class BackfittingVisualizationWindow(QMainWindow):
             time_max = int(eeg_times[-1])
 
             # For continuous/raw data, ensure no negative values
-            slider_min = max(0, time_min) if self.datatype == "raw" else time_min
+            slider_min = max(0, time_min) if self.data_type == "raw" else time_min
 
             # Slider max should account for window size so window doesn't exceed data bounds
             slider_max = time_max - self.current_window_size
@@ -453,7 +453,7 @@ class BackfittingVisualizationWindow(QMainWindow):
             self.ui.xlim_slider.setRange(slider_min, slider_max)
 
             # Set default start position
-            default_start = max(0, slider_min) if self.datatype == "raw" else slider_min
+            default_start = max(0, slider_min) if self.data_type == "raw" else slider_min
             default_end = default_start + self.current_window_size
 
             self.ui.xlim_slider.setValue(default_start)
@@ -461,7 +461,7 @@ class BackfittingVisualizationWindow(QMainWindow):
             self.ui.xlim_max_input.setText(str(default_end))
 
             # Update trial spinbox for epoched data
-            if self.datatype == "epoched":
+            if self.data_type == "epoched":
                 num_trials = len(segmentation_data)
                 self.ui.num_trials_spinbox.setRange(1, num_trials)
 
@@ -480,7 +480,7 @@ class BackfittingVisualizationWindow(QMainWindow):
           None
         """
         # Get all unique microstate labels from the entire dataset
-        if self.datatype == "epoched":
+        if self.data_type == "epoched":
             # For epoched data, segmentation_data is 2D (trials x timepoints)
             all_labels = set()
             for trial in segmentation_data:
@@ -556,7 +556,7 @@ class BackfittingVisualizationWindow(QMainWindow):
             time_min = int(self.current_eeg_times[0])
             time_max = int(self.current_eeg_times[-1])
 
-            slider_min = max(0, time_min) if self.datatype == "raw" else time_min
+            slider_min = max(0, time_min) if self.data_type == "raw" else time_min
 
             slider_max = time_max - self.current_window_size
             if slider_max < slider_min:
@@ -608,7 +608,7 @@ class BackfittingVisualizationWindow(QMainWindow):
             self.show_backfitting()
 
     def backfitting_visualization_controller(self):
-        """Toggle epoched-only widgets based on current `datatype`.
+        """Toggle epoched-only widgets based on current `data_type`.
 
         Returns:
           None
@@ -616,8 +616,8 @@ class BackfittingVisualizationWindow(QMainWindow):
         # Widgets related to epoched data
         epoched_data_widgets = [self.ui.num_trials_label, self.ui.num_trials_spinbox]
 
-        # Enable or disable epoched data widgets based on datatype
-        if self.datatype == "epoched":
+        # Enable or disable epoched data widgets based on data_type
+        if self.data_type == "epoched":
             set_widgets_status(epoched_data_widgets, mode="enable")
             set_widgets_status(epoched_data_widgets, mode="show")
         else:
@@ -644,12 +644,12 @@ class BackfittingVisualizationWindow(QMainWindow):
             extension=self.extension,
             pattern=f"*{selected_file_name}*",
         )
-        eeg = data_io.load_eeg(eeg_path=eeg_dir[0], datatype=self.datatype)
+        eeg = data_io.load_eeg(eeg_path=eeg_dir[0], data_type=self.data_type)
         eeg_info = eeg.info
         eeg_data = eeg.get_data()
         eeg_times = eeg.times * 1000  # Convert to milliseconds
 
-        # Process EEG data based on datatype
+        # Process EEG data based on data_type
         gfp_data = self._get_gfp_data(eeg_data)
 
         # Load segmentation data
@@ -670,7 +670,7 @@ class BackfittingVisualizationWindow(QMainWindow):
         return eeg_data, eeg_info, gfp_data, eeg_times, segmentation_data
 
     def _get_gfp_data(self, eeg_data):
-        """Compute GFP (µV) from EEG data according to current `datatype`.
+        """Compute GFP (µV) from EEG data according to current `data_type`.
 
         For epoched data, uses the trial selected by the spinbox.
 
@@ -681,7 +681,7 @@ class BackfittingVisualizationWindow(QMainWindow):
         Returns:
           np.ndarray: GFP in microvolts for each time point of the selected data.
         """
-        if self.datatype == "epoched":
+        if self.data_type == "epoched":
             trial = self.ui.num_trials_spinbox.value()
             gfp = np.std(eeg_data[trial - 1, :, :], axis=0)
         else:
@@ -733,7 +733,7 @@ class BackfittingVisualizationWindow(QMainWindow):
 
             # Get plot parameters
             time_min, time_max = self._get_time_range()
-            if self.datatype == "epoched":
+            if self.data_type == "epoched":
                 trial = self.ui.num_trials_spinbox.value()
                 eeg2plot = eeg_data[trial - 1, :, :]
                 segmentation2plot = segmentation_data[trial - 1, :]
@@ -804,8 +804,8 @@ class BackfittingVisualizationWindow(QMainWindow):
         self.figure.clear()
         ax = self.figure.add_subplot(111)
 
-        # Add a dashed horizontal line at y=0 if self.datatype is 'epoched'
-        if self.datatype == "epoched":
+        # Add a dashed horizontal line at y=0 if self.data_type is 'epoched'
+        if self.data_type == "epoched":
             ax.axvline(0, color="red", linestyle="--")
 
         # Prepare legend and color mapping

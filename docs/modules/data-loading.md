@@ -112,7 +112,7 @@ EEG-COMET provides full support for [Brain Imaging Data Structure (BIDS)](https:
 | `extension` | File extension to search for | `.auto` |
 | `load_all_files` | Load all matching files | `True` |
 | `pattern_content` | Filename pattern filter | `*` (all files) |
-| `datatype` | Data type | `raw` or `epoched` |
+| `data_type` | Data type | `raw` or `epoched` |
 
 ### Extension Options
 
@@ -216,7 +216,7 @@ input_folder = /path/to/data
 output_folder = /path/to/output
 extension = .set
 pattern_content = *
-datatype = raw
+data_type = raw
 ```
 
 ### Selective Loading
@@ -230,7 +230,7 @@ input_folder = /path/to/data
 output_folder = /path/to/output
 extension = .set
 pattern_content = *session01*
-datatype = raw
+data_type = raw
 ```
 
 ### BIDS Dataset
@@ -244,7 +244,7 @@ input_folder = /path/to/bids_dataset/derivatives/preprocessed
 output_folder = /path/to/output
 extension = .auto
 pattern_content = *_eeg*
-datatype = raw
+data_type = raw
 ```
 
 ---

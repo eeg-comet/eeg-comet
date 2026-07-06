@@ -120,7 +120,7 @@ class COMET:
         self.montage = ""
         self.extension = ".auto"
         self.pattern_content = "*"
-        self.datatype = "raw"
+        self.data_type = "raw"
 
         # Preprocessing
         self.temporal_filter_data = True
@@ -128,29 +128,29 @@ class COMET:
         self.lowcut_freq = 2
         self.highcut_freq = 20
         self.downsample_data = True
-        self.sample_rate = 250
+        self.sampling_rate = 250
         self.spatial_filter_data = False
         self.auto_clean_data = False
         self.remove_channels = False
-        self.chan2rm = ""
+        self.channels_to_remove = ""
         self.prep_data = False
 
         # Clustering
         self.smoothing_gfp = False
         self.smoothing_distance = 10
-        self.number_of_maps = 4
+        self.n_maps = 4
         self.choose_number_of_maps = "User"
-        self.kmin = 2
-        self.kmax = 10
+        self.k_min = 2
+        self.k_max = 10
         self.stopping_mode = "gev"
-        self.stopping_parameter = 10
+        self.stopping_threshold = 10
         self.initializer = "Random"
         self.clustering_method = "Modified K-Means Clustering"
         self.max_iterations = 500
         self.clustering_tolerance = 1e-6
         self.similarity_metric = ""
-        self.number_of_repeats = 5
-        self.use_percentages = 100
+        self.n_repeats = 5
+        self.data_percentage = 100
 
         # Backfitting
         self.backfit_to = "all"
@@ -158,9 +158,9 @@ class COMET:
         self.filter_segments = False
         self.filter_segments_less_than = 20
         self.filter_segments_option = "smooth"
-        self.epsilon = 1e-6
-        self.b = 3
-        self.lamb = 5
+        self.convergence_epsilon = 1e-6
+        self.half_window_size = 3
+        self.smoothness_penalty = 5
         self.min_correlation_threshold = False
         self.filter_segments_less_than_ms = 0
 
@@ -187,7 +187,7 @@ class COMET:
         self.use_anatomy = "fsaverage"
         self.bem_solver = "mne"
         self.inverse_method = "dSPM"
-        self.nperm = 2000
+        self.n_permutations = 2000
         self.spacing = "ico3"
         self.source_localization_method = "tess"
         self.anatomy_subjects_dir = ""
@@ -198,7 +198,7 @@ class COMET:
         self.common_events = []
         self.labels_overall_confidence = None
         self.label_confidences = None  # Per-label confidence (label -> %)
-        self.maps2use = None
+        self.maps_to_use = None
         self.min_distance_size = None
         self.clustering_results = []
         self.optimization_results = None
@@ -215,7 +215,7 @@ class COMET:
         self.pattern = "*"
         self.list_eegs_path = []
         self.list_eegs = []
-        self.micro_labels = []
+        self.microstate_labels = []
         self.ch_names = []
         self.eeg_info = None
 
@@ -299,8 +299,8 @@ class COMET:
         config["io_config"]["input_folder"] = ""
         config["io_config"]["montage"] = ""
         config["io_config"]["extension"] = ".set"
-        config["io_config"]["pattern"] = "*"
-        config["io_config"]["datatype"] = "raw"
+        config["io_config"]["pattern_content"] = "*"
+        config["io_config"]["data_type"] = "raw"
         config["io_config"]["output_folder"] = ""
 
         # Set default preprocessing values
@@ -309,22 +309,22 @@ class COMET:
         config["preprocessing_config"]["lowcut_freq"] = "2"
         config["preprocessing_config"]["highcut_freq"] = "20"
         config["preprocessing_config"]["downsample_data"] = "True"
-        config["preprocessing_config"]["sample_rate"] = "250"
+        config["preprocessing_config"]["sampling_rate"] = "250"
         config["preprocessing_config"]["spatial_filter_data"] = "False"
         config["preprocessing_config"]["auto_clean_data"] = "False"
         config["preprocessing_config"]["remove_channels"] = "False"
-        config["preprocessing_config"]["ch2rm"] = ""
+        config["preprocessing_config"]["channels_to_remove"] = ""
         config["preprocessing_config"]["prep_data"] = "False"
 
         # Set default clustering values
         config["clustering_config"]["smoothing_gfp"] = "False"
         config["clustering_config"]["smoothing_distance"] = "10"
-        config["clustering_config"]["number_of_maps"] = "4"
-        config["clustering_config"]["kmin"] = "2"
-        config["clustering_config"]["kmax"] = "10"
+        config["clustering_config"]["n_maps"] = "4"
+        config["clustering_config"]["k_min"] = "2"
+        config["clustering_config"]["k_max"] = "10"
         config["clustering_config"]["stopping_mode"] = "gev"
-        config["clustering_config"]["stopping_parameter"] = "10"
-        config["clustering_config"]["use_percentages"] = "100"
+        config["clustering_config"]["stopping_threshold"] = "10"
+        config["clustering_config"]["data_percentage"] = "100"
         config["clustering_config"]["initializer"] = "Random"
         config["clustering_config"][
             "clustering_method"
@@ -332,16 +332,16 @@ class COMET:
         config["clustering_config"]["max_iterations"] = "500"
         config["clustering_config"]["clustering_tolerance"] = "1e-6"
         config["clustering_config"]["similarity_metric"] = "Spatial Correlation"
-        config["clustering_config"]["number_of_repeats"] = "5"
+        config["clustering_config"]["n_repeats"] = "5"
         # Set default backfitting values
         config["backfitting_config"]["backfit_to"] = "all"
         config["backfitting_config"]["identify_short_window"] = "False"
         config["backfitting_config"]["filter_segments"] = "False"
         config["backfitting_config"]["filter_segments_less_than"] = "20"
         config["backfitting_config"]["filter_segments_option"] = "smooth"
-        config["backfitting_config"]["epsilon"] = "1e-6"
-        config["backfitting_config"]["b"] = "3"
-        config["backfitting_config"]["lamb"] = "5"
+        config["backfitting_config"]["convergence_epsilon"] = "1e-6"
+        config["backfitting_config"]["half_window_size"] = "3"
+        config["backfitting_config"]["smoothness_penalty"] = "5"
         config["backfitting_config"]["min_correlation_threshold"] = "False"
 
         # Set default feature extraction values
@@ -357,7 +357,7 @@ class COMET:
         config["source_config"]["use_anatomy"] = "fsaverage"
         config["source_config"]["bem_solver"] = "mne"
         config["source_config"]["inverse_method"] = "dSPM"
-        config["source_config"]["nperm"] = "2000"
+        config["source_config"]["n_permutations"] = "2000"
         config["source_config"]["spacing"] = "ico3"
         config["source_config"]["source_localization_method"] = "tess"
         config["source_config"]["anatomy_subjects_dir"] = ""
@@ -437,13 +437,15 @@ class COMET:
         self.input_folder = io_config.get("input_folder", "")
         self.montage = io_config.get("montage", "")
         self.extension = io_config.get("extension", ".auto")
-        self.pattern_content = io_config.get("pattern", "*")
-        self.datatype = io_config.get("datatype", "raw")
+        self.pattern_content = io_config.get("pattern_content", io_config.get("pattern", "*"))
+        self.data_type = io_config.get("data_type", io_config.get("datatype", "raw"))
         self.output_folder = io_config.get("output_folder", "")
 
         # Preprocessing Configs
         preprocessing_config = self.config["preprocessing_config"]
-        self.temporal_filter_data = preprocessing_config.getboolean("temporal_filter_data", True)
+        self.temporal_filter_data = preprocessing_config.getboolean(
+            "temporal_filter_data", preprocessing_config.getboolean("filter_data", True)
+        )
         if self.temporal_filter_data:
             self.filter_method = preprocessing_config.get("filter_method", "fir")
             self.lowcut_freq = preprocessing_config.getint("lowcut_freq", 2)
@@ -455,17 +457,21 @@ class COMET:
 
         self.downsample_data = preprocessing_config.getboolean("downsample_data", True)
         if self.downsample_data:
-            self.sample_rate = preprocessing_config.getint("sample_rate", 250)
+            self.sampling_rate = preprocessing_config.getint(
+                "sampling_rate", preprocessing_config.getint("sample_rate", 250)
+            )
         else:
-            self.sample_rate = 250
+            self.sampling_rate = 250
 
         self.spatial_filter_data = preprocessing_config.getboolean("spatial_filter_data", False)
         self.auto_clean_data = preprocessing_config.getboolean("auto_clean_data", False)
         self.remove_channels = preprocessing_config.getboolean("remove_channels", False)
         if self.remove_channels:
-            self.chan2rm = preprocessing_config.get("ch2rm", "")
+            self.channels_to_remove = preprocessing_config.get(
+                "channels_to_remove", preprocessing_config.get("ch2rm", "")
+            )
         else:
-            self.chan2rm = ""
+            self.channels_to_remove = ""
         self.prep_data = preprocessing_config.getboolean("prep_data", False)
 
         # Clustering Configs
@@ -476,20 +482,22 @@ class COMET:
         else:
             self.smoothing_distance = 10
 
-        number_of_maps = clustering_config.get("number_of_maps", "4")
-        self.number_of_maps = number_of_maps if number_of_maps == "auto" else int(number_of_maps)
-        self.choose_number_of_maps = "Auto" if number_of_maps == "auto" else "User"
+        n_maps_setting = clustering_config.get("n_maps", clustering_config.get("number_of_maps", "4"))
+        self.n_maps = n_maps_setting if n_maps_setting == "auto" else int(n_maps_setting)
+        self.choose_number_of_maps = "Auto" if n_maps_setting == "auto" else "User"
 
-        if self.number_of_maps == "auto":
-            self.kmin = clustering_config.getint("kmin", 2)
-            self.kmax = clustering_config.getint("kmax", 10)
+        if self.n_maps == "auto":
+            self.k_min = clustering_config.getint("k_min", clustering_config.getint("kmin", 2))
+            self.k_max = clustering_config.getint("k_max", clustering_config.getint("kmax", 10))
             self.stopping_mode = clustering_config.get("stopping_mode", "majority_vote")
-            self.stopping_parameter = clustering_config.getint("stopping_parameter", 10)
+            self.stopping_threshold = clustering_config.getint(
+                "stopping_threshold", clustering_config.getint("stopping_parameter", 10)
+            )
         else:
-            self.kmin = 2
-            self.kmax = 10
+            self.k_min = 2
+            self.k_max = 10
             self.stopping_mode = "majority_vote"
-            self.stopping_parameter = 10
+            self.stopping_threshold = 10
 
         self.initializer = clustering_config.get("initializer", "Random")
         self.clustering_method = clustering_config.get(
@@ -506,15 +514,19 @@ class COMET:
             if self.clustering_method != "Modified K-Means Clustering"
             else ""
         )
-        self.number_of_repeats = clustering_config.getint("number_of_repeats", 5)
+        self.n_repeats = clustering_config.getint(
+            "n_repeats", clustering_config.getint("number_of_repeats", 5)
+        )
 
-        # Handle use_percentages
+        # Handle data_percentage
         try:
-            self.use_percentages = clustering_config.getint("use_percentages", 100)
+            self.data_percentage = clustering_config.getint(
+                "data_percentage", clustering_config.getint("use_percentages", 100)
+            )
         except (ValueError, KeyError):
-            self.use_percentages = 100
+            self.data_percentage = 100
 
-        # Allow use_percentages to be None for GFP peak detection
+        # Allow data_percentage to be None for GFP peak detection
         # Note: None means use GFP peaks, values 20-100 mean use percentage of data
 
         # --- NEW: Load common events if present ---
@@ -541,18 +553,24 @@ class COMET:
             self.filter_segments_option = "smooth"
 
         try:
-            self.epsilon = backfitting_config.getfloat("epsilon", 1e-6)
+            self.convergence_epsilon = backfitting_config.getfloat(
+                "convergence_epsilon", backfitting_config.getfloat("epsilon", 1e-6)
+            )
         except (ValueError, TypeError):
-            # Handle case where epsilon is empty string or invalid
-            self.epsilon = 1e-6
+            # Handle case where convergence_epsilon is empty string or invalid
+            self.convergence_epsilon = 1e-6
         try:
-            self.b = backfitting_config.getint("b", 3)
+            self.half_window_size = backfitting_config.getint(
+                "half_window_size", backfitting_config.getint("b", 3)
+            )
         except (ValueError, TypeError):
-            self.b = 3
+            self.half_window_size = 3
         try:
-            self.lamb = backfitting_config.getint("lamb", 5)
+            self.smoothness_penalty = backfitting_config.getint(
+                "smoothness_penalty", backfitting_config.getint("lamb", 5)
+            )
         except (ValueError, TypeError):
-            self.lamb = 5
+            self.smoothness_penalty = 5
         _corr_thresh = backfitting_config.get("min_correlation_threshold", "False").strip()
         if _corr_thresh in ("", "False", "false", "0"):
             self.min_correlation_threshold = False
@@ -600,7 +618,9 @@ class COMET:
 
         if "OCC" in self.feature_list:
             try:
-                self.sliding_window_size = features_config.getint("sliding_window_size", 1)
+                self.sliding_window_size = features_config.getint(
+                    "sliding_window_size", features_config.getint("window_size", 1)
+                )
             except ValueError:
                 self.sliding_window_size = 1
         else:
@@ -649,9 +669,11 @@ class COMET:
         self.bem_solver = source_config.get("bem_solver", "mne")
         self.inverse_method = source_config.get("inverse_method", "dSPM")
         try:
-            self.nperm = source_config.getint("nperm", 2000)
+            self.n_permutations = source_config.getint(
+                "n_permutations", source_config.getint("nperm", 2000)
+            )
         except (ValueError, TypeError):
-            self.nperm = 2000
+            self.n_permutations = 2000
         self.spacing = source_config.get("spacing", "ico3")
         self.source_localization_method = source_config.get("source_localization_method", "tess")
         self.anatomy_subjects_dir = source_config.get("anatomy_subjects_dir", "")
@@ -852,29 +874,29 @@ class COMET:
                 f"Microstate maps file not found: {self.microstate_maps_path}"
             )
         try:
-            self.best_maps, self.micro_labels = self.comet_microstate_io.load_microstates(
+            self.best_maps, self.microstate_labels = self.comet_microstate_io.load_microstates(
                 self.microstate_maps_path
             )
             return True
         except Exception as err:
             raise ValueError(f"Error loading microstate maps: {err}") from err
 
-    def check_chan2rm(self):
+    def check_channels_to_remove(self):
         """Check the consistency of EEG channels across all data."""
-        consistent_channels, missing_channels = self.comet_data_io.check_chan2rm(
-            self.list_eegs_path, datatype=self.datatype, montage=self.montage
+        consistent_channels, missing_channels = self.comet_data_io.check_channels_to_remove(
+            self.list_eegs_path, data_type=self.data_type, montage=self.montage
         )
         
         # Convert chan2rm to list if it's a string
-        if isinstance(self.chan2rm, str):
-            current_channels = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()] if self.chan2rm else []
-        elif isinstance(self.chan2rm, list):
-            current_channels = self.chan2rm
+        if isinstance(self.channels_to_remove, str):
+            current_channels = [ch.strip() for ch in self.channels_to_remove.split(",") if ch.strip()] if self.channels_to_remove else []
+        elif isinstance(self.channels_to_remove, list):
+            current_channels = self.channels_to_remove
         else:
             current_channels = []
         
         # Combine current channels with missing channels
-        self.chan2rm = list(set(current_channels).union(set(missing_channels)))
+        self.channels_to_remove = list(set(current_channels).union(set(missing_channels)))
         self.ch_names = consistent_channels
 
     def save_eeg_info(self, eeg_info_path):
@@ -893,7 +915,7 @@ class COMET:
                 self.LogWindow.append_log(f"Saving EEG info with {dig_count} digitization points from processed data", log_type="info")
         else:
             eeg_info = mne.create_info(
-                ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sample_rate
+                ch_names=self.ch_names, ch_types=["eeg"] * len(self.ch_names), sfreq=self.sampling_rate
             )
             eeg_info["description"] = self.study_name
 
@@ -975,7 +997,7 @@ class COMET:
             return
 
         # Load EEG data
-        eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+        eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, data_type=self.data_type)
 
         # Log file processing start
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -989,12 +1011,12 @@ class COMET:
             eeg.set_montage(montage_obj, match_case=False, on_missing="warn")
 
         # Remove channels if specified
-        if hasattr(self, "chan2rm") and self.chan2rm:
+        if hasattr(self, "channels_to_remove") and self.channels_to_remove:
             # Handle both string (comma-separated) and list formats
-            if isinstance(self.chan2rm, str):
-                channels_to_remove = [ch.strip() for ch in self.chan2rm.split(",") if ch.strip()]
-            elif isinstance(self.chan2rm, list):
-                channels_to_remove = [ch.strip() for ch in self.chan2rm if ch and str(ch).strip()]
+            if isinstance(self.channels_to_remove, str):
+                channels_to_remove = [ch.strip() for ch in self.channels_to_remove.split(",") if ch.strip()]
+            elif isinstance(self.channels_to_remove, list):
+                channels_to_remove = [ch.strip() for ch in self.channels_to_remove if ch and str(ch).strip()]
             else:
                 channels_to_remove = []
             
@@ -1081,16 +1103,16 @@ class COMET:
         # Apply preprocessing steps (event selection happens inside preprocessor after processing)
         preprocessed_eeg = self.comet_preprocessor.preprocess_eeg(
             eeg=eeg,
-            filter_bool=self.temporal_filter_data,
-            filtermethod=self.filter_method,
-            lowcut=self.lowcut_freq,
-            highcut=self.highcut_freq,
-            downsample_bool=self.downsample_data,
-            sampling_rate=self.sample_rate,
-            spatial_smooth_bool=self.spatial_filter_data,
+            apply_filter=self.temporal_filter_data,
+            filter_method=self.filter_method,
+            low_cut=self.lowcut_freq,
+            high_cut=self.highcut_freq,
+            apply_downsample=self.downsample_data,
+            sampling_rate=self.sampling_rate,
+            apply_spatial_smooth=self.spatial_filter_data,
             select_events_only=getattr(self, "select_events_only", False),
             selected_event_label=getattr(self, "selected_event_label", None),
-            datatype=self.datatype,
+            data_type=self.data_type,
         )
 
         # Store the processed EEG info from the first file to preserve digitization points
@@ -1107,7 +1129,7 @@ class COMET:
             eeg=preprocessed_eeg,
             save_path=save_path,
             extension=self.extension,
-            datatype=self.datatype,
+            data_type=self.data_type,
         )
 
         # Log successful processing
@@ -1162,14 +1184,14 @@ class COMET:
             for ext in possible_extensions:
                 eeg_path = os.path.join(self.preprocessed_data_path, f"{subject_name}{ext}")
                 if os.path.exists(eeg_path):
-                    return self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+                    return self.comet_data_io.load_eeg(eeg_path=eeg_path, data_type=self.data_type)
             
             # If no file found with standard extensions, try to find any matching file
             pattern = f"{subject_name}.*"
             files = glob.glob(os.path.join(self.preprocessed_data_path, pattern))
             if files:
                 # Use the first matching file
-                return self.comet_data_io.load_eeg(eeg_path=files[0], datatype=self.datatype)
+                return self.comet_data_io.load_eeg(eeg_path=files[0], data_type=self.data_type)
             else:
                 raise FileNotFoundError(
                     f"No preprocessed EEG file found for {subject_name} in {self.preprocessed_data_path}"
@@ -1177,7 +1199,7 @@ class COMET:
         else:
             # Use the specified extension
             eeg_path = os.path.join(self.preprocessed_data_path, f"{subject_name}{self.extension}")
-            return self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+            return self.comet_data_io.load_eeg(eeg_path=eeg_path, data_type=self.data_type)
 
     def compute_gev_all_data(self):
         """Compute Global Explained Variance for all data."""
@@ -1186,8 +1208,8 @@ class COMET:
         all_data, _ = self.comet_data_initializer.generate_maps_and_peaks(
             preprocessed_folder=self.preprocessed_data_path,
             extension=self.extension,
-            datatype=self.datatype,
-            use_percentages=100,
+            data_type=self.data_type,
+            data_percentage=100,
             normalize=False,
         )
         return self.comet_microstate_clusterer.compute_gev(data=all_data, maps=self.best_maps)
@@ -1207,12 +1229,12 @@ class COMET:
         initial_maps = None
         if not is_taahc:
             initial_maps = self.comet_data_initializer.initialize_cluster_centers(
-                maps2use=self.maps2use, n_states=self.number_of_maps, initializer=self.initializer
+                maps_to_use=self.maps_to_use, n_states=self.n_maps, initializer=self.initializer
             )
         else:
             # TAAHC is deterministic and time-consuming - MUST use only 1 repetition
-            original_repeats = self.number_of_repeats
-            self.number_of_repeats = 1
+            original_repeats = self.n_repeats
+            self.n_repeats = 1
             if original_repeats != 1:
                 self.logger.warning(
                     "CLUSTERING",
@@ -1227,19 +1249,19 @@ class COMET:
         try:
             if self.clustering_method == "Modified K-Means Clustering":
                 maps_init, residual_init = self.comet_microstate_clusterer.modified_kmeans(
-                    data=self.maps2use,
+                    data=self.maps_to_use,
                     initial_maps=initial_maps,
                     worker=worker,  # Pass worker to check stopped flag
-                    repetition_num=f"{init + 1}/{self.number_of_repeats}",  # Pass repetition number
+                    repetition_num=f"{init + 1}/{self.n_repeats}",  # Pass repetition number
                 )
             elif self.clustering_method == "Modified K-Means Clustering with Spatial Similarity":
                 maps_init, residual_init = (
                     self.comet_microstate_clusterer.modified_kmeans_similarity(
-                        data=self.maps2use,
+                        data=self.maps_to_use,
                         initial_maps=initial_maps,
                         metric=self.similarity_metric,
                         worker=worker,  # Pass worker to check stopped flag
-                        repetition_num=f"{init + 1}/{self.number_of_repeats}",  # Pass repetition number
+                        repetition_num=f"{init + 1}/{self.n_repeats}",  # Pass repetition number
                     )
                 )
             elif (
@@ -1263,7 +1285,7 @@ class COMET:
 
                 # Run TAAHC with progress tracking
                 maps_init, residual_init = self.comet_microstate_clusterer.taahc(
-                    data=self.maps2use,
+                    data=self.maps_to_use,
                     metric=self.similarity_metric,
                     verbose=True,
                     progress_callback=taahc_progress_callback,
@@ -1302,12 +1324,12 @@ class COMET:
                 if is_taahc:
                     log_message = (
                         f"TAAHC Clustering Completed\n"
-                        f"✓ Hierarchical clustering processed {self.maps2use.shape[1]} timepoints\n"
+                        f"✓ Hierarchical clustering processed {self.maps_to_use.shape[1]} timepoints\n"
                         f"✓ Global Explained Variance: {100 * gev_init:.3f}%"
                     )
                 else:
                     log_message = (
-                        f"Data Clustered [{init + 1}/{self.number_of_repeats}]\n"
+                        f"Data Clustered [{init + 1}/{self.n_repeats}]\n"
                         f"✓ Global Explained Variance: {100 * gev_init:.3f}%"
                     )
 
@@ -1330,7 +1352,7 @@ class COMET:
                     self.best_maps, self.eeg_info, self.microstate_maps_path
                 )
                 
-                # Update micro_labels to match the new number of states
+                # Update microstate_labels to match the new number of states
                 self.load_maps()
 
                 # Additional logging for best result updates
@@ -1358,13 +1380,13 @@ class COMET:
             # Compute final GEV
             self.best_gev = self.compute_gev_all_data()
 
-            # Ensure micro_labels are updated for the new number of states
+            # Ensure microstate_labels are updated for the new number of states
             try:
                 self.load_maps()
             except Exception as e:
                 self.logger.warning("CLUSTERING", f"Could not load maps after clustering stop: {e}")
                 # Generate default labels if loading fails
-                self.micro_labels = [f"Microstate {i+1}" for i in range(self.number_of_maps)]
+                self.microstate_labels = [f"Microstate {i+1}" for i in range(self.n_maps)]
 
             # Mark clustering as completed (even if stopped early)
             self.done_clustering = True
@@ -1373,7 +1395,7 @@ class COMET:
             stop_message = (
                 f"❌  [CLUSTERING] Stop Requested - Please Wait ...\n"
                 f"⚠️ Clustering stopped by user\n"
-                f"✓ Saved best maps found so far: {self.number_of_maps} microstates "
+                f"✓ Saved best maps found so far: {self.n_maps} microstates "
                 f"(GEV: {100 * self.best_gev:.3f}%%)"
             )
 
@@ -1402,7 +1424,7 @@ class COMET:
         if worker is not None and getattr(worker, "stopped", False):
             return
 
-        eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+        eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, data_type=self.data_type)
         time_array = eeg.times * 1000
 
         # Log file processing start
@@ -1416,7 +1438,7 @@ class COMET:
             self.comet_microstate_backfitter.perform_segmentation(
                 eeg=eeg,
                 filter_segments_less_than=int(
-                    self.filter_segments_less_than_ms / (1000 / self.sample_rate)
+                    self.filter_segments_less_than_ms / (1000 / self.sampling_rate)
                 ),
             )
         )
@@ -1475,7 +1497,7 @@ class COMET:
         if getattr(self, "spatial_filter_data", False):
             preprocessing_steps.append("Spatial smoothing")
         if getattr(self, "downsample_data", False):
-            preprocessing_steps.append(f"Downsampling to {self.sample_rate} Hz")
+            preprocessing_steps.append(f"Downsampling to {self.sampling_rate} Hz")
         if getattr(self, "prep_data", False):
             preprocessing_steps.append("Bad channel detection / interpolation")
 
@@ -1486,7 +1508,7 @@ class COMET:
                 "Study Name": self.study_name,
                 "Input Directory": self.input_folder,
                 "Output Directory": self.save_dir,
-                "Files Found": f"{len(self.list_eegs_path)} {self.datatype} EEG files with {self.extension} extension",
+                "Files Found": f"{len(self.list_eegs_path)} {self.data_type} EEG files with {self.extension} extension",
             }
             self.logger.settings_info("PREPROCESSING", study_info)
 
@@ -1510,10 +1532,10 @@ class COMET:
                 "Enabled" if self.spatial_filter_data else "Disabled"
             )
             preprocessing_settings["Downsampling"] = (
-                f"{self.sample_rate} Hz" if self.downsample_data else "Disabled"
+                f"{self.sampling_rate} Hz" if self.downsample_data else "Disabled"
             )
             preprocessing_settings["Channels to Remove"] = (
-                str(self.chan2rm) if self.chan2rm else "None"
+                str(self.channels_to_remove) if self.channels_to_remove else "None"
             )
 
             self.logger.settings_info("PREPROCESSING", preprocessing_settings)
@@ -1522,7 +1544,7 @@ class COMET:
         self.zipped_eeg_files = list(zip(self.list_eegs_path, self.list_eegs))
 
         # Check channel consistency
-        self.check_chan2rm()
+        self.check_channels_to_remove()
 
         # Start preprocessing
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -1561,8 +1583,8 @@ class COMET:
         # Log clustering configuration
         clustering_settings = {}
         clustering_settings["Clustering Method"] = getattr(self, "clustering_method", "Unknown")
-        clustering_settings["Number of Maps"] = getattr(self, "number_of_maps", "Unknown")
-        clustering_settings["Number of Repeats"] = getattr(self, "number_of_repeats", "Unknown")
+        clustering_settings["Number of Maps"] = getattr(self, "n_maps", "Unknown")
+        clustering_settings["Number of Repeats"] = getattr(self, "n_repeats", "Unknown")
         # Note: K Range and Stopping Mode are logged separately below for better formatting
 
         # Start clustering
@@ -1573,7 +1595,7 @@ class COMET:
         self.logger.processing_info("REVIEW", "    https://doi.org/10.1016/j.neuroimage.2017.11.062")
         
         # Log optimization method information if using auto-k selection
-        if self.number_of_maps == "auto":
+        if self.n_maps == "auto":
             if getattr(self, 'stopping_mode', 'majority_vote') == "majority_vote":
                 self.logger.processing_info("CLUSTERING", "Optimization Strategy: Ensemble method (majority vote across 10 criteria)")
                 self.logger.processing_info("CLUSTERING", "Methods: GEV, Davies-Bouldin, Cross-Validation, Krzanowski-Lai, Silhouette, Dunn, Calinski-Harabasz, Gap, AIC, BIC")
@@ -1603,9 +1625,9 @@ class COMET:
         # Provide concise clustering details
         try:
             # K range and input details
-            if self.number_of_maps == "auto":
-                kmin = getattr(self, 'kmin', 2)
-                kmax = getattr(self, 'kmax', 10)
+            if self.n_maps == "auto":
+                kmin = getattr(self, 'k_min', 2)
+                kmax = getattr(self, 'k_max', 10)
                 
                 # Determine optimization mode description
                 if getattr(self, 'stopping_mode', 'majority_vote') == "majority_vote":
@@ -1616,10 +1638,10 @@ class COMET:
                 self.logger.processing_info("CLUSTERING", f"K Range: {kmin} to {kmax} (optimization: {opt_mode})")
                 self.logger.processing_info("CLUSTERING", "Clustering Input: GFP peaks (auto-k enforced)")
             else:
-                self.logger.processing_info("CLUSTERING", f"K Value: {self.number_of_maps} (user-defined)")
+                self.logger.processing_info("CLUSTERING", f"K Value: {self.n_maps} (user-defined)")
                 
                 # Input selection message for user-defined k
-                use_pct = getattr(self, "use_percentages", None)
+                use_pct = getattr(self, "data_percentage", None)
                 if use_pct is None:
                     input_msg = "Clustering Input: GFP peaks only"
                 elif use_pct >= 100:
@@ -1633,10 +1655,10 @@ class COMET:
                 getattr(self, "clustering_method", "")
                 == "Topographic Atomize and Agglomerate Hierarchical Clustering"
             )
-            effective_repeats = 1 if is_taahc else getattr(self, "number_of_repeats", 1)
+            effective_repeats = 1 if is_taahc else getattr(self, "n_repeats", 1)
             
-            if self.number_of_maps == "auto":
-                self.logger.processing_info("CLUSTERING", "Auto-k selection: Using single repeat (n_inits=1) for optimization")
+            if self.n_maps == "auto":
+                self.logger.processing_info("CLUSTERING", "Auto-k selection: Using single repeat (n_repeats=1) for optimization")
             else:
                 self.logger.processing_info("CLUSTERING", f"Repeating analysis {effective_repeats} times")
                 
@@ -1646,7 +1668,7 @@ class COMET:
 
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
             # Calculate total steps for clustering - only count clustering repetitions
-            clustering_steps = self.number_of_repeats  # One step per repetition
+            clustering_steps = self.n_repeats  # One step per repetition
 
             # Use setup_progress_dialog for worker thread with correct total steps
             self.LogWindow.setup_progress_dialog(
@@ -1687,7 +1709,7 @@ class COMET:
             self.config["clustering_results"]["maps_file"] = maps_file
             self.config["clustering_results"]["best_gev"] = str(self.best_gev)
             self.config["clustering_results"]["best_residual"] = str(self.best_residual)
-            self.config["clustering_results"]["number_of_maps"] = str(self.number_of_maps)
+            self.config["clustering_results"]["n_maps"] = str(self.n_maps)
             self.config["clustering_results"]["clustering_method"] = self.clustering_method
 
         except Exception as e:
@@ -1704,7 +1726,7 @@ class COMET:
         # Ignore task_name parameter for step-based processing
         try:
             # Progress tracking variables - only count clustering repetitions
-            total_steps = self.number_of_repeats  # Only clustering repetitions
+            total_steps = self.n_repeats  # Only clustering repetitions
             current_step = 0
 
             def update_progress(step_increment=1, message=""):
@@ -1758,7 +1780,7 @@ class COMET:
                 return self._handle_stopped_clustering("Calculating parameters")
             if self.smoothing_gfp:
                 self.min_distance_size = int(
-                    int(self.smoothing_distance) / (1000 / int(self.sample_rate))
+                    int(self.smoothing_distance) / (1000 / int(self.sampling_rate))
                 )
             else:
                 self.min_distance_size = None
@@ -1794,26 +1816,26 @@ class COMET:
 
             # For auto-k selection, always use GFP peaks instead of random percentages
             auto_k_use_percentages = (
-                None if self.number_of_maps == "auto" else self.use_percentages
+                None if self.n_maps == "auto" else self.data_percentage
             )
 
-            self.maps2use, peaks = self.comet_data_initializer.generate_maps_and_peaks(
+            self.maps_to_use, peaks = self.comet_data_initializer.generate_maps_and_peaks(
                 preprocessed_folder=self.preprocessed_data_path,
                 extension=self.extension,
-                datatype=self.datatype,
-                use_percentages=auto_k_use_percentages,
+                data_type=self.data_type,
+                data_percentage=auto_k_use_percentages,
                 min_dist=self.min_distance_size,
             )
 
             # Step 6: Handle automatic k selection
-            if self.number_of_maps == "auto":
+            if self.n_maps == "auto":
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
                     self.LogWindow.log_clustering_setup_step(
-                        "Starting automatic optimization", f"k range: {self.kmin}-{self.kmax}"
+                        "Starting automatic optimization", f"k range: {self.k_min}-{self.k_max}"
                     )
                     # Add the processing message with ⌛ emoji
                     self.LogWindow.append_log(
-                        f"⌛ Identifying {self.kmax - self.kmin + 1} optimal microstate maps ..."
+                        f"⌛ Identifying {self.k_max - self.k_min + 1} optimal microstate maps ..."
                     )
                 if check_stop():
                     return self._handle_stopped_clustering("Starting automatic optimization")
@@ -1846,19 +1868,19 @@ class COMET:
                     return False
 
             # Step 7: After determining number_of_maps, perform actual clustering
-            if self.number_of_maps and self.number_of_maps != "auto":
+            if self.n_maps and self.n_maps != "auto":
                 # Log clustering method and settings right before actual clustering starts
                 clustering_settings = {
                     "Clustering Method": getattr(self, "clustering_method", "Unknown"),
-                    "Number of Maps": str(self.number_of_maps),
-                    "Number of Repeats": str(getattr(self, "number_of_repeats", "Unknown"))
+                    "Number of Maps": str(self.n_maps),
+                    "Number of Repeats": str(getattr(self, "n_repeats", "Unknown"))
                 }
                 self.logger.settings_info("CLUSTERING", clustering_settings)
                 
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
                     self.LogWindow.log_clustering_setup_step(
                         "Starting clustering",
-                        f"{self.number_of_maps} maps, {self.number_of_repeats} repetitions",
+                        f"{self.n_maps} maps, {self.n_repeats} repetitions",
                     )
                 if check_stop():
                     return self._handle_stopped_clustering("Starting clustering repetitions")
@@ -1867,20 +1889,20 @@ class COMET:
                 if is_taahc:
                     # TAAHC is deterministic and time-consuming - MUST use only 1 repetition
                     clustering_repeats = 1
-                    if self.number_of_repeats != 1:
+                    if self.n_repeats != 1:
                         self.logger.warning(
                             "CLUSTERING",
-                            f"TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {self.number_of_repeats}",
+                            f"TAAHC: Enforcing 1 repetition (deterministic algorithm) - ignoring user setting of {self.n_repeats}",
                         )
                 else:
-                    clustering_repeats = self.number_of_repeats
+                    clustering_repeats = self.n_repeats
 
                 self.comet_microstate_clusterer = MicrostateClusterer(
-                    n_states=self.number_of_maps,
+                    n_states=self.n_maps,
                     batch_size=self.batch_size,
-                    n_inits=1,  # We'll handle repetitions manually
-                    max_iter=self.max_iterations,
-                    tolerance=self.clustering_tolerance,
+                    n_repeats=1,  # We'll handle repetitions manually
+                    max_iterations=self.max_iterations,
+                    clustering_tolerance=self.clustering_tolerance,
                 )
 
                 # Perform clustering repetitions to find best solution
@@ -1936,20 +1958,20 @@ class COMET:
                         temp_maps2use, temp_peaks = self.comet_data_initializer.generate_maps_and_peaks(
                             preprocessed_folder=self.preprocessed_data_path,
                             extension=self.extension,
-                            datatype=self.datatype,
-                            use_percentages=auto_k_use_percentages,
+                            data_type=self.data_type,
+                            data_percentage=auto_k_use_percentages,
                             min_dist=self.min_distance_size,
                             random_seed=42 + init,  # Different seed for each repeat
                         )
                         # Temporarily store original maps2use
-                        original_maps2use = self.maps2use
-                        self.maps2use = temp_maps2use
+                        original_maps2use = self.maps_to_use
+                        self.maps_to_use = temp_maps2use
                         
                         # Perform clustering with new random subset
                         maps, gev, residual = self.cluster_eeg_microstates(init, worker=worker)
                         
                         # Restore original maps2use
-                        self.maps2use = original_maps2use
+                        self.maps_to_use = original_maps2use
                     else:
                         # Use the same data for all repeats (GFP peaks or entire dataset)
                         maps, gev, residual = self.cluster_eeg_microstates(init, worker=worker)
@@ -1995,13 +2017,13 @@ class COMET:
                     self.best_gev = best_gev
                     self.best_residual = best_residual
 
-                    # Ensure micro_labels are updated for the new number of states
+                    # Ensure microstate_labels are updated for the new number of states
                     try:
                         self.load_maps()
                     except Exception as e:
                         self.logger.warning("CLUSTERING", f"Could not load maps after clustering: {e}")
                         # Generate default labels if loading fails
-                        self.micro_labels = [f"Microstate {i+1}" for i in range(self.number_of_maps)]
+                        self.microstate_labels = [f"Microstate {i+1}" for i in range(self.n_maps)]
 
                     self.logger.processing_info(
                         "CLUSTERING",
@@ -2052,13 +2074,13 @@ class COMET:
             self.best_gev = best_gev
             self.best_residual = best_residual
 
-            # Ensure micro_labels are updated for the new number of states
+            # Ensure microstate_labels are updated for the new number of states
             try:
                 self.load_maps()
             except Exception as e:
                 self.logger.warning("CLUSTERING", f"Could not load maps after partial clustering: {e}")
                 # Generate default labels if loading fails
-                self.micro_labels = [f"Microstate {i+1}" for i in range(self.number_of_maps)]
+                self.microstate_labels = [f"Microstate {i+1}" for i in range(self.n_maps)]
 
             partial_msg = f"Partial results saved from {completed_repetitions} completed clustering repetitions"
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -2110,16 +2132,16 @@ class COMET:
         # Initialize optimizer
         clustering_results_path = self.get_clustering_results_path()
         self.comet_clusterer_optimizer = ClustererOptimizer(
-            maps2use=self.maps2use,
+            maps_to_use=self.maps_to_use,
             min_dist=self.min_distance_size,
-            n_inits=self.number_of_repeats,
-            kmin=self.kmin,
-            kmax=self.kmax,
+            n_repeats=self.n_repeats,
+            k_min=self.k_min,
+            k_max=self.k_max,
             preprocessed_data_path=self.preprocessed_data_path,
             extension=self.extension,
-            datatype=self.datatype,
-            tolerance=self.clustering_tolerance,
-            max_iter=self.max_iterations,
+            data_type=self.data_type,
+            clustering_tolerance=self.clustering_tolerance,
+            max_iterations=self.max_iterations,
             progress_callback=progress_callback,
             logger=self.logger,
             clustering_results_path=clustering_results_path,
@@ -2136,16 +2158,16 @@ class COMET:
 
         clustering_results_path = self.get_clustering_results_path()
         self.comet_clusterer_optimizer = ClustererOptimizer(
-            maps2use=self.maps2use,
+            maps_to_use=self.maps_to_use,
             min_dist=self.min_distance_size,
-            n_inits=auto_k_n_inits,  # Use single repeat for auto-k
-            kmin=self.kmin,
-            kmax=self.kmax,
+            n_repeats=auto_k_n_inits,  # Use single repeat for auto-k
+            k_min=self.k_min,
+            k_max=self.k_max,
             preprocessed_data_path=self.preprocessed_data_path,
             extension=self.extension,
-            datatype=self.datatype,
-            tolerance=self.clustering_tolerance,
-            max_iter=self.max_iterations,
+            data_type=self.data_type,
+            clustering_tolerance=self.clustering_tolerance,
+            max_iterations=self.max_iterations,
             logger=self.logger,
             clustering_results_path=clustering_results_path,
         )
@@ -2163,7 +2185,7 @@ class COMET:
                 if update_progress_func:
                     # Calculate progress within the optimization phase
                     setup_steps = 5
-                    optimization_steps = self.kmax - self.kmin + 1
+                    optimization_steps = self.k_max - self.k_min + 1
                     # Calculate the current step within the optimization phase
                     optimization_current_step = setup_steps + int(
                         (_current / _total) * optimization_steps
@@ -2177,16 +2199,16 @@ class COMET:
 
             clustering_results_path = self.get_clustering_results_path()
             self.comet_clusterer_optimizer = ClustererOptimizer(
-                maps2use=self.maps2use,
+                maps_to_use=self.maps_to_use,
                 min_dist=self.min_distance_size,
-                n_inits=auto_k_n_inits,  # Use single repeat for auto-k
-                kmin=self.kmin,
-                kmax=self.kmax,
+                n_repeats=auto_k_n_inits,  # Use single repeat for auto-k
+                k_min=self.k_min,
+                k_max=self.k_max,
                 preprocessed_data_path=self.preprocessed_data_path,
                 extension=self.extension,
-                datatype=self.datatype,
-                tolerance=self.clustering_tolerance,
-                max_iter=self.max_iterations,
+                data_type=self.data_type,
+                clustering_tolerance=self.clustering_tolerance,
+                max_iterations=self.max_iterations,
                 progress_callback=progress_callback,
                 logger=self.logger,
                 clustering_results_path=clustering_results_path,
@@ -2226,7 +2248,7 @@ class COMET:
             else:
                 # Single method optimization
                 optimal_k, k_values, scores = self.comet_clusterer_optimizer.find_optimal_k(
-                    optimizer_mode=self.stopping_mode, parameter_value=self.stopping_parameter
+                    optimizer_mode=self.stopping_mode, parameter_value=self.stopping_threshold
                 )
                 
                 # Log to both console and GUI window
@@ -2236,7 +2258,7 @@ class COMET:
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")
 
-            self.number_of_maps = optimal_k
+            self.n_maps = optimal_k
 
             # Return True to indicate successful completion
             return True
@@ -2253,7 +2275,7 @@ class COMET:
                 # Reset to allow user to try again - don't set a default number_of_maps
                 # Keep it as "auto" so user can restart optimization
                 self.choose_number_of_maps = "user"  # Reset to user mode to prevent auto-retry
-                self.number_of_maps = 4  # Fallback default
+                self.n_maps = 4  # Fallback default
                 
                 # Clean up optimizer reference
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -2261,7 +2283,7 @@ class COMET:
                     self.LogWindow.current_step = None
                 
                 self.logger.warning(
-                    "CLUSTERING", f"Reset to user-defined mode with k={self.number_of_maps} (you can change this)"
+                    "CLUSTERING", f"Reset to user-defined mode with k={self.n_maps} (you can change this)"
                 )
                 
                 # Return False to indicate optimization was stopped
@@ -2282,9 +2304,9 @@ class COMET:
             
             # Fallback to default
             self.choose_number_of_maps = "user"  # Reset to user mode 
-            self.number_of_maps = 4
+            self.n_maps = 4
             self.logger.warning(
-                "CLUSTERING", f"Reset to user-defined mode with k={self.number_of_maps} (you can change this)"
+                "CLUSTERING", f"Reset to user-defined mode with k={self.n_maps} (you can change this)"
             )
             
             # Return False to indicate optimization failed
@@ -2318,7 +2340,7 @@ class COMET:
             else:
                 # Single method optimization
                 optimal_k, k_values, scores = self.comet_clusterer_optimizer.find_optimal_k(
-                    optimizer_mode=self.stopping_mode, parameter_value=self.stopping_parameter
+                    optimizer_mode=self.stopping_mode, parameter_value=self.stopping_threshold
                 )
                 
                 # Log to both console and GUI window
@@ -2328,7 +2350,7 @@ class COMET:
                 if hasattr(self, "LogWindow") and self.LogWindow is not None:
                     self.LogWindow.append_log(f"Optimal number of maps determined: {optimal_k}")
 
-            self.number_of_maps = optimal_k
+            self.n_maps = optimal_k
 
         except Exception as e:
             error_msg = f"Automatic optimization failed: {str(e)}"
@@ -2336,9 +2358,9 @@ class COMET:
             if hasattr(self, "LogWindow") and self.LogWindow is not None:
                 self.LogWindow.append_log(error_msg, log_type="error")
             # Fallback to default
-            self.number_of_maps = 4
+            self.n_maps = 4
             self.logger.warning(
-                "CLUSTERING", f"Using fallback number of maps: {self.number_of_maps}"
+                "CLUSTERING", f"Using fallback number of maps: {self.n_maps}"
             )
 
     def run_microstate_labeling(self):
@@ -2360,11 +2382,11 @@ class COMET:
         self.logger.processing_start("LABELING", "Starting microstate labeling")
 
         # Perform labeling
-        micro_labels, labels_overall_confidence, label_confidences = self.comet_microstate_labeler.do_labeling()
+        microstate_labels, labels_overall_confidence, label_confidences = self.comet_microstate_labeler.do_labeling()
 
         # Save updated microstate maps with labels
         self.comet_microstate_io.export_microstates(
-            self.best_maps, self.eeg_info, self.microstate_maps_path, headers=micro_labels
+            self.best_maps, self.eeg_info, self.microstate_maps_path, headers=microstate_labels
         )
 
         # Update and save labels
@@ -2409,12 +2431,12 @@ class COMET:
             filter_segments=self.filter_segments,
             filter_segments_option=self.filter_segments_option,
             identify_short_window=self.identify_short_window,
-            micro_labels=self.micro_labels,
+            microstate_labels=self.microstate_labels,
             segmentation_path=self.segmentation_path,
             extension=self.extension,
-            datatype=self.datatype,
-            sample_rate=self.sample_rate,
-            smoothing_parameters=[self.epsilon, self.b, self.lamb],
+            data_type=self.data_type,
+            sampling_rate=self.sampling_rate,
+            smoothing_parameters=[self.convergence_epsilon, self.half_window_size, self.smoothness_penalty],
             export_format=self.export_format,
             min_correlation_threshold=getattr(self, "min_correlation_threshold", False),
         )
@@ -2494,7 +2516,7 @@ class COMET:
                     return
                     
                 try:
-                    eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+                    eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, data_type=self.data_type)
                     eeg_data_list.append(eeg)
                     
                 except Exception as e:
@@ -2593,7 +2615,7 @@ class COMET:
         # Load EEG data
         for eeg_path in self.list_eegs_path:
             try:
-                eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, datatype=self.datatype)
+                eeg = self.comet_data_io.load_eeg(eeg_path=eeg_path, data_type=self.data_type)
                 eeg_data_list.append(eeg)
             except Exception:
                 continue  # Skip files that can't be loaded
@@ -2624,14 +2646,14 @@ class COMET:
             if (hasattr(self, "filter_segments_option") and 
                 self.filter_segments_option == "smooth"):
                 
-                self.lamb = self.comet_microstate_backfitter.find_optimal_lambda_for_files(
+                self.smoothness_penalty = self.comet_microstate_backfitter.find_optimal_lambda_for_files(
                     eeg_data_list, self.filter_segments_less_than_ms
                 )
                 
                 # Log both parameters
                 self.logger.processing_success(
                     "BACKFITTING",
-                    f"Optimal parameters determined: {self.filter_segments_less_than_ms:.1f}ms, λ={self.lamb}",
+                    f"Optimal parameters determined: {self.filter_segments_less_than_ms:.1f}ms, λ={self.smoothness_penalty}",
                 )
             else:
                 # Log just threshold
@@ -2668,14 +2690,14 @@ class COMET:
             
             # Get lambda result from worker if smoothing was optimized
             if hasattr(self, '_optimal_lambda_result'):
-                self.lamb = self._optimal_lambda_result
+                self.smoothness_penalty = self._optimal_lambda_result
                 # Clean up temporary result
                 delattr(self, '_optimal_lambda_result')
                 
                 # Log both results
                 self.logger.processing_success(
                     "BACKFITTING",
-                    f"Optimal parameters determined: {self.filter_segments_less_than_ms:.1f}ms, λ={self.lamb}",
+                    f"Optimal parameters determined: {self.filter_segments_less_than_ms:.1f}ms, λ={self.smoothness_penalty}",
                 )
             else:
                 # Log just threshold result
@@ -2725,7 +2747,7 @@ class COMET:
                     f"Replacing segments less than {self.filter_segments_less_than_ms}ms using half-and-half method")
             elif self.filter_segments_option == "smooth":
                 self.logger.processing_info("BACKFITTING", 
-                    f"Smoothing segments: reject ≤ {self.filter_segments_less_than_ms}ms, half-window b={self.b}, lambda={self.lamb}")
+                    f"Smoothing segments: reject ≤ {self.filter_segments_less_than_ms}ms, half-window b={self.half_window_size}, lambda={self.smoothness_penalty}")
 
         # Perform backfitting on all files
         if hasattr(self, "LogWindow") and self.LogWindow is not None:
@@ -3260,8 +3282,8 @@ class COMET:
                         raise RuntimeError(f"Event-based sliding failed with unexpected error: {str(_eb_err)}") from _eb_err
 
                 # Check if we have epoched data with sliding features enabled OR ROF feature requested
-                is_epoched_sliding = self.datatype == "epoched" and "sliding" in self.feature_mode
-                needs_epoched_structure = self.datatype == "epoched" and ("ROF" in self.feature_list or "RTF" in self.feature_list or "pre_post" in self.feature_mode)
+                is_epoched_sliding = self.data_type == "epoched" and "sliding" in self.feature_mode
+                needs_epoched_structure = self.data_type == "epoched" and ("ROF" in self.feature_list or "RTF" in self.feature_list or "pre_post" in self.feature_mode)
 
                 # For epoched data with sliding mode, we need to preserve trial structure for pre/post extraction
                 # For averaged mode, flatten everything
@@ -3295,7 +3317,7 @@ class COMET:
                         time_unique = sorted([float(t) for t in time_unique_array])  # Ensure it's a list of floats
                         
                         # For epoched data, handle time differently based on mode
-                        if self.datatype == "epoched" and len(segmentation_array.shape) == 2:
+                        if self.data_type == "epoched" and len(segmentation_array.shape) == 2:
                             n_trials = segmentation_array.shape[0]
                             n_times = len(time_unique)
                             # Store single-epoch time for ROF/RTF and epoched sliding
@@ -3314,9 +3336,9 @@ class COMET:
 
                 if time is None:
                     # Fallback: derive from sampling rate as before
-                    if hasattr(self, "sample_rate") and self.sample_rate:
-                        time_step = 1000 / self.sample_rate  # ms
-                        if self.datatype == "epoched":
+                    if hasattr(self, "sampling_rate") and self.sampling_rate:
+                        time_step = 1000 / self.sampling_rate  # ms
+                        if self.data_type == "epoched":
                             start_time = -1000
                             # For epoched data, create one epoch's worth of time
                             n_timepoints_per_epoch = len(original_segmentation_array[0]) if original_segmentation_array is not None else 1250
@@ -3349,7 +3371,7 @@ class COMET:
                     )
 
                 # Load the EEG data
-                eeg = self.comet_data_io.load_eeg(eeg_file, self.datatype)
+                eeg = self.comet_data_io.load_eeg(eeg_file, self.data_type)
 
                 # For epoched sliding mode (pre/post event extraction), keep 3D structure
                 # For averaged mode or ROF/RTF with averaged, flatten to 2D
@@ -3357,7 +3379,7 @@ class COMET:
                     eeg_data = eeg.get_data()  # Keep 3D: (trials, channels, timepoints)
                 else:
                     eeg_data = self.comet_data_io.get_eeg_data(
-                        eeg, self.datatype
+                        eeg, self.data_type
                     )  # Flatten to 2D: (channels, all_timepoints)
 
                 # Create segmentation dictionary in expected format
@@ -3367,7 +3389,7 @@ class COMET:
                     "filename": segmentation_name,
                     "eeg_data": eeg_data,
                     "microstate_maps": self.best_maps,
-                    "microstate_labels": self.micro_labels,
+                    "microstate_labels": self.microstate_labels,
                 }
 
                 # Add original segmentation data for epoched sliding processing or ROF
@@ -3402,7 +3424,7 @@ class COMET:
                 self.LogWindow.append_log(f"Extracting features from {file_info}", log_type="file")
 
             # For epoched data with multiple modes or pre_post mode, extract each mode separately with correct data structure
-            if self.datatype == "epoched" and (len(self.feature_mode) > 1 or "pre_post" in self.feature_mode):
+            if self.data_type == "epoched" and (len(self.feature_mode) > 1 or "pre_post" in self.feature_mode):
                 extracted_features = {}
                 
                 # Extract each mode with appropriate data structure
@@ -3412,7 +3434,7 @@ class COMET:
                         segmentation_averaged = segmentation.copy()
                         # Flatten labels and EEG data for averaged mode
                         labels_flat = [str(item) for item in segmentation_array.flatten()]
-                        eeg_flat = self.comet_data_io.get_eeg_data(eeg, self.datatype)
+                        eeg_flat = self.comet_data_io.get_eeg_data(eeg, self.data_type)
                         time_flat = time_single_epoch * segmentation_array.shape[0] if time_single_epoch else time
                         segmentation_averaged["labels"] = labels_flat
                         segmentation_averaged["eeg_data"] = eeg_flat
@@ -3456,7 +3478,7 @@ class COMET:
                         segmentation_pre_post = segmentation.copy()
                         # Flatten labels and EEG data for pre_post mode
                         labels_flat = [str(item) for item in segmentation_array.flatten()]
-                        eeg_flat = self.comet_data_io.get_eeg_data(eeg, self.datatype)
+                        eeg_flat = self.comet_data_io.get_eeg_data(eeg, self.data_type)
                         time_flat = time_single_epoch if time_single_epoch else time
                         segmentation_pre_post["labels"] = labels_flat
                         segmentation_pre_post["eeg_data"] = eeg_flat
@@ -3905,12 +3927,12 @@ class COMET:
             segmentation_path=self.segmentation_path,
             use_anatomy=self.use_anatomy,
             extension=self.extension,
-            datatype=self.datatype,
+            data_type=self.data_type,
             bem_solver=self.bem_solver,
             inverse_method=self.inverse_method,
             spacing=self.spacing,
             microstate_maps=self.best_maps,
-            nperm=self.nperm,
+            n_permutations=self.n_permutations,
             logger=self.logger,
             random_seed=getattr(self, "random_seed", None),
         )
@@ -4027,12 +4049,12 @@ class COMET:
                 segmentation_path=self.segmentation_path,
                 use_anatomy=self.use_anatomy,
                 extension=self.extension,
-                datatype=self.datatype,
+                data_type=self.data_type,
                 bem_solver=self.bem_solver,
                 inverse_method=self.inverse_method,
                 spacing=self.spacing,
                 microstate_maps=self.best_maps,
-                nperm=self.nperm,
+                n_permutations=self.n_permutations,
                 logger=self.logger,
                 random_seed=getattr(self, "random_seed", None),
             )
@@ -4132,7 +4154,7 @@ class COMET:
         # Log source identification settings
         source_settings = {
             "Method": self.source_localization_method,
-            "Number of Permutations": self.nperm,
+            "Number of Permutations": self.n_permutations,
             "Files to Process": to_process,
         }
         self.logger.settings_info("SOURCE_LOCALIZATION", source_settings)
@@ -4173,7 +4195,7 @@ class COMET:
         self.config["io_config"]["montage"] = str(self.montage) if self.montage is not None else ""
         self.config["io_config"]["extension"] = self.extension
         self.config["io_config"]["pattern_content"] = self.pattern_content
-        self.config["io_config"]["datatype"] = self.datatype
+        self.config["io_config"]["data_type"] = self.data_type
         self.config["io_config"]["output_folder"] = self.output_folder
 
         self.config["preprocessing_config"]["temporal_filter_data"] = str(self.temporal_filter_data)
@@ -4183,26 +4205,26 @@ class COMET:
         self.config["preprocessing_config"]["downsample_data"] = str(self.downsample_data)
         self.config["preprocessing_config"]["spatial_filter_data"] = str(self.spatial_filter_data)
         self.config["preprocessing_config"]["auto_clean_data"] = str(self.auto_clean_data)
-        self.config["preprocessing_config"]["sample_rate"] = str(self.sample_rate)
+        self.config["preprocessing_config"]["sampling_rate"] = str(self.sampling_rate)
         self.config["preprocessing_config"]["remove_channels"] = str(self.remove_channels)
-        self.config["preprocessing_config"]["ch2rm"] = str(self.chan2rm)
+        self.config["preprocessing_config"]["channels_to_remove"] = str(self.channels_to_remove)
         self.config["preprocessing_config"]["prep_data"] = str(self.prep_data)
 
         self.config["clustering_config"]["smoothing_gfp"] = str(self.smoothing_gfp)
         self.config["clustering_config"]["smoothing_distance"] = str(self.smoothing_distance)
-        self.config["clustering_config"]["number_of_maps"] = str(self.number_of_maps)
-        if self.number_of_maps == "auto":
-            self.config["clustering_config"]["kmin"] = str(self.kmin)
-            self.config["clustering_config"]["kmax"] = str(self.kmax)
+        self.config["clustering_config"]["n_maps"] = str(self.n_maps)
+        if self.n_maps == "auto":
+            self.config["clustering_config"]["k_min"] = str(self.k_min)
+            self.config["clustering_config"]["k_max"] = str(self.k_max)
             self.config["clustering_config"]["stopping_mode"] = self.stopping_mode
-            self.config["clustering_config"]["stopping_parameter"] = str(self.stopping_parameter)
-        self.config["clustering_config"]["use_percentages"] = str(self.use_percentages)
+            self.config["clustering_config"]["stopping_threshold"] = str(self.stopping_threshold)
+        self.config["clustering_config"]["data_percentage"] = str(self.data_percentage)
         self.config["clustering_config"]["initializer"] = self.initializer
         self.config["clustering_config"]["clustering_method"] = self.clustering_method
         self.config["clustering_config"]["max_iterations"] = str(self.max_iterations)
         self.config["clustering_config"]["clustering_tolerance"] = str(self.clustering_tolerance)
         self.config["clustering_config"]["similarity_metric"] = self.similarity_metric
-        self.config["clustering_config"]["number_of_repeats"] = str(self.number_of_repeats)
+        self.config["clustering_config"]["n_repeats"] = str(self.n_repeats)
         self.config["backfitting_config"]["backfit_to"] = self.backfit_to
         self.config["backfitting_config"]["identify_short_window"] = str(self.identify_short_window)
         self.config["backfitting_config"]["filter_segments"] = str(self.filter_segments)
@@ -4210,9 +4232,9 @@ class COMET:
             self.filter_segments_less_than
         )
         self.config["backfitting_config"]["filter_segments_option"] = self.filter_segments_option
-        self.config["backfitting_config"]["epsilon"] = str(self.epsilon)
-        self.config["backfitting_config"]["b"] = str(self.b)
-        self.config["backfitting_config"]["lamb"] = str(self.lamb)
+        self.config["backfitting_config"]["convergence_epsilon"] = str(self.convergence_epsilon)
+        self.config["backfitting_config"]["half_window_size"] = str(self.half_window_size)
+        self.config["backfitting_config"]["smoothness_penalty"] = str(self.smoothness_penalty)
         self.config["backfitting_config"]["min_correlation_threshold"] = (
             str(self.min_correlation_threshold) if self.min_correlation_threshold is not False else "False"
         )
@@ -4230,7 +4252,7 @@ class COMET:
 
         self.config["source_config"]["bem_solver"] = self.bem_solver
         self.config["source_config"]["inverse_method"] = self.inverse_method
-        self.config["source_config"]["nperm"] = str(self.nperm)
+        self.config["source_config"]["n_permutations"] = str(self.n_permutations)
         self.config["source_config"]["spacing"] = self.spacing
         self.config["source_config"]["source_localization_method"] = self.source_localization_method
         self.config["source_config"]["anatomy_subjects_dir"] = self.anatomy_subjects_dir

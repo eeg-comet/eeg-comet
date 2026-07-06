@@ -89,7 +89,7 @@ A major methodological concern in microstate analysis is how filters affect temp
 
 | Parameter | Description | Default | Options |
 |:----------|:------------|:--------|:--------|
-| `filter_data` | Enable temporal filtering | `True` | `True`, `False` |
+| `temporal_filter_data` | Enable temporal filtering | `True` | `True`, `False` |
 | `filter_method` | Filter type | `fir` | `fir`, `iir` |
 | `lowcut_freq` | High-pass cutoff (Hz) | `2` | 0.1 - 10 |
 | `highcut_freq` | Low-pass cutoff (Hz) | `20` | 10 - 100 |
@@ -98,7 +98,7 @@ A major methodological concern in microstate analysis is how filters affect temp
 
 ```ini
 [preprocessing_config]
-filter_data = True
+temporal_filter_data = True
 filter_method = fir
 lowcut_freq = 2
 highcut_freq = 20
@@ -181,7 +181,7 @@ Reduce computational load while preserving microstate-relevant frequencies.
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
 | `downsample_data` | Enable downsampling | `True` |
-| `sample_rate` | Target sample rate (Hz) | `250` |
+| `sampling_rate` | Target sample rate (Hz) | `250` |
 
 ---
 
@@ -194,13 +194,13 @@ Remove non-EEG or problematic channels before analysis:
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
 | `remove_channels` | Enable channel removal | `False` |
-| `chan2rm` | Channels to remove | `[]` |
+| `channels_to_remove` | Channels to remove | `[]` |
 
 **Example:**
 ```ini
 [preprocessing_config]
 remove_channels = True
-chan2rm = ECG,EMG,EOG1,EOG2
+channels_to_remove = ECG,EMG,EOG1,EOG2
 ```
 
 ### Handling Missing Channels
@@ -217,21 +217,21 @@ If `remove_channels = False`, EEG-COMET automatically removes channels that are 
 [preprocessing_config]
 # Data handling
 load_all_files = True
-datatype = raw
+data_type = raw
 
 # Temporal filtering
-filter_data = True
+temporal_filter_data = True
 filter_method = fir
 lowcut_freq = 2
 highcut_freq = 20
 
 # Downsampling
 downsample_data = True
-sample_rate = 250
+sampling_rate = 250
 
 # Channel management
 remove_channels = False
-chan2rm = []
+channels_to_remove = []
 ```
 
 ### Event-Related Analysis
@@ -240,21 +240,21 @@ chan2rm = []
 [preprocessing_config]
 # Data handling
 load_all_files = True
-datatype = epoched
+data_type = epoched
 
 # Temporal filtering (broader band)
-filter_data = True
+temporal_filter_data = True
 filter_method = fir
 lowcut_freq = 1
 highcut_freq = 40
 
 # Keep original sampling for timing precision
 downsample_data = False
-sample_rate = 500
+sampling_rate = 500
 
 # Remove non-EEG channels
 remove_channels = True
-chan2rm = HEOG,VEOG,ECG
+channels_to_remove = HEOG,VEOG,ECG
 ```
 
 ---

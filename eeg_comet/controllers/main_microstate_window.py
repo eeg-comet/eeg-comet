@@ -60,10 +60,10 @@ class MicrostateRangeDialog(QDialog):
     """Prompt for the range of microstate counts (k) to explore.
 
     Presents a minimum and maximum spin box plus a ``Process`` button. When the
-    user accepts, the chosen range is available via :attr:`kmin` / :attr:`kmax`.
+    user accepts, the chosen range is available via :attr:`k_min` / :attr:`k_max`.
     """
 
-    def __init__(self, kmin: int = 2, kmax: int = 10, parent=None):
+    def __init__(self, k_min: int = 2, k_max: int = 10, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Explore Number of Microstates")
         self.setModal(True)
@@ -78,10 +78,10 @@ class MicrostateRangeDialog(QDialog):
         form = QFormLayout()
         self.min_spin = QSpinBox(self)
         self.min_spin.setRange(2, 100)
-        self.min_spin.setValue(max(2, int(kmin)))
+        self.min_spin.setValue(max(2, int(k_min)))
         self.max_spin = QSpinBox(self)
         self.max_spin.setRange(2, 100)
-        self.max_spin.setValue(max(int(kmax), int(kmin) + 1))
+        self.max_spin.setValue(max(int(k_max), int(k_min) + 1))
         form.addRow("Minimum number of microstates:", self.min_spin)
         form.addRow("Maximum number of microstates:", self.max_spin)
 
@@ -108,11 +108,11 @@ class MicrostateRangeDialog(QDialog):
         self.accept()
 
     @property
-    def kmin(self) -> int:
+    def k_min(self) -> int:
         return self.min_spin.value()
 
     @property
-    def kmax(self) -> int:
+    def k_max(self) -> int:
         return self.max_spin.value()
 
 
@@ -1560,10 +1560,10 @@ class MainMicrostateWindow(QMainWindow):
             self.widget_groups.set_group_status("auto_k", WidgetMode.ENABLE)
 
             # Validate k range
-            kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
-            kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
-            if kmax <= kmin:
-                self.ui.step2_auto_range_kmax_spinbox.setValue(kmin + 1)
+            k_min = int(self.ui.step2_auto_range_kmin_spinbox.value())
+            k_max = int(self.ui.step2_auto_range_kmax_spinbox.value())
+            if k_max <= k_min:
+                self.ui.step2_auto_range_kmax_spinbox.setValue(k_min + 1)
 
             # Handle optimizer selection settings
             self._handle_optimizer_selection_settings()
@@ -1747,7 +1747,7 @@ class MainMicrostateWindow(QMainWindow):
 
     def _handle_data_type_features(self):
         """Handle features based on data type."""
-        if self.comet.datatype == "epoched":
+        if self.comet.data_type == "epoched":
             # Disable sliding features checkbox for epoched data (use event-related layout instead)
             self.ui.step4_sliding_features_checkbox.setEnabled(False)
             self.ui.step4_sliding_features_checkbox.setChecked(False)
@@ -2441,7 +2441,7 @@ class MainMicrostateWindow(QMainWindow):
                 parent=self,
             )
             self.comet.min_distance_size = int(
-                self.comet.smoothing_distance / (1000 / self.comet.sample_rate)
+                self.comet.smoothing_distance / (1000 / self.comet.sampling_rate)
             )
         else:
             self.comet.smoothing_gfp = False
@@ -2450,14 +2450,14 @@ class MainMicrostateWindow(QMainWindow):
 
         # Data selection parameters
         if self.ui.step2_use_peaks_radio.isChecked():
-            # Use GFP peaks only - set use_percentages to None to trigger peak detection
-            self.comet.use_percentages = None
+            # Use GFP peaks only - set data_percentage to None to trigger peak detection
+            self.comet.data_percentage = None
         elif self.ui.step2_use_percent_radio.isChecked():
             # Use percentage-based selection (random subset or entire data)
-            self.comet.use_percentages = int(self.ui.step2_percent_slider.value())
+            self.comet.data_percentage = int(self.ui.step2_percent_slider.value())
         else:
             # Fallback - should not happen but default to GFP peaks
-            self.comet.use_percentages = None
+            self.comet.data_percentage = None
 
         # Clustering parameters
         self.comet.clustering_tolerance = parse_float(
@@ -2476,42 +2476,42 @@ class MainMicrostateWindow(QMainWindow):
             show_dialog=True,
             parent=self,
         )
-        self.comet.number_of_repeats = parse_int(
+        self.comet.n_repeats = parse_int(
             self.ui.step2_numberofrepeats_input,
             default=5,
             minimum=1,
-            field_name="number_of_repeats",
+            field_name="n_repeats",
             show_dialog=True,
             parent=self,
         )
 
         # K range for auto mode
         if self.ui.step2_auto_k_radio.isChecked():
-            self.comet.kmin = int(self.ui.step2_auto_range_kmin_spinbox.value())
-            self.comet.kmax = int(self.ui.step2_auto_range_kmax_spinbox.value())
+            self.comet.k_min = int(self.ui.step2_auto_range_kmin_spinbox.value())
+            self.comet.k_max = int(self.ui.step2_auto_range_kmax_spinbox.value())
 
     def visualize_elbow(self):
         """Prompt for a k range, then run the analyses inside the log window."""
         self._update_comet_clustering_parameters()
 
-        default_kmin = int(getattr(self.comet, "kmin", 2) or 2)
-        default_kmax = int(getattr(self.comet, "kmax", 10) or 10)
+        default_kmin = int(getattr(self.comet, "k_min", 2) or 2)
+        default_kmax = int(getattr(self.comet, "k_max", 10) or 10)
 
         dialog = MicrostateRangeDialog(default_kmin, default_kmax, parent=self)
         if dialog.exec_() != QDialog.Accepted:
             return
 
-        kmin = dialog.kmin
-        kmax = dialog.kmax
-        self.comet.kmin = kmin
-        self.comet.kmax = kmax
+        k_min = dialog.k_min
+        k_max = dialog.k_max
+        self.comet.k_min = k_min
+        self.comet.k_max = k_max
 
         if not hasattr(self.comet, "LogWindow") or self.comet.LogWindow is None:
             self.comet.initialize_log_window()
         self.comet.LogWindow.show()
 
         # The optimizer window is not shown; only its log-worker wiring is used.
-        self.dialogs["optimizer"].run_analyses_from_dialog(kmin, kmax)
+        self.dialogs["optimizer"].run_analyses_from_dialog(k_min, k_max)
 
     def do_clustering(self):
         """Perform clustering with confirmation dialog."""
@@ -2549,7 +2549,7 @@ class MainMicrostateWindow(QMainWindow):
             self._set_user_k_parameters()
             
             # Validate user-defined k value
-            if self.comet.number_of_maps < 5:
+            if self.comet.n_maps < 5:
                 reply = QMessageBox.question(
                     self,
                     "Low Number of States Warning",
@@ -2639,13 +2639,13 @@ class MainMicrostateWindow(QMainWindow):
     def _set_auto_k_parameters(self):
         """Set parameters for automatic k selection."""
         self.comet.choose_number_of_maps = "auto"
-        self.comet.number_of_maps = "auto"
+        self.comet.n_maps = "auto"
 
         # Check optimizer selection mode
         if self.ui.step2_ensemble_optimizer_radio.isChecked():
             # Ensemble mode - use majority vote across all methods
             self.comet.stopping_mode = "majority_vote"
-            self.comet.stopping_parameter = None
+            self.comet.stopping_threshold = None
         else:
             # Single optimizer mode - use selected method
             selected_text = self.ui.step2_optimizer_combobox.currentText()
@@ -2663,23 +2663,23 @@ class MainMicrostateWindow(QMainWindow):
                 "Bayesian Information Criterion (BIC)": "bic"
             }
             self.comet.stopping_mode = method_mapping.get(selected_text, "gev")
-            self.comet.stopping_parameter = None
+            self.comet.stopping_threshold = None
 
-        # Force GFP peaks for auto-k selection (ignore use_percentages setting)
+        # Force GFP peaks for auto-k selection (ignore data_percentage setting)
 
     def _set_user_k_parameters(self):
         """Set parameters for user-defined k."""
         self.comet.choose_number_of_maps = "user"
         self.comet.stopping_mode = ""
-        self.comet.stopping_parameter = ""
-        self.comet.kmin = ""
-        self.comet.kmax = ""
-        self.comet.number_of_maps = parse_int(
+        self.comet.stopping_threshold = ""
+        self.comet.k_min = ""
+        self.comet.k_max = ""
+        self.comet.n_maps = parse_int(
             self.ui.step2_user_k_input,
             default=4,
             minimum=2,
             maximum=20,
-            field_name="number_of_maps (k)",
+            field_name="n_maps (k)",
             show_dialog=True,
             parent=self,
         )
@@ -2899,7 +2899,7 @@ class MainMicrostateWindow(QMainWindow):
 
             # Set smooth parameters if needed
             if self.comet.filter_segments_option == "smooth":
-                self.comet.epsilon = parse_float(
+                self.comet.convergence_epsilon = parse_float(
                     self.ui.step3_smooth_segments_epsilon_input,
                     default=1e-6,
                     minimum=0.0,
@@ -2907,7 +2907,7 @@ class MainMicrostateWindow(QMainWindow):
                     show_dialog=True,
                     parent=self,
                 )
-                self.comet.b = parse_int(
+                self.comet.half_window_size = parse_int(
                     self.ui.step3_smooth_segments_b_input,
                     default=3,
                     minimum=1,
@@ -2915,7 +2915,7 @@ class MainMicrostateWindow(QMainWindow):
                     show_dialog=True,
                     parent=self,
                 )
-                self.comet.lamb = parse_int(
+                self.comet.smoothness_penalty = parse_int(
                     self.ui.step3_smooth_segments_lambda_input,
                     default=5,
                     minimum=0,
@@ -2924,16 +2924,16 @@ class MainMicrostateWindow(QMainWindow):
                     parent=self,
                 )
             else:
-                self.comet.epsilon = ""
-                self.comet.b = ""
-                self.comet.lamb = ""
+                self.comet.convergence_epsilon = ""
+                self.comet.half_window_size = ""
+                self.comet.smoothness_penalty = ""
         else:
             self.comet.filter_segments = False
             self.comet.filter_segments_option = ""
             self.comet.filter_segments_less_than = 20  # Reset to default
-            self.comet.epsilon = ""
-            self.comet.b = ""
-            self.comet.lamb = ""
+            self.comet.convergence_epsilon = ""
+            self.comet.half_window_size = ""
+            self.comet.smoothness_penalty = ""
             # Ensure identify_short_window is False when filter_segments is disabled
             # (This provides extra safety even though it's already handled above)
             if self.ui.step3_backfit_all_radio.isChecked():
@@ -2946,7 +2946,7 @@ class MainMicrostateWindow(QMainWindow):
         # Set parameters
         viz_window.preprocessed_data_path = self.comet.preprocessed_data_path
         viz_window.extension = self.comet.extension
-        viz_window.datatype = self.comet.datatype
+        viz_window.data_type = self.comet.data_type
         if hasattr(viz_window, "eeg_filenames_combobox"):
             viz_window.eeg_filenames_combobox.clear()  # type: ignore[attr-defined]
             viz_window.eeg_filenames_combobox.addItems(self.comet.list_eegs)  # type: ignore[attr-defined]
@@ -3075,7 +3075,7 @@ class MainMicrostateWindow(QMainWindow):
             self.comet.sliding_window_size = 1
 
         # Data type specific parameters
-        if self.comet.datatype == "epoched":
+        if self.comet.data_type == "epoched":
             if self.ui.step4_feature_rof_checkbox.isChecked():
                 self.comet.feature_list.append("ROF")
             if self.ui.step4_feature_rtf_checkbox.isChecked():
@@ -3201,7 +3201,7 @@ class MainMicrostateWindow(QMainWindow):
         )
 
         # Permutations
-        self.comet.nperm = 2000
+        self.comet.n_permutations = 2000
 
     def source_microstates_correlation(self):
         """Calculate source-microstate correlations."""
@@ -3273,7 +3273,7 @@ class MainMicrostateWindow(QMainWindow):
         self._loading_study = False
 
         # Set parameters
-        self.comet.nperm = 2000
+        self.comet.n_permutations = 2000
 
         # Set up callback to update UI when source-microstate correlation finishes
         self.comet.source_microstate_correlation_completed_callback = (
@@ -3398,7 +3398,7 @@ class MainMicrostateWindow(QMainWindow):
         self._sync_flags_to_comet()
 
         self._mark_button_complete("step2_clustering_button", False)
-        self.comet.best_maps, self.comet.micro_labels = None, []
+        self.comet.best_maps, self.comet.microstate_labels = None, []
 
         self.widget_groups.set_group_status("after_clustering", WidgetMode.DISABLE)
 

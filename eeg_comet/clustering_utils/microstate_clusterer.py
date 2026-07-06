@@ -19,14 +19,15 @@ class MicrostateClusterer:
     Attributes:
         n_states (int): Number of microstate maps to identify.
         batch_size (int, optional): Number of samples to process at once for memory optimization.
-        number_of_repeats (int): Number of clustering initializations to try.
+        n_repeats (int): Number of clustering initializations to try.
         max_iterations (int): Maximum number of iterations per clustering attempt.
         clustering_tolerance (float): Convergence tolerance threshold.
         best_maps (ndarray, optional): Best microstate maps found during clustering.
     """
 
     def __init__(
-        self, n_states, batch_size=None, n_inits=10, max_iter=500, tolerance=1e-6, random_seed=None
+        self, n_states, batch_size=None, n_repeats=10, max_iterations=500,
+        clustering_tolerance=1e-6, random_seed=None
     ):
         """Initialize the MicrostateClusterer with clustering parameters.
 
@@ -34,17 +35,17 @@ class MicrostateClusterer:
             n_states (int): Number of microstate maps to identify.
             batch_size (int, optional): Number of samples to process at once for memory optimization.
                 Default is None (process all data at once).
-            n_inits (int, optional): Number of clustering initializations to try. Default is 10.
-            max_iter (int, optional): Maximum number of iterations per clustering attempt. Default is 500.
-            tolerance (float, optional): Convergence tolerance threshold. Default is 1e-6.
+            n_repeats (int, optional): Number of clustering initializations to try. Default is 10.
+            max_iterations (int, optional): Maximum number of iterations per clustering attempt. Default is 500.
+            clustering_tolerance (float, optional): Convergence tolerance threshold. Default is 1e-6.
             random_seed (int, optional): Seed applied to NumPy's global RNG at the start of
                 ``modified_kmeans`` for reproducible runs. Default is None (no seeding).
         """
         self.n_states = n_states
         self.batch_size = batch_size
-        self.number_of_repeats = n_inits
-        self.max_iterations = max_iter
-        self.clustering_tolerance = tolerance
+        self.n_repeats = n_repeats
+        self.max_iterations = max_iterations
+        self.clustering_tolerance = clustering_tolerance
         self.random_seed = random_seed
         self.best_maps = None
         self.logger = get_logger()
@@ -932,12 +933,12 @@ class MicrostateClusterer:
     # --------------------------------------------------------------------------
 
     @staticmethod
-    def corr_vectors(array1, array2, axis=0):
+    def corr_vectors(maps_a, maps_b, axis=0):
         """Compute the Pearson correlation between two matrices along a specified axis.
 
         Args:
-            array1 (ndarray): First matrix.
-            array2 (ndarray): Second matrix.
+            maps_a (ndarray): First matrix.
+            maps_b (ndarray): Second matrix.
             axis (int): Axis along which to compute the correlation.
 
         Returns:
@@ -948,12 +949,12 @@ class MicrostateClusterer:
             the correlation, making it equivalent to the Pearson correlation coefficient.
         """
         # Center and normalize matrices
-        array1n = array1 - np.mean(array1, axis=axis, keepdims=True)
-        array1n /= np.linalg.norm(array1n, axis=axis, ord=2, keepdims=True)
-        array2n = array2 - np.mean(array2, axis=axis, keepdims=True)
-        array2n /= np.linalg.norm(array2n, axis=axis, ord=2, keepdims=True)
+        maps_a_norm = maps_a - np.mean(maps_a, axis=axis, keepdims=True)
+        maps_a_norm /= np.linalg.norm(maps_a_norm, axis=axis, ord=2, keepdims=True)
+        maps_b_norm = maps_b - np.mean(maps_b, axis=axis, keepdims=True)
+        maps_b_norm /= np.linalg.norm(maps_b_norm, axis=axis, ord=2, keepdims=True)
 
-        return np.sum(array1n * array2n, axis=axis)
+        return np.sum(maps_a_norm * maps_b_norm, axis=axis)
 
     def compute_gev(self, data, maps):
         """Calculate the global explained variance (GEV) of microstate maps.

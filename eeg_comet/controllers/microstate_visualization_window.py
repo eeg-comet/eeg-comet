@@ -72,8 +72,8 @@ class MicrostateVisualizationWindow(QMainWindow):
         
         self.main_window = main_window
         self.comet = tbx
-        self.current_order_labels = self.comet.micro_labels
-        self.current_order_axs_labels = self.comet.micro_labels
+        self.current_order_labels = self.comet.microstate_labels
+        self.current_order_axs_labels = self.comet.microstate_labels
 
         # Enable maximize button
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
@@ -83,19 +83,19 @@ class MicrostateVisualizationWindow(QMainWindow):
             self.current_order_maps = self.comet.best_maps.copy()
         else:
             # Initialize with an empty array of appropriate shape
-            n_maps = self.comet.number_of_maps
+            n_maps = self.comet.n_maps
             n_channels = len(self.comet.eeg_info["ch_names"])
             self.current_order_maps = np.zeros((n_maps, n_channels))
 
         # Initialize polarity for each microstate (1 = normal, -1 = reversed)
-        self.microstate_polarities = [1] * self.comet.number_of_maps
+        self.microstate_polarities = [1] * self.comet.n_maps
 
         # Initialize label confidences (label -> confidence %)
         self.label_confidences = {}
 
         self.setup_ui(context)
         self.setup_menu_actions()
-        self.create_label_widgets(self.comet.micro_labels)
+        self.create_label_widgets(self.comet.microstate_labels)
         self.connect_ui()
         self.create_figure_and_canvas()
         self.setup_checkable_font_styling()
@@ -267,17 +267,17 @@ class MicrostateVisualizationWindow(QMainWindow):
         expand_canvas(self.canvas, minimum=(360, 240))
         self.Microstate_Layout.addWidget(self.canvas)
 
-    def create_label_widgets(self, micro_labels):
+    def create_label_widgets(self, microstate_labels):
         """Create label inputs and polarity toggles for each microstate.
 
         Args:
-          micro_labels (list[str] | None): Initial labels to populate; if None or
+          microstate_labels (list[str] | None): Initial labels to populate; if None or
             empty, fields start blank and editable.
         """
         self.micro_label_widgets = []  # Editable label widgets
         self.polarity_radio_buttons = []
 
-        for i in range(self.comet.number_of_maps):
+        for i in range(self.comet.n_maps):
             # Create a container widget for each label and its radio button
             container_widget = QWidget()
             container_layout = QVBoxLayout(container_widget)
@@ -286,7 +286,7 @@ class MicrostateVisualizationWindow(QMainWindow):
 
             # Create label widget
             label_widget = QLineEdit(self)
-            self.set_label_widget_attributes(label_widget, micro_labels, i)
+            self.set_label_widget_attributes(label_widget, microstate_labels, i)
 
             # Create radio button for polarity
             polarity_radio = QRadioButton("Reverse Polarity", container_widget)
@@ -323,12 +323,12 @@ class MicrostateVisualizationWindow(QMainWindow):
         self.plot_maps()
 
     @staticmethod
-    def set_label_widget_attributes(widget, micro_labels, index):
+    def set_label_widget_attributes(widget, microstate_labels, index):
         """Configure QLineEdit widget attributes.
 
         Args:
           widget (QLineEdit): Label input widget to configure.
-          micro_labels (list[str] | None): Existing labels for initialization.
+          microstate_labels (list[str] | None): Existing labels for initialization.
           index (int): Index used to select initial label text.
         """
         widget.setAlignment(QtCore.Qt.AlignCenter)
@@ -336,9 +336,9 @@ class MicrostateVisualizationWindow(QMainWindow):
         widget.setFont(QtGui.QFont("Calibri", 15, QtGui.QFont.Bold))
         widget.setMaxLength(1)
 
-        if micro_labels:
-            sorted_indices = sorted(range(len(micro_labels)), key=lambda k: micro_labels[k])
-            sorted_labels = [micro_labels[i] for i in sorted_indices]
+        if microstate_labels:
+            sorted_indices = sorted(range(len(microstate_labels)), key=lambda k: microstate_labels[k])
+            sorted_labels = [microstate_labels[i] for i in sorted_indices]
             widget.setText(sorted_labels[index])
             widget.setDisabled(True)
 
@@ -406,7 +406,7 @@ class MicrostateVisualizationWindow(QMainWindow):
         mne.set_log_level('ERROR')
         
         micro_labels_texts = [
-            getattr(self, f"micro_label_{i}").text() for i in range(self.comet.number_of_maps)
+            getattr(self, f"micro_label_{i}").text() for i in range(self.comet.n_maps)
         ]
 
         # Fallback placeholders if labels missing
@@ -554,14 +554,14 @@ class MicrostateVisualizationWindow(QMainWindow):
                 self.current_order_maps = self.comet.best_maps.copy()
 
             # Reset polarities when auto-labeling
-            self.microstate_polarities = [1] * self.comet.number_of_maps
+            self.microstate_polarities = [1] * self.comet.n_maps
 
             # Store label confidences from the labeling results
             if self.comet.label_confidences is not None:
                 self.label_confidences = self.comet.label_confidences.copy()
 
             for i, label_widget in enumerate(self.micro_label_widgets):
-                label_widget.setText(self.comet.micro_labels[i])
+                label_widget.setText(self.comet.microstate_labels[i])
                 label_widget.setDisabled(True)
             self.sync_labels_with_widgets()  # Sync after setting widget texts
             self.reorder_microstates()
@@ -671,7 +671,7 @@ class MicrostateVisualizationWindow(QMainWindow):
             self.current_order_maps = self.comet.best_maps.copy()
 
         # Reset all polarities to normal (1)
-        self.microstate_polarities = [1] * self.comet.number_of_maps
+        self.microstate_polarities = [1] * self.comet.n_maps
 
         # Clear label confidences
         self.label_confidences = {}
@@ -726,7 +726,7 @@ class MicrostateVisualizationWindow(QMainWindow):
             self.current_order_labels = widget_labels
 
             # Save to comet object
-            self.comet.micro_labels = self.current_order_labels.copy()
+            self.comet.microstate_labels = self.current_order_labels.copy()
             self.comet.best_maps = self.current_order_maps.copy()
 
             # Export with synchronized labels and maps

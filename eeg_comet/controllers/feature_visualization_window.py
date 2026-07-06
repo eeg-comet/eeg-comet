@@ -131,7 +131,7 @@ class FeatureVisualizationWindow(QMainWindow):
         Returns:
           None
         """
-        if hasattr(self.comet, "datatype") and self.comet.datatype == "epoched":
+        if hasattr(self.comet, "data_type") and self.comet.data_type == "epoched":
             # For epoched data, "sliding" mode shows pre/post event features per trial
             if hasattr(self.ui, "dynamic_radio"):
                 self.ui.dynamic_radio.setText("Pre/Post Event Features")
@@ -240,7 +240,7 @@ class FeatureVisualizationWindow(QMainWindow):
         dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
         
         # Check if this is epoched data with only pre_post features in dynamic mode
-        is_epoched = hasattr(self.comet, "datatype") and self.comet.datatype == "epoched"
+        is_epoched = hasattr(self.comet, "data_type") and self.comet.data_type == "epoched"
         has_only_pre_post = "pre_post" in self.feature_mode and "sliding" not in self.feature_mode
         
         # Store the currently selected feature
@@ -784,7 +784,7 @@ class FeatureVisualizationWindow(QMainWindow):
         dynamic_mode = hasattr(self.ui, "dynamic_radio") and self.ui.dynamic_radio.isChecked()
         
         # Check if this is epoched data
-        is_epoched = hasattr(self.comet, "datatype") and self.comet.datatype == "epoched"
+        is_epoched = hasattr(self.comet, "data_type") and self.comet.data_type == "epoched"
 
         # Adjust list selection behavior
         if dynamic_mode:
@@ -1277,7 +1277,7 @@ class FeatureVisualizationWindow(QMainWindow):
         selected_feature = self.get_selected_feature_code()
         
         # Check if this is epoched data with pre/post event features
-        is_epoched = hasattr(self.comet, "datatype") and self.comet.datatype == "epoched"
+        is_epoched = hasattr(self.comet, "data_type") and self.comet.data_type == "epoched"
         
         if is_epoched:
             # For epoched data, show pre/post event bar plot

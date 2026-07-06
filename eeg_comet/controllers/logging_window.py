@@ -1435,16 +1435,16 @@ class LogWindow(QWidget):
         if getattr(self.comet_instance, "done_clustering", False):
             lines.append("")
             lines.append("Clustering results:")
-            if hasattr(self.comet_instance, "number_of_maps"):
+            if hasattr(self.comet_instance, "n_maps"):
                 lines.append(
-                    f"  Number of Microstates: {self.comet_instance.number_of_maps}"
+                    f"  Number of Microstates: {self.comet_instance.n_maps}"
                 )
             best_gev = getattr(self.comet_instance, "best_gev", None)
             if best_gev:
                 lines.append(
                     f"  Global Explained Variance: {best_gev * 100:.2f}%"
                 )
-            labels = getattr(self.comet_instance, "micro_labels", None)
+            labels = getattr(self.comet_instance, "microstate_labels", None)
             if labels:
                 lines.append(f"  Microstate Labels: {', '.join(labels)}")
 

@@ -105,7 +105,7 @@ Use the majority vote selection or examine validation curves to decide.
 
 Clustering algorithms like K-means are sensitive to initialization. This is expected behavior. Solutions:
 
-1. Increase `number_of_repeats` (20+)
+1. Increase `n_repeats` (20+)
 2. Use K-Means++ initialization
 3. Try TAAHC for more stable results
 4. Verify data quality and preprocessing
@@ -147,12 +147,12 @@ The automated classifier supports up to 7 canonical classes (A-G). For more than
 | Complexity analysis | LZC, ER, HE |
 | Complete analysis | All features |
 
-### What's the difference between static and windowed mode?
+### What's the difference between averaged and sliding mode?
 
-- **Static:** One value per entire recording (e.g., average coverage)
-- **Windowed:** Values computed in sliding windows, tracking changes over time
+- **Averaged:** One value per entire recording (e.g., average coverage)
+- **Sliding:** Values computed in sliding windows, tracking changes over time
 
-Use windowed mode for protocols with alternating conditions within a single recording.
+Use sliding mode for protocols with alternating conditions within a single recording.
 
 ### How is mean microstate Duration (DUR) computed?
 
@@ -172,7 +172,7 @@ See [Feature Extraction → Mean Duration (DUR)]({% link modules/feature-extract
 ### How do I analyze event-related microstate changes?
 
 1. Use epoched data with event markers
-2. Select "event-related" feature mode
+2. Select the `pre_post` feature mode
 3. Define pre-event and post-event windows
 4. Extract ROF (Relative Occurrence Frequency) for temporal profiles
 5. Use cluster-based permutation testing for statistics
@@ -183,7 +183,7 @@ See [Feature Extraction → Mean Duration (DUR)]({% link modules/feature-extract
 
 ### How do I compare groups?
 
-For recording-level features (static mode):
+For recording-level features (averaged mode):
 1. Extract features for all subjects
 2. Use independent t-tests for between-group comparisons
 3. Apply FDR or Bonferroni correction for multiple comparisons
@@ -249,8 +249,8 @@ Options:
 ### Clustering is very slow
 
 Speed tips:
-1. Reduce `use_percentages` (e.g., 30% instead of 100%)
-2. Lower `number_of_repeats`
+1. Reduce `data_percentage` (e.g., 30% instead of 100%)
+2. Lower `n_repeats`
 3. Use K-means instead of TAAHC
 4. Apply downsampling
 

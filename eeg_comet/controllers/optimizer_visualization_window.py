@@ -41,46 +41,46 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
 
     def __init__(
         self,
-        maps2use,
+        maps_to_use,
         min_dist=None,
-        n_inits=10,
-        kmin=2,
-        kmax=10,
+        n_repeats=10,
+        k_min=2,
+        k_max=10,
         preprocessed_data_path=None,
         extension=None,
-        datatype=None,
-        tolerance=1e-6,
-        max_iter=500,
+        data_type=None,
+        clustering_tolerance=1e-6,
+        max_iterations=500,
         batch_size=None,
         logger=None,
     ):
         """Initialize the optimizer with data and hyperparameters.
 
         Args:
-          maps2use (np.ndarray): Input maps matrix.
+          maps_to_use (np.ndarray): Input maps matrix.
           min_dist (int | None): Minimum distance between GFP peaks.
-          n_inits (int): Number of random initializations.
-          kmin (int): Minimum K.
-          kmax (int): Maximum K.
+          n_repeats (int): Number of random initializations.
+          k_min (int): Minimum K.
+          k_max (int): Maximum K.
           preprocessed_data_path (str | None): Path to preprocessed data.
           extension (str | None): Data extension.
-          datatype (str | None): Data type (raw/epoched).
-          tolerance (float): Convergence tolerance.
-          max_iter (int): Maximum iterations.
+          data_type (str | None): Data type (raw/epoched).
+          clustering_tolerance (float): Convergence clustering_tolerance.
+          max_iterations (int): Maximum iterations.
           batch_size (int | None): Batch size for modified K-means.
           logger: Logger instance.
         """
         super().__init__(
-            maps2use,
+            maps_to_use,
             min_dist,
-            n_inits,
-            kmin,
-            kmax,
+            n_repeats,
+            k_min,
+            k_max,
             preprocessed_data_path,
             extension,
-            datatype,
-            tolerance,
-            max_iter,
+            data_type,
+            clustering_tolerance,
+            max_iterations,
             batch_size,
             progress_callback=None,
             logger=logger,
@@ -89,10 +89,10 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         self.logger = logger if logger is not None else get_logger()
 
         # Modified K-means expects (n_channels, n_samples).
-        if self.maps2use.shape[0] > self.maps2use.shape[1]:
-            self.eeg_data = self.maps2use.T
+        if self.maps_to_use.shape[0] > self.maps_to_use.shape[1]:
+            self.eeg_data = self.maps_to_use.T
         else:
-            self.eeg_data = self.maps2use
+            self.eeg_data = self.maps_to_use
 
         self.batch_size = batch_size
 
@@ -112,9 +112,9 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         clusterer = MicrostateClusterer(
             n_states=k,
             batch_size=self.batch_size,
-            n_inits=1,
-            max_iter=self.max_iter,
-            tolerance=self.tolerance,
+            n_repeats=1,
+            max_iterations=self.max_iterations,
+            clustering_tolerance=self.clustering_tolerance,
         )
 
         n_channels, n_samples = self.eeg_data.shape
@@ -125,9 +125,9 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
         best_labels = None
         best_gev = 0.0
 
-        self.logger.processing_info("CLUSTERING", f"k={k}: running {self.n_inits} initializations")
+        self.logger.processing_info("CLUSTERING", f"k={k}: running {self.n_repeats} initializations")
 
-        for init_attempt in range(self.n_inits):
+        for init_attempt in range(self.n_repeats):
             try:
                 # Random initialization of maps
                 initial_maps = np.random.randn(k, n_channels)
@@ -160,14 +160,14 @@ class OptimizedMicrostateClustererOptimizer(ClustererOptimizer):
                 continue
 
         if best_maps is None:
-            raise RuntimeError(f"All {self.n_inits} initializations failed for k={k}")
+            raise RuntimeError(f"All {self.n_repeats} initializations failed for k={k}")
 
         # Create comprehensive clustering result
         clustering_result = {
             "k": k,
             "labels": best_labels,
             "centers": best_maps,
-            "data": self.maps2use,
+            "data": self.maps_to_use,
             "eeg_data": self.eeg_data,
             "residual": best_residual,
             "n_iter": None,
@@ -583,10 +583,10 @@ class OptimizerVisualizationWindow(QMainWindow):
         """Load parameters from COMET instance."""
         self.preprocessed_data_path = self.comet.preprocessed_data_path
         self.extension = self.comet.extension
-        self.datatype = self.comet.datatype
-        self.use_percentages = self.comet.use_percentages
+        self.data_type = self.comet.data_type
+        self.data_percentage = self.comet.data_percentage
         self.min_distance_size = getattr(self.comet, "min_distance_size", None)
-        self.number_of_repeats = getattr(self.comet, "number_of_repeats", 10)
+        self.n_repeats = getattr(self.comet, "n_repeats", 10)
         self.clustering_tolerance = self.comet.clustering_tolerance
         self.max_iterations = self.comet.max_iterations
         self.batch_size = getattr(self.comet, "batch_size", None)
@@ -839,7 +839,7 @@ class OptimizerVisualizationWindow(QMainWindow):
     # Analysis Methods
     # ========================================================================
 
-    def run_analyses_from_dialog(self, kmin: int, kmax: int, threshold: float = 5.0):
+    def run_analyses_from_dialog(self, k_min: int, k_max: int, threshold: float = 5.0):
         """Run all analyses head-lessly via the shared log worker.
 
         Entry point for the main window's k-range dialog: this window is not
@@ -848,15 +848,15 @@ class OptimizerVisualizationWindow(QMainWindow):
         :meth:`run_all_analyses`.
 
         Args:
-          kmin (int): Minimum number of microstates (clusters) to explore.
-          kmax (int): Maximum number of microstates (clusters) to explore.
+          k_min (int): Minimum number of microstates (clusters) to explore.
+          k_max (int): Maximum number of microstates (clusters) to explore.
           threshold (float): GEV elbow threshold percentage.
         """
         self._load_comet_parameters()
 
         self.results_cache = {}
-        self._pending_kmin = kmin
-        self._pending_kmax = kmax
+        self._pending_kmin = k_min
+        self._pending_kmax = k_max
         self.ui.optimizer_stopping_threshold_input.setText(str(threshold))
 
         # Reveal the window once the headless run finishes.
@@ -877,26 +877,26 @@ class OptimizerVisualizationWindow(QMainWindow):
         """
         # Validate the range handed in by the k-range dialog.
         try:
-            kmin = int(self._pending_kmin)
-            kmax = int(self._pending_kmax)
+            k_min = int(self._pending_kmin)
+            k_max = int(self._pending_kmax)
         except (TypeError, ValueError):
             print("Error: Invalid K range")
             self.ui.statusbar.showMessage("Error: Invalid K range")
             return
 
-        if kmin < 2:
-            kmin = 2
+        if k_min < 2:
+            k_min = 2
 
-        if kmax <= kmin:
-            kmax = kmin + 5
+        if k_max <= k_min:
+            k_max = k_min + 5
 
         parameters = self._get_method_parameters()
         if parameters is None:
             return
 
         # Hand values to the worker thread, which must not read widgets.
-        self._pending_kmin = kmin
-        self._pending_kmax = kmax
+        self._pending_kmin = k_min
+        self._pending_kmax = k_max
         self._pending_methods = ["gev", "db", "cv", "kl", "sil", "dunn", "ch", "gap", "aic", "bic"]
         self._pending_parameters = parameters
         self._pending_results = None
@@ -917,7 +917,7 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         self.logger.processing_info(
             "CLUSTERING",
-            f"Running visualization analyses (modified K-means), k range {kmin}-{kmax}, total {kmax-kmin+1}",
+            f"Running visualization analyses (modified K-means), k range {k_min}-{k_max}, total {k_max-k_min+1}",
         )
 
         log_window.process_finished_callback = self._on_analyses_process_finished
@@ -1008,29 +1008,29 @@ class OptimizerVisualizationWindow(QMainWindow):
         thread without touching Qt widgets.
         """
         # Generate maps and peaks
-        self.maps2use, self.peaks2use = DataInitializer().generate_maps_and_peaks(
+        self.maps_to_use, self.peaks_to_use = DataInitializer().generate_maps_and_peaks(
             self.preprocessed_data_path,
             self.extension,
-            self.datatype,
-            self.use_percentages,
+            self.data_type,
+            self.data_percentage,
             self.min_distance_size,
         )
 
-        kmin = self._pending_kmin
-        kmax = self._pending_kmax
+        k_min = self._pending_kmin
+        k_max = self._pending_kmax
 
         # Use the microstate-specific optimizer with modified K-means
         self.optimizer = OptimizedMicrostateClustererOptimizer(
-            maps2use=self.maps2use,
+            maps_to_use=self.maps_to_use,
             min_dist=self.min_distance_size,
-            n_inits=self.number_of_repeats,
-            kmin=kmin,
-            kmax=kmax,
+            n_repeats=self.n_repeats,
+            k_min=k_min,
+            k_max=k_max,
             preprocessed_data_path=self.preprocessed_data_path,
             extension=self.extension,
-            datatype=self.datatype,
-            tolerance=self.clustering_tolerance,
-            max_iter=self.max_iterations,
+            data_type=self.data_type,
+            clustering_tolerance=self.clustering_tolerance,
+            max_iterations=self.max_iterations,
             batch_size=self.batch_size,
         )
 
@@ -1134,10 +1134,10 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         logger.section_header("CLUSTERING", "Optimal Number of Microstates - Results")
 
-        # Criteria whose optimum lands on kmin/kmax rarely found real interior
+        # Criteria whose optimum lands on k_min/k_max rarely found real interior
         # structure (Davies-Bouldin, Calinski-Harabasz and Dunn reward the
         # fewest clusters), so they are flagged and left out of the consensus.
-        kmin, kmax = self._get_result_k_bounds(results)
+        k_min, k_max = self._get_result_k_bounds(results)
 
         interior_ks = []
         boundary_count = 0
@@ -1153,7 +1153,7 @@ class OptimizerVisualizationWindow(QMainWindow):
             )
 
             is_boundary = (
-                optimal_k is not None and kmin is not None and optimal_k in (kmin, kmax)
+                optimal_k is not None and k_min is not None and optimal_k in (k_min, k_max)
             )
             boundary_info = " — boundary pick, excluded from consensus" if is_boundary else ""
 
@@ -1177,20 +1177,20 @@ class OptimizerVisualizationWindow(QMainWindow):
             )
             if boundary_count:
                 message += (
-                    f"; {boundary_count} boundary pick(s) at k={kmin}/{kmax} excluded"
+                    f"; {boundary_count} boundary pick(s) at k={k_min}/{k_max} excluded"
                 )
             logger.processing_info("CLUSTERING", message)
         elif boundary_count:
             logger.warning(
                 "CLUSTERING",
-                "All criteria selected the k-range boundaries (kmin/kmax); no "
+                "All criteria selected the k-range boundaries (k_min/k_max); no "
                 "interior consensus - consider widening the k range or relying on "
                 "GEV/Cross-Validation/KL.",
             )
 
     @staticmethod
     def _get_result_k_bounds(results: dict[str, Any]) -> tuple[Optional[int], Optional[int]]:
-        """Return the (kmin, kmax) explored across the optimisation results."""
+        """Return the (k_min, k_max) explored across the optimisation results."""
         for method_results in results.values():
             k_values = method_results.get("k_values")
             if k_values:

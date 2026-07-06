@@ -84,13 +84,13 @@ class FeatureExtractor:
         self._rof_data_for_export = {}
         self._rtf_data_for_export = {}
 
-        # Calculate num_windows based on the processed input_sequence
+        # Calculate n_windows based on the processed input_sequence
         if hasattr(self.input_sequence, "__len__"):
             # Ensure integer division for window calculation
             window_size_samples = int(sampling_rate * sliding_window_size)
-            self.num_windows = len(self.input_sequence) // window_size_samples
+            self.n_windows = len(self.input_sequence) // window_size_samples
         else:
-            self.num_windows = 1
+            self.n_windows = 1
 
     @property
     def rof_data_for_export(self) -> dict:
@@ -135,7 +135,7 @@ class FeatureExtractor:
             if self.feature_mode == "sliding":
                 return [
                     FeatureHelper().initialize_empty_window_data(self.input_sequence)
-                    for _ in range(self.num_windows)
+                    for _ in range(self.n_windows)
                 ]
             return {}
 
@@ -155,12 +155,12 @@ class FeatureExtractor:
         if self.feature_mode == "sliding":
             window_element_gev = [
                 FeatureHelper().initialize_empty_window_data(self.input_sequence)
-                for _ in range(self.num_windows)
+                for _ in range(self.n_windows)
             ]
             window_size_samples = int(self.sliding_window_size * self.sampling_rate)
 
             # Compute GEV for each window
-            for window_index in range(self.num_windows):
+            for window_index in range(self.n_windows):
                 window_start = window_index * window_size_samples
                 window_end = (window_index + 1) * window_size_samples
                 window_eeg_data = eeg_data[:, window_start:window_end]
@@ -278,13 +278,13 @@ class FeatureExtractor:
             try:
                 window_element_coverage = [
                     FeatureHelper().initialize_empty_window_data(self.input_sequence)
-                    for _ in range(self.num_windows)
+                    for _ in range(self.n_windows)
                 ]
 
                 # Calculate window size in samples as integer
                 window_size_samples = int(self.sliding_window_size * self.sampling_rate)
 
-                for window_index in range(self.num_windows):
+                for window_index in range(self.n_windows):
                     window_start = window_index * window_size_samples
                     window_end = (window_index + 1) * window_size_samples
                     window_input_sequence = self.input_sequence[window_start:window_end]
@@ -332,9 +332,9 @@ class FeatureExtractor:
         if self.feature_mode == "sliding":
             # Use custom sliding window size
             window_size_samples = int(self.sliding_window_size * samples_per_second)
-            num_windows = len(self._get_flat_sequence()) // window_size_samples
+            n_windows = len(self._get_flat_sequence()) // window_size_samples
             window_change_counts = []
-            for window_idx in range(num_windows):
+            for window_idx in range(n_windows):
                 window_start = window_idx * window_size_samples
                 window_end = (window_idx + 1) * window_size_samples
                 window_input_sequence = self._get_flat_sequence()[window_start:window_end]
@@ -475,7 +475,7 @@ class FeatureExtractor:
         
         return {pair: count / total_transitions for pair, count in transitions.items()}
 
-    def entropy_rate(self, min_samples=None, kmax=6):
+    def entropy_rate(self, min_samples=None, k_max=6):
         """Calculate entropy rate using k-history method.
         For sliding windows, calculates entropy rate for each window.
         For averaged mode, calculates entropy rate for the entire sequence.
@@ -483,21 +483,21 @@ class FeatureExtractor:
         Args:
             min_samples (int, optional): Minimum number of samples to use for consistent comparison.
                                        If None, uses the full sequence length.
-            kmax (int, optional): Maximum history length to consider. Defaults to 6.
+            k_max (int, optional): Maximum history length to consider. Defaults to 6.
 
         Returns:
             float or list: If feature_mode is 'averaged', returns the entropy rate of the entire input_sequence.
                           If feature_mode is 'sliding', returns a list of entropy rates for each window.
         """
         # Get number of unique symbols
-        ns = len(set(self.input_sequence))
+        n_symbols = len(set(self.input_sequence))
 
         # Ensure consistent sample size for averaged mode
         if self.feature_mode == "averaged":
             consistent_sequence = FeatureHelper().ensure_consistent_samples(
                 self._get_flat_sequence(), min_samples
             )
-            h_rate, _ = FeatureHelper().compute_entropy_rate(consistent_sequence, ns, kmax)
+            h_rate, _ = FeatureHelper().compute_entropy_rate(consistent_sequence, n_symbols, k_max)
             return h_rate
 
         # For sliding mode, ensure each window has consistent samples
@@ -514,7 +514,7 @@ class FeatureExtractor:
                 window_input_sequence, min_samples
             )
             # Calculate entropy rate for this window
-            h_rate, _ = FeatureHelper().compute_entropy_rate(window_input_sequence, ns, kmax)
+            h_rate, _ = FeatureHelper().compute_entropy_rate(window_input_sequence, n_symbols, k_max)
             window_entropies[window_index] = h_rate
 
         if self.feature_mode == "sliding":
@@ -654,7 +654,7 @@ class FeatureExtractor:
             seq_array, time_array, microstates=None, time_window_ranges=time_window_ranges
         )
 
-    def hurst_exponent(self, min_samples=50, max_samples=2500, num_scales=50):
+    def hurst_exponent(self, min_samples=50, max_samples=2500, n_scales=50):
         """Calculate Hurst exponent using Detrended Fluctuation Analysis (DFA).
         For sliding windows, calculates Hurst exponent for each window.
         For averaged mode, calculates Hurst exponent for the entire sequence.
@@ -669,7 +669,7 @@ class FeatureExtractor:
         Args:
             min_samples (int): Minimum window size (default: 50 samples = 200ms at 250Hz)
             max_samples (int): Maximum window size (default: 2500 samples = 10s at 250Hz)
-            num_scales (int): Number of logarithmically spaced scales (default: 50)
+            n_scales (int): Number of logarithmically spaced scales (default: 50)
 
         Returns:
             float or list: If feature_mode is 'averaged', returns the Hurst exponent of the entire input_sequence.
@@ -680,7 +680,7 @@ class FeatureExtractor:
                 self._get_flat_sequence(),
                 min_samples=min_samples,
                 max_samples=max_samples,
-                num_scales=num_scales,
+                n_scales=n_scales,
             )
 
         # For sliding mode
@@ -698,7 +698,7 @@ class FeatureExtractor:
                 window_input_sequence,
                 min_samples=min_samples,
                 max_samples=max_samples,
-                num_scales=num_scales,
+                n_scales=n_scales,
             )
 
         if self.feature_mode == "sliding":

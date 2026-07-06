@@ -42,33 +42,33 @@ output_folder = /path/to/results
 channel_location_dir = /path/to/montage.csv
 extension = .set
 pattern_content = *
-datatype = raw
+data_type = raw
 
 [preprocessing_config]
 load_all_files = True
-filter_data = True
+temporal_filter_data = True
 filter_method = fir
 lowcut_freq = 2
 highcut_freq = 20
 downsample_data = True
-sample_rate = 250
+sampling_rate = 250
 remove_channels = False
-chan2rm = []
+channels_to_remove = []
 
 [clustering_config]
 smoothing_gfp = True
 smoothing_distance = 10
-number_of_maps = 4
-kmin = 2
-kmax = 10
+n_maps = 4
+k_min = 2
+k_max = 10
 stopping_mode = majority_vote
-stopping_parameter = 10
-use_percentages = 50
+stopping_threshold = 10
+data_percentage = 50
 initializer = Random
 clustering_method = Modified K-Means Clustering
 max_iterations = 500
 clustering_tolerance = 1e-6
-number_of_repeats = 5
+n_repeats = 5
 
 [backfitting_config]
 backfit_to = all
@@ -76,22 +76,22 @@ identify_short_window = False
 filter_segments = True
 filter_segments_less_than = 20
 filter_segments_option = smooth
-epsilon = 1e-6
-b = 3
-lamb = 5
+convergence_epsilon = 1e-6
+half_window_size = 3
+smoothness_penalty = 5
 
 [features_config]
 export_format = .csv
 feature_list = COV,OCC,MMD
-feature_mode = static
+feature_mode = averaged
 feature_types = real,surrogate,random
-window_size = 1
+sliding_window_size = 1
 duration_method = geometric
 
 [source_config]
 inverse_method = dSPM
 source_localization_method = tess
-nperm = 2000
+n_permutations = 2000
 spacing = ico3
 anatomy_subjects_dir = []
 ```
@@ -146,7 +146,7 @@ Parameters for data input and output paths.
 <td>Filename pattern filter. Use <code>*</code> for wildcards.</td>
 </tr>
 <tr>
-<td><code>datatype</code></td>
+<td><code>data_type</code></td>
 <td>String</td>
 <td><code>raw</code></td>
 <td>Data type: <code>raw</code> (continuous) or <code>epoched</code> (segmented).</td>
@@ -186,13 +186,13 @@ Parameters for data preparation and filtering.
 <td>Whether to load all matching files in input folder.</td>
 </tr>
 <tr>
-<td><code>datatype</code></td>
+<td><code>data_type</code></td>
 <td>String</td>
 <td><code>raw</code></td>
 <td>Data type: <code>raw</code> or <code>epoched</code>.</td>
 </tr>
 <tr>
-<td><code>filter_data</code></td>
+<td><code>temporal_filter_data</code></td>
 <td>Boolean</td>
 <td><code>True</code></td>
 <td>Apply temporal bandpass filtering.</td>
@@ -222,7 +222,7 @@ Parameters for data preparation and filtering.
 <td>Apply downsampling to reduce data size.</td>
 </tr>
 <tr>
-<td><code>sample_rate</code></td>
+<td><code>sampling_rate</code></td>
 <td>Integer</td>
 <td><code>250</code></td>
 <td>Target sampling rate (Hz) after downsampling.</td>
@@ -234,7 +234,7 @@ Parameters for data preparation and filtering.
 <td>Remove specified channels.</td>
 </tr>
 <tr>
-<td><code>chan2rm</code></td>
+<td><code>channels_to_remove</code></td>
 <td>List</td>
 <td><code>[]</code></td>
 <td>Channel names to remove (comma-separated).</td>
@@ -283,19 +283,19 @@ Parameters for data selection, validation, and template extraction.
 <td>Number of neighbors for spatial smoothing.</td>
 </tr>
 <tr>
-<td><code>number_of_maps</code></td>
+<td><code>n_maps</code></td>
 <td>Integer/String</td>
 <td><code>4</code></td>
 <td>Number of microstate classes. Use <code>auto</code> for automatic selection.</td>
 </tr>
 <tr>
-<td><code>kmin</code></td>
+<td><code>k_min</code></td>
 <td>Integer</td>
 <td><code>2</code></td>
 <td>Minimum K for automatic selection.</td>
 </tr>
 <tr>
-<td><code>kmax</code></td>
+<td><code>k_max</code></td>
 <td>Integer</td>
 <td><code>10</code></td>
 <td>Maximum K for automatic selection.</td>
@@ -307,13 +307,13 @@ Parameters for data selection, validation, and template extraction.
 <td>Strategy for selecting optimal K.</td>
 </tr>
 <tr>
-<td><code>stopping_parameter</code></td>
+<td><code>stopping_threshold</code></td>
 <td>Integer</td>
 <td><code>10</code></td>
 <td>GEV elbow gain threshold as a percent (1-100): the minimum relative GEV increase that justifies adding another cluster.</td>
 </tr>
 <tr>
-<td><code>use_percentages</code></td>
+<td><code>data_percentage</code></td>
 <td>Integer</td>
 <td><code>50</code></td>
 <td>Percentage of data used for clustering.</td>
@@ -343,7 +343,7 @@ Parameters for data selection, validation, and template extraction.
 <td>Convergence tolerance threshold.</td>
 </tr>
 <tr>
-<td><code>number_of_repeats</code></td>
+<td><code>n_repeats</code></td>
 <td>Integer</td>
 <td><code>5</code></td>
 <td>Number of clustering repetitions.</td>
@@ -428,19 +428,19 @@ Parameters for template assignment and segment refinement.
 <td>Strategy for handling short segments.</td>
 </tr>
 <tr>
-<td><code>epsilon</code></td>
+<td><code>convergence_epsilon</code></td>
 <td>Float</td>
 <td><code>1e-6</code></td>
 <td>Convergence criterion for smoothing algorithm.</td>
 </tr>
 <tr>
-<td><code>b</code></td>
+<td><code>half_window_size</code></td>
 <td>Integer</td>
 <td><code>3</code></td>
 <td>Window size parameter for smoothing (samples).</td>
 </tr>
 <tr>
-<td><code>lamb</code></td>
+<td><code>smoothness_penalty</code></td>
 <td>Float</td>
 <td><code>5</code></td>
 <td>Non-smoothness penalty (lambda) for smoothing.</td>
@@ -494,8 +494,8 @@ Parameters for microstate metric computation.
 <tr>
 <td><code>feature_mode</code></td>
 <td>String</td>
-<td><code>static</code></td>
-<td>Analysis mode: <code>static</code>, <code>windowed</code>, or <code>event_related</code>.</td>
+<td><code>averaged</code></td>
+<td>Analysis mode: <code>averaged</code>, <code>sliding</code>, or <code>pre_post</code>.</td>
 </tr>
 <tr>
 <td><code>feature_types</code></td>
@@ -504,10 +504,10 @@ Parameters for microstate metric computation.
 <td>Comparison types to compute.</td>
 </tr>
 <tr>
-<td><code>window_size</code></td>
+<td><code>sliding_window_size</code></td>
 <td>Float</td>
 <td><code>1</code></td>
-<td>Window duration in seconds (for windowed mode).</td>
+<td>Window duration in seconds (for sliding mode).</td>
 </tr>
 <tr>
 <td><code>duration_method</code></td>
@@ -559,9 +559,9 @@ The `duration_method` parameter controls how the per-segment run lengths of each
 
 | Value | Description | Output |
 |:------|:------------|:-------|
-| `static` | Whole-recording average | One value per recording |
-| `windowed` | Sliding window analysis | Time series of values |
-| `event_related` | Trial-level extraction | Per-trial values |
+| `averaged` | Whole-recording average | One value per recording |
+| `sliding` | Sliding window analysis | Time series of values |
+| `pre_post` | Trial-level pre/post-event extraction | Per-trial values |
 
 ---
 
@@ -589,7 +589,7 @@ Parameters for cortical source estimation.
 <td>Source reconstruction approach.</td>
 </tr>
 <tr>
-<td><code>nperm</code></td>
+<td><code>n_permutations</code></td>
 <td>Integer</td>
 <td><code>2000</code></td>
 <td>Number of permutations for TESS method.</td>
@@ -646,15 +646,15 @@ lowcut_freq = 2
 highcut_freq = 20
 
 [clustering_config]
-number_of_maps = 4
+n_maps = 4
 clustering_method = Modified K-Means Clustering
-number_of_repeats = 20
+n_repeats = 20
 
 [backfitting_config]
 filter_segments_option = remove
 
 [features_config]
-feature_mode = static
+feature_mode = averaged
 feature_list = COV,OCC,MMD,GEV,TP
 ```
 
@@ -668,23 +668,23 @@ highcut_freq = 40
 downsample_data = False
 
 [clustering_config]
-use_percentages = 100
+data_percentage = 100
 clustering_method = Agglomerative Hierarchical Clustering
 
 [backfitting_config]
 filter_segments_option = smooth
 
 [features_config]
-feature_mode = event_related
+feature_mode = pre_post
 ```
 
 ### Clinical/Group Comparison
 
 ```ini
 [clustering_config]
-number_of_maps = auto
+n_maps = auto
 stopping_mode = majority_vote
-number_of_repeats = 50
+n_repeats = 50
 
 [features_config]
 feature_list = COV,OCC,MMD,GEV,TP,LZC

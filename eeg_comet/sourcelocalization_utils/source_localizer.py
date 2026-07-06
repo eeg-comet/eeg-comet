@@ -27,12 +27,12 @@ class SourceLocalizer:
         segmentation_path,
         use_anatomy,
         extension,
-        datatype,
+        data_type,
         bem_solver,
         inverse_method,
         spacing,
         microstate_maps,
-        nperm,
+        n_permutations,
         logger=None,
         random_seed=None,
         alpha=0.05,
@@ -48,14 +48,14 @@ class SourceLocalizer:
         self.segmentation_path = segmentation_path
         self.use_anatomy = use_anatomy
         self.extension = extension
-        self.datatype = datatype
+        self.data_type = data_type
         self.bem_solver = bem_solver
         self.inverse_method = inverse_method
         self.spacing = spacing
         self.microstate_maps = microstate_maps
         self.tess_path = None
         self.avg_sources_path = None
-        self.nperm = nperm
+        self.n_permutations = n_permutations
         self.data_io = DataIO()
         self.source_io = SourceIO()  # Initialize SourceIO
         self.logger = logger
@@ -95,7 +95,7 @@ class SourceLocalizer:
 
     def stc_write(self, stc_data_subject_path, stc_file):
         """Write source time series to disk using SourceIO."""
-        self.source_io.write_stc(stc_file, stc_data_subject_path, datatype=self.datatype)
+        self.source_io.write_stc(stc_file, stc_data_subject_path, data_type=self.data_type)
 
     def stc_read(self, stc_data_subject_path):
         """Read source time series from disk using SourceIO."""
@@ -271,7 +271,7 @@ class SourceLocalizer:
                 os.makedirs(stc_subject_path)
 
             # Load EEG data
-            eeg = self.data_io.load_eeg(eeg_path, self.datatype)
+            eeg = self.data_io.load_eeg(eeg_path, self.data_type)
 
             # Ensure we have valid EEG data
             if eeg is None:
@@ -282,7 +282,7 @@ class SourceLocalizer:
             eeg_info = eeg.info
 
             # Convert EEGLAB objects to standard MNE objects
-            if self.datatype == "raw":
+            if self.data_type == "raw":
                 # Convert RawEEGLAB to standard RawArray
                 if not isinstance(eeg, mne.io.fiff.raw.Raw):
                     eeg_data = eeg.get_data()
@@ -392,13 +392,13 @@ class SourceLocalizer:
         """Perform the second regression to get beta coefficients."""
         return np.linalg.solve(t_coeff.T @ t_coeff, t_coeff.T @ stc_data)
 
-    def run_tess(self, stc_data, eeg_data, nperm):
+    def run_tess(self, stc_data, eeg_data, n_permutations):
         """Run the TESS algorithm.
 
         Args:
             stc_data: The source time series data.
             eeg_data: The EEG data.
-            nperm: The number of permutations.
+            n_permutations: The number of permutations.
 
         Returns:
             p_values: The p-values.
@@ -424,20 +424,20 @@ class SourceLocalizer:
         # untouched and the result reproducible.
         rng = np.random.default_rng(self.random_seed)
         z_scores = np.zeros(beta_coeff.shape)
-        beta_dist = np.zeros((beta_coeff.shape[0], beta_coeff.shape[1], nperm))
+        beta_dist = np.zeros((beta_coeff.shape[0], beta_coeff.shape[1], n_permutations))
         bonferroni = beta_coeff.shape[1]
         t_shuffle = t_coeff.copy()
-        for ii in range(nperm):
+        for ii in range(n_permutations):
             rng.shuffle(t_shuffle, axis=0)
             beta_dist[:, :, ii] = self.second_regression(t_shuffle, stc_data)
             if (ii % 200) == 0 and ii > 0:
-                self._log(f"TESS permutation progress: {ii}/{nperm}")
+                self._log(f"TESS permutation progress: {ii}/{n_permutations}")
         for idx, x in np.ndenumerate(beta_coeff):
             z_scores[idx] = stats.zscore(np.insert(beta_dist[idx[0]][idx[1]][:], 0, x))[0]
         p_values = bonferroni * stats.norm.sf(abs(z_scores))
 
-        # Bonferroni-corrected significance threshold derived from alpha and nperm.
-        significance = self.alpha / max(nperm, 1)
+        # Bonferroni-corrected significance threshold derived from alpha and n_permutations.
+        significance = self.alpha / max(n_permutations, 1)
         filtered_z_scores = (p_values < significance) * z_scores
 
         return p_values, z_scores, filtered_z_scores
@@ -530,13 +530,13 @@ class SourceLocalizer:
             stc_data = stc_file[0].data.T
 
             # Load EEG data
-            eeg = self.data_io.load_eeg(eeg_path, self.datatype)
+            eeg = self.data_io.load_eeg(eeg_path, self.data_type)
 
             if eeg is None:
                 return False
 
             # Get EEG data in the right format for source identification
-            eeg_data = eeg.get_data() if self.datatype == "raw" else eeg.get_data().mean(axis=0)
+            eeg_data = eeg.get_data() if self.data_type == "raw" else eeg.get_data().mean(axis=0)
 
             # Check data dimensions and transpose if necessary
             if eeg_data.shape[0] > eeg_data.shape[1]:
@@ -544,7 +544,7 @@ class SourceLocalizer:
 
             if source_method == "tess":
                 p_values, z_scores, filtered_z_scores = self.run_tess(
-                    stc_data, eeg_data, self.nperm
+                    stc_data, eeg_data, self.n_permutations
                 )
 
                 # Save TESS results using SourceIO

@@ -156,10 +156,10 @@ For large datasets, TAAHC can be applied to representative subsets:
 
 | Parameter | Description | Default | Range |
 |:----------|:------------|:--------|:------|
-| `number_of_maps` | Number of clusters | `4` | 2-10+ |
+| `n_maps` | Number of clusters | `4` | 2-10+ |
 | `max_iterations` | Iteration limit | `500` | 100-1000 |
 | `clustering_tolerance` | Convergence threshold | `1e-6` | 1e-8 to 1e-4 |
-| `number_of_repeats` | Number of runs | `5` | 1-100 |
+| `n_repeats` | Number of runs | `5` | 1-100 |
 
 ### K-means Specific
 
@@ -218,35 +218,35 @@ The best run is selected based on:
 
 ```ini
 [clustering_config]
-number_of_maps = 4
+n_maps = 4
 initializer = K-Means++
 clustering_method = Modified K-Means Clustering
 max_iterations = 500
 clustering_tolerance = 1e-6
-number_of_repeats = 20
+n_repeats = 20
 ```
 
 ### Thorough Exploration
 
 ```ini
 [clustering_config]
-number_of_maps = 5
+n_maps = 5
 initializer = Random
 clustering_method = Modified K-Means Clustering
 max_iterations = 1000
 clustering_tolerance = 1e-8
-number_of_repeats = 100
+n_repeats = 100
 ```
 
 ### TAAHC for Final Solution
 
 ```ini
 [clustering_config]
-number_of_maps = 4
+n_maps = 4
 clustering_method = Agglomerative Hierarchical Clustering
 max_iterations = 500
 clustering_tolerance = 1e-6
-number_of_repeats = 1  # TAAHC is deterministic
+n_repeats = 1  # TAAHC is deterministic
 ```
 
 ---

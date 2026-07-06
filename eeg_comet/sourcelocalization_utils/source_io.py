@@ -16,19 +16,19 @@ class SourceIO:
         self.data_io = DataIO()
 
     @staticmethod
-    def write_stc(stc_data, output_path, filename_prefix="stc", datatype="raw"):
+    def write_stc(stc_data, output_path, filename_prefix="stc", data_type="raw"):
         """Write source time series to disk.
 
         Args:
             stc_data: The source time series data (single STC or list of STCs for epoched data)
             output_path: The directory path where the source time series will be saved
             filename_prefix: Prefix for the filename (default: "stc")
-            datatype: Type of data - "raw" or "epoched"
+            data_type: Type of data - "raw" or "epoched"
         """
         if not os.path.exists(output_path):
             os.makedirs(output_path)
 
-        if datatype == "epoched" and isinstance(stc_data, list):
+        if data_type == "epoched" and isinstance(stc_data, list):
             for idx, stc in enumerate(stc_data):
                 filename = f"{filename_prefix}_{idx}"
                 filepath = os.path.join(output_path, filename)

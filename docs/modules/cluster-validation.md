@@ -37,7 +37,7 @@ All validation methods use spatial correlation as the primary similarity measure
 
 ### How the criteria are computed
 
-All ten criteria are evaluated on a polarity-invariant basis: cluster membership and every distance/dispersion term are derived from the absolute spatial correlation between a topography and its assigned template, so that maps differing only in voltage sign are treated as the same configuration (Pascual-Marqui et al., 1995; Michel & Koenig, 2018). For each candidate K in `[kmin, kmax]`, clustering is run once and all selected criteria are scored from that solution. Within-cluster dispersion uses the polarity-invariant distance `d = 1 - |r|` (Tibshirani et al., 2001), and the information criteria treat each template as an average-referenced, unit-normalized topography with `C - 1` free parameters (so the model has `K x (C - 1)` parameters in total).
+All ten criteria are evaluated on a polarity-invariant basis: cluster membership and every distance/dispersion term are derived from the absolute spatial correlation between a topography and its assigned template, so that maps differing only in voltage sign are treated as the same configuration (Pascual-Marqui et al., 1995; Michel & Koenig, 2018). For each candidate K in `[k_min, k_max]`, clustering is run once and all selected criteria are scored from that solution. Within-cluster dispersion uses the polarity-invariant distance `d = 1 - |r|` (Tibshirani et al., 2001), and the information criteria treat each template as an average-referenced, unit-normalized topography with `C - 1` free parameters (so the model has `K x (C - 1)` parameters in total).
 
 ---
 
@@ -238,11 +238,11 @@ Select K most frequently chosen across all criteria.
 
 | Parameter | Description | Default | Options |
 |:----------|:------------|:--------|:--------|
-| `number_of_maps` | Number of clusters | `4` | Integer or `auto` |
-| `kmin` | Minimum K to evaluate | `2` | 2-10 |
-| `kmax` | Maximum K to evaluate | `10` | 4-15 |
+| `n_maps` | Number of clusters | `4` | Integer or `auto` |
+| `k_min` | Minimum K to evaluate | `2` | 2-10 |
+| `k_max` | Maximum K to evaluate | `10` | 4-15 |
 | `stopping_mode` | Selection strategy | `majority_vote` | See below |
-| `stopping_parameter` | GEV elbow gain threshold (percent): the minimum relative GEV increase that justifies an additional cluster | `10` | 1-100 |
+| `stopping_threshold` | GEV elbow gain threshold (percent): the minimum relative GEV increase that justifies an additional cluster | `10` | 1-100 |
 
 ### Stopping Modes
 
@@ -265,11 +265,11 @@ Select K most frequently chosen across all criteria.
 ```ini
 [clustering_config]
 # Auto-select K using validation
-number_of_maps = auto
-kmin = 4
-kmax = 8
+n_maps = auto
+k_min = 4
+k_max = 8
 stopping_mode = majority_vote
-stopping_parameter = 10
+stopping_threshold = 10
 ```
 
 ---

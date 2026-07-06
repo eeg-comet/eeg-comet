@@ -84,7 +84,7 @@ class IOConfig:
     montage: str = ""
     extension: str = ".set"
     pattern: str = "*"
-    datatype: str = "raw"
+    data_type: str = "raw"
     output_folder: str = ""
     channel_location_dir: str = ""
 
@@ -96,11 +96,11 @@ class PreprocessingConfig:
     lowcut_freq: int = 2
     highcut_freq: int = 20
     downsample_data: bool = True
-    sample_rate: int = 250
+    sampling_rate: int = 250
     spatial_filter_data: bool = False
     auto_clean_data: bool = False
     remove_channels: bool = False
-    ch2rm: str = ""
+    channels_to_remove: str = ""
     prep_data: bool = False
 
 
@@ -108,18 +108,18 @@ class PreprocessingConfig:
 class ClusteringConfig:
     smoothing_gfp: bool = False
     smoothing_distance: int = 10
-    number_of_maps: Union[int, str] = 4
-    kmin: int = 2
-    kmax: int = 10
+    n_maps: Union[int, str] = 4
+    k_min: int = 2
+    k_max: int = 10
     stopping_mode: str = "majority_vote"
-    stopping_parameter: int = 10
-    use_percentages: int = 100
+    stopping_threshold: int = 10
+    data_percentage: int = 100
     initializer: str = "Random"
     clustering_method: str = "Modified K-Means Clustering"
     max_iterations: int = 500
     clustering_tolerance: float = 1e-6
     similarity_metric: str = "Spatial Correlation"
-    number_of_repeats: int = 5
+    n_repeats: int = 5
     batch_size: Optional[int] = None
 
 
@@ -130,9 +130,9 @@ class BackfittingConfig:
     filter_segments: bool = False
     filter_segments_less_than: int = 20
     filter_segments_option: str = "smooth"
-    epsilon: float = 1e-6
-    b: int = 3
-    lamb: int = 5
+    convergence_epsilon: float = 1e-6
+    half_window_size: int = 3
+    smoothness_penalty: int = 5
     min_correlation_threshold: Union[float, bool] = False
 
 
@@ -155,7 +155,7 @@ class SourceConfig:
     use_anatomy: str = "fsaverage"
     bem_solver: str = "mne"
     inverse_method: str = "dSPM"
-    nperm: int = 2000
+    n_permutations: int = 2000
     spacing: str = "ico3"
     source_localization_method: str = "tess"
     anatomy_subjects_dir: str = ""
@@ -206,7 +206,7 @@ class CometConfig:
             "montage": str(self.io.montage) if self.io.montage is not None else "",
             "extension": self.io.extension,
             "pattern": self.io.pattern,
-            "datatype": self.io.datatype,
+            "data_type": self.io.data_type,
             "output_folder": self.io.output_folder,
             "channel_location_dir": self.io.channel_location_dir,
         }
@@ -218,11 +218,11 @@ class CometConfig:
             "lowcut_freq": str(pp.lowcut_freq),
             "highcut_freq": str(pp.highcut_freq),
             "downsample_data": str(pp.downsample_data),
-            "sample_rate": str(pp.sample_rate),
+            "sampling_rate": str(pp.sampling_rate),
             "spatial_filter_data": str(pp.spatial_filter_data),
             "auto_clean_data": str(pp.auto_clean_data),
             "remove_channels": str(pp.remove_channels),
-            "ch2rm": str(pp.ch2rm),
+            "channels_to_remove": str(pp.channels_to_remove),
             "prep_data": str(pp.prep_data),
         }
 
@@ -230,18 +230,18 @@ class CometConfig:
         cp["clustering_config"] = {
             "smoothing_gfp": str(cl.smoothing_gfp),
             "smoothing_distance": str(cl.smoothing_distance),
-            "number_of_maps": str(cl.number_of_maps),
-            "kmin": str(cl.kmin),
-            "kmax": str(cl.kmax),
+            "n_maps": str(cl.n_maps),
+            "k_min": str(cl.k_min),
+            "k_max": str(cl.k_max),
             "stopping_mode": cl.stopping_mode,
-            "stopping_parameter": str(cl.stopping_parameter),
-            "use_percentages": str(cl.use_percentages) if cl.use_percentages is not None else "",
+            "stopping_threshold": str(cl.stopping_threshold),
+            "data_percentage": str(cl.data_percentage) if cl.data_percentage is not None else "",
             "initializer": cl.initializer,
             "clustering_method": cl.clustering_method,
             "max_iterations": str(cl.max_iterations),
             "clustering_tolerance": str(cl.clustering_tolerance),
             "similarity_metric": cl.similarity_metric,
-            "number_of_repeats": str(cl.number_of_repeats),
+            "n_repeats": str(cl.n_repeats),
             "batch_size": "" if cl.batch_size is None else str(cl.batch_size),
         }
 
@@ -252,9 +252,9 @@ class CometConfig:
             "filter_segments": str(bf.filter_segments),
             "filter_segments_less_than": str(bf.filter_segments_less_than),
             "filter_segments_option": bf.filter_segments_option,
-            "epsilon": str(bf.epsilon),
-            "b": str(bf.b),
-            "lamb": str(bf.lamb),
+            "convergence_epsilon": str(bf.convergence_epsilon),
+            "half_window_size": str(bf.half_window_size),
+            "smoothness_penalty": str(bf.smoothness_penalty),
             "min_correlation_threshold": (
                 "False" if bf.min_correlation_threshold is False
                 else str(bf.min_correlation_threshold)
@@ -280,7 +280,7 @@ class CometConfig:
             "use_anatomy": sc.use_anatomy,
             "bem_solver": sc.bem_solver,
             "inverse_method": sc.inverse_method,
-            "nperm": str(sc.nperm),
+            "n_permutations": str(sc.n_permutations),
             "spacing": sc.spacing,
             "source_localization_method": sc.source_localization_method,
             "anatomy_subjects_dir": sc.anatomy_subjects_dir,
@@ -320,7 +320,7 @@ class CometConfig:
                 montage=io.get("montage", ""),
                 extension=io.get("extension", ".set"),
                 pattern=io.get("pattern", io.get("pattern_content", "*")),
-                datatype=io.get("datatype", "raw"),
+                data_type=io.get("data_type", io.get("datatype", "raw")),
                 output_folder=io.get("output_folder", ""),
                 channel_location_dir=io.get("channel_location_dir", ""),
             )
@@ -328,22 +328,26 @@ class CometConfig:
         if cp.has_section("preprocessing_config"):
             pp = cp["preprocessing_config"]
             cfg.preprocessing = PreprocessingConfig(
-                temporal_filter_data=_coerce_bool(pp.get("temporal_filter_data"), True),
+                temporal_filter_data=_coerce_bool(
+                    pp.get("temporal_filter_data", pp.get("filter_data")), True
+                ),
                 filter_method=pp.get("filter_method", "fir"),
                 lowcut_freq=_coerce_int(pp.get("lowcut_freq"), 2),
                 highcut_freq=_coerce_int(pp.get("highcut_freq"), 20),
                 downsample_data=_coerce_bool(pp.get("downsample_data"), True),
-                sample_rate=_coerce_int(pp.get("sample_rate"), 250),
+                sampling_rate=_coerce_int(pp.get("sampling_rate", pp.get("sample_rate")), 250),
                 spatial_filter_data=_coerce_bool(pp.get("spatial_filter_data"), False),
                 auto_clean_data=_coerce_bool(pp.get("auto_clean_data"), False),
                 remove_channels=_coerce_bool(pp.get("remove_channels"), False),
-                ch2rm=pp.get("ch2rm", ""),
+                channels_to_remove=pp.get(
+                    "channels_to_remove", pp.get("ch2rm", pp.get("chan2rm", ""))
+                ),
                 prep_data=_coerce_bool(pp.get("prep_data"), False),
             )
 
         if cp.has_section("clustering_config"):
             cl = cp["clustering_config"]
-            n_maps_raw = cl.get("number_of_maps", "4")
+            n_maps_raw = cl.get("n_maps", cl.get("number_of_maps", "4"))
             n_maps: Union[int, str] = (
                 "auto" if str(n_maps_raw).strip().lower() == "auto"
                 else _coerce_int(n_maps_raw, 4)
@@ -352,12 +356,16 @@ class CometConfig:
             cfg.clustering = ClusteringConfig(
                 smoothing_gfp=_coerce_bool(cl.get("smoothing_gfp"), False),
                 smoothing_distance=_coerce_int(cl.get("smoothing_distance"), 10),
-                number_of_maps=n_maps,
-                kmin=_coerce_int(cl.get("kmin"), 2),
-                kmax=_coerce_int(cl.get("kmax"), 10),
+                n_maps=n_maps,
+                k_min=_coerce_int(cl.get("k_min", cl.get("kmin")), 2),
+                k_max=_coerce_int(cl.get("k_max", cl.get("kmax")), 10),
                 stopping_mode=cl.get("stopping_mode", "majority_vote"),
-                stopping_parameter=_coerce_int(cl.get("stopping_parameter"), 10),
-                use_percentages=_coerce_int(cl.get("use_percentages"), 100),
+                stopping_threshold=_coerce_int(
+                    cl.get("stopping_threshold", cl.get("stopping_parameter")), 10
+                ),
+                data_percentage=_coerce_int(
+                    cl.get("data_percentage", cl.get("use_percentages")), 100
+                ),
                 initializer=cl.get("initializer", "Random"),
                 clustering_method=cl.get(
                     "clustering_method", "Modified K-Means Clustering"
@@ -365,7 +373,7 @@ class CometConfig:
                 max_iterations=_coerce_int(cl.get("max_iterations"), 500),
                 clustering_tolerance=_coerce_float(cl.get("clustering_tolerance"), 1e-6),
                 similarity_metric=cl.get("similarity_metric", "Spatial Correlation"),
-                number_of_repeats=_coerce_int(cl.get("number_of_repeats"), 5),
+                n_repeats=_coerce_int(cl.get("n_repeats", cl.get("number_of_repeats")), 5),
                 batch_size=None if not batch else _coerce_int(batch, 1000),
             )
 
@@ -377,9 +385,13 @@ class CometConfig:
                 filter_segments=_coerce_bool(bf.get("filter_segments"), False),
                 filter_segments_less_than=_coerce_int(bf.get("filter_segments_less_than"), 20),
                 filter_segments_option=bf.get("filter_segments_option", "smooth"),
-                epsilon=_coerce_float(bf.get("epsilon"), 1e-6),
-                b=_coerce_int(bf.get("b"), 3),
-                lamb=_coerce_int(bf.get("lamb"), 5),
+                convergence_epsilon=_coerce_float(
+                    bf.get("convergence_epsilon", bf.get("epsilon")), 1e-6
+                ),
+                half_window_size=_coerce_int(bf.get("half_window_size", bf.get("b")), 3),
+                smoothness_penalty=_coerce_int(
+                    bf.get("smoothness_penalty", bf.get("lamb")), 5
+                ),
                 min_correlation_threshold=_coerce_optional_float(
                     bf.get("min_correlation_threshold")
                 ),
@@ -392,7 +404,9 @@ class CometConfig:
                 feature_list=_coerce_csv_list(ft.get("feature_list"), ["OCC", "DUR", "COV"]),
                 feature_mode=_coerce_csv_list(ft.get("feature_mode"), ["averaged"]),
                 feature_types=_coerce_csv_list(ft.get("feature_types"), ["real"]),
-                sliding_window_size=_coerce_int(ft.get("sliding_window_size"), 1),
+                sliding_window_size=_coerce_int(
+                    ft.get("sliding_window_size", ft.get("window_size")), 1
+                ),
                 event_based_sliding=_coerce_bool(ft.get("event_based_sliding"), False),
                 selected_events=_coerce_csv_list(ft.get("selected_events"), []),
                 event_matching_mode=ft.get("event_matching_mode", "partial"),
@@ -406,7 +420,7 @@ class CometConfig:
                 use_anatomy=sc.get("use_anatomy", "fsaverage"),
                 bem_solver=sc.get("bem_solver", "mne"),
                 inverse_method=sc.get("inverse_method", "dSPM"),
-                nperm=_coerce_int(sc.get("nperm"), 2000),
+                n_permutations=_coerce_int(sc.get("n_permutations", sc.get("nperm")), 2000),
                 spacing=sc.get("spacing", "ico3"),
                 source_localization_method=sc.get("source_localization_method", "tess"),
                 anatomy_subjects_dir=sc.get("anatomy_subjects_dir", ""),

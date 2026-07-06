@@ -826,7 +826,7 @@ class NewStudyWindow(QDialog):
             return
         filename = current_item.text()
         try:
-            eeg = DataIO().load_eeg(filename, self.comet.datatype, montage=None)  # Don't force montage
+            eeg = DataIO().load_eeg(filename, self.comet.data_type, montage=None)  # Don't force montage
             data_channel_names = eeg.info["ch_names"]
             self.ui.step2_ch2rm_combobox.addItems(data_channel_names)
         except ValueError as e:
@@ -889,7 +889,7 @@ class NewStudyWindow(QDialog):
         self.comet.pattern_content = self.ui.step1_import_pattern_lineedit.text()
         self.comet.input_folder = self.input_folder
         self.comet.extension = self.get_extension()
-        self.comet.datatype = self.get_data_type()
+        self.comet.data_type = self.get_data_type()
         
         # Transfer BIDS information to COMET instance BEFORE loading raw data
         if hasattr(self, 'bids_dataset'):
@@ -976,12 +976,12 @@ class NewStudyWindow(QDialog):
             return
         filepath = current_item.text()
         try:
-            eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+            eeg = DataIO().load_eeg(filepath, self.comet.data_type, montage=None)
         except Exception:
             return
         event_names = []
         try:
-            if self.comet.datatype == "epoched":
+            if self.comet.data_type == "epoched":
                 # Prefer explicit event_id if available
                 if hasattr(eeg, "event_id") and isinstance(eeg.event_id, dict) and eeg.event_id:
                     event_names = list(eeg.event_id.keys())
@@ -1062,15 +1062,15 @@ class NewStudyWindow(QDialog):
 
         self.downsample_data = self.ui.step2_downsamp_option_checkbox.isChecked()
         if self.downsample_data:
-            self.sample_rate = int(self.ui.step2_downsamp_freq_input.text())
+            self.sampling_rate = int(self.ui.step2_downsamp_freq_input.text())
         else:
             # When not downsampling, use the original sampling frequency from the data
             if self.comet.list_eegs_path:
                 # Load the first EEG file to get its sampling frequency
                 first_eeg_path = self.comet.list_eegs_path[0]
                 try:
-                    temp_eeg = DataIO().load_eeg(first_eeg_path, self.comet.datatype, montage=None)
-                    self.sample_rate = temp_eeg.info["sfreq"]
+                    temp_eeg = DataIO().load_eeg(first_eeg_path, self.comet.data_type, montage=None)
+                    self.sampling_rate = temp_eeg.info["sfreq"]
                 except ValueError as e:
                     if "Data format mismatch" in str(e):
                         QMessageBox.warning(
@@ -1083,9 +1083,9 @@ class NewStudyWindow(QDialog):
                     else:
                         raise
             else:
-                self.sample_rate = ""
+                self.sampling_rate = ""
         self.spatial_filter_data = self.ui.step2_spatial_filter_option_checkbox.isChecked()
-        self.chan2rm = (
+        self.channels_to_remove = (
             self.ui.step2_ch2rm_combobox.currentData()
             if self.ui.step2_ch2rm_radio.isChecked()
             else "missing"
@@ -1111,9 +1111,9 @@ class NewStudyWindow(QDialog):
             "lowcut_freq",
             "highcut_freq",
             "downsample_data",
-            "sample_rate",
+            "sampling_rate",
             "spatial_filter_data",
-            "chan2rm",
+            "channels_to_remove",
             "prep_data",
             "select_events_only",
             "selected_event_label",
@@ -1130,7 +1130,7 @@ class NewStudyWindow(QDialog):
             f"Study Name: {self.study_name}\n"
             f"Input Directory: {self.comet.input_folder}\n"
             f"Output Directory: {self.save_dir}\n"
-            f"Data Type: {self.comet.datatype}\n"
+            f"Data Type: {self.comet.data_type}\n"
             f"File Extension: {self.comet.extension}"
         )
         self.comet.LogWindow.append_log(study_creation_info, log_type="info")
@@ -1192,7 +1192,7 @@ class NewStudyWindow(QDialog):
 
         try:
             # Load EEG without forcing montage to preserve existing channel locations
-            eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+            eeg = DataIO().load_eeg(filepath, self.comet.data_type, montage=None)
         except ValueError as e:
             if "Data format mismatch" in str(e):
                 QMessageBox.warning(
@@ -1271,8 +1271,8 @@ class NewStudyWindow(QDialog):
 
             # Proceed with plotting if we have channel positions
             if self.ui.step2_ch2rm_combobox.currentData():
-                self.chan2rm = self.ui.step2_ch2rm_combobox.currentData()
-                eeg.info["bads"].extend(self.chan2rm)
+                self.channels_to_remove = self.ui.step2_ch2rm_combobox.currentData()
+                eeg.info["bads"].extend(self.channels_to_remove)
 
             try:
                 fig, _ = eeg.plot_sensors(kind="select", show_names=True, show=False)
@@ -1307,7 +1307,7 @@ class NewStudyWindow(QDialog):
 
         # Load EEG without forcing montage to preserve existing channel locations
         try:
-            eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None)
+            eeg = DataIO().load_eeg(filepath, self.comet.data_type, montage=None)
         except ValueError as e:
             if "Data format mismatch" in str(e):
                 QMessageBox.warning(
@@ -1350,7 +1350,7 @@ class NewStudyWindow(QDialog):
                 eeg.set_montage(montage, match_case=False, on_missing="warn")
 
         # Automatically determine plot type based on data type
-        if self.comet.datatype == "epoched":
+        if self.comet.data_type == "epoched":
             # Plot evoked/epoched data with topomaps
             self.init_canvas()
             tmin = -0.2
@@ -1420,7 +1420,7 @@ class NewStudyWindow(QDialog):
 
         # Load EEG without forcing montage to preserve existing channel locations
         try:
-            eeg = DataIO().load_eeg(filepath, self.comet.datatype, montage=None, preload=False)
+            eeg = DataIO().load_eeg(filepath, self.comet.data_type, montage=None, preload=False)
         except ValueError as e:
             if "Data format mismatch" in str(e):
                 QMessageBox.warning(

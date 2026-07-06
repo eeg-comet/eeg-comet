@@ -116,7 +116,7 @@ Randomly select different samples from the entire temporal dataset for each inde
 
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
-| `use_percentages` | Percentage of data to sample | `50` |
+| `data_percentage` | Percentage of data to sample | `50` |
 | Sample size | Computed from percentage | Varies |
 
 ### Best For
@@ -181,11 +181,11 @@ Analyze every data sample during clustering, eliminating sampling bias and ensur
 ```ini
 [clustering_config]
 # Percentage of data to use (applies to random sampling)
-use_percentages = 50
+data_percentage = 50
 
 # Note: Method selection is done in GUI
-# For GFP peaks, set use_percentages to match peak count
-# For all timepoints, set use_percentages = 100
+# For GFP peaks, set data_percentage to match peak count
+# For all timepoints, set data_percentage = 100
 ```
 
 ### Practical Guidelines

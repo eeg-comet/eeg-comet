@@ -39,7 +39,7 @@ def setup_argument_parser():
         epilog="""
 Examples:
   # Run full pipeline with automatic k selection
-  eeg-comet-cli --config my_config.ini --all --auto-k --kmin 2 --kmax 8
+  eeg-comet-cli --config my_config.ini --all --auto-k --k-min 2 --k-max 8
 
   # Run only preprocessing and clustering
   eeg-comet-cli --config my_config.ini --preprocess --cluster
@@ -78,10 +78,10 @@ Examples:
     )
     parser.add_argument("--k", type=int, help="Specific number of clusters (overrides config)")
     parser.add_argument(
-        "--kmin", type=int, default=2, help="Minimum k for automatic selection (default: 2)"
+        "--k-min", type=int, default=2, help="Minimum k for automatic selection (default: 2)"
     )
     parser.add_argument(
-        "--kmax", type=int, default=10, help="Maximum k for automatic selection (default: 10)"
+        "--k-max", type=int, default=10, help="Maximum k for automatic selection (default: 10)"
     )
     parser.add_argument(
         "--method",
@@ -110,8 +110,8 @@ def validate_arguments(args):
     if args.auto_k and args.k:
         errors.append("Cannot specify both --auto-k and --k")
 
-    if args.kmin >= args.kmax:
-        errors.append("kmin must be less than kmax")
+    if args.k_min >= args.k_max:
+        errors.append("k_min must be less than k_max")
 
     # Check if at least one analysis step is selected
     analysis_steps = [
@@ -152,20 +152,20 @@ def configure_comet_for_clustering(comet, args):
 
     # Set k selection parameters
     if args.auto_k:
-        comet.number_of_maps = "auto"
+        comet.n_maps = "auto"
         comet.choose_number_of_maps = "auto"
-        comet.kmin = args.kmin
-        comet.kmax = args.kmax
+        comet.k_min = args.k_min
+        comet.k_max = args.k_max
         comet.stopping_mode = "majority_vote"  # Use robust majority vote
         # Don't log redundant information here
     elif args.k:
-        comet.number_of_maps = args.k
+        comet.n_maps = args.k
         comet.choose_number_of_maps = "user"
         # Don't log redundant information here
 
     # Set number of repetitions
     if args.repeats:
-        comet.number_of_repeats = args.repeats
+        comet.n_repeats = args.repeats
         # Don't log redundant information here
 
 

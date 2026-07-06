@@ -182,7 +182,7 @@ After:  A A [A C] C C C C  (first half to A, second half to C)
 
 ### Strategy 4: Sequential Smoothing (`smooth`)
 
-**Apply temporal smoothing considering both past and future context.** This implements the window-based smoothing algorithm of Pascual-Marqui et al. (1995), where the window half-width `b` and the non-smoothness penalty `lambda` control the trade-off between local context and label stability.
+**Apply temporal smoothing considering both past and future context.** This implements the window-based smoothing algorithm of Pascual-Marqui et al. (1995), where the window half-width `half_window_size` and the non-smoothness penalty `lambda` control the trade-off between local context and label stability.
 
 ```
 Algorithm:
@@ -204,9 +204,9 @@ Algorithm:
 
 | Parameter | Description | Default | Range |
 |:----------|:------------|:--------|:------|
-| `epsilon` | Convergence criterion | `1e-6` | 1e-8 to 1e-4 |
-| `b` | Window size (samples) | `3` | 1-10 |
-| `lamb` | Non-smoothness penalty | `5` | 1-20 |
+| `convergence_epsilon` | Convergence criterion | `1e-6` | 1e-8 to 1e-4 |
+| `half_window_size` | Window size (samples) | `3` | 1-10 |
+| `smoothness_penalty` | Non-smoothness penalty | `5` | 1-20 |
 
 ---
 
@@ -256,9 +256,9 @@ identify_short_window = True
 filter_segments = True
 filter_segments_less_than = 20
 filter_segments_option = smooth
-epsilon = 1e-6
-b = 3
-lamb = 5
+convergence_epsilon = 1e-6
+half_window_size = 3
+smoothness_penalty = 5
 ```
 
 #### Conservative (Minimal Processing)
@@ -346,7 +346,7 @@ Increase minimum duration threshold. Consider if K is too high (too many similar
 
 <div class="callout warning">
 <strong>Mean duration seems too long</strong><br>
-May indicate over-smoothing. Reduce lamb parameter or try different strategy.
+May indicate over-smoothing. Reduce smoothness_penalty parameter or try different strategy.
 </div>
 
 <div class="callout warning">
@@ -356,7 +356,7 @@ This is expected with strict thresholds. If problematic, switch to length-preser
 
 <div class="callout warning">
 <strong>Smoothing doesn't converge</strong><br>
-Increase epsilon or reduce maximum iterations. Check for data quality issues.
+Increase convergence_epsilon or reduce maximum iterations. Check for data quality issues.
 </div>
 
 ---

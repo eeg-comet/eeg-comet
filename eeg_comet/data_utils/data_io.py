@@ -200,14 +200,14 @@ class DataIO:
         return list_path, list_filename
 
     @staticmethod
-    def _read_mat_locations(fname):
+    def _read_mat_locations(file_path):
         """Read channel locations from a Brainstorm .mat file.
 
         Extracts 3D electrode positions from Brainstorm's channel structure,
         converting to the MNE coordinate system (y, x, z) in meters.
 
         Args:
-            fname (str): Path to the Brainstorm .mat file
+            file_path (str): Path to the Brainstorm .mat file
 
         Returns:
             dict: Dictionary mapping channel names to 3D positions in meters
@@ -217,7 +217,7 @@ class DataIO:
             ValueError: If the file does not contain the expected 'Channel' key
             IOError: If the file cannot be read
         """
-        mat = loadmat(fname)
+        mat = loadmat(file_path)
         if "Channel" not in mat:
             raise ValueError('MAT file does not contain "Channel" key.')
         channel_data = mat["Channel"][0]
@@ -233,7 +233,7 @@ class DataIO:
         return ch_pos
 
     @staticmethod
-    def _read_ced_locations(fname):
+    def _read_ced_locations(file_path):
         """Read channel locations from an EEGLAB .ced file.
 
         Parses a .ced file to extract electrode positions, converting from EEGLAB's
@@ -248,7 +248,7 @@ class DataIO:
         fitting is applied - only coordinate system transformation and unit scaling.
 
         Args:
-            fname (str): Path to the .ced file
+            file_path (str): Path to the .ced file
 
         Returns:
             dict: Dictionary mapping channel names to 3D positions in meters
@@ -259,9 +259,9 @@ class DataIO:
             ValueError: If the file format is invalid or missing required columns
         """
         ch_pos = {}
-        if not os.path.isfile(fname):
-            raise FileNotFoundError(f"The file {fname} does not exist.")
-        with open(fname) as f:
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"The file {file_path} does not exist.")
+        with open(file_path) as f:
             lines = f.readlines()
         if not lines:
             raise ValueError("The .ced file is empty.")
@@ -405,7 +405,7 @@ class DataIO:
             )
         return montage
 
-    def check_chan2rm(self, list_eegs_path, datatype, montage):
+    def check_channels_to_remove(self, list_eegs_path, data_type, montage):
         """Identify consistent and missing channels across a dataset collection.
 
         Checks for channel consistency across multiple EEG files and identifies
@@ -414,7 +414,7 @@ class DataIO:
 
         Args:
             list_eegs_path (list of str): Paths to EEG files to check
-            datatype (str): Type of EEG data ('raw' or 'epoched')
+            data_type (str): Type of EEG data ('raw' or 'epoched')
             montage (str): Path to channel locations or name of standard montage
 
         Returns:
@@ -430,7 +430,7 @@ class DataIO:
 
         # Get channel names from each file and normalize cases
         for filename in list_eegs_path:
-            eeg = self.load_eeg(filename, datatype, montage, preload=False)
+            eeg = self.load_eeg(filename, data_type, montage, preload=False)
 
             # Create normalized version of channel names for this file
             normalized_channels = []
@@ -463,7 +463,7 @@ class DataIO:
         return consistent_channels, missing_channels
 
     def load_eeg(
-        self, eeg_path, datatype, montage="", chan2rm=None, preload=True, verbose="CRITICAL"
+        self, eeg_path, data_type, montage="", channels_to_remove=None, preload=True, verbose="CRITICAL"
     ):
         """Load EEG data from various file formats with optional preprocessing.
 
@@ -472,10 +472,10 @@ class DataIO:
 
         Args:
             eeg_path (str): Path to the EEG data file
-            datatype (str): Type of EEG data to load ('raw' or 'epoched')
+            data_type (str): Type of EEG data to load ('raw' or 'epoched')
             montage (str, optional): Path to channel locations or name
                 of standard montage. Defaults to '' (uses 'standard_1020')
-            chan2rm (list of str, optional): List of channel names to remove.
+            channels_to_remove (list of str, optional): List of channel names to remove.
                 Defaults to None
             preload (bool, optional): Whether to load data into memory immediately.
                 Defaults to True
@@ -487,11 +487,11 @@ class DataIO:
 
         Raises:
             FileNotFoundError: If the EEG file does not exist
-            ValueError: If the datatype is not supported or montage cannot be loaded
+            ValueError: If the data_type is not supported or montage cannot be loaded
         """
         with mne.use_log_level(verbose):
             warnings.filterwarnings("ignore")
-            if datatype == "raw":
+            if data_type == "raw":
                 try:
                     eeg = mne.io.read_raw(eeg_path, preload=preload, verbose=verbose)
                 except TypeError as e:
@@ -504,7 +504,7 @@ class DataIO:
                     else:
                         # Re-raise other TypeErrors as-is
                         raise
-            elif datatype == "epoched":
+            elif data_type == "epoched":
                 eeg = mne.io.read_epochs_eeglab(eeg_path, verbose=verbose)
                 # eeg = mne.io.read_epochs(eeg_path, verbose=False)
             
@@ -515,10 +515,10 @@ class DataIO:
             montage = self.load_montage(montage)
             eeg.set_montage(montage, match_case=False, on_missing="warn")
             ch_names = eeg.info["ch_names"]
-            if chan2rm is None:
-                chan2rm = []
-            if any(chan2rm) and any(elem != "" for elem in chan2rm) and chan2rm in ch_names:
-                eeg = eeg.drop_channels(chan2rm)
+            if channels_to_remove is None:
+                channels_to_remove = []
+            if any(channels_to_remove) and any(elem != "" for elem in channels_to_remove) and channels_to_remove in ch_names:
+                eeg = eeg.drop_channels(channels_to_remove)
             if "TRIGGER" in ch_names:
                 eeg = eeg.drop_channels("TRIGGER")
             eeg.set_eeg_reference("average", projection=True)
@@ -526,7 +526,7 @@ class DataIO:
         return eeg
 
     @staticmethod
-    def export_eegs(eeg, save_path, extension, datatype):
+    def export_eegs(eeg, save_path, extension, data_type):
         """Export EEG data to a specified file format.
 
         Saves EEG data to common file formats supported by MNE, automatically
@@ -537,7 +537,7 @@ class DataIO:
             save_path (str): Output path without extension (extension will be added)
             extension (str): Desired file extension ('.vhdr', '.set', '.edf')
                 If not one of these, defaults to '.set'
-            datatype (str): Type of EEG data ('raw' or 'epoched')
+            data_type (str): Type of EEG data ('raw' or 'epoched')
 
         Notes:
             Automatically overwrites existing files with the same name.
@@ -545,13 +545,13 @@ class DataIO:
         available_extensions = [".vhdr", ".set", ".edf"]
         if extension not in available_extensions:
             extension = ".set"
-        if datatype == "raw":
+        if data_type == "raw":
             mne.export.export_raw(save_path + extension, eeg, fmt="auto", overwrite=True)
-        elif datatype == "epoched":
+        elif data_type == "epoched":
             mne.export.export_epochs(save_path + extension, eeg, fmt="auto", overwrite=True)
 
     @staticmethod
-    def get_eeg_data(eeg, datatype):
+    def get_eeg_data(eeg, data_type):
         """Extract raw NumPy arrays from MNE Raw or Epochs objects.
 
         Converts MNE objects to NumPy arrays for further processing or analysis.
@@ -559,7 +559,7 @@ class DataIO:
 
         Args:
             eeg (mne.io.Raw or mne.Epochs): EEG data object
-            datatype (str): Type of EEG data ('raw' or 'epoched')
+            data_type (str): Type of EEG data ('raw' or 'epoched')
 
         Returns:
             numpy.ndarray: EEG data as a NumPy array
@@ -568,10 +568,10 @@ class DataIO:
                 where n_times_total = n_epochs * n_times_per_epoch
 
         Raises:
-            ValueError: If no data is available (empty epochs object or invalid datatype)
+            ValueError: If no data is available (empty epochs object or invalid data_type)
         """
         eeg_data = None
-        if datatype == "epoched":
+        if data_type == "epoched":
             for index in range(eeg.__len__()):
                 if index == 0:
                     eeg_data = np.squeeze(eeg[0].get_data())
@@ -581,5 +581,5 @@ class DataIO:
         else:
             eeg_data = eeg.get_data()
         if eeg_data is None:
-            raise ValueError("No data available: empty epochs object or invalid datatype")
+            raise ValueError("No data available: empty epochs object or invalid data_type")
         return eeg_data

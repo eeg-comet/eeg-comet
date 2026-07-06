@@ -17,7 +17,7 @@ Available validation methods:
 - Krzanowski-Lai Criterion: Evaluates relative improvement
 
 Example usage:
-    optimizer = ClustererOptimizer(maps2use, kmin=2, kmax=10)
+    optimizer = ClustererOptimizer(maps_to_use, k_min=2, k_max=10)
     
     # Single method
     result = optimizer.compute_silhouette()
@@ -128,16 +128,16 @@ class ClustererOptimizer:
 
     def __init__(
         self,
-        maps2use: np.ndarray,
+        maps_to_use: np.ndarray,
         min_dist: Optional[int] = None,
-        n_inits: int = 1,
-        kmin: int = 2,
-        kmax: int = 10,
+        n_repeats: int = 1,
+        k_min: int = 2,
+        k_max: int = 10,
         preprocessed_data_path: str = None,
         extension: str = ".set",
-        datatype: str = "raw",
-        tolerance: float = 1e-6,
-        max_iter: int = 500,
+        data_type: str = "raw",
+        clustering_tolerance: float = 1e-6,
+        max_iterations: int = 500,
         batch_size: Optional[int] = None,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
         logger=None,
@@ -146,68 +146,68 @@ class ClustererOptimizer:
         """Initialize the clusterer optimizer.
 
         Args:
-            maps2use: Data to cluster (n_channels x n_timepoints).
+            maps_to_use: Data to cluster (n_channels x n_timepoints).
             min_dist: Minimum distance for peak detection.
-            n_inits: Number of clustering initializations (set to 1 for single repeat).
-            kmin: Minimum number of clusters.
-            kmax: Maximum number of clusters.
+            n_repeats: Number of clustering initializations (set to 1 for single repeat).
+            k_min: Minimum number of clusters.
+            k_max: Maximum number of clusters.
             preprocessed_data_path: Path to preprocessed data.
             extension: File extension.
-            datatype: Data type.
-            tolerance: Convergence tolerance.
-            max_iter: Maximum iterations.
+            data_type: Data type.
+            clustering_tolerance: Convergence clustering_tolerance.
+            max_iterations: Maximum iterations.
             batch_size: Batch size for clustering.
             progress_callback: Callback for progress updates.
             logger: Logger instance for consistent formatting.
             clustering_results_path: Path to save clustering results and plots.
         """
         # Validate and ensure correct data format
-        if maps2use.ndim != 2:
-            raise ValueError(f"maps2use must be 2D array, got shape {maps2use.shape}")
+        if maps_to_use.ndim != 2:
+            raise ValueError(f"maps_to_use must be 2D array, got shape {maps_to_use.shape}")
 
         # Ensure data is in (n_channels, n_timepoints) format
-        if maps2use.shape[0] > maps2use.shape[1]:
+        if maps_to_use.shape[0] > maps_to_use.shape[1]:
             print(
                 "Warning: Data appears to be in (n_timepoints, n_channels) format. "
                 "Transposing to (n_channels, n_timepoints)"
             )
-            maps2use = maps2use.T
+            maps_to_use = maps_to_use.T
 
-        self.maps2use = maps2use
+        self.maps_to_use = maps_to_use
         self.min_dist = min_dist
-        self.n_inits = n_inits
-        self.kmin = kmin
-        self.kmax = kmax
+        self.n_repeats = n_repeats
+        self.k_min = k_min
+        self.k_max = k_max
         
         # Store full dataset for GEV calculation (loaded on demand)
         self._full_dataset = None
 
         # Validate k range
-        if kmin < 2:
-            print(f"Warning: kmin {kmin} is less than 2, setting to 2")
-            self.kmin = 2
-        if kmax <= kmin:
+        if k_min < 2:
+            print(f"Warning: k_min {k_min} is less than 2, setting to 2")
+            self.k_min = 2
+        if k_max <= k_min:
             print(
-                f"Warning: kmax {kmax} is not greater than kmin {kmin}, "
-                f"setting kmax to {kmin + 1}"
+                f"Warning: k_max {k_max} is not greater than k_min {k_min}, "
+                f"setting k_max to {k_min + 1}"
             )
-            self.kmax = kmin + 1
+            self.k_max = k_min + 1
 
-        # Ensure kmax doesn't exceed the number of samples
-        max_possible_k = min(self.maps2use.shape[1], 20)  # Limit to 20 for practical reasons
-        if self.kmax > max_possible_k:
+        # Ensure k_max doesn't exceed the number of samples
+        max_possible_k = min(self.maps_to_use.shape[1], 20)  # Limit to 20 for practical reasons
+        if self.k_max > max_possible_k:
             print(
-                f"Warning: kmax {self.kmax} exceeds maximum possible k {max_possible_k}, "
+                f"Warning: k_max {self.k_max} exceeds maximum possible k {max_possible_k}, "
                 f"setting to {max_possible_k}"
             )
-            self.kmax = max_possible_k
+            self.k_max = max_possible_k
 
-        self.k_range = list(range(self.kmin, self.kmax + 1))
+        self.k_range = list(range(self.k_min, self.k_max + 1))
         self.preprocessed_data_path = preprocessed_data_path
         self.extension = extension
-        self.datatype = datatype
-        self.tolerance = tolerance
-        self.max_iter = max_iter
+        self.data_type = data_type
+        self.clustering_tolerance = clustering_tolerance
+        self.max_iterations = max_iterations
         self.batch_size = batch_size
         self.progress_callback = progress_callback
         self.logger = logger
@@ -259,18 +259,18 @@ class ClustererOptimizer:
                 self._full_dataset, _ = DataInitializer.generate_maps_and_peaks(
                     preprocessed_folder=self.preprocessed_data_path,
                     extension=self.extension,
-                    datatype=self.datatype,
-                    use_percentages=100,  # Use entire dataset
+                    data_type=self.data_type,
+                    data_percentage=100,  # Use entire dataset
                     min_dist=None,  # Not relevant for full dataset
                     normalize=False,
                 )
             except Exception as e:
                 print(f"Warning: Could not load full dataset for GEV calculation: {e}")
                 # Fallback to clustering subset
-                self._full_dataset = self.maps2use
+                self._full_dataset = self.maps_to_use
         elif self._full_dataset is None:
             # Fallback to clustering subset if no path available
-            self._full_dataset = self.maps2use
+            self._full_dataset = self.maps_to_use
         return self._full_dataset
 
     def is_stopped(self):
@@ -332,8 +332,8 @@ class ClustererOptimizer:
             result = self._get_clustering_result(k)
         maps = result["maps"]
         segmentation = result["segmentation"]
-        W_q = self._compute_W_q(self.maps2use, segmentation, maps)
-        n_channels = self.maps2use.shape[0]
+        W_q = self._compute_W_q(self.maps_to_use, segmentation, maps)
+        n_channels = self.maps_to_use.shape[0]
         M_q = W_q * (k ** (2.0 / n_channels))
         return W_q, M_q
 
@@ -416,9 +416,9 @@ class ClustererOptimizer:
         clusterer = MicrostateClusterer(
             n_states=k,
             batch_size=self.batch_size,
-            n_inits=1,  # We handle repetitions manually
-            max_iter=self.max_iter,
-            tolerance=self.tolerance,
+            n_repeats=1,  # We handle repetitions manually
+            max_iterations=self.max_iterations,
+            clustering_tolerance=self.clustering_tolerance,
         )
 
         # For optimization, we need speed over perfect clustering quality
@@ -436,14 +436,14 @@ class ClustererOptimizer:
             
             # Initialize cluster centers using proper method (single initialization for speed)
             initial_maps = DataInitializer.initialize_cluster_centers(
-                maps2use=self.maps2use, 
+                maps_to_use=self.maps_to_use, 
                 n_states=k, 
                 initializer="K-Means++"  # Use K-Means++ for better initialization
             )
 
             # Run modified K-means (single run for optimization speed)
             maps, residual = clusterer.modified_kmeans(
-                data=self.maps2use,
+                data=self.maps_to_use,
                 initial_maps=initial_maps,
                 verbose=False
             )
@@ -453,7 +453,7 @@ class ClustererOptimizer:
             best_residual = residual
             
             # Calculate segmentation for the result
-            activation = best_maps.dot(self.maps2use)
+            activation = best_maps.dot(self.maps_to_use)
             best_labels = np.argmax(np.abs(activation), axis=0)
 
         except Exception as err:
@@ -518,7 +518,7 @@ class ClustererOptimizer:
         if k >= 2:
             try:
                 db_score = self.compute_custom_davies_bouldin(
-                    data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
+                    data=self.maps_to_use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["davies_bouldin"] = db_score
                 metric_parts.append(f"Davies-Bouldin={db_score:.4f}")
@@ -533,7 +533,7 @@ class ClustererOptimizer:
         # Compute Cross-Validation score
         try:
             cv_score = self._compute_cross_validation_criterion_vectorized(
-                self.maps2use, clustering_result["maps"], best_labels
+                self.maps_to_use, clustering_result["maps"], best_labels
             )
             clustering_result["cv_score"] = cv_score
             metric_parts.append(f"Cross-Validation={cv_score:.4f}")
@@ -550,8 +550,8 @@ class ClustererOptimizer:
             # _compute_M_q and the batch/visualisation paths so every KL code path
             # agrees. (Previously this used n_samples, which made the exponent ~0
             # and collapsed M_q to W_q, silently breaking KL in the majority vote.)
-            W_q = self._compute_W_q(self.maps2use, best_labels, clustering_result["maps"])
-            n_channels = self.maps2use.shape[0]
+            W_q = self._compute_W_q(self.maps_to_use, best_labels, clustering_result["maps"])
+            n_channels = self.maps_to_use.shape[0]
             M_q = W_q * (k ** (2.0 / n_channels))
             clustering_result["W_q"] = W_q
             clustering_result["M_q"] = M_q
@@ -568,7 +568,7 @@ class ClustererOptimizer:
         if k >= 2:
             try:
                 sil_score = self.silhouette_coefficient_correlation(
-                    data=self.maps2use, labels=best_labels
+                    data=self.maps_to_use, labels=best_labels
                 )
                 clustering_result["silhouette_score"] = sil_score
                 metric_parts.append(f"Silhouette={sil_score:.4f}")
@@ -584,7 +584,7 @@ class ClustererOptimizer:
         if k >= 2:
             try:
                 dunn_score = self.compute_dunn_index(
-                    data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
+                    data=self.maps_to_use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["dunn_index"] = dunn_score
                 metric_parts.append(f"Dunn Index={dunn_score:.4f}")
@@ -600,7 +600,7 @@ class ClustererOptimizer:
         if k >= 2:
             try:
                 ch_score = self.compute_calinski_harabasz_index(
-                    data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
+                    data=self.maps_to_use, labels=best_labels, maps=clustering_result["maps"]
                 )
                 clustering_result["calinski_harabasz_index"] = ch_score
                 metric_parts.append(f"Calinski-Harabasz={ch_score:.4f}")
@@ -615,7 +615,7 @@ class ClustererOptimizer:
         # Compute Gap Statistic
         try:
             gap_score, gap_std = self.compute_gap_statistic(
-                data=self.maps2use, labels=best_labels, maps=clustering_result["maps"]
+                data=self.maps_to_use, labels=best_labels, maps=clustering_result["maps"]
             )
             clustering_result["gap_statistic"] = gap_score
             clustering_result["gap_std"] = gap_std
@@ -630,7 +630,7 @@ class ClustererOptimizer:
         # Compute AIC
         try:
             aic_score = self.compute_information_criteria(
-                data=self.maps2use, labels=best_labels, maps=clustering_result["maps"], criterion='AIC'
+                data=self.maps_to_use, labels=best_labels, maps=clustering_result["maps"], criterion='AIC'
             )
             clustering_result["aic_score"] = aic_score
             metric_parts.append(f"AIC={aic_score:.4f}")
@@ -643,7 +643,7 @@ class ClustererOptimizer:
         # Compute BIC
         try:
             bic_score = self.compute_information_criteria(
-                data=self.maps2use, labels=best_labels, maps=clustering_result["maps"], criterion='BIC'
+                data=self.maps_to_use, labels=best_labels, maps=clustering_result["maps"], criterion='BIC'
             )
             clustering_result["bic_score"] = bic_score
             metric_parts.append(f"BIC={bic_score:.4f}")
@@ -1839,7 +1839,7 @@ class ClustererOptimizer:
 
             # Use custom polarity-invariant Davies-Bouldin score
             score = self.compute_custom_davies_bouldin(
-                data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(score)
             
@@ -1851,7 +1851,7 @@ class ClustererOptimizer:
         # Find optimal k using intelligent selection (lower Davies-Bouldin is better)
         valid_scores = self._filter_valid_scores(scores, exclude_inf=True)
         if not valid_scores:
-            optimal_k = self.kmin
+            optimal_k = self.k_min
         else:
             optimal_k = self._intelligent_k_selection(
                 self.k_range, scores, higher_is_better=False
@@ -1886,7 +1886,7 @@ class ClustererOptimizer:
             # Get clustering result and compute CV score directly
             result = self._get_clustering_result(k, compute_all_metrics=False)
             cv_score = self._compute_cross_validation_criterion_vectorized(
-                data=self.maps2use, maps=result["maps"], segmentation=result["segmentation"]
+                data=self.maps_to_use, maps=result["maps"], segmentation=result["segmentation"]
             )
             scores.append(cv_score)
             
@@ -1990,7 +1990,7 @@ class ClustererOptimizer:
                 self.k_range, kl_scores, higher_is_better=True
             )
         else:
-            optimal_k = self.kmin
+            optimal_k = self.k_min
             self._log_message("No valid KL scores found, using default k", level="warning")
 
         return OptimizationResult(
@@ -2030,7 +2030,7 @@ class ClustererOptimizer:
             
             # Use correlation-based silhouette score
             score = self.silhouette_coefficient_correlation(
-                data=self.maps2use, labels=result["segmentation"]
+                data=self.maps_to_use, labels=result["segmentation"]
             )
             scores.append(score)
             
@@ -2042,7 +2042,7 @@ class ClustererOptimizer:
         # Find optimal k using intelligent selection (higher silhouette score is better)
         valid_scores = self._filter_valid_scores(scores)
         if not valid_scores:
-            optimal_k = self.kmin
+            optimal_k = self.k_min
         else:
             optimal_k = self._intelligent_k_selection(
                 self.k_range, scores, higher_is_better=True
@@ -2077,7 +2077,7 @@ class ClustererOptimizer:
             result = self._get_clustering_result(k, compute_all_metrics=False)
             
             score = self.compute_dunn_index(
-                data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(score)
             
@@ -2125,7 +2125,7 @@ class ClustererOptimizer:
             result = self._get_clustering_result(k, compute_all_metrics=False)
             
             score = self.compute_calinski_harabasz_index(
-                data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(score)
             
@@ -2168,7 +2168,7 @@ class ClustererOptimizer:
             result = self._get_clustering_result(k, compute_all_metrics=False)
             
             gap_score, _ = self.compute_gap_statistic(
-                data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(gap_score)
         
@@ -2178,7 +2178,7 @@ class ClustererOptimizer:
         # Find optimal k using intelligent selection (maximum gap is better)
         valid_scores = self._filter_valid_scores(scores)
         if not valid_scores:
-            optimal_k = self.kmin
+            optimal_k = self.k_min
         else:
             optimal_k = self._intelligent_k_selection(
                 self.k_range, scores, higher_is_better=True
@@ -2210,7 +2210,7 @@ class ClustererOptimizer:
                 result = self._get_clustering_result(k, compute_all_metrics=False)
                 
                 aic_score = self.compute_information_criteria(
-                    data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='AIC'
+                    data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"], criterion='AIC'
                 )
                 scores.append(aic_score)
                 
@@ -2262,7 +2262,7 @@ class ClustererOptimizer:
                 result = self._get_clustering_result(k, compute_all_metrics=False)
                 
                 bic_score = self.compute_information_criteria(
-                    data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='BIC'
+                    data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"], criterion='BIC'
                 )
                 scores.append(bic_score)
                 
@@ -2366,7 +2366,7 @@ class ClustererOptimizer:
             else:
                 try:
                     db_val = self.compute_custom_davies_bouldin(
-                        data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                        data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
                     )
                 except Exception:
                     db_val = np.nan
@@ -2380,7 +2380,7 @@ class ClustererOptimizer:
             else:
                 try:
                     sil_val = self.silhouette_coefficient_correlation(
-                        data=self.maps2use, labels=result["segmentation"]
+                        data=self.maps_to_use, labels=result["segmentation"]
                     )
                 except Exception:
                     sil_val = np.nan
@@ -2393,7 +2393,7 @@ class ClustererOptimizer:
                 else:
                     try:
                         dunn_val = self.compute_dunn_index(
-                            data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                            data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
                         )
                     except Exception:
                         dunn_val = np.nan
@@ -2405,7 +2405,7 @@ class ClustererOptimizer:
                 else:
                     try:
                         ch_val = self.compute_calinski_harabasz_index(
-                            data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                            data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
                         )
                     except Exception:
                         ch_val = np.nan
@@ -2414,7 +2414,7 @@ class ClustererOptimizer:
             if 'gap' in methods:
                 try:
                     gap_val, _ = self.compute_gap_statistic(
-                        data=self.maps2use, labels=result["segmentation"], maps=result["maps"]
+                        data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
                     )
                 except Exception:
                     gap_val = np.nan
@@ -2423,7 +2423,7 @@ class ClustererOptimizer:
             if 'aic' in methods:
                 try:
                     aic_val = self.compute_information_criteria(
-                        data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='AIC'
+                        data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"], criterion='AIC'
                     )
                 except Exception:
                     aic_val = np.nan
@@ -2432,7 +2432,7 @@ class ClustererOptimizer:
             if 'bic' in methods:
                 try:
                     bic_val = self.compute_information_criteria(
-                        data=self.maps2use, labels=result["segmentation"], maps=result["maps"], criterion='BIC'
+                        data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"], criterion='BIC'
                     )
                 except Exception:
                     bic_val = np.nan
@@ -2442,8 +2442,8 @@ class ClustererOptimizer:
             try:
                 maps = result["maps"]
                 segmentation = result["segmentation"]
-                W_q = self._compute_W_q(self.maps2use, segmentation, maps)
-                n_channels = self.maps2use.shape[0]
+                W_q = self._compute_W_q(self.maps_to_use, segmentation, maps)
+                n_channels = self.maps_to_use.shape[0]
                 M_q = W_q * (k ** (2.0 / n_channels))
                 M_values[k] = M_q
             except Exception:
@@ -2458,7 +2458,7 @@ class ClustererOptimizer:
                 valid_scores = self._filter_valid_scores(gev_scores)
                 if not valid_scores:
                     self._log_message("No valid GEV scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     gev_threshold = parameters.get("gev")
                     if gev_threshold is not None and gev_threshold > 0:
@@ -2484,7 +2484,7 @@ class ClustererOptimizer:
                 ]
                 if not valid_scores:
                     self._log_message("No valid Davies-Bouldin scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, db_scores, higher_is_better=False
@@ -2500,7 +2500,7 @@ class ClustererOptimizer:
                 valid_scores = self._filter_valid_scores(cv_scores)
                 if not valid_scores:
                     self._log_message("No valid Cross-Validation scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, cv_scores, higher_is_better=False
@@ -2520,7 +2520,7 @@ class ClustererOptimizer:
                 ]
                 if not valid_scores:
                     self._log_message("No valid Krzanowski-Lai scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, kl_scores, higher_is_better=True
@@ -2536,7 +2536,7 @@ class ClustererOptimizer:
                 valid_scores = self._filter_valid_scores(sil_scores)
                 if not valid_scores:
                     self._log_message("No valid Silhouette scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, sil_scores, higher_is_better=True
@@ -2552,7 +2552,7 @@ class ClustererOptimizer:
                 valid_scores = self._filter_valid_scores(dunn_scores)
                 if not valid_scores:
                     self._log_message("No valid Dunn Index scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, dunn_scores, higher_is_better=True
@@ -2568,7 +2568,7 @@ class ClustererOptimizer:
                 valid_scores = self._filter_valid_scores(ch_scores)
                 if not valid_scores:
                     self._log_message("No valid Calinski-Harabasz scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, ch_scores, higher_is_better=True
@@ -2584,7 +2584,7 @@ class ClustererOptimizer:
                 valid_scores = self._filter_valid_scores(gap_scores)
                 if not valid_scores:
                     self._log_message("No valid Gap Statistic scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, gap_scores, higher_is_better=True
@@ -2600,7 +2600,7 @@ class ClustererOptimizer:
                 valid_scores = self._filter_valid_scores(aic_scores)
                 if not valid_scores:
                     self._log_message("No valid AIC scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, aic_scores, higher_is_better=False
@@ -2616,7 +2616,7 @@ class ClustererOptimizer:
                 valid_scores = self._filter_valid_scores(bic_scores)
                 if not valid_scores:
                     self._log_message("No valid BIC scores found in ensemble", level="warning")
-                    optimal_k = self.kmin
+                    optimal_k = self.k_min
                 else:
                     optimal_k = self._intelligent_k_selection(
                         self.k_range, bic_scores, higher_is_better=False
@@ -2632,7 +2632,7 @@ class ClustererOptimizer:
             return OptimizationResult(
                 k_values=self.k_range.copy(),
                 scores=[np.nan] * len(self.k_range),
-                optimal_k=self.kmin,
+                optimal_k=self.k_min,
                 method_name=method,
                 higher_is_better=True,
             )
@@ -2790,7 +2790,7 @@ class ClustererOptimizer:
             methods = ["gev", "db", "cv", "kl", "sil", "dunn", "ch", "gap", "aic", "bic"]
 
         self._log_message(
-            f"Computing ensemble optimization (k={self.kmin}-{self.kmax}, {len(methods)} methods)..."
+            f"Computing ensemble optimization (k={self.k_min}-{self.k_max}, {len(methods)} methods)..."
         )
 
         # Store results for each k value
@@ -2970,7 +2970,7 @@ class ClustererOptimizer:
             int: Optimal k value.
         """
         if not scores or not k_values:
-            return k_values[0] if k_values else self.kmin
+            return k_values[0] if k_values else self.k_min
 
         higher_is_better = _HIGHER_IS_BETTER.get(metric, True)
         return self._intelligent_k_selection(
@@ -3035,7 +3035,7 @@ class ClustererOptimizer:
             increasing: True for monotonic increasing, False for decreasing.
             
         Returns:
-            bool: True if monotonic within tolerance.
+            bool: True if monotonic within clustering_tolerance.
         """
         if len(scores) < 3:
             return True  # Too few points to determine pattern
@@ -3045,7 +3045,7 @@ class ClustererOptimizer:
             return True
         
         if increasing:
-            # Check if generally increasing with tolerance for small fluctuations
+            # Check if generally increasing with clustering_tolerance for small fluctuations
             differences = np.diff(valid_scores)
             increasing_count = np.sum(differences > 0)
             return increasing_count >= len(differences) * 0.7  # 70% threshold

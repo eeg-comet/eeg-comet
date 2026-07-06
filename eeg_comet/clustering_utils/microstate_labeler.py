@@ -141,7 +141,7 @@ class MicrostateLabeler:
         self.n_states = microstate_maps.shape[0]
         self.eeg_info = eeg_info
         self.microstate_maps_path = microstate_maps_path
-        self.micro_labels = []
+        self.microstate_labels = []
 
     @staticmethod
     def softmax(x):
@@ -169,15 +169,15 @@ class MicrostateLabeler:
 
     def do_labeling(self):
         """Perform microstate labeling using the trained model."""
-        num_classes = 7
-        assert self.n_states <= num_classes, (
-            f"The labeling model can assign at most {num_classes} unique labels, "
+        n_classes = 7
+        assert self.n_states <= n_classes, (
+            f"The labeling model can assign at most {n_classes} unique labels, "
             f"but {self.n_states} microstate maps were provided."
         )
 
         images = self._generate_images()
 
-        dictionary2use = {i: chr(ord("A") + i) for i in range(num_classes)}
+        label_dictionary = {i: chr(ord("A") + i) for i in range(n_classes)}
 
         session = ort.InferenceSession(_MODEL_PATH)
         input_name = session.get_inputs()[0].name
@@ -193,40 +193,40 @@ class MicrostateLabeler:
 
         softmax_predictions = self.softmax(predictions) * 100
         assigned_labels, probabilities = self.get_labels(
-            predictions, softmax_predictions, dictionary2use
+            predictions, softmax_predictions, label_dictionary
         )
         overall_confidence = sum(probabilities.values()) / len(probabilities)
 
-        micro_labels = []
-        available_chars = [chr(ord("A") + i) for i in range(num_classes)]
+        microstate_labels = []
+        available_chars = [chr(ord("A") + i) for i in range(n_classes)]
 
         for i in range(self.n_states):
             if i in assigned_labels:
-                micro_labels.append(assigned_labels[i])
+                microstate_labels.append(assigned_labels[i])
             else:
                 for ch in available_chars:
-                    if ch not in micro_labels:
-                        micro_labels.append(ch)
+                    if ch not in microstate_labels:
+                        microstate_labels.append(ch)
                         break
 
-        self.micro_labels = micro_labels
+        self.microstate_labels = microstate_labels
 
         label_confidences = {}
         for i in range(self.n_states):
-            label = micro_labels[i]
+            label = microstate_labels[i]
             if i in probabilities:
                 label_confidences[label] = probabilities[i]
             else:
                 label_confidences[label] = 0.0
 
         maps_df = pd.DataFrame(
-            self.microstate_maps.T, columns=micro_labels, index=self.eeg_info["ch_names"]
+            self.microstate_maps.T, columns=microstate_labels, index=self.eeg_info["ch_names"]
         )
         maps_df.to_csv(self.microstate_maps_path)
-        return micro_labels, overall_confidence, label_confidences
+        return microstate_labels, overall_confidence, label_confidences
 
     @staticmethod
-    def get_labels(confidences, softmax_predictions, dictionary2use):
+    def get_labels(confidences, softmax_predictions, label_dictionary):
         """Assign a unique label from A-G to each microstate.
 
         A greedy approach is used:
@@ -244,7 +244,7 @@ class MicrostateLabeler:
             sorted_label_indices = np.argsort(confidences[image_index])[::-1]
 
             for lbl_idx in sorted_label_indices:
-                label_char = dictionary2use.get(lbl_idx, chr(ord("A") + lbl_idx))
+                label_char = label_dictionary.get(lbl_idx, chr(ord("A") + lbl_idx))
 
                 if label_char not in used_chars:
                     assigned_labels[image_index] = label_char

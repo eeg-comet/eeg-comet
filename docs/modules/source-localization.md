@@ -215,7 +215,7 @@ EEG-COMET computes the forward model (leadfield matrix) using:
 | `inverse_method` | Source estimation algorithm | `dSPM` | `MNE`, `dSPM`, `sLORETA`, `eLORETA` |
 | `source_localization_method` | Reconstruction approach | `tess` | `avg`, `tess` |
 | `spacing` | Source space resolution | `ico3` | `ico3`, `ico4`, `ico5` |
-| `nperm` | Permutations for TESS | `2000` | 1000-10000 |
+| `n_permutations` | Permutations for TESS | `2000` | 1000-10000 |
 | `anatomy_subjects_dir` | FreeSurfer subjects directory | `[]` | Path |
 
 ### Example Configurations
@@ -227,7 +227,7 @@ EEG-COMET computes the forward model (leadfield matrix) using:
 inverse_method = dSPM
 source_localization_method = avg
 spacing = ico3
-nperm = 1000
+n_permutations = 1000
 anatomy_subjects_dir = []
 ```
 
@@ -238,7 +238,7 @@ anatomy_subjects_dir = []
 inverse_method = eLORETA
 source_localization_method = tess
 spacing = ico4
-nperm = 5000
+n_permutations = 5000
 anatomy_subjects_dir = /path/to/freesurfer/subjects
 ```
 

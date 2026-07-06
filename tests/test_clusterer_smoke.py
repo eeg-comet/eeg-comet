@@ -31,9 +31,9 @@ def test_modified_kmeans_recovers_structure(synthetic_eeg, clusterer):
 
     instance = clusterer(
         n_states=n_maps,
-        n_inits=3,
-        max_iter=100,
-        tolerance=1e-6,
+        n_repeats=3,
+        max_iterations=100,
+        clustering_tolerance=1e-6,
         random_seed=42,
     )
 

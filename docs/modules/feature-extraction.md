@@ -195,17 +195,17 @@ $$\text{ERR} = \frac{H_{\text{observed}}}{H_{\text{random}}}$$
 
 ## Analysis Modes
 
-### Static Mode
+### Averaged Mode
 
 Single feature value computed over entire recording.
 
 **Use case:** Traditional resting-state analysis, group comparisons.
 
 ```ini
-feature_mode = static
+feature_mode = averaged
 ```
 
-### Windowed Mode
+### Sliding Mode
 
 Features computed within sliding windows to track temporal changes.
 
@@ -213,12 +213,12 @@ Features computed within sliding windows to track temporal changes.
 
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
-| `window_size` | Window duration (seconds) | `1` |
+| `sliding_window_size` | Window duration (seconds) | `1` |
 | Window overlap | Typically 50% | Configurable |
 
 ```ini
-feature_mode = windowed
-window_size = 2
+feature_mode = sliding
+sliding_window_size = 2
 ```
 
 **Advantages:**
@@ -226,7 +226,7 @@ window_size = 2
 - Captures rapid changes
 - Avoids artificial segment boundaries
 
-### Event-Related Mode
+### Pre/Post Event Mode
 
 Trial-level analysis around experimental events.
 
@@ -285,8 +285,8 @@ Measures how inter-microstate transitions systematically change following experi
 |:----------|:------------|:--------|:--------|
 | `export_format` | Output file format | `.csv` | `.csv`, `.pkl`, `.hdf`, `.json` |
 | `feature_list` | Features to extract | `COV,OCC,MMD` | See below |
-| `feature_mode` | Analysis mode | `static` | `static`, `windowed`, `event_related` |
-| `window_size` | Window duration (s) | `1` | 0.5-10 |
+| `feature_mode` | Analysis mode | `averaged` | `averaged`, `sliding`, `pre_post` |
+| `sliding_window_size` | Window duration (s) | `1` | 0.5-10 |
 | `feature_types` | Comparison types | `real,surrogate,random` | See below |
 | `duration_method` | DUR aggregation | `geometric` | `geometric`, `arithmetic`, `median`, `trimmed_mean` |
 
@@ -321,7 +321,7 @@ Measures how inter-microstate transitions systematically change following experi
 [features_config]
 export_format = .csv
 feature_list = COV,OCC,MMD,GEV,TP
-feature_mode = static
+feature_mode = averaged
 feature_types = real
 duration_method = geometric
 ```
@@ -332,7 +332,7 @@ duration_method = geometric
 [features_config]
 export_format = .csv
 feature_list = COV,OCC,MMD,GEV,TP,LZC,ER,HE
-feature_mode = static
+feature_mode = averaged
 feature_types = real,surrogate
 duration_method = geometric
 ```
@@ -344,18 +344,18 @@ Use the arithmetic aggregation when DUR must satisfy `COV ≈ DUR × OCC` exactl
 ```ini
 [features_config]
 feature_list = COV,OCC,MMD
-feature_mode = static
+feature_mode = averaged
 duration_method = arithmetic
 ```
 
-#### Windowed Analysis
+#### Sliding Analysis
 
 ```ini
 [features_config]
 export_format = .csv
 feature_list = COV,OCC,MMD,GEV
-feature_mode = windowed
-window_size = 2
+feature_mode = sliding
+sliding_window_size = 2
 feature_types = real
 ```
 
@@ -385,7 +385,7 @@ B,0.30,0.0,0.45,0.25
 ...
 ```
 
-### Windowed Output
+### Sliding Output
 
 Time-indexed features:
 
@@ -406,9 +406,9 @@ sub-01,1000,3000,A,0.27,3.1,87.1
    - Dynamics: HE, ERR
 
 2. **Match mode to experimental design**
-   - Static for between-subject comparisons
-   - Windowed for within-session dynamics
-   - Event-related for trial-level analysis
+   - Averaged for between-subject comparisons
+   - Sliding for within-session dynamics
+   - Pre/post event for trial-level analysis
 
 3. **Include surrogate comparisons**
    - Validates observed patterns

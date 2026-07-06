@@ -41,55 +41,56 @@ class FeatureHelper:
         return input_sequence
 
     @staticmethod
-    def H_k(x, ns, k):
-        """Shannon's joint entropy from x[n+p:n-m].
+    def _joint_entropy(input_sequence, n_symbols, history_length):
+        """Shannon's joint entropy over a sliding history window.
 
         Args:
-            x: symbolic time series
-            ns: number of symbols
-            k: length of k-history
+            input_sequence: symbolic time series
+            n_symbols: number of symbols
+            history_length: length of the k-history
 
         Returns:
-            hk: joint entropy for k-history
+            hk: joint entropy for the k-history
         """
-        N = len(x)
-        f = np.zeros(tuple(k * [ns]))  # k-dimensional array for k-history frequencies
+        N = len(input_sequence)
+        # history_length-dimensional array for k-history frequencies
+        f = np.zeros(tuple(history_length * [n_symbols]))
 
         # Convert sequence to integers if they're not already
-        x_int = np.zeros(len(x), dtype=int)
-        unique_symbols = list(set(x))
+        sequence_int = np.zeros(len(input_sequence), dtype=int)
+        unique_symbols = list(set(input_sequence))
         symbol_to_int = {symbol: i for i, symbol in enumerate(unique_symbols)}
-        for i, symbol in enumerate(x):
-            x_int[i] = symbol_to_int[symbol]
+        for i, symbol in enumerate(input_sequence):
+            sequence_int[i] = symbol_to_int[symbol]
 
-        for t in range(N - k):
-            # Get k consecutive symbols and convert to tuple of indices
-            idx = tuple(x_int[t : t + k])
+        for t in range(N - history_length):
+            # Get consecutive symbols and convert to tuple of indices
+            idx = tuple(sequence_int[t : t + history_length])
             f[idx] += 1.0
 
-        f /= N - k  # normalize distribution
+        f /= N - history_length  # normalize distribution
         return -np.sum(f[f > 0] * np.log(f[f > 0]))
 
-    def compute_entropy_rate(self, x, ns, kmax=6):
-        """Calculate entropy rate using k-history method.
+    def compute_entropy_rate(self, input_sequence, n_symbols, k_max=6):
+        """Calculate entropy rate using the k-history method.
         Fits a line to joint entropy values for different k, slope = entropy rate.
 
         Args:
-            x: symbolic time series
-            ns: number of symbols
-            kmax: maximum history length to consider
+            input_sequence: symbolic time series
+            n_symbols: number of symbols
+            k_max: maximum history length to consider
 
         Returns:
-            h_rate: entropy rate (slope of H_k vs k)
-            b: excess entropy (y-intercept)
+            h_rate: entropy rate (slope of joint entropy vs k)
+            excess_entropy: excess entropy (y-intercept)
         """
-        h_ = np.zeros(kmax)
-        for k in range(kmax):
-            h_[k] = self.H_k(x, ns, k + 1)
-        ks = np.arange(1, kmax + 1)
+        h_ = np.zeros(k_max)
+        for k in range(k_max):
+            h_[k] = self._joint_entropy(input_sequence, n_symbols, k + 1)
+        ks = np.arange(1, k_max + 1)
         # Fit line to get entropy rate (slope)
-        a, b = np.polyfit(ks, h_, 1)
-        return a, b
+        h_rate, excess_entropy = np.polyfit(ks, h_, 1)
+        return h_rate, excess_entropy
 
     @staticmethod
     def initialize_empty_window_data(input_sequence):
@@ -126,10 +127,10 @@ class FeatureHelper:
         window_size_samples = int(sampling_rate * window_size)
 
         # Calculate the total number of windows
-        num_windows = len(input_sequence) // window_size_samples
+        n_windows = len(input_sequence) // window_size_samples
 
         # Initialize a list with zeros for each window
-        windows = [0.0] * num_windows
+        windows = [0.0] * n_windows
         return windows, window_size_samples
 
     @staticmethod
@@ -234,10 +235,10 @@ class FeatureHelper:
 
         # Identify zero elements
         zero_mask = x == 0
-        num_zeros = np.sum(zero_mask)
+        n_zeros = np.sum(zero_mask)
 
         # Handle zeros using multiplicative replacement
-        if num_zeros > 0:
+        if n_zeros > 0:
             # Total sum of non-zero components
             x_nonzero_sum = np.sum(x[~zero_mask])
 
@@ -252,7 +253,7 @@ class FeatureHelper:
 
             # Adjust non-zero components to maintain compositional constraint
             if x_nonzero_sum > 0:
-                x_replaced[~zero_mask] = x[~zero_mask] - (epsilon * num_zeros) * (
+                x_replaced[~zero_mask] = x[~zero_mask] - (epsilon * n_zeros) * (
                     x[~zero_mask] / x_nonzero_sum
                 )
 
@@ -324,7 +325,7 @@ class FeatureHelper:
             # Ensure provided microstates are hashable
             microstates = [str(ms) for ms in microstates]
 
-        ntrials = input_sequence.shape[0]
+        n_trials = input_sequence.shape[0]
 
         # Calculate occurrence proportion for each microstate
         occurrences = {}
@@ -333,7 +334,7 @@ class FeatureHelper:
                 # Input sequence should now be string array, so direct comparison should work
                 index = input_sequence == microstate
                 # Calculate proportion at each time point
-                occurrence = np.sum(index, axis=0) / ntrials
+                occurrence = np.sum(index, axis=0) / n_trials
                 occurrences[microstate] = occurrence
             except Exception:
                 raise
@@ -423,7 +424,7 @@ class FeatureHelper:
             microstates = [str(ms) for ms in microstates]
 
         # Initialize state mapping
-        num_states = len(microstates)
+        n_states = len(microstates)
         state_label_to_code = {label: i for i, label in enumerate(microstates)}
 
         # Ensure time_array is a numpy array
@@ -441,12 +442,12 @@ class FeatureHelper:
             time_window_indices[window_name] = time_indices
 
         # Initialize transition time series
-        transitions_time_series = np.zeros((num_states, num_states, len(transition_times)))
+        transitions_time_series = np.zeros((n_states, n_states, len(transition_times)))
 
-        num_trials = input_sequence.shape[0]
+        n_trials = input_sequence.shape[0]
 
         # Process each trial
-        for trial_idx in range(num_trials):
+        for trial_idx in range(n_trials):
             try:
                 # Get state sequence for this trial - should already be strings
                 state_labels_trial = input_sequence[trial_idx, :]
@@ -475,17 +476,17 @@ class FeatureHelper:
         # Normalize by this subject's number of trials
         # This makes each subject's RTF values standardized (per-trial rate)
         # allowing fair comparison across subjects with different trial counts
-        transitions_time_series = transitions_time_series / num_trials
+        transitions_time_series = transitions_time_series / n_trials
         
         # Calculate average transitions for each time window
         transition_averages = {}
         for window_name, time_indices in time_window_indices.items():
-            transition_avg = np.zeros((num_states, num_states))
+            transition_avg = np.zeros((n_states, n_states))
 
             # Average transitions within window (excluding self-transitions)
             # These values are already per-trial averages from normalization above
-            for s1 in range(num_states):
-                for s2 in range(num_states):
+            for s1 in range(n_states):
+                for s2 in range(n_states):
                     if s1 != s2:
                         data = transitions_time_series[s1, s2, time_indices]
                         # Mean across time points within window
@@ -660,18 +661,18 @@ class FeatureHelper:
         return dict(sorted(representation_ratios.items(), key=lambda item: item[0]))
 
     @staticmethod
-    def generate_partitions(num_states):
+    def generate_partitions(n_states):
         """Generate all possible (2,n-2) partitions for n states.
         For 4 states: generates (2,2) partitions
         For 5 states: generates (2,3) partitions.
 
         Args:
-            num_states (int): Total number of states
+            n_states (int): Total number of states
 
         Returns:
             list: List of tuples, each containing two lists representing the partition
         """
-        states = list(range(num_states))
+        states = list(range(n_states))
         partitions = []
 
         # Generate all possible combinations of size 2
@@ -732,7 +733,7 @@ class FeatureHelper:
 
         return fluctuations  # Can contain NaNs for invalid scales
 
-    def calculate_hurst_exponent(self, sequence, min_samples=50, max_samples=2500, num_scales=50):
+    def calculate_hurst_exponent(self, sequence, min_samples=50, max_samples=2500, n_scales=50):
         """Calculate Hurst exponent using DFA for a given sequence."""
         if len(sequence) < min_samples * 2:
             return None
@@ -741,16 +742,16 @@ class FeatureHelper:
         unique_symbols = list(set(sequence))
         symbol_to_idx = {s: i for i, s in enumerate(unique_symbols)}
         seq_int = np.array([symbol_to_idx[s] for s in sequence])
-        num_states = len(unique_symbols)
+        n_states = len(unique_symbols)
 
         # Generate partitions
-        partitions = self.generate_partitions(num_states)
+        partitions = self.generate_partitions(n_states)
         if not partitions:
             return None
 
         # Generate logarithmically spaced scales
         max_samples = min(max_samples, len(seq_int) // 2)
-        scales = np.logspace(np.log10(min_samples), np.log10(max_samples), num_scales, dtype=int)
+        scales = np.logspace(np.log10(min_samples), np.log10(max_samples), n_scales, dtype=int)
         scales = np.unique(scales)
 
         hurst_vals = []

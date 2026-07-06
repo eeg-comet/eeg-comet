@@ -1688,14 +1688,14 @@ class CompareStudiesWindow(QDialog):
 
         # Create subplots for each microstate
         axs = [
-            figure.add_subplot(1, len(tbx.micro_labels), idx + 1)
-            for idx in range(len(tbx.micro_labels))
+            figure.add_subplot(1, len(tbx.microstate_labels), idx + 1)
+            for idx in range(len(tbx.microstate_labels))
         ]
 
         # Plot each microstate with its label
         for idx, ax in enumerate(axs):
             self._plot_single_microstate(
-                tbx.best_maps[idx, :], tbx.micro_labels[idx], tbx.eeg_info, ax
+                tbx.best_maps[idx, :], tbx.microstate_labels[idx], tbx.eeg_info, ax
             )
 
         figure.tight_layout()
@@ -1716,8 +1716,8 @@ class CompareStudiesWindow(QDialog):
         return (
             hasattr(tbx, "best_maps")
             and tbx.best_maps is not None
-            and hasattr(tbx, "micro_labels")
-            and tbx.micro_labels
+            and hasattr(tbx, "microstate_labels")
+            and tbx.microstate_labels
         )
 
     def _plot_no_maps_message(
@@ -5840,11 +5840,11 @@ class CompareStudiesWindow(QDialog):
                             f"Best GEV: {100 * comet_instance.best_gev:.3f}%",
                         )
                     if (
-                            hasattr(comet_instance, "number_of_maps")
-                            and comet_instance.number_of_maps is not None
+                            hasattr(comet_instance, "n_maps")
+                            and comet_instance.n_maps is not None
                     ):
                         logger.processing_info(
-                            "STUDY_STATUS", f"Number of Maps: {comet_instance.number_of_maps}"
+                            "STUDY_STATUS", f"Number of Maps: {comet_instance.n_maps}"
                         )
 
             except ImportError:

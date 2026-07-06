@@ -44,7 +44,7 @@ def test_non_default_values_round_trip(tmp_path):
         random_seed=1337,
         common_events=["resting", "task"],
         io=IOConfig(study_name="alpha", input_folder="C:/data"),
-        clustering=ClusteringConfig(number_of_maps="auto", batch_size=10000, kmin=3, kmax=8),
+        clustering=ClusteringConfig(n_maps="auto", batch_size=10000, k_min=3, k_max=8),
         features=FeaturesConfig(
             feature_list=["OCC", "DUR", "COV", "GEV", "TP"],
             feature_mode=["averaged", "variability"],
@@ -59,7 +59,7 @@ def test_non_default_values_round_trip(tmp_path):
     assert loaded.random_seed == 1337
     assert loaded.common_events == ["resting", "task"]
     assert loaded.io.study_name == "alpha"
-    assert loaded.clustering.number_of_maps == "auto"
+    assert loaded.clustering.n_maps == "auto"
     assert loaded.clustering.batch_size == 10000
     assert loaded.features.feature_list == ["OCC", "DUR", "COV", "GEV", "TP"]
     assert loaded.features.feature_mode == ["averaged", "variability"]
