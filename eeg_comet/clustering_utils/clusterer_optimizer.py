@@ -1688,12 +1688,18 @@ class ClustererOptimizer:
             ref_maps = ref_maps / (np.linalg.norm(ref_maps, axis=1, keepdims=True) + 1e-12)
             ref_labels = np.zeros(ref_data.shape[1], dtype=int)
             for _ in range(10):
-                ref_labels = np.argmax(np.abs(ref_maps @ ref_data), axis=0)
+                activation = ref_maps @ ref_data
+                ref_labels = np.argmax(np.abs(activation), axis=0)
                 for k in range(n_clusters):
-                    members = ref_data[:, ref_labels == k]
-                    if members.shape[1] > 0:
-                        centre = members.mean(axis=1)
-                        ref_maps[k] = centre / (np.linalg.norm(centre) + 1e-12)
+                    members = ref_labels == k
+                    if not np.any(members):
+                        continue
+                    # Activation-weighted sum (Pascual-Marqui update): members with
+                    # a negative projection are sign-flipped before being summed.
+                    # A plain mean would let opposite-polarity maps cancel, since
+                    # assignment above is polarity-invariant.
+                    centre = ref_data[:, members] @ activation[k, members]
+                    ref_maps[k] = centre / (np.linalg.norm(centre) + 1e-12)
 
             W_ref = ClustererOptimizer._within_dispersion(ref_data, ref_labels, n_clusters)
             log_W_refs.append(np.log(W_ref) if W_ref > 0 else np.log(W_k))
