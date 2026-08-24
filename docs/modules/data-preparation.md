@@ -28,7 +28,7 @@ Temporal and spatial filtering optimized for microstate analysis.
 The Data Preparation module provides two complementary filtering approaches optimized for microstate analysis:
 
 1. **Temporal Filtering** - Zero-phase bandpass filtering
-2. **Spatial Filtering** - K-nearest-neighbor smoothing
+2. **Spatial Filtering** - Nearest-neighbor electrode averaging
 
 Both methods maintain the temporal and spatial integrity of input data, enabling unbiased characterization of microstate dynamics.
 
@@ -94,6 +94,20 @@ A major methodological concern in microstate analysis is how filters affect temp
 | `lowcut_freq` | High-pass cutoff (Hz) | `2` | 0.1 - 10 |
 | `highcut_freq` | Low-pass cutoff (Hz) | `20` | 10 - 100 |
 
+### Frequency Constraints
+
+Filtering runs before resampling so that the low-pass doubles as the anti-aliasing filter. The passband must therefore fit below the Nyquist frequency of both the recording and the target rate:
+
+| Constraint | Rule |
+|:-----------|:-----|
+| Nyquist | `highcut_freq` must be strictly below half of the smaller of the current sampling rate and `sampling_rate` |
+| Ordering | `lowcut_freq` must be below `highcut_freq` |
+
+Either violation raises a `ValueError` before any data are filtered, naming the offending value and how to resolve it (lower `highcut_freq`, or raise `sampling_rate` above twice `highcut_freq`).
+
+{: .important }
+> Because the check also covers the downsampling target, a 40 Hz low-pass combined with `sampling_rate = 80` is rejected even when the original recording was sampled at 1000 Hz.
+
 ### Example Configuration
 
 ```ini
@@ -110,11 +124,13 @@ highcut_freq = 20
 
 ### Purpose
 
-Optional spatial enhancement using k-nearest-neighbor interpolation can improve topographic pattern recognition by:
+Optional spatial enhancement replaces each electrode's signal with the average of that electrode and its nearest neighbors. This can improve topographic pattern recognition by:
 
 - Reducing localized electrode noise
 - Increasing signal-to-noise ratio
 - Improving template identification accuracy
+
+Neighborhoods are derived from the 3D electrode positions in the montage. For each electrode, COMET sorts the other electrodes by distance and looks for a natural gap in that distance distribution, keeping between 3 and 8 neighbors. The neighborhood size is chosen automatically and is not exposed as a configuration parameter.
 
 ### Trade-offs
 
@@ -128,9 +144,8 @@ Optional spatial enhancement using k-nearest-neighbor interpolation can improve 
 
 | Scenario | Recommendation |
 |:---------|:---------------|
-| High-quality recordings | Avoid smoothing (preserve resolution) |
-| Moderate noise | Light smoothing (distance = 3-5) |
-| Noisy datasets | Moderate smoothing (distance = 5-10) |
+| High-quality recordings | Leave disabled (preserve resolution) |
+| Moderate to high channel noise | Enable, then compare topographies before and after |
 | Low electrode density (<32 channels) | **Do not use** (insufficient sampling) |
 
 {: .warning }
@@ -138,18 +153,19 @@ Optional spatial enhancement using k-nearest-neighbor interpolation can improve 
 
 ### Configuration Parameters
 
-| Parameter | Description | Default | Range |
-|:----------|:------------|:--------|:------|
-| `smoothing_gfp` | Enable spatial smoothing | `True` | `True`, `False` |
-| `smoothing_distance` | Number of neighbors | `10` | 3 - 20 |
+| Parameter | Description | Default | Options |
+|:----------|:------------|:--------|:--------|
+| `spatial_filter_data` | Enable neighbor averaging | `False` | `True`, `False` |
 
 ### Example Configuration
 
 ```ini
-[clustering_config]
-smoothing_gfp = True
-smoothing_distance = 10
+[preprocessing_config]
+spatial_filter_data = True
 ```
+
+{: .note }
+> The `smoothing_gfp` and `smoothing_distance` parameters in `[clustering_config]` are unrelated to spatial filtering; they constrain GFP peak detection during [data selection]({% link modules/data-selection.md %}).
 
 ---
 
@@ -214,11 +230,12 @@ If `remove_channels = False`, EEG-COMET automatically removes channels that are 
 ### Standard Resting-State Analysis
 
 ```ini
-[preprocessing_config]
+[io_config]
 # Data handling
 load_all_files = True
 data_type = raw
 
+[preprocessing_config]
 # Temporal filtering
 temporal_filter_data = True
 filter_method = fir
@@ -229,6 +246,9 @@ highcut_freq = 20
 downsample_data = True
 sampling_rate = 250
 
+# Spatial filtering
+spatial_filter_data = False
+
 # Channel management
 remove_channels = False
 channels_to_remove = []
@@ -237,11 +257,12 @@ channels_to_remove = []
 ### Event-Related Analysis
 
 ```ini
-[preprocessing_config]
+[io_config]
 # Data handling
 load_all_files = True
 data_type = epoched
 
+[preprocessing_config]
 # Temporal filtering (broader band)
 temporal_filter_data = True
 filter_method = fir
@@ -313,13 +334,13 @@ FIR filters create edge effects. Ensure recordings have sufficient padding at st
 </div>
 
 <div class="callout warning">
-<strong>Unexpected spectral content</strong><br>
-Check that filter frequencies are appropriate for your sampling rate. Low-pass should be well below Nyquist frequency.
+<strong>Filtering rejected with a Nyquist error</strong><br>
+<code>highcut_freq</code> is at or above half of either the recording's sampling rate or the downsampling target. Lower <code>highcut_freq</code>, or raise <code>sampling_rate</code> above twice <code>highcut_freq</code>.
 </div>
 
 <div class="callout warning">
 <strong>Overly smooth topographies</strong><br>
-Reduce or disable spatial smoothing. High electrode density data often needs no smoothing.
+Disable spatial filtering. High electrode density data often needs no smoothing.
 </div>
 
 ---

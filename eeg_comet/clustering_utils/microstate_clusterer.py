@@ -97,6 +97,7 @@ class MicrostateClusterer:
         act_sum_sq_init = np.sum(np.sum(maps[segmentation_init].T * data, axis=0) ** 2)
         residual = abs(data_sum_sq - act_sum_sq_init) / float(n_samples * (n_channels - 1))
         prev_residual = residual
+        best_maps, best_residual = maps.copy(), residual
 
         # Determine if we use batch processing
         use_batches = self.batch_size is not None and self.batch_size > 0
@@ -116,7 +117,7 @@ class MicrostateClusterer:
                     self.logger.warning(
                         "CLUSTERING", f"Clustering stopped at iteration {iteration}"
                     )
-                return maps, prev_residual  # Return current best maps
+                return best_maps, best_residual  # Return best maps seen so far
 
             # Initialize arrays for segmentation and activations
             segmentation = np.zeros(n_samples, dtype=int)
@@ -193,8 +194,16 @@ class MicrostateClusterer:
             # Estimate residual noise
             residual = abs(data_sum_sq - act_sum_sq) / float(n_samples * (n_channels - 1))
 
-            # Check for convergence
-            if (prev_residual - residual) < (self.clustering_tolerance * residual):
+            if residual < best_residual:
+                best_maps, best_residual = maps.copy(), residual
+
+            # Check for convergence. The objective is monotonically decreasing
+            # in exact arithmetic, so a negative improvement signals numerical
+            # trouble; stop and keep the best maps rather than returning the
+            # degraded ones, which a plain `improvement < tol * residual` test
+            # would do because a negative value always satisfies it.
+            improvement = prev_residual - residual
+            if improvement < 0 or improvement < (self.clustering_tolerance * residual):
                 if verbose:
                     if repetition_num is not None:
                         self.logger.processing_info(
@@ -209,7 +218,7 @@ class MicrostateClusterer:
 
             prev_residual = residual
 
-        return maps, residual
+        return best_maps, best_residual
 
     def modified_kmeans_similarity(
         self,
@@ -261,6 +270,7 @@ class MicrostateClusterer:
         similarities_init = np.abs(1 - distances_init)
         residual = 1 - np.mean(np.max(similarities_init, axis=0))
         prev_residual = residual
+        best_maps, best_residual = maps.copy(), residual
 
         # Validate similarity metric
         if metric not in ["Cosine Similarity", "Spatial Correlation"]:
@@ -288,7 +298,7 @@ class MicrostateClusterer:
                     self.logger.processing_info(
                         "CLUSTERING", f"Clustering stopped at iteration {iteration}"
                     )
-                return maps, prev_residual  # Return current best maps
+                return best_maps, best_residual  # Return best maps seen so far
 
             # Initialize arrays for segmentation and best similarities
             segmentation = np.zeros(n_samples, dtype=int)
@@ -383,8 +393,15 @@ class MicrostateClusterer:
             # Calculate residual (1 - average of best similarities)
             residual = 1 - np.mean(best_similarities)
 
-            # Check for convergence
-            if (prev_residual - residual) < (self.clustering_tolerance * residual):
+            if residual < best_residual:
+                best_maps, best_residual = maps.copy(), residual
+
+            # Check for convergence. A negative improvement means the update
+            # degraded the fit, so stop and keep the best maps; testing only
+            # `improvement < tol * residual` would accept that degradation as
+            # convergence and return the worse maps.
+            improvement = prev_residual - residual
+            if improvement < 0 or improvement < (self.clustering_tolerance * residual):
                 if verbose:
                     if repetition_num is not None:
                         self.logger.processing_info(
@@ -399,7 +416,7 @@ class MicrostateClusterer:
 
             prev_residual = residual
 
-        return maps, residual
+        return best_maps, best_residual
 
     @staticmethod
     def _normalize_row_inplace(matrix: np.ndarray, row_index: int) -> None:
@@ -567,9 +584,6 @@ class MicrostateClusterer:
 
         # Track cluster indices
         cluster_indices = [[k] for k in range(n_maps)]
-
-        # For GEV calculation
-        np.sum(gfp_curve**2)
 
         if verbose:
             self.logger.processing_info(

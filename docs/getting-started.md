@@ -63,10 +63,10 @@ The main window will appear with the processing pipeline interface.
 | **Study Name** | A descriptive name for your analysis |
 | **Input Folder** | Directory containing your EEG files |
 | **Output Folder** | Where results will be saved |
-| **File Extension** | `.set`, `.fif`, `.edf`, or `.auto` for automatic detection |
-| **Data Type** | `raw` for continuous or `epoched` for segmented data |
+| **File Extension** | `.set`, `.edf`, `.vhdr`, `.bdf`, `.gdf`, `.cnt`, `.egi`, `.mff`, `.data`, `.nxe`, `.lay`, or `.auto` for automatic detection |
+| **Data Type** | **Continuous EEG** for unsegmented recordings, or **Epoched EEG** for data already segmented into trials (EEGLAB `.set` only) |
 
-3. Click **"Create Study"** to initialize
+3. Click **"Find Data"** to scan the input folder and build the file list
 
 {: .note }
 > EEG-COMET recursively searches the input folder, so you can organize data in subfolders by subject or condition.
@@ -77,21 +77,22 @@ The main window will appear with the processing pipeline interface.
 
 ### Loading Data
 
-- Click **"Load Data"** to import all detected EEG files
-- The status panel shows the number of files found and loaded
+- **"Find Data"** imports every detected EEG file from the input folder and its subfolders
+- The import log shows the number of files found and loaded
 - Channel configurations are automatically verified across datasets
 
 ### Preprocessing (Optional)
 
 If additional filtering is needed:
 
-1. **Temporal Filtering:**
+1. **Temporal Filter (Band-Pass):**
    - Select filter type: `FIR` (recommended) or `IIR`
-   - Set frequency range (e.g., 2-20 Hz for microstate analysis)
+   - Set the lowcut/highcut frequencies (e.g., 2-20 Hz for microstate analysis)
 
-2. **Spatial Filtering:**
-   - Enable k-nearest-neighbor smoothing if data is noisy
-   - Set smoothing distance (typically 3-5 neighbors)
+2. **Spatial Filter:**
+   - Enable **"Spatial Filter"** to average each electrode with its nearest neighbours if data is noisy
+
+Click **"Preprocess All Data"** to apply the selected steps.
 
 {: .highlight }
 > Zero-phase filtering is automatically applied to preserve temporal accuracy of microstate transitions.
@@ -104,11 +105,14 @@ Choose which timepoints to use for microstate template extraction:
 
 | Method | Best For | Description |
 |:-------|:---------|:------------|
-| **GFP Peaks** | Traditional analysis, replication studies | Uses only high-amplitude moments |
-| **Random Sample** | Balanced efficiency/coverage | Randomly samples timepoints for each iteration |
-| **All Timepoints** | Maximum coverage, event-related designs | Uses complete temporal information |
+| **Use GFP Peaks Only** | Traditional analysis, replication studies | Uses only high-amplitude moments. **Min Peak Distance (ms)** sets the minimum spacing between retained GFP peaks (`smoothing_distance`, 10 ms default) |
+| **Use Random Subset of Data** | Balanced efficiency/coverage | Randomly samples timepoints for each iteration, controlled by **Subset Fraction (%)** |
+| **All timepoints** | Maximum coverage, event-related designs | Select **Use Random Subset of Data** and set the fraction to 100% |
 
-Configure the **percentage of data** to use (50% default) for computational efficiency.
+The subset fraction maps to `data_percentage`, which defaults to 100 (the whole recording). Lower it to trade coverage for computational efficiency.
+
+{: .note }
+> By default GFP-peak restriction is off (`smoothing_gfp = False`) and `data_percentage = 100`, so clustering uses every timepoint unless you change these settings.
 
 ---
 
@@ -116,8 +120,8 @@ Configure the **percentage of data** to use (50% default) for computational effi
 
 ### Automatic Validation
 
-1. Set the **cluster range** (e.g., K = 4 to 8)
-2. Click **"Run Validation"**
+1. Click **"Inspect Criteria for Optimal Microstates"**
+2. Confirm the **cluster range** (e.g., K = 4 to 8) in the prompt
 3. EEG-COMET evaluates 10 statistical criteria:
    - Cross-Validation Criterion (CV)
    - Global Explained Variance (GEV)
@@ -134,8 +138,10 @@ Configure the **percentage of data** to use (50% default) for computational effi
 | Strategy | Description |
 |:---------|:------------|
 | **Manual Inspection** | View validation curves and decide based on domain knowledge |
-| **Automatic** | Use a specific criterion (e.g., Cross-Validation) |
-| **Majority Vote** | Select the K most frequently chosen across all criteria |
+| **Single Method** | Use one criterion (e.g., Cross-Validation) as the **Stop Condition** |
+| **Ensemble Method** | Select the K most frequently chosen across all criteria (majority vote) |
+
+To let EEG-COMET pick K during clustering, choose **"Auto-detect"**, set the k range and **Stop Condition**, then run clustering.
 
 {: .note }
 > Evidence suggests 4 or fewer microstates may oversimplify dynamics. Consider K ≥ 5 for more reliable results.
@@ -148,10 +154,12 @@ Configure the **percentage of data** to use (50% default) for computational effi
 
 | Parameter | Recommended | Description |
 |:----------|:------------|:------------|
-| **Algorithm** | Modified K-means | Fast iterative refinement |
+| **Algorithm** | Modified K-Means Clustering | Fast iterative refinement |
 | **Number of Repeats** | 10-50 | Multiple runs to avoid local minima |
 | **Max Iterations** | 500 | Convergence limit per run |
 | **Tolerance** | 1e-6 | Convergence threshold |
+
+Three algorithms are available: **Modified K-Means Clustering**, **Modified K-Means Clustering with Spatial Similarity** (adds a configurable **Similarity Metric** — Spatial Correlation or Cosine Similarity), and **Topographic Atomize and Agglomerate Hierarchical Clustering**.
 
 ### Alternative: TAAHC
 
@@ -160,7 +168,7 @@ For more thorough solution-space exploration, use **TAAHC** (Topographic Atomize
 - Better at escaping local minima
 - Recommended when K-means shows instability
 
-Click **"Run Clustering"** to extract templates.
+Click **"Start Clustering"** to extract templates.
 
 ---
 
@@ -168,7 +176,7 @@ Click **"Run Clustering"** to extract templates.
 
 ### Automated Classification (Recommended)
 
-1. Click **"Auto-Label"**
+1. Open **"View Microstate Maps"** and click **"Automatically Label the Microstates"**
 2. The CNN classifier (bundled as `eeg_comet/models/model_v2.onnx`, run via ONNX Runtime) assigns canonical labels (A, B, C, D, E, F, G)
 3. Review assignments in the visualization panel
 
@@ -189,26 +197,26 @@ For atypical topographies or exploratory analyses:
 
 Each timepoint is assigned to the template with highest spatial correlation:
 
-1. Click **"Run Backfitting"**
+1. Click **"Start Backfitting"**
 2. View the initial segmentation in the time-series viewer
 
 ### Segment Refinement
 
-Configure minimum segment duration to remove implausibly short segments:
+Enable **"Filter Transient Segments"** (off by default) to remove implausibly short segments:
 
 | Parameter | Default | Description |
 |:----------|:--------|:------------|
-| **Min Duration** | 20 ms | Segments shorter than this are refined |
-| **Strategy** | Smooth | How short segments are handled |
+| **Reject Segments < (ms)** | 20 ms | Segments shorter than this are refined |
+| **Filter Segments Method** | Smooth segments | How short segments are handled |
 
 **Strategy Options:**
 
 | Strategy | Use Case |
 |:---------|:---------|
-| **Remove** | Resting-state (gaps acceptable) |
-| **Replace High** | Extend neighboring microstate with higher occurrence |
-| **Replace Half** | Split between neighbors |
-| **Smooth** | Temporal smoothing considering context |
+| **Remove short segments** | Resting-state (gaps acceptable) |
+| **Replace short segments: nearby dominant microstate** | Extend neighboring microstate with higher occurrence |
+| **Replace short segments: half and half** | Split between neighbors |
+| **Smooth segments** | Temporal smoothing considering context |
 
 ---
 
@@ -216,7 +224,7 @@ Configure minimum segment duration to remove implausibly short segments:
 
 ### Standard Features
 
-Select which metrics to compute:
+Select which metrics to compute. **OCC**, **DUR**, and **COV** are selected by default:
 
 | Feature | Abbreviation | Description |
 |:--------|:-------------|:------------|
@@ -238,11 +246,13 @@ Select which metrics to compute:
 
 | Mode | Use Case |
 |:-----|:---------|
-| **Static** | Single value per recording |
-| **Windowed** | Track changes over time windows |
-| **Event-Related** | Trial-level analysis around events |
+| **Extract Global Features (One per File)** | Single value per recording |
+| **Extract Windowed Features (Multiple per File)** | Track changes over time windows |
+| **Extract Pre/Post Event Features** | Trial-level analysis around events |
 
-Click **"Extract Features"** to compute and export.
+By default only real (observed) features are computed; tick **"Extract Features from Synthetic Data as Well"** to add surrogate and random sequences for statistical comparison.
+
+Click **"Extract Selected Features"** to compute and export.
 
 ---
 
@@ -261,16 +271,21 @@ EEG-COMET exports results in multiple formats:
 
 ### Output Files
 
-After processing, find in your output folder:
+After processing, find in your output folder. Every per-stage folder is prefixed with your study name:
 
 ```
 output_folder/
 ├── study_name/
-│   ├── microstates/           # Template topographies
-│   ├── segmentation/          # Backfitting results
-│   ├── features/              # Extracted metrics
-│   ├── statistics/            # Statistical analysis results
-│   └── logs/                  # Processing logs for reproducibility
+│   ├── study_name_preprocessed_data/    # Filtered, resampled, re-referenced recordings
+│   ├── study_name_clustering_results/   # Template topographies (microstate_maps.csv)
+│   ├── study_name_segmentation/         # Backfitting results
+│   ├── study_name_extracted_features/   # Extracted metrics
+│   ├── study_name_localized_sources/    # Source estimates
+│   │   ├── tess_sources/
+│   │   └── avg_sources/
+│   ├── eeg_info.fif                     # Channel/montage information for the study
+│   ├── eeg_comet_config.ini             # Settings used for this study
+│   └── eeg_comet_log.txt                # Processing log for reproducibility
 ```
 
 ---
@@ -278,15 +293,15 @@ output_folder/
 ## Example Workflow Summary
 
 ```
-1. Create Study → Define input/output paths
-2. Load Data → Import preprocessed EEG files
-3. Preprocess → Apply bandpass filter (2-20 Hz)
+1. New Study → Define input/output paths
+2. Find Data → Import preprocessed EEG files
+3. Preprocess All Data → Apply bandpass filter (2-20 Hz)
 4. Select Data → Use GFP peaks for traditional analysis
 5. Validate K → Run 10 criteria, use majority vote
-6. Cluster → Modified K-means, 20 repeats
+6. Start Clustering → Modified K-Means Clustering, 20 repeats
 7. Label → Auto-classify with CNN
-8. Backfit → Assign templates, smooth short segments
-9. Features → Extract COV, OCC, DUR, TP
+8. Start Backfitting → Assign templates, smooth short segments
+9. Extract Selected Features → COV, OCC, DUR, TP
 10. Export → Save as CSV for statistical analysis
 ```
 

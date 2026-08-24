@@ -42,19 +42,23 @@ The classical microstate parameters (coverage, occurrence, mean duration, and gl
 
 **Proportional temporal dominance** of each microstate.
 
-$$\text{COV}_k = \frac{\text{Total time in microstate } k}{\text{Total recording time}}$$
+$$\text{COV}_k = 100 \cdot \frac{\text{Samples labelled } k}{\text{Analysable samples}}$$
+
+Rejected timepoints — those carrying the `NaN` label because they failed `min_correlation_threshold` or the short-segment filter — are excluded from both the numerator and the denominator. COV therefore expresses the percentage of *analysable* time rather than of wall-clock recording time, and sums to 100% across the real microstate classes.
 
 | Property | Value |
 |:---------|:------|
-| Range | 0 to 1 (or 0-100%) |
-| Sum across classes | 1.0 (100%) |
+| Units | Percent (0-100) |
+| Sum across classes | 100% |
 | Interpretation | Relative temporal prevalence |
 
 ### Occurrence (OCC)
 
 **Frequency of microstate appearances** per unit time.
 
-$$\text{OCC}_k = \frac{\text{Number of microstate } k \text{ segments}}{\text{Recording duration (seconds)}}$$
+$$\text{OCC}_k = \frac{\text{Number of microstate } k \text{ segments}}{\text{Analysable duration (seconds)}}$$
+
+A segment is a contiguous run of identical labels. In averaged mode the denominator counts only analysable (non-rejected) samples; in sliding mode it is the nominal window length in seconds. A stretch of rejected samples still acts as a boundary, so two runs of state $$k$$ separated by rejected timepoints are counted as two segments rather than merged into one.
 
 | Property | Value |
 |:---------|:------|
@@ -83,30 +87,34 @@ EEG-COMET supports four ways of summarising the per-segment run lengths. All ret
 | `geometric` (**default**) | $$\text{DUR}_k = \exp\!\left(\frac{1}{N_k}\sum_i \ln \ell_{k,i}\right) \cdot \frac{1000}{f_s}$$ | Geometric mean of run lengths. Robust to long-tail outliers that otherwise inflate the arithmetic mean for dominant microstates. |
 | `arithmetic` | $$\text{DUR}_k = \left(\bar{\ell}_k - 1\right) \cdot \frac{1000}{f_s}$$ | Mean of run lengths converted with the $$(N-1)/f_s$$ interval convention. Algebraically consistent with COV and OCC (see relationship below). |
 | `median` | $$\text{DUR}_k = \operatorname{median}(\ell_{k,i}) \cdot \frac{1000}{f_s}$$ | Robust central-tendency estimator. |
-| `trimmed_mean` | 10% symmetric trimmed mean of $$\ell_{k,i}$$, then $$\cdot\,\frac{1000}{f_s}$$ | Falls back to the arithmetic mean when fewer than 11 segments are available. |
+| `trimmed_mean` | Mean of $$\ell_{k,i}$$ after discarding the $$\lfloor N_k/10 \rfloor$$ smallest and largest run lengths (at least one from each end), then $$\cdot\,\frac{1000}{f_s}$$ | With 10 or fewer segments no trimming is possible, so the plain mean of the run lengths is used (without the $$(N-1)$$ correction applied by `arithmetic`). |
 
 {: .note }
 > The default switched from `arithmetic` to `geometric` because heavy-tailed run-length distributions on dominant microstates (e.g. when long quiet segments are present) make the arithmetic mean over-estimate the typical persistence. The geometric mean tracks the bulk of the distribution far better.
 
 ### Relationship
 
-When `duration_method = arithmetic`, the three classical metrics are algebraically consistent:
+When `duration_method = arithmetic`, the three classical metrics are algebraically consistent. With COV expressed as a percentage, DUR in milliseconds and OCC in Hz:
 
-$$\text{COV}_k \;=\; \left(\text{DUR}_k + \tfrac{1000}{f_s}\right) \cdot \text{OCC}_k \;\big/\; 1000$$
+$$\text{COV}_k \;=\; \left(\text{DUR}_k + \tfrac{1000}{f_s}\right) \cdot \frac{\text{OCC}_k}{10}
+\qquad\Longleftrightarrow\qquad
+\text{DUR}_k \;=\; \frac{10 \cdot \text{COV}_k}{\text{OCC}_k} - \frac{1000}{f_s}$$
 
-For the other aggregation methods (`geometric`, `median`, `trimmed_mean`) DUR is no longer the arithmetic mean of segment lengths, so the identity $$\text{COV}_k = \text{DUR}_k \times \text{OCC}_k$$ holds only approximately. Use `arithmetic` if you need DUR, COV and OCC to be exactly self-consistent (e.g. for analytical derivations).
+The other aggregation methods (`geometric`, `median`, `trimmed_mean`) do not report the arithmetic mean of segment lengths, so they are **not** algebraically tied to COV and OCC: the classical identity $$\text{DUR}_k = 1000 \cdot \text{COV}_k / (100 \cdot \text{OCC}_k)$$ does not hold, and the gap widens as the run-length distribution becomes more skewed. Use `arithmetic` if you need DUR, COV and OCC to be exactly self-consistent (e.g. for analytical derivations).
 
 ### Global Explained Variance (GEV)
 
 **Proportion of total topographic variance** explained by each template.
 
-$$\text{GEV}_k = \frac{\sum_{t \in k} r_{t,k}^2 \cdot \text{GFP}_t^2}{\sum_{t} \text{GFP}_t^2}$$
+$$\text{GEV}_k = 100 \cdot \frac{\sum_{t \in k} r_{t,k}^2 \cdot \text{GFP}_t^2}{\sum_{t} \text{GFP}_t^2}$$
 
 | Property | Value |
 |:---------|:------|
-| Range | 0 to 1 |
-| Sum across classes | Total GEV |
+| Units | Percent (0-100) |
+| Sum across classes | Total variance explained (%), normally well below 100% |
 | Interpretation | Template explanatory power |
+
+Because GEV is accumulated only over the timepoints assigned to each template, the per-state values sum to the total explained variance of the segmentation, not to 100%.
 
 ---
 
@@ -116,11 +124,13 @@ $$\text{GEV}_k = \frac{\sum_{t \in k} r_{t,k}^2 \cdot \text{GFP}_t^2}{\sum_{t} \
 
 First-order sequential dependencies between microstate pairs.
 
-$$\text{TP}_{i \to j} = P(\text{next state} = j \mid \text{current state} = i)$$
+$$\text{TP}_{i \to j} = P(\text{next state} = j \mid \text{current state} = i) = \frac{n_{i \to j}}{\sum_{m \neq i} n_{i \to m}}$$
+
+Each row is normalised on its own counts, so the probabilities leaving any given state sum to 1 regardless of how often that state is visited.
 
 ### Matrix Structure
 
-For K microstates, produces K×K transition matrix:
+For K microstates, produces K×K transition matrix whose off-diagonal entries sum to 1 along every row:
 
 |  | To A | To B | To C | To D |
 |:---|:---:|:---:|:---:|:---:|
@@ -131,7 +141,11 @@ For K microstates, produces K×K transition matrix:
 
 ### Self-Transitions
 
-By convention, self-transitions (A→A) are excluded or set to zero, as consecutive samples of the same microstate are part of the same segment.
+By convention, self-transitions (A→A) are excluded, as consecutive samples of the same microstate are part of the same segment. They are left out of the row totals, so removing them does not leak probability mass out of a row.
+
+### Rejected Timepoints
+
+Sample pairs where either side is a rejected timepoint (`NaN`) are ignored, so rejected samples never appear as a source or a target state. A rejected stretch sitting between two microstates breaks the link between them instead of producing a spurious A→B transition across the gap.
 
 ### Interpretation
 
@@ -149,19 +163,28 @@ By convention, self-transitions (A→A) are excluded or set to zero, as consecut
 
 **Information content conditional on sequential history** (von Wegner et al., 2017).
 
-$$H_r = -\sum_i p_i \sum_j p_{j|i} \log_2 p_{j|i}$$
+The entropy rate is estimated from how the joint (block) entropy grows with history length, rather than from a first-order Markov approximation. For each history length $$k$$ the joint entropy of all $$k$$-symbol words observed in the sequence is computed,
+
+$$H(k) = -\sum_{w} p(w) \ln p(w)$$
+
+and a straight line is fitted to $$H(k)$$ against $$k = 1, \dots, k_{\max}$$. The slope of that line is the entropy rate; the intercept is the excess entropy. `k_max` defaults to 6.
 
 | Property | Interpretation |
 |:---------|:---------------|
 | Low entropy | Predictable sequences |
 | High entropy | Random/unpredictable sequences |
-| Range | 0 to log₂(K) |
+| Units | Nats per sample (natural logarithm) |
+| Range | 0 to ln(K) |
 
 ### Lempel-Ziv Complexity (LZC)
 
 **Algorithmic assessment of sequence diversity** (Lempel & Ziv, 1976; von Wegner et al., 2017).
 
-Counts the number of distinct patterns in the microstate sequence, normalized by sequence length.
+The sequence is first run-length collapsed, so each contiguous run of one label becomes a single symbol and LZC reflects the ordering of segments rather than their durations. The LZ76 parsing then counts the number of distinct patterns $$c$$ in the collapsed sequence of length $$n$$, normalised by the asymptotic maximum $$b = n / \log_2 n$$:
+
+$$\text{LZC} = \frac{c}{n / \log_2 n}$$
+
+Sequences that collapse to fewer than three symbols return 0.0, since LZ76 cannot be parsed and the normaliser is undefined.
 
 | Property | Interpretation |
 |:---------|:---------------|
@@ -181,15 +204,22 @@ Counts the number of distinct patterns in the microstate sequence, normalized by
 
 ### Entropy Representation Ratio (ERR)
 
-**Observed sequence organization relative to random transitions.**
+**Distribution of the observed word inventory across entropy classes.**
 
-$$\text{ERR} = \frac{H_{\text{observed}}}{H_{\text{random}}}$$
+Every word of `word_size` consecutive symbols (default 2) is read off the microstate sequence with a one-sample step. Each distinct word is scored by the Shannon entropy of its own symbol composition, and words that share an entropy value are grouped into an entropy class, numbered from the lowest entropy upwards. The exported value for each class is the share of all observed words that fall into it:
+
+$$\text{ERR}_c = \frac{\text{Observed words in entropy class } c}{\text{Total observed words}}$$
+
+Low-numbered classes hold repetitive words such as `AA`; higher classes hold words that mix distinct microstates. One column per class is written (`ERR_EntropyClass1`, `ERR_EntropyClass2`, …).
 
 | Value | Interpretation |
 |:------|:---------------|
-| ERR = 1 | Random-like organization |
-| ERR < 1 | More structured than random |
-| ERR > 1 | More chaotic than expected |
+| Mass in low classes | Sequence dwells in, and returns to, the same states |
+| Mass in high classes | Sequence cycles through many distinct states |
+| Sum across classes | 1.0 |
+
+{: .note }
+> In sliding mode ERR is reported differently: each window contributes the Shannon entropy (in nats) of its own label distribution rather than a per-class breakdown.
 
 ---
 
@@ -207,14 +237,15 @@ feature_mode = averaged
 
 ### Sliding Mode
 
-Features computed within sliding windows to track temporal changes.
+Features computed within consecutive windows to track temporal changes.
 
 **Use case:** Continuous recordings with alternating conditions.
+
+Windows are **non-overlapping** (tumbling): the recording is cut into back-to-back blocks of `sliding_window_size` seconds, and each block is analysed independently. There is no overlap parameter. A trailing block shorter than one full window is dropped, so the number of windows is $$\lfloor n_{\text{samples}} / (\texttt{sliding\_window\_size} \times f_s) \rfloor$$ and window $$i$$ spans $$[\,i \cdot \texttt{sliding\_window\_size},\ (i+1) \cdot \texttt{sliding\_window\_size}\,)$$ seconds.
 
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
 | `sliding_window_size` | Window duration (seconds) | `1` |
-| Window overlap | Typically 50% | Configurable |
 
 ```ini
 feature_mode = sliding
@@ -225,6 +256,9 @@ sliding_window_size = 2
 - Preserves data continuity
 - Captures rapid changes
 - Avoids artificial segment boundaries
+
+{: .note }
+> TP and LZC are not computed in sliding mode; request them with `feature_mode = averaged`.
 
 ### Pre/Post Event Mode
 
@@ -240,11 +274,11 @@ Trial-level analysis around experimental events.
 
 For each trial, compute features in:
 - **Pre-event window:** -1000 to -10 ms (baseline)
-- **Post-event window:** +10 to +1000 ms (response)
+- **Post-event window:** +20 to +1000 ms (response)
 
 | Extracted Features |
 |:-------------------|
-| COV, OCC, DUR, GEV per microstate |
+| Every selected feature except ROF and RTF, per microstate |
 | Window customizable by user |
 
 {: .note }
@@ -284,10 +318,10 @@ Measures how inter-microstate transitions systematically change following experi
 | Parameter | Description | Default | Options |
 |:----------|:------------|:--------|:--------|
 | `export_format` | Output file format | `.csv` | `.csv`, `.pkl`, `.hdf`, `.json` |
-| `feature_list` | Features to extract | `COV,OCC,MMD` | See below |
+| `feature_list` | Features to extract | `OCC,DUR,COV` | See below |
 | `feature_mode` | Analysis mode | `averaged` | `averaged`, `sliding`, `pre_post` |
 | `sliding_window_size` | Window duration (s) | `1` | 0.5-10 |
-| `feature_types` | Comparison types | `real,surrogate,random` | See below |
+| `feature_types` | Comparison types | `real` | See below |
 | `duration_method` | DUR aggregation | `geometric` | `geometric`, `arithmetic`, `median`, `trimmed_mean` |
 
 ### Feature List Options
@@ -296,14 +330,19 @@ Measures how inter-microstate transitions systematically change following experi
 |:-----|:--------|
 | `COV` | Coverage |
 | `OCC` | Occurrence |
-| `MMD` | Mean Duration |
-| `DUR` | Duration (alias for MMD) |
+| `DUR` | Mean microstate duration |
+| `MMD` | Alias for `DUR` |
 | `TP` | Transition Probabilities |
 | `GEV` | Global Explained Variance |
 | `LZC` | Lempel-Ziv Complexity |
 | `ER` | Entropy Rate |
 | `HE` | Hurst Exponent |
 | `ERR` | Entropy Representation Ratio |
+| `ROF` | Relative Occurrence Frequency (epoched data) |
+| `RTF` | Relative Transition Frequency (epoched data) |
+
+{: .note }
+> `DUR` and `MMD` select the same computation, so either name may be used. Both produce `DUR_<microstate>` columns in the output, and listing both does not duplicate the feature.
 
 ### Feature Types
 
@@ -339,7 +378,7 @@ duration_method = geometric
 
 #### COV-DUR-OCC Algebraic Consistency
 
-Use the arithmetic aggregation when DUR must satisfy `COV ≈ DUR × OCC` exactly (e.g. when reporting all three metrics in tables that should add up):
+Use the arithmetic aggregation when DUR must satisfy the identity in [Relationship](#relationship) exactly (e.g. when reporting all three metrics in tables that should add up):
 
 ```ini
 [features_config]
@@ -365,34 +404,32 @@ feature_types = real
 
 ### CSV Format
 
-Standard comma-separated values:
+Standard comma-separated values, one row per input file and one column per feature/microstate pair. COV and GEV are percentages, OCC is in Hz and DUR in milliseconds:
 
 ```csv
-subject,condition,microstate,COV,OCC,DUR,GEV
-sub-01,rest,A,0.28,3.2,87.5,0.22
-sub-01,rest,B,0.24,2.9,82.7,0.18
+Filename,COV_A,COV_B,DUR_A,DUR_B,GEV_A,GEV_B,OCC_A,OCC_B
+sub-01,28.4,24.1,87.5,82.7,22.3,18.4,3.2,2.9
 ...
 ```
 
 ### Transition Matrix
 
-Separate file with full transition probabilities:
+Transition probabilities share the features file, with one column per ordered pair named `TP_<from>_<to>`. Self-transitions and pairs that never occur are absent rather than zero, and the columns leaving each state sum to 1:
 
 ```csv
-from,to_A,to_B,to_C,to_D
-A,0.0,0.35,0.40,0.25
-B,0.30,0.0,0.45,0.25
+Filename,TP_A_B,TP_A_C,TP_A_D,TP_B_A,TP_B_C,TP_B_D
+sub-01,0.35,0.40,0.25,0.30,0.45,0.25
 ...
 ```
 
 ### Sliding Output
 
-Time-indexed features:
+Window-indexed features, with consecutive non-overlapping windows:
 
 ```csv
-subject,window_start,window_end,microstate,COV,OCC,DUR
-sub-01,0,2000,A,0.30,3.5,85.7
-sub-01,1000,3000,A,0.27,3.1,87.1
+Filename,Window_index,COV_A,DUR_A,OCC_A
+sub-01,0,30.2,85.7,3.5
+sub-01,1,27.4,87.1,3.1
 ...
 ```
 

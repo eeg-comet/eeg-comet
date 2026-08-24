@@ -87,43 +87,42 @@ at Simon Fraser University.
 
 ## The pipeline
 
-EEG-COMET is organized as ten interconnected modules. You can run the
-full pipeline end-to-end or use individual modules independently.
+EEG-COMET is organized as nine sequential pipeline modules plus a
+study-comparison module for statistics. You can run the full pipeline
+end-to-end or use individual modules independently.
 
 <div class="workflow-container" markdown="0">
-  <span class="workflow-step">1. Data Loading</span>
+  <span class="workflow-step">Data Loading</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">2. Preparation</span>
+  <span class="workflow-step">Preparation</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">3. Data Selection</span>
+  <span class="workflow-step">Data Selection</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">4. Validation</span>
+  <span class="workflow-step">Validation</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">5. Clustering</span>
+  <span class="workflow-step">Clustering</span>
 </div>
 <div class="workflow-container" markdown="0">
-  <span class="workflow-step">6. Labeling</span>
+  <span class="workflow-step">Labeling</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">7. Backfitting</span>
+  <span class="workflow-step">Backfitting</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">8. Features</span>
+  <span class="workflow-step">Features</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">9. Statistics</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">10. Sources</span>
+  <span class="workflow-step">Sources</span>
 </div>
 
 | # | Module | Summary |
 |:--|:-------|:--------|
-| 1 | [Data Loading]({% link modules/data-loading.md %}) | Automated import across EEGLAB, MNE, EDF, BrainVision, Neuroscan, EGI, and BIDS. |
+| 1 | [Data Loading]({% link modules/data-loading.md %}) | Automated import across EEGLAB, EDF/BDF/GDF, BrainVision, Neuroscan, EGI, and BIDS. |
 | 2 | [Data Preparation]({% link modules/data-preparation.md %}) | Zero-phase temporal filtering and optional k-NN spatial smoothing. |
 | 3 | [Data Selection]({% link modules/data-selection.md %}) | GFP peak selection, random subsampling, or all timepoints. |
 | 4 | [Cluster Validation]({% link modules/cluster-validation.md %}) | Ten statistical criteria with three selection strategies. |
-| 5 | [Clustering]({% link modules/clustering.md %}) | Modified K-means and TAAHC algorithms for template identification. |
+| 5 | [Clustering]({% link modules/clustering.md %}) | Modified K-means (with an optional spatial-similarity variant) and TAAHC algorithms for template identification. |
 | 6 | [Labeling]({% link modules/labeling.md %}) | CNN-based automated labeling (A&ndash;G) or manual assignment. |
 | 7 | [Backfitting]({% link modules/backfitting.md %}) | Template assignment with configurable segment-duration handling. |
 | 8 | [Feature Extraction]({% link modules/feature-extraction.md %}) | Classical metrics, transitions, complexity measures, ERP dynamics. |
-| 9 | [Statistical Analysis]({% link modules/statistical-analysis.md %}) | Parametric tests, GEE/LMM regression, cluster permutation. |
+| 9 | [Statistical Analysis]({% link modules/statistical-analysis.md %}) | Run outside the pipeline, from the **Study Comparison and Statistical Analysis** window: parametric tests, GEE/LMM regression, cluster permutation. |
 | 10 | [Source Localization]({% link modules/source-localization.md %}) | Cortical source estimation with multiple inverse methods. |
 
 ---
@@ -157,8 +156,8 @@ A `eeg-comet-cli` terminal entry point is also available.
 ### 3. Load preprocessed data
 
 Use the GUI to point at your preprocessed EEG data directory. EEG-COMET
-supports `.set`, `.fif`, `.edf`, BrainVision, Neuroscan, EGI, and BIDS
-datasets.
+supports `.set`, `.edf`, `.bdf`, `.gdf`, BrainVision, Neuroscan, EGI,
+Nicolet, eXimia, Persyst, and BIDS datasets.
 
 {: .warning }
 > **Apply artifact rejection first.** EEG-COMET expects clean,

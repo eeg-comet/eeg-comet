@@ -145,7 +145,7 @@ class COMET:
         self.choose_number_of_maps = "User"
         self.k_min = 2
         self.k_max = 10
-        self.stopping_mode = "gev"
+        self.stopping_mode = "majority_vote"
         self.stopping_threshold = 10
         self.initializer = "Random"
         self.clustering_method = "Modified K-Means Clustering"
@@ -325,7 +325,7 @@ class COMET:
         config["clustering_config"]["n_maps"] = "4"
         config["clustering_config"]["k_min"] = "2"
         config["clustering_config"]["k_max"] = "10"
-        config["clustering_config"]["stopping_mode"] = "gev"
+        config["clustering_config"]["stopping_mode"] = "majority_vote"
         config["clustering_config"]["stopping_threshold"] = "10"
         config["clustering_config"]["data_percentage"] = "100"
         config["clustering_config"]["initializer"] = "Random"
@@ -446,6 +446,11 @@ class COMET:
 
         # Preprocessing Configs
         preprocessing_config = self.config["preprocessing_config"]
+        # Historically written under [preprocessing_config] even though it pairs
+        # with pattern_content in [io_config]; accept it from either section.
+        self.load_all_files = io_config.getboolean(
+            "load_all_files", preprocessing_config.getboolean("load_all_files", True)
+        )
         self.temporal_filter_data = preprocessing_config.getboolean(
             "temporal_filter_data", preprocessing_config.getboolean("filter_data", True)
         )
@@ -4207,6 +4212,7 @@ class COMET:
         self.config["io_config"]["montage"] = str(self.montage) if self.montage is not None else ""
         self.config["io_config"]["extension"] = self.extension
         self.config["io_config"]["pattern_content"] = self.pattern_content
+        self.config["io_config"]["load_all_files"] = str(self.load_all_files)
         self.config["io_config"]["data_type"] = self.data_type
         self.config["io_config"]["output_folder"] = self.output_folder
 
@@ -4261,7 +4267,9 @@ class COMET:
         self.config["features_config"]["event_matching_mode"] = self.event_matching_mode
         self.config["features_config"]["pre_window_size"] = str(self.pre_window_size)
         self.config["features_config"]["post_window_size"] = str(self.post_window_size)
+        self.config["features_config"]["duration_method"] = self.duration_method
 
+        self.config["source_config"]["use_anatomy"] = self.use_anatomy
         self.config["source_config"]["bem_solver"] = self.bem_solver
         self.config["source_config"]["inverse_method"] = self.inverse_method
         self.config["source_config"]["n_permutations"] = str(self.n_permutations)

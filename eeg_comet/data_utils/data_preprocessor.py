@@ -386,6 +386,25 @@ class DataPreprocessor:
 
         # 2) Temporal filtering
         if apply_filter:
+            # Filtering runs before resampling so the low-pass acts as the
+            # anti-aliasing filter. That only works if the passband fits below
+            # the Nyquist frequency of BOTH the current and the target rate.
+            nyquist_limits = [eeg.info["sfreq"] / 2.0]
+            if apply_downsample:
+                nyquist_limits.append(sampling_rate / 2.0)
+            nyquist = min(nyquist_limits)
+
+            if high_cut is not None and high_cut >= nyquist:
+                raise ValueError(
+                    f"highcut_freq ({high_cut} Hz) must stay below the Nyquist frequency "
+                    f"({nyquist} Hz). Lower highcut_freq, or raise sampling_rate to more "
+                    f"than {2 * high_cut} Hz."
+                )
+            if low_cut is not None and high_cut is not None and low_cut >= high_cut:
+                raise ValueError(
+                    f"lowcut_freq ({low_cut} Hz) must be below highcut_freq ({high_cut} Hz)."
+                )
+
             eeg = eeg.filter(
                 l_freq=low_cut, h_freq=high_cut, method=filter_method, phase="zero", verbose=verbose
             )

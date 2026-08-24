@@ -73,9 +73,13 @@ class DataInitializer:
             initial_centers = np.array(initial_centers)
 
         else:
-            # initializer == 'Random'
-            random_state = np.random.RandomState(None)
-            initial_peaks = random_state.choice(np.size(maps_to_use, 1), size=n_states, replace=False)
+            # initializer == 'Random'. Draw from the global RNG, as the
+            # K-Means++ branch does, so that seeding via ``np.random.seed`` makes
+            # the initialisation reproducible. A fresh ``RandomState(None)`` is
+            # seeded from OS entropy and would ignore the configured seed.
+            initial_peaks = np.random.choice(
+                np.size(maps_to_use, 1), size=n_states, replace=False
+            )
             initial_centers = maps_to_use[:, initial_peaks].T
 
         initial_centers /= np.linalg.norm(initial_centers, axis=1, keepdims=True)

@@ -24,7 +24,7 @@ def display_welcome_message():
     logger.processing_info("INITIALIZATION", "Authors: Amin Kabir, Raaj Chatterjee, Faranak Farzan")
     logger.processing_info("INITIALIZATION", "Organization: SFU eBrain Lab (www.ebrainlab.ca)")
     logger.processing_info(
-        "INITIALIZATION", "GitHub: https://github.com/eBrainLab/EEG-Microstate-Feature-Extraction"
+        "INITIALIZATION", "GitHub: https://github.com/eeg-comet/eeg-comet"
     )
     logger.processing_info(
         "INITIALIZATION", "🖥️  Terminal Version - Enhanced with Automatic K Selection"

@@ -148,6 +148,9 @@ class FeaturesConfig:
     event_matching_mode: str = "partial"
     pre_window_size: int = 1
     post_window_size: int = 1
+    # How per-segment run lengths are summarised into the mean duration.
+    # One of: geometric, arithmetic, median, trimmed_mean.
+    duration_method: str = "geometric"
 
 
 @dataclass
@@ -273,6 +276,7 @@ class CometConfig:
             "event_matching_mode": ft.event_matching_mode,
             "pre_window_size": str(ft.pre_window_size),
             "post_window_size": str(ft.post_window_size),
+            "duration_method": ft.duration_method,
         }
 
         sc = self.source
@@ -412,6 +416,7 @@ class CometConfig:
                 event_matching_mode=ft.get("event_matching_mode", "partial"),
                 pre_window_size=_coerce_int(ft.get("pre_window_size"), 1),
                 post_window_size=_coerce_int(ft.get("post_window_size"), 1),
+                duration_method=ft.get("duration_method", "geometric").strip(),
             )
 
         if cp.has_section("source_config"):
@@ -441,9 +446,10 @@ class CometConfig:
             )
 
         if cp.has_section("reproducibility"):
-            cfg.random_seed = _coerce_int(
-                cp["reproducibility"].get("random_seed"), 0
-            ) or None
+            # Only an absent or blank value means "unseeded". Falling back to
+            # `... or None` would turn a perfectly valid seed of 0 into None.
+            raw_seed = cp["reproducibility"].get("random_seed", "").strip()
+            cfg.random_seed = _coerce_int(raw_seed, 0) if raw_seed else None
 
         return cfg
 

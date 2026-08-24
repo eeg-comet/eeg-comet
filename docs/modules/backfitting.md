@@ -51,7 +51,16 @@ For each timepoint t:
 | Mode | Description | Use Case |
 |:-----|:------------|:---------|
 | `all` | Assign all timepoints | Standard analysis |
-| `peaks` | Assign only GFP peaks | Traditional approach |
+| `peaks` | Assign only GFP peaks, then extend each label across the surrounding GFP trough-to-trough interval | Traditional approach |
+
+{: .note }
+> Correlation thresholding and segment refinement apply to the `all` mode. In `peaks` mode the label of each GFP peak already spans a full trough-to-trough interval, so no additional filtering is performed.
+
+### Correlation Quality Control
+
+Optionally, timepoints whose absolute correlation with their assigned template is too weak can be rejected instead of labeled. Set `min_correlation_threshold` to the minimum acceptable absolute correlation (typically 0.5 for a liberal criterion up to 0.7 for a conservative one), or leave it at `False` to label every timepoint.
+
+Rejected timepoints are marked as unassigned and **stay unassigned** through every subsequent refinement step. Length-preserving strategies fill only the gaps left by short-segment rejection; they never re-admit a timepoint that failed the correlation threshold. The threshold is therefore always honoured, regardless of the `filter_segments_option` in use.
 
 ### Initial Segmentation
 
@@ -77,6 +86,8 @@ Extremely short microstate segments (< 10 ms) likely represent:
 
 Rather than genuine microstate changes.
 
+The threshold is specified in milliseconds and converted to samples using the sampling rate. A segment counts as short when its duration is **less than or equal to** the threshold; only strictly longer segments survive filtering.
+
 ### Selection Methods
 
 #### Manual Input
@@ -88,18 +99,26 @@ Specify a fixed threshold based on:
 
 #### Automated Optimization
 
-EEG-COMET can automatically determine optimal threshold:
+Setting `identify_short_window` lets EEG-COMET determine the threshold automatically:
 
 ```
-For each candidate threshold (5-50 ms):
+For each candidate threshold from 2 ms (or one sample, whichever
+is longer) up to 60 ms:
     1. Calculate combined quality score:
        - Topographic correspondence (60% weight)
        - Temporal stability (30% weight)
        - Data coverage (10% weight)
     2. Track optimal threshold
-    
-Select threshold maximizing quality score
+
+Select threshold maximizing quality score,
+then clamp the result to the 5-50 ms range
 ```
+
+Up to 20 evenly spaced candidates are tested. If fewer than 20 sample steps fit into that span, every sample step is tested instead.
+
+### Automated Lambda Optimization
+
+When `identify_short_window` is enabled and `filter_segments_option = smooth`, the non-smoothness penalty is optimized as well. Five candidate values spanning **5 to 15** are smoothed with the configured half-window, scored with the same combined quality metric, and the best value is kept.
 
 ### Multi-Recording Optimization
 
@@ -108,7 +127,7 @@ When analyzing multiple recordings:
 2. Median across recordings is selected
 3. Rounded to nearest sampling interval
 
-This provides robust central estimate resistant to outliers.
+The optimal lambda is pooled the same way, taking the median across recordings rounded to one decimal place. This provides robust central estimates resistant to outliers.
 
 ---
 
@@ -120,6 +139,8 @@ This provides robust central estimate resistant to outliers.
 |:---------|:-----------|:-------------------|
 | **Data Reduction** | Segment Exclusion | Gaps created |
 | **Length-Preserving** | Local Context, Symmetric Extension, Sequential Smoothing | Maintained |
+
+Length-preserving strategies fill only the gaps created by short-segment rejection. Timepoints rejected by `min_correlation_threshold` remain unassigned under every strategy.
 
 ---
 
@@ -144,11 +165,13 @@ After:  A A A [ ] A A A A A  (gap where B was)
 
 ### Strategy 2: Local Context Reassignment (`replace_high`)
 
-**Replace short segment with the neighboring microstate that has higher local occurrence.**
+**Replace the short segment with whichever adjoining segment has the longer run.**
+
+The full run lengths of the segments immediately before and after the gap are compared, and the entire gap is assigned to the longer of the two. If the two runs are equally long, the preceding label wins. When only one side has a valid label, the gap takes that label.
 
 ```
 Before: A A A [B] A A A A A
-After:  A A A [A] A A A A A  (B replaced by dominant neighbor A)
+After:  A A A [A] A A A A A  (B replaced by longer-running neighbor A)
 ```
 
 | Pros | Cons |
@@ -164,6 +187,8 @@ After:  A A A [A] A A A A A  (B replaced by dominant neighbor A)
 ### Strategy 3: Symmetric Extension (`replace_half`)
 
 **Divide short segment between preceding and following microstates.**
+
+The gap is split down the middle, with an odd extra sample going to the preceding label. When only one side has a valid label, the whole gap takes that label.
 
 ```
 Before: A A [B B] C C C C
@@ -186,11 +211,18 @@ After:  A A [A C] C C C C  (first half to A, second half to C)
 
 ```
 Algorithm:
-1. Consider local context (window of ±b samples)
-2. Weight assignments by temporal proximity
-3. Apply non-smoothness penalty (lambda)
-4. Iterate until convergence
+1. Count how often each label occurs in the window [t-b, t+b],
+   excluding t itself (an unweighted count of neighbors)
+2. Subtract lambda x count from the spatial misfit of each
+   candidate label, and take the label with the lowest total cost
+3. Iterate until no assignment changes or GEV converges
+4. Reject any remaining short segments and redistribute them to
+   the best-correlating neighboring template
 ```
+
+The window is unweighted: every neighbor inside `[t-b, t+b]` contributes equally to the count, irrespective of its distance from `t`.
+
+In step 4, each rejected stretch is split between its two neighboring templates at the point where the opposite template becomes the better spatial fit, and any ambiguous remainder in the middle is divided evenly. The step repeats until no segment shorter than or equal to the threshold remains, since redistribution can itself create new short segments at the split boundaries.
 
 | Pros | Cons |
 |:-----|:-----|
@@ -205,8 +237,10 @@ Algorithm:
 | Parameter | Description | Default | Range |
 |:----------|:------------|:--------|:------|
 | `convergence_epsilon` | Convergence criterion | `1e-6` | 1e-8 to 1e-4 |
-| `half_window_size` | Window size (samples) | `3` | 1-10 |
-| `smoothness_penalty` | Non-smoothness penalty | `5` | 1-20 |
+| `half_window_size` | Half-window b (samples) | `3` | 1-10 |
+| `smoothness_penalty` | Non-smoothness penalty (lambda) | `5` | 1-20 |
+
+`half_window_size` is the half-window b of Pascual-Marqui et al. (1995): the smoothing window spans `[t-b, t+b]`, so b = 3 covers 7 samples (28 ms at 250 Hz). It is an independent parameter and is not derived from `filter_segments_less_than`.
 
 ---
 
@@ -229,10 +263,11 @@ Algorithm:
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
 | `backfit_to` | What to backfit | `all` |
-| `identify_short_window` | Auto-optimize threshold | `False` |
-| `filter_segments` | Apply segment refinement | `True` |
-| `filter_segments_less_than` | Minimum duration (ms) | `20` |
+| `identify_short_window` | Auto-optimize threshold (and lambda, when smoothing) | `False` |
+| `filter_segments` | Apply segment refinement | `False` |
+| `filter_segments_less_than` | Reject segments lasting at most this long (ms) | `20` |
 | `filter_segments_option` | Handling strategy | `smooth` |
+| `min_correlation_threshold` | Minimum absolute correlation to keep a timepoint (`False` disables) | `False` |
 
 ### Example Configurations
 
@@ -356,7 +391,7 @@ This is expected with strict thresholds. If problematic, switch to length-preser
 
 <div class="callout warning">
 <strong>Smoothing doesn't converge</strong><br>
-Increase convergence_epsilon or reduce maximum iterations. Check for data quality issues.
+Increase convergence_epsilon. Smoothing stops after at most 20 passes in any case, so also check for data quality issues.
 </div>
 
 ---

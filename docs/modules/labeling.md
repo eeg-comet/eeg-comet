@@ -206,7 +206,7 @@ Classification is typically automatic with default settings. Advanced options:
 | Model file | `model_v2.onnx` (bundled in `eeg_comet/models/`) |
 | Inference runtime | ONNX Runtime (`onnxruntime`) |
 | Confidence threshold | Report low-confidence assignments |
-| Interpolation grid | Standard 64×64 pixels |
+| Interpolation grid | Standard 128×128 pixels |
 
 ### Manual Override
 

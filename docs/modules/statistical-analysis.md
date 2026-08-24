@@ -41,30 +41,40 @@ Compare microstate features calculated over entire recordings between conditions
 
 ### Available Tests
 
-| Test | Design | Assumption |
-|:-----|:-------|:-----------|
-| **Paired t-test** | Within-subject (repeated measures) | Paired observations |
-| **Independent t-test** | Between-subject (groups) | Equal variances |
-| **Welch's t-test** | Between-subject | Unequal variances (automatic) |
+The test is determined by the **Study Design** and **Statistical Test Type** selections in the Compare Studies window:
 
-### Variance Homogeneity
+| Test | Design | Test Type | Assumption |
+|:-----|:-------|:----------|:-----------|
+| **Paired t-test** | Paired (Within-Subject) | Parametric | Paired observations, normality |
+| **Independent t-test** | Independent (Between-Subject) | Parametric | Equal variances, normality |
+| **Wilcoxon signed-rank** | Paired (Within-Subject) | Non-parametric | Paired observations |
+| **Mann-Whitney U** | Independent (Between-Subject) | Non-parametric | Independent samples |
 
-Welch's t-test (Welch, 1947) is automatically applied when Levene's test indicates unequal variances, providing robust inference without requiring equal variance assumptions.
+The independent t-test uses the pooled-variance (Student's) formulation. Paired tests require samples of equal length; if the two studies contribute different numbers of files, both are truncated to the length of the smaller one before pairing.
+
+{: .note }
+> The **Statistical Test Model** dropdown lists the model names available for each combination of options. For averaged metrics the test that is run is fixed by the Study Design and Statistical Test Type radio buttons; the selected model name is echoed in the analysis header.
 
 ### Multiple Comparison Correction
 
-Given comparisons across multiple microstates and features:
+Corrections are applied with `statsmodels.stats.multitest.multipletests`. The Compare Studies window offers:
 
 | Method | Control | Best For |
 |:-------|:--------|:---------|
-| **FDR** (False Discovery Rate) | Expected false positives | Exploratory analyses |
 | **Bonferroni** | Family-wise error | Confirmatory analyses |
+| **Holm** | Family-wise error | Step-down alternative to Bonferroni |
+| **Sidak** | Family-wise error | Independent tests |
+| **Holm-Sidak** | Family-wise error | Step-down form of Sidak |
+| **Hommel** | Family-wise error | Positively dependent tests |
+| **FDR-BH** | Expected false positives | Exploratory analyses |
+| **FDR-TSBH** | Expected false positives | Two-stage Benjamini–Hochberg |
+| **FDR-TSBKY** | Expected false positives | Two-stage Benjamini–Krieger–Yekutieli |
 
-The FDR procedure controls the expected proportion of false positives (Benjamini & Hochberg, 1995).
+The FDR procedures control the expected proportion of false positives (Benjamini & Hochberg, 1995).
 
 **Number of comparisons:**
-- K microstates × N features = total comparisons
-- Example: 4 microstates × 4 features = 16 comparisons
+- Features are analysed one at a time, so correction spans the microstate columns of the currently selected feature
+- Example: 4 comparisons for a 4-class solution
 
 ### Example Application
 
@@ -72,8 +82,8 @@ The FDR procedure controls the expected proportion of false positives (Benjamini
 Research question: Does meditation training affect microstate dynamics?
 
 Design: Pre-training vs. Post-training (within-subject)
-Test: Paired t-tests on COV, OCC, DUR for each microstate
-Correction: FDR at q = 0.05
+Test: Paired t-tests on COV, OCC and DUR, one feature at a time
+Correction: FDR-BH at q = 0.05
 ```
 
 ---
@@ -102,14 +112,14 @@ Comparing microstate features before and after events at the single-trial level 
 | **Correlation handling** | Working correlation structure |
 | **Robustness** | Valid under correlation misspecification |
 
+**Model specification:** `feature ~ Condition`, grouped by subject, with a Gaussian family and identity link. Subject identifiers are derived from the filenames, and at least three subjects are required.
+
 **Working Correlation Structures:**
 
-| Structure | Assumption |
-|:----------|:-----------|
-| Independent | No within-subject correlation |
-| Exchangeable | Equal correlation between all trials |
-| Autoregressive | Correlation decays with trial distance |
-| Unstructured | Estimate all pairwise correlations |
+| Structure | Assumption | Applied when |
+|:----------|:-----------|:-------------|
+| Exchangeable | Equal correlation between all trials | Study Design = Paired (Within-Subject) |
+| Independent | No within-subject correlation | Study Design = Independent (Between-Subject) |
 
 **Best for:** Exploratory analyses where precise correlation pattern is unknown.
 
@@ -121,8 +131,8 @@ Comparing microstate features before and after events at the single-trial level 
 |:--------|:------------|
 | **Approach** | Parametric, hierarchical |
 | **Inference type** | Subject-specific parameters |
-| **Random effects** | Subject intercepts/slopes |
-| **Fixed effects** | Experimental conditions |
+| **Random effects** | Random subject intercept |
+| **Fixed effects** | Experimental condition |
 
 **Model specification:**
 
@@ -134,25 +144,24 @@ Where:
 - $$u_i$$ = Random subject effect
 - $$\varepsilon_{ij}$$ = Residual error
 
+The mixed model `Value ~ Group` with a random subject intercept is fitted with `statsmodels` for the event-related (pre/post window) analysis and for sliding-window comparisons between studies. Effect sizes are reported as Cohen's d computed from the fixed-effect coefficient and the residual scale, together with 95% confidence intervals and a convergence flag.
+
+{: .note }
+> In the trial-level branch, both **Linear Mixed Model (LMM)** and **Generalized Estimating Equations (GEE)** fit the GEE model described above.
+
 ### Framework 3: Generalized Linear Mixed Models (GLMM)
 
-**Extension of LMM** for non-normally distributed outcomes.
+**Extension of LMM** for non-normally distributed outcomes such as durations and occurrence counts with characteristic right skew.
 
-| Distribution | Link Function | Use Case |
-|:-------------|:--------------|:---------|
-| Gamma | Log | Positive continuous (durations) |
-| Inverse Gaussian | Log | Positive continuous, right-skewed |
-| Poisson | Log | Count data (occurrences) |
-
-**Best for:** Duration and occurrence metrics with characteristic right skew.
+Selecting **Generalized Linear Mixed Model (GLMM)**, **Permutation Test with Clustering** or **Bootstrap Resampling** in the trial-level model dropdown falls back to the subject-level analysis described above, and the results panel states that the aggregation was used.
 
 ### Choosing Between Frameworks
 
-| Factor | GEE | LMM/GLMM |
-|:-------|:----|:---------|
+| Factor | GEE | LMM |
+|:-------|:----|:----|
 | **Research question** | Population effects | Subject-specific effects |
-| **Correlation structure** | Unknown | Can be modeled |
-| **Distribution** | Flexible | Normal (LMM) or specified (GLMM) |
+| **Correlation structure** | Exchangeable or independent working structure | Random subject intercept |
+| **Distribution** | Gaussian with identity link | Normal residuals |
 | **Complexity** | Simpler | More detailed |
 
 ---
@@ -186,7 +195,7 @@ Event-related analyses with hundreds of timepoints create:
 
 ### Threshold-Free Cluster Enhancement (TFCE)
 
-**Enhancement** that eliminates arbitrary threshold selection (Smith & Nichols, 2009).
+**Enhancement** that eliminates arbitrary threshold selection (Smith & Nichols, 2009). EEG-COMET applies the cluster-permutation framework in this threshold-free form: ROF time-course tests always use TFCE rather than a fixed cluster-forming threshold.
 
 $$\text{TFCE}(t) = \int_0^{h(t)} e(h)^E \cdot h^H \, dh$$
 
@@ -222,11 +231,14 @@ Compare observed TFCE to null distribution
 Report significant clusters at p < 0.05
 ```
 
+The test is restricted to the 20–1000 ms post-event window, and operates on ROF values that have already been baseline-corrected against the pre-event median and CLR-transformed. At least three subjects are required.
+
 ### Output
 
 - Time intervals of significant modulation
 - Direction of effect (increase/decrease)
 - Cluster-corrected p-values
+- Cohen's d per significant cluster
 
 ---
 
@@ -239,10 +251,13 @@ Assess condition-specific differences in event-related microstate dynamics.
 ### Method
 
 ```
-1. Compute ROF difference between conditions per subject
-2. Apply one-sample TFCE permutation to differences
-3. Identify significant deviation from zero
+1. Match subjects across the two studies by subject identifier
+2. Compute ROF difference between conditions per matched subject
+3. Apply one-sample TFCE permutation to differences
+4. Identify significant deviation from zero
 ```
+
+At least three matched subjects are required per microstate. This comparison is available for the paired design; an independent-samples ROF comparison is not currently offered, and selecting it reports that the paired design should be used instead.
 
 ### Multiple Comparisons
 
@@ -272,20 +287,26 @@ EEG-COMET uses established Python packages:
 
 | Package | Purpose |
 |:--------|:--------|
-| `statsmodels` | GEE, LMM/GLMM, parametric tests |
+| `statsmodels` | GEE, mixed-effects models, multiple-comparison correction |
 | `mne` | Cluster permutation, TFCE |
-| `scipy` | Basic statistical tests |
+| `scipy` | t-tests, Wilcoxon signed-rank, Mann-Whitney U |
 
 ### Configuration
 
-```ini
-[statistics_config]
-test_type = paired
-correction = fdr
-alpha = 0.05
-n_permutations = 5000
-tfce = True
-```
+Statistical analysis is configured entirely through the Compare Studies window; it has no section in the study configuration file. The relevant controls are:
+
+| Control | Effect |
+|:--------|:-------|
+| **Analysis Data** | Full Recording or Event-Related (Pre/Post) |
+| **Analysis Level** | Subject-Level or Trial-Level |
+| **Study Design** | Paired (Within-Subject) or Independent (Between-Subject) |
+| **Statistical Test Type** | Parametric or Non-parametric |
+| **Statistical Test Model** | Model names available for the current combination |
+| **Multiple Comparison Correction Method** | Correction applied to the p-values |
+
+Permutation settings are not exposed. ROF cluster tests always run 5,000 sign-flipping permutations with TFCE parameters `start = 0` and `step = 0.2`, two-tailed, and report clusters at p < 0.05.
+
+When a ROF feature is selected, the analysis options are disabled and the model is fixed to TFCE.
 
 ---
 
@@ -322,7 +343,7 @@ Report:
 ## Best Practices
 
 1. **Match test to data structure**
-   - Averaged: Parametric t-tests
+   - Averaged: t-tests or rank-based tests
    - Trial-level: GEE or LMM
    - Temporal: Permutation
 
@@ -338,9 +359,9 @@ Report:
 4. **Report effect sizes**
    - Statistical significance ≠ practical importance
 
-5. **Use sufficient permutations**
-   - Minimum 1000 for p < 0.05
-   - 5000+ recommended for p < 0.01
+5. **Note the fixed permutation count**
+   - ROF cluster tests use 5,000 permutations
+   - Sufficient for the p < 0.05 cluster threshold that is applied
 
 ---
 
@@ -365,7 +386,6 @@ Effect may be small or variable. Increase sample size. Consider ROI-based approa
 
 ## References
 
-- Welch, B. L. (1947). The generalization of "Student's" problem when several different population variances are involved. *Biometrika*, 34(1–2), 28–35. [https://doi.org/10.1093/biomet/34.1-2.28](https://doi.org/10.1093/biomet/34.1-2.28)
 - Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate: A practical and powerful approach to multiple testing. *Journal of the Royal Statistical Society: Series B*, 57(1), 289–300. [https://doi.org/10.1111/j.2517-6161.1995.tb02031.x](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x)
 - Liang, K.-Y., & Zeger, S. L. (1986). Longitudinal data analysis using generalized linear models. *Biometrika*, 73(1), 13–22. [https://doi.org/10.1093/biomet/73.1.13](https://doi.org/10.1093/biomet/73.1.13)
 - Laird, N. M., & Ware, J. H. (1982). Random-effects models for longitudinal data. *Biometrics*, 38(4), 963–974. [https://doi.org/10.2307/2529876](https://doi.org/10.2307/2529876)

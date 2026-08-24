@@ -25,14 +25,15 @@ Modified K-means and TAAHC algorithms for microstate template identification.
 
 ## Overview
 
-Two clustering algorithms are available for microstate template identification:
+Three clustering methods are available for microstate template identification:
 
 | Algorithm | Approach | Speed | Exploration |
 |:----------|:---------|:------|:------------|
-| **Modified K-means** | Iterative refinement | Fast | Limited by initialization |
+| **Modified K-means** | Iterative refinement on the raw dot product | Fast | Limited by initialization |
+| **Modified K-means with Spatial Similarity** | Iterative refinement on a similarity metric | Fast | Limited by initialization |
 | **TAAHC** | Top-down hierarchical | Slower | Thorough |
 
-Both algorithms maintain polarity invariance, treating sign-inverted topographies as identical (essential because EEG reference schemes are arbitrary).
+All three methods maintain polarity invariance, treating sign-inverted topographies as identical (essential because EEG reference schemes are arbitrary).
 
 ---
 
@@ -45,31 +46,36 @@ Identifies microstate templates through iterative refinement until stable soluti
 ### Algorithm Steps
 
 ```
-1. INITIALIZE: Randomly select K topographies as initial templates
+1. INITIALIZE: Select K topographies as initial templates
+   (Random or K-Means++)
 2. REPEAT:
-   a. ASSIGNMENT: Match each EEG topography to template with 
-      highest spatial correlation (polarity-invariant)
-   b. UPDATE: Compute new templates via eigenvalue decomposition 
-      of covariance matrix for each cluster
-   c. CHECK: Assess convergence (GEV stability or template correlation)
+   a. ASSIGNMENT: Match each EEG topography to the template with
+      the highest absolute activation (polarity-invariant)
+   b. UPDATE: Recompute each template as the activation-weighted
+      sum of its members, then normalize to unit length
+   c. CHECK: Assess convergence (improvement in residual variance)
 3. UNTIL: Convergence or maximum iterations reached
 ```
 
 ### Polarity Invariance
 
-During assignment, both polarities are tested:
+Assignment ignores the sign of the match:
 
-$$\text{similarity} = \max(|r|, |-r|)$$
+$$\text{similarity} = |r|$$
 
-where $$r$$ is the Pearson correlation between topographies.
+where $$r$$ is the correlation (dot product of normalized vectors) between topographies.
+
+Because assignment is polarity-invariant, the template update weights every member by its **signed** activation. This sign-aligns members before summing, so that opposite-polarity topographies reinforce the template instead of cancelling out. The update is therefore not a plain arithmetic mean of the cluster members.
 
 ### Convergence Criteria
 
 | Criterion | Description |
 |:----------|:------------|
-| **GEV stability** | Change in explained variance < tolerance |
-| **Template stability** | Correlation between successive templates > threshold |
-| **Maximum iterations** | Hard stop after N iterations |
+| **Residual improvement** | Improvement in residual variance < `clustering_tolerance` × residual |
+| **Non-improving update** | An update that fails to reduce the residual stops the run |
+| **Maximum iterations** | Hard stop after `max_iterations` |
+
+The maps with the lowest residual seen across all iterations are returned, which are not necessarily the maps from the final iteration.
 
 ### Advantages
 
@@ -85,6 +91,37 @@ where $$r$$ is the Pearson correlation between topographies.
 
 ---
 
+## Modified K-means with Spatial Similarity
+
+### Overview
+
+Identical in structure to Modified K-means, but assignment and the residual are computed from an explicit similarity metric rather than the raw dot product. The metric is selected with `similarity_metric`.
+
+| Metric | Description |
+|:-------|:------------|
+| `Spatial Correlation` | Pearson correlation across channels (mean-centered) |
+| `Cosine Similarity` | Cosine of the angle between topographies (not mean-centered) |
+
+### Algorithm Steps
+
+```
+1. INITIALIZE: Select K topographies as initial templates
+   (Random or K-Means++)
+2. REPEAT:
+   a. ASSIGNMENT: Match each EEG topography to the template with
+      the highest absolute similarity |s|
+   b. UPDATE: Recompute each template as the sum of its members
+      weighted by their signed similarity, then normalize
+   c. CHECK: Assess convergence (improvement in residual)
+3. UNTIL: Convergence or maximum iterations reached
+```
+
+The residual is $$1 - \overline{|s|}$$, the complement of the mean best similarity across samples. Convergence uses the same criteria as Modified K-means, and the best maps seen across iterations are returned.
+
+**Best for:** Data where mean-centered correlation (rather than the raw inner product) is the more meaningful notion of topographic similarity.
+
+---
+
 ## TAAHC Algorithm
 
 ### Overview
@@ -94,46 +131,59 @@ where $$r$$ is the Pearson correlation between topographies.
 ### Algorithm Steps
 
 ```
-1. INITIALIZE: Treat each timepoint as its own cluster
+1. INITIALIZE: Detect GFP peaks and treat each peak topography
+   as its own cluster
 2. REPEAT:
-   a. IDENTIFY: Find cluster with lowest internal coherence
-   b. ATOMIZE: Disband this cluster
-   c. REASSIGN: Assign members to remaining clusters 
-      based on best spatial correlation
+   a. ASSIGN: Match every sample to its best-fitting cluster
+      (highest absolute similarity)
+   b. IDENTIFY: Find the cluster with the lowest atomization value
+   c. ATOMIZE: Disband this cluster
+   d. REASSIGN: Assign its members to the remaining clusters
+      based on best absolute spatial similarity
+   e. RECOMPUTE: Update each affected cluster centre as the first
+      principal component of its members
 3. UNTIL: Desired number of clusters reached
 ```
 
-### Internal Coherence
+If fewer GFP peaks are found than the requested number of states, random timepoints are added so that clustering can start.
 
-For each cluster, coherence is measured as the average spatial correlation among members:
+### Atomization Criterion
 
-$$\text{coherence}_k = \frac{1}{n_k(n_k-1)} \sum_{i \neq j} |r_{ij}|$$
+For each cluster, the atomization value sums the squared similarities of the samples assigned to it:
 
-The cluster with lowest coherence is atomized.
+$$\text{value}_k = \sum_{t \in C_k} r_{t,k}^2$$
+
+where $$r_{t,k}$$ is the polarity-invariant similarity between sample $$t$$ and its assigned template. The cluster with the **lowest** value is atomized, so both weakly-matching and sparsely-populated clusters are dissolved first (an empty cluster scores 0 and is removed immediately).
+
+Cluster centres are recomputed as the first principal component of the member topographies rather than as an average.
 
 ### Advantages
 
 | Benefit | Description |
 |:--------|:------------|
 | **Escapes local minima** | Continuous reassignment corrects poor assignments |
-| **No initialization sensitivity** | Deterministic from data |
-| **Thorough exploration** | Considers all possible reassignments |
+| **No initialization sensitivity** | Deterministic: seeded from the GFP peaks of the data |
+| **Thorough exploration** | Every member of an atomized cluster is re-evaluated against all remaining templates |
 
 ### Limitations
 
 | Limitation | Mitigation |
 |:-----------|:-----------|
-| **Computational cost** | Mini-batch processing |
-| **Memory intensive** | Apply to representative subsets |
+| **Computational cost** | Batch processing |
+| **Memory intensive** | Reduce `data_percentage` to cluster on a subset |
 | **Slower** | Use when thoroughness matters |
 
-### Mini-batch Processing
+### Batch Processing
 
-For large datasets, TAAHC can be applied to representative subsets:
+TAAHC evaluates samples in batches to bound peak memory use. The batch size is chosen automatically from the size of the data:
 
-1. Randomly sample N timepoints
-2. Apply TAAHC to sample
-3. Evaluate templates on full dataset
+| Number of samples | Default batch size |
+|:------------------|:-------------------|
+| > 100,000 | 10,000 |
+| > 50,000 | 5,000 |
+| Otherwise | min(1,000, n_samples) |
+
+Batching affects memory and speed only; the resulting templates are unchanged.
 
 ---
 
@@ -142,7 +192,7 @@ For large datasets, TAAHC can be applied to representative subsets:
 | Aspect | Modified K-means | TAAHC |
 |:-------|:-----------------|:------|
 | **Speed** | Fast | Slow |
-| **Initialization** | Random (sensitive) | Deterministic |
+| **Initialization** | Random or K-Means++ (sensitive) | Deterministic (GFP peaks) |
 | **Local minima** | Can get trapped | Better at escaping |
 | **Parallelizable** | Yes (multiple runs) | Limited |
 | **Memory** | Low | Higher |
@@ -161,30 +211,37 @@ For large datasets, TAAHC can be applied to representative subsets:
 | `clustering_tolerance` | Convergence threshold | `1e-6` | 1e-8 to 1e-4 |
 | `n_repeats` | Number of runs | `5` | 1-100 |
 
-### K-means Specific
+### Method Specific
 
 | Parameter | Description | Default | Options |
 |:----------|:------------|:--------|:--------|
 | `initializer` | Initialization method | `Random` | `Random`, `K-Means++` |
 | `clustering_method` | Algorithm variant | `Modified K-Means Clustering` | See below |
+| `similarity_metric` | Similarity used by the Spatial Similarity variant and by TAAHC | `Spatial Correlation` | `Spatial Correlation`, `Cosine Similarity` |
 
 ### Initialization Methods
 
 | Method | Description |
 |:-------|:------------|
-| `Random` | Random selection of initial templates |
-| `K-Means++` | Smart initialization for better spread |
+| `Random` | Random selection of initial templates, drawn without replacement |
+| `K-Means++` | Distance-weighted seeding for better spread |
 
-K-Means++ reduces sensitivity to initialization by selecting initial centroids that are well-separated.
+K-Means++ reduces sensitivity to initialization by selecting initial centroids that are well-separated. After a first centre is drawn uniformly at random, each successive seed is sampled with probability proportional to the **squared** polarity-invariant distance to its nearest already-chosen centre, following Arthur & Vassilvitskii (2007):
+
+$$D(x)^2 = \left(1 - \max_{c \in C} |r(x, c)|\right)^2$$
+
+Using the absolute correlation makes the distance polarity-invariant, so a sign-flipped copy of an existing centre is treated as a duplicate rather than as a distant candidate.
+
+{: .note }
+> Both initializers draw from the global NumPy random number generator, so setting a random seed makes initialization reproducible for either method.
 
 ### Clustering Methods
 
 | Method | Description |
 |:-------|:------------|
-| `Modified K-Means Clustering` | Standard polarity-invariant K-means |
-| `K-Means Clustering` | Standard K-means (not polarity-invariant) |
-| `PCA + K-Means Clustering` | Dimensionality reduction first |
-| `Agglomerative Hierarchical Clustering` | Bottom-up hierarchical (TAAHC) |
+| `Modified K-Means Clustering` | Polarity-invariant K-means on the raw activation |
+| `Modified K-Means Clustering with Spatial Similarity` | Polarity-invariant K-means on `similarity_metric` |
+| `Topographic Atomize and Agglomerate Hierarchical Clustering` | Top-down hierarchical (TAAHC) |
 
 ---
 
@@ -205,10 +262,10 @@ K-means results depend on initialization. Multiple runs increase chance of findi
 
 ### Selection Criteria
 
-The best run is selected based on:
+The best run is the one with the highest **Global Explained Variance (GEV)**, computed on the entire dataset rather than on the clustered subset.
 
-1. **Global Explained Variance (GEV)** - Higher is better
-2. **Template stability** - Consistent across runs
+{: .note }
+> TAAHC is deterministic, so it always runs exactly once; any larger `n_repeats` setting is ignored.
 
 ---
 
@@ -232,7 +289,8 @@ n_repeats = 20
 [clustering_config]
 n_maps = 5
 initializer = Random
-clustering_method = Modified K-Means Clustering
+clustering_method = Modified K-Means Clustering with Spatial Similarity
+similarity_metric = Spatial Correlation
 max_iterations = 1000
 clustering_tolerance = 1e-8
 n_repeats = 100
@@ -243,7 +301,8 @@ n_repeats = 100
 ```ini
 [clustering_config]
 n_maps = 4
-clustering_method = Agglomerative Hierarchical Clustering
+clustering_method = Topographic Atomize and Agglomerate Hierarchical Clustering
+similarity_metric = Spatial Correlation
 max_iterations = 500
 clustering_tolerance = 1e-6
 n_repeats = 1  # TAAHC is deterministic

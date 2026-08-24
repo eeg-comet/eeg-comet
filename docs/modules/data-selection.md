@@ -45,7 +45,7 @@ Global Field Power (GFP) measures the spatial standard deviation of scalp potent
 
 1. Calculate GFP at each timepoint: $$GFP(t) = \sqrt{\frac{1}{N}\sum_{i=1}^{N}(V_i(t) - \bar{V}(t))^2}$$
 2. Identify local maxima in GFP time series
-3. Apply prominence and minimum inter-peak interval criteria
+3. Optionally enforce a minimum inter-peak interval
 4. Use only peak timepoints for clustering
 
 ### Advantages
@@ -70,8 +70,8 @@ Global Field Power (GFP) measures the spatial standard deviation of scalp potent
 
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
-| Peak prominence | Minimum height above neighbors | Auto-calculated |
-| Minimum interval | Minimum samples between peaks | Sampling rate dependent |
+| `smoothing_gfp` | Enforce a minimum spacing between detected peaks | `False` |
+| `smoothing_distance` | Minimum spacing between peaks, in milliseconds | `10` |
 
 ### Best For
 
@@ -116,7 +116,7 @@ Randomly select different samples from the entire temporal dataset for each inde
 
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
-| `data_percentage` | Percentage of data to sample | `50` |
+| `data_percentage` | Percentage of data to sample | `100` |
 | Sample size | Computed from percentage | Varies |
 
 ### Best For
@@ -180,13 +180,19 @@ Analyze every data sample during clustering, eliminating sampling bias and ensur
 
 ```ini
 [clustering_config]
-# Percentage of data to use (applies to random sampling)
-data_percentage = 50
+# Percentage of data to use
+# 100 = all timepoints; lower values draw a random subset
+data_percentage = 100
 
-# Note: Method selection is done in GUI
-# For GFP peaks, set data_percentage to match peak count
-# For all timepoints, set data_percentage = 100
+# GFP peak spacing (only applied when smoothing_gfp = True)
+smoothing_gfp = False
+smoothing_distance = 10
 ```
+
+{: .note }
+> GFP peak selection is chosen in the GUI, which overrides `data_percentage` for that run. `smoothing_gfp` and `smoothing_distance` affect only the GFP peak method.
+
+When `n_maps = auto`, the cluster-number search always uses GFP peaks regardless of `data_percentage`.
 
 ### Practical Guidelines
 
@@ -206,29 +212,22 @@ data_percentage = 50
 ```
 1. Compute GFP time series
 2. Find all local maxima (points higher than neighbors)
-3. Apply prominence threshold (remove minor peaks)
-4. Apply minimum interval constraint
-5. Return peak indices for clustering
+3. Apply minimum interval constraint (when smoothing_gfp = True)
+4. Return peak indices for clustering
 ```
 
-### Prominence Threshold
-
-Controls which peaks are considered significant:
-
-| Setting | Effect |
-|:--------|:-------|
-| Low prominence | Many peaks, including minor ones |
-| High prominence | Only major peaks, fewer samples |
-| Auto | Adaptive threshold based on GFP distribution |
+Detection uses `scipy.signal.find_peaks` on the GFP time series. The only criterion applied is the optional minimum inter-peak distance; no prominence or height threshold is used, so every local maximum qualifies unless it is too close to an earlier peak.
 
 ### Minimum Interval
 
 Prevents detection of multiple peaks within physiologically implausible intervals:
 
-| Interval | Typical Setting |
-|:---------|:----------------|
-| Default | ~10-20 ms |
-| Effect | Ensures independent peak samples |
+| Setting | Effect |
+|:--------|:-------|
+| `smoothing_gfp = False` *(default)* | No spacing constraint; every local maximum is retained |
+| `smoothing_gfp = True` | Peaks must be at least `smoothing_distance` milliseconds apart |
+
+`smoothing_distance` is specified in milliseconds and converted to samples using the sampling rate, so `smoothing_distance = 10` at 250 Hz enforces a spacing of 2 samples. Typical values are 10-20 ms.
 
 ---
 

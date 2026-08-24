@@ -40,9 +40,11 @@ While microstate topographies describe the spatial distribution of electrical po
 
 ## Anatomical Frameworks
 
+The anatomy is selected with the `use_anatomy` key in `[source_config]`, which accepts `fsaverage` or `individual`.
+
 ### Standardized Template MRI
 
-Use a standard brain template for group analyses.
+Set `use_anatomy = fsaverage` to use a standard brain template for group analyses. The FreeSurfer `fsaverage` dataset is downloaded automatically on first use, and MNE's built-in `fsaverage` transform handles sensor-to-head alignment, so no coregistration step is required.
 
 | Advantage | Consideration |
 |:----------|:--------------|
@@ -52,9 +54,12 @@ Use a standard brain template for group analyses.
 
 **Best for:** Large group studies, normative comparisons
 
+{: .note }
+> On the template path, a `standard_1005` montage is applied to the data before the forward model is built, replacing whatever montage the study was preprocessed with. Channel names are matched case-insensitively and channels absent from `standard_1005` are ignored. Custom or non-standard electrode layouts are therefore not carried through to the template-based forward solution; use individual anatomy if the digitised positions must be preserved.
+
 ### Individualized MRI
 
-Use subject-specific MRI for precise localization.
+Set `use_anatomy = individual` to use subject-specific MRI for precise localization, and point `anatomy_subjects_dir` at the FreeSurfer subjects directory. Each EEG file must have a FreeSurfer subject folder whose name matches the file name.
 
 | Advantage | Consideration |
 |:----------|:--------------|
@@ -63,6 +68,8 @@ Use subject-specific MRI for precise localization.
 | Clinical precision | FreeSurfer reconstruction needed |
 
 **Best for:** Clinical applications, individual differences research
+
+Results computed on individual anatomy are morphed to `fsaverage` before they are written to disk, so downstream visualization and group comparison operate in the same reference space as the template pipeline.
 
 ### FreeSurfer Integration
 
@@ -136,6 +143,19 @@ $$\text{dSPM} = \frac{\text{MNE}}{\sqrt{\text{variance}}}$$
 | sLORETA | Medium | Good | Medium | Partial |
 | eLORETA | Slow | Best | High | No |
 
+### Additional Solvers
+
+The inverse solution is computed by the `invert` solver library, and the source localization step offers four further solvers alongside the four described above:
+
+| Abbreviation | Full name |
+|:-------------|:----------|
+| `wMNE` | Weighted Minimum Norm Estimates |
+| `FISTA` | Minimum Current Estimates |
+| `LORETA` | Low-Resolution Tomography |
+| `LAURA` | Local Autoregressive Average |
+
+The abbreviation shown in parentheses in the interface is the value written to `inverse_method` in `[source_config]`.
+
 ---
 
 ## Source Reconstruction Approaches
@@ -162,6 +182,8 @@ Source reconstruction at each timepoint, then aggregated by microstate.
 | Aggregates statistical power | Requires good segmentation |
 | Standard approach | Assumes stationarity within state |
 
+Microstate assignments are read from the per-file segmentation CSVs produced by backfitting, and the averaged maps are written to `avg_sources/<subject>/` as one NumPy array per microstate label.
+
 ### TESS Method
 
 **Topographic Electrophysiological State Source Imaging** - specialized for microstate analysis (Custo et al., 2014, 2017).
@@ -170,12 +192,13 @@ Source reconstruction at each timepoint, then aggregated by microstate.
 
 **Stage 1: Spatial GLM**
 - EEG channels as dependent variables
-- Estimate source time courses
+- Microstate template maps as predictors
+- Estimate one activation coefficient per microstate per timepoint
 
 **Stage 2: Temporal GLM**
 - Source time courses as dependent variables
-- Microstate templates as predictors
-- Identify microstate-correlated sources
+- Stage-1 activation coefficients as predictors
+- Estimate one beta coefficient per source per microstate
 
 | Advantage | Consideration |
 |:----------|:--------------|
@@ -183,26 +206,62 @@ Source reconstruction at each timepoint, then aggregated by microstate.
 | Statistical framework | Requires permutation testing |
 | Accounts for autocorrelation | Computationally intensive |
 
+**Significance testing:**
+
+```
+1. Shuffle the timepoints of the stage-1 coefficient matrix and refit the
+   stage-2 regression. Repeat n_permutations times to build a null
+   distribution of beta values for every source and microstate.
+
+2. Standardize each observed beta against its own null distribution. The
+   observed value is inserted into the distribution before the z-score
+   is taken.
+
+3. Convert each z-score to a one-tailed normal tail probability and
+   multiply it by the number of sources (Bonferroni across the source
+   space).
+
+4. Keep a source if that value is below alpha / n_permutations, with
+   alpha fixed at 0.05. Sources that do not pass are set to zero in the
+   filtered map.
+```
+
+The threshold therefore tightens as `n_permutations` grows: with the default 2,000 permutations it is 2.5 × 10⁻⁵.
+
+The permutations are drawn from a generator seeded with the study's random seed, so a study configured with a seed reproduces identical TESS maps.
+
+**Outputs** are written to `tess_sources/<subject>/` as NumPy arrays:
+
+| File | Contents |
+|:-----|:---------|
+| `<subject>-zscore.npy` | Standardized beta coefficients for every source and microstate |
+| `<subject>-filtered_zscore.npy` | Same values with non-surviving sources zeroed |
+| `<subject>-p_values.npy` | Bonferroni-scaled tail probabilities |
+
 ---
 
 ## Source Space Configuration
 
 ### Spacing Options
 
-| Setting | Description | Source Count |
-|:--------|:------------|:-------------|
-| `ico3` | Coarse (fast) | ~1,280 sources |
-| `ico4` | Medium | ~5,120 sources |
-| `ico5` | Fine (detailed) | ~20,480 sources |
+The interface labels this setting **Sources/Hemisphere** and lists the per-hemisphere vertex count for each icosahedral subdivision:
+
+| Setting | Description | Sources per hemisphere | Total sources |
+|:--------|:------------|:-----------------------|:--------------|
+| `ico3` | Coarse (fast) | 642 | 1,284 |
+| `ico4` | Medium | 2,562 | 5,124 |
+| `ico5` | Fine (detailed) | 10,242 | 20,484 |
 
 **Recommendation:** `ico3` for quick analyses, `ico4` for publication
 
+{: .note }
+> These counts apply to the surface source space built on the `fsaverage` template. With `use_anatomy = individual` the source space is a volumetric grid at 10 mm spacing with a 5 mm minimum distance to the inner skull, and `spacing` instead sets the icosahedral subdivision of the BEM surfaces.
+
 ### Forward Model
 
-EEG-COMET computes the forward model (leadfield matrix) using:
+EEG-COMET computes the forward model (leadfield matrix) using a three-layer **BEM** (Boundary Element Method) head model. Sources closer than 5 mm to the inner skull surface are excluded, and the solution is converted to fixed orientation before the inverse operator is built.
 
-- **BEM** (Boundary Element Method) for realistic head model
-- **Sphere** model as fallback
+The BEM solver is set by `bem_solver` in `[source_config]`, which accepts `mne` (default) or `openmeeg`.
 
 ---
 
@@ -212,11 +271,16 @@ EEG-COMET computes the forward model (leadfield matrix) using:
 
 | Parameter | Description | Default | Options |
 |:----------|:------------|:--------|:--------|
-| `inverse_method` | Source estimation algorithm | `dSPM` | `MNE`, `dSPM`, `sLORETA`, `eLORETA` |
+| `use_anatomy` | Head model anatomy | `fsaverage` | `fsaverage`, `individual` |
+| `bem_solver` | Boundary element solver | `mne` | `mne`, `openmeeg` |
+| `inverse_method` | Source estimation algorithm | `dSPM` | `MNE`, `wMNE`, `dSPM`, `FISTA`, `LORETA`, `sLORETA`, `eLORETA`, `LAURA` |
 | `source_localization_method` | Reconstruction approach | `tess` | `avg`, `tess` |
 | `spacing` | Source space resolution | `ico3` | `ico3`, `ico4`, `ico5` |
-| `n_permutations` | Permutations for TESS | `2000` | 1000-10000 |
-| `anatomy_subjects_dir` | FreeSurfer subjects directory | `[]` | Path |
+| `n_permutations` | Permutations for TESS | `2000` | Positive integer |
+| `anatomy_subjects_dir` | FreeSurfer subjects directory | *(empty)* | Path |
+
+{: .note }
+> `anatomy_subjects_dir` is only read when `use_anatomy = individual`. On the template path it is set automatically to the location of the downloaded `fsaverage` dataset. The source localization and source identification steps in the main window both run with 2,000 permutations; the configured value applies when the toolbox is driven programmatically.
 
 ### Example Configurations
 
@@ -224,17 +288,19 @@ EEG-COMET computes the forward model (leadfield matrix) using:
 
 ```ini
 [source_config]
+use_anatomy = fsaverage
 inverse_method = dSPM
 source_localization_method = avg
 spacing = ico3
 n_permutations = 1000
-anatomy_subjects_dir = []
+anatomy_subjects_dir =
 ```
 
 #### Detailed Analysis (Individual MRI)
 
 ```ini
 [source_config]
+use_anatomy = individual
 inverse_method = eLORETA
 source_localization_method = tess
 spacing = ico4
@@ -248,7 +314,7 @@ anatomy_subjects_dir = /path/to/freesurfer/subjects
 
 ### Purpose
 
-Align EEG electrode positions with anatomical MRI.
+Align EEG electrode positions with anatomical MRI. Coregistration applies to individual anatomy only; on the `fsaverage` template path MNE's built-in transform is used and no coregistration is performed.
 
 ### Automatic Coregistration
 
@@ -260,7 +326,7 @@ EEG-COMET provides automated coregistration:
 
 ### Manual Refinement
 
-Fine-tune coregistration through GUI:
+Fine-tune coregistration in MNE's coregistration GUI:
 - Adjust rotation
 - Adjust translation
 - Verify electrode positions
@@ -272,9 +338,9 @@ Fine-tune coregistration through GUI:
 ### Source Maps
 
 EEG-COMET displays:
-- Cortical surface with source activation
+- Cortical surface with source activation on an inflated surface
 - Colormap indicating activity strength
-- Multiple views (lateral, medial, dorsal)
+- Split lateral and medial views of both hemispheres
 
 ### 3D Interactive Viewer
 
@@ -287,9 +353,11 @@ Using PyVista:
 
 | Format | Use |
 |:-------|:----|
-| PNG/SVG | Publication figures |
-| NIfTI | Integration with other tools |
-| STC | MNE-Python source time courses |
+| PNG | Publication figures and rendered brain views |
+| STC (`.h5`) | MNE-Python source time courses |
+| NumPy (`.npy`) | TESS z-score maps and averaged microstate sources |
+
+STC and NumPy files are written automatically by the source localization and source identification steps. PNG output comes from the visualization window's export helpers, which save either the current 3D view or one image per microstate and anatomical view into an `exported_views` folder.
 
 ---
 
@@ -369,7 +437,7 @@ Canonical microstates have been associated with specific networks (Britz et al.,
 
 <div class="callout warning">
 <strong>Forward model computation fails</strong><br>
-Check electrode positions are reasonable. Ensure all required files are present. Try sphere model as fallback.
+Check electrode positions are reasonable. Ensure all required files are present. Try the alternative BEM solver.
 </div>
 
 <div class="callout warning">

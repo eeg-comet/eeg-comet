@@ -30,7 +30,7 @@ class MicrostateBackfitter:
         sampling_rate (int): Sampling rate in Hz.
         smoothing_parameters (list, optional): [convergence_epsilon, half_window_size, lambda] for smoothing.
             half_window_size (b) is the half-window as defined in Pascual-Marqui et al. (1995).
-            Defaults to [1e-6, 3, 10].
+            Defaults to [1e-6, 3, 5], matching ``default_config.ini``.
         export_format (str): Format for exporting results.
         min_correlation_threshold (float or False, optional): Minimum absolute correlation 
             threshold for quality control. If False, no correlation filtering is applied.
@@ -193,7 +193,7 @@ class MicrostateBackfitter:
 
     @staticmethod
     def segmentation_smooth(data, microstate_maps, n_states, initial_segmentation=None,
-                           convergence_epsilon=1e-6, half_window_size=3, smoothness_penalty=10):
+                           convergence_epsilon=1e-6, half_window_size=3, smoothness_penalty=5):
         """Apply Pascual-Marqui et al. (1995) temporal smoothing algorithm.
         
         Balances spatial correspondence with microstate templates against temporal
@@ -212,7 +212,7 @@ class MicrostateBackfitter:
                 in Pascual-Marqui et al. (1995). The full window spans
                 [t - b, t + b]. At 250 Hz, b=3 equals a 28 ms window. Default: 3.
             smoothness_penalty (float): Besag factor (non-smoothness penalty). Higher values increase
-                temporal continuity. Standard value: 10. Default: 10.
+                temporal continuity. Default: 5, matching ``default_config.ini``.
         
         Returns:
             numpy.ndarray: Smoothed segmentation with -1 preserved for rejected timepoints.
@@ -901,7 +901,13 @@ class MicrostateBackfitter:
             correlation_matrix, initial_segmentation, threshold=self.min_correlation_threshold
         )
         
-        half_window_size = 3  # Standard half-window (b) per Pascual-Marqui (1995)
+        # Search using the configured half-window so the chosen lambda is
+        # optimal for the smoothing that will actually be applied. Falls back to
+        # the Pascual-Marqui (1995) default of b = 3 when unset.
+        half_window_size = int(self.smoothing_parameters[1]) if self.smoothing_parameters else 3
+        convergence_epsilon = (
+            float(self.smoothing_parameters[0]) if self.smoothing_parameters else 1e-6
+        )
         test_lambdas = np.linspace(test_range[0], test_range[1], n_tests)
         quality_scores = []
         
@@ -912,7 +918,7 @@ class MicrostateBackfitter:
                     self.microstate_maps, 
                     len(self.microstate_maps),
                     initial_segmentation=initial_segmentation,
-                    convergence_epsilon=1e-6, 
+                    convergence_epsilon=convergence_epsilon,
                     half_window_size=half_window_size,
                     smoothness_penalty=smoothness_penalty
                 )
@@ -985,25 +991,15 @@ class MicrostateBackfitter:
 
     @staticmethod
     def _filter_short_segments(segmentation, min_segment_samples):
-        """Mark segments shorter than threshold as rejected."""
-        if len(segmentation) == 0:
-            return segmentation
-            
-        filtered_seg = segmentation.copy()
-        current_label = filtered_seg[0]
-        start_idx = 0
-        
-        for i in range(1, len(filtered_seg)):
-            if filtered_seg[i] != current_label:
-                if i - start_idx < min_segment_samples:
-                    filtered_seg[start_idx:i] = -1
-                start_idx = i
-                current_label = filtered_seg[i]
-        
-        if len(filtered_seg) - start_idx < min_segment_samples:
-            filtered_seg[start_idx:] = -1
-        
-        return filtered_seg
+        """Mark short segments as rejected, as production filtering does.
+
+        Delegates to :meth:`mark_short_segments` so the threshold search
+        optimises exactly the filter that will later be applied. A separate
+        implementation here previously used ``<`` where production used ``<=``,
+        so a segment of exactly the threshold length was kept while searching
+        and rejected when the choice was applied.
+        """
+        return MicrostateBackfitter.mark_short_segments(segmentation, min_segment_samples)
 
     def backfit_to_all(self, data, filter_segments_less_than):
         """Assign microstate labels to all timepoints via template matching.

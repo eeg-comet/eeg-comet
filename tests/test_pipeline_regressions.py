@@ -346,3 +346,142 @@ def test_lempel_ziv_handles_sequences_too_short_to_index(helper_cls):
     """Recordings collapsing to one or two runs used to raise IndexError."""
     assert helper_cls().compute_lempel_ziv_complexity(["A"]) == 0.0
     assert helper_cls().compute_lempel_ziv_complexity(["A", "B"]) == 0.0
+
+
+def test_sliding_duration_uses_the_same_windows_as_coverage(extractor_cls):
+    """DUR kept a trailing partial window that COV and OCC discarded."""
+    # 3.6 s at 250 Hz: three whole 1 s windows plus a 0.6 s remainder.
+    sequence = (list("ABCD") * 226)[:900]
+    extractor = extractor_cls(
+        input_sequence=sequence,
+        sampling_rate=250,
+        feature_mode="sliding",
+        sliding_window_size=1,
+    )
+
+    assert len(extractor.microstate_duration()) == len(extractor.microstate_coverage())
+    assert len(extractor.microstate_duration()) == len(extractor.microstate_occurrence())
+    assert len(extractor.microstate_duration()) == 3
+
+
+# --------------------------------------------------------------------------
+# Convergence and threshold consistency
+# --------------------------------------------------------------------------
+
+
+def test_clustering_never_returns_maps_worse_than_an_earlier_iteration(
+    clusterer_cls, np_mod
+):
+    """A residual increase used to satisfy the convergence test and be kept."""
+    np = np_mod
+    rng = np.random.default_rng(5)
+    n_states, n_channels, n_samples = 4, 24, 300
+
+    maps = rng.standard_normal((n_states, n_channels))
+    maps -= maps.mean(axis=1, keepdims=True)
+    maps /= np.linalg.norm(maps, axis=1, keepdims=True)
+    labels = rng.integers(0, n_states, n_samples)
+    signs = rng.choice([-1.0, 1.0], n_samples)
+    data = (maps[labels].T * signs) + 0.2 * rng.standard_normal((n_channels, n_samples))
+
+    init = rng.standard_normal((n_states, n_channels))
+    init /= np.linalg.norm(init, axis=1, keepdims=True)
+
+    clusterer = clusterer_cls(n_states=n_states, max_iterations=50)
+    _, residual = clusterer.modified_kmeans(data, init.copy(), verbose=False)
+
+    # The returned residual must be no worse than the starting configuration.
+    activation = init.dot(data)
+    seg = np.argmax(np.abs(activation), axis=0)
+    act_sum_sq = np.sum(np.sum(init[seg].T * data, axis=0) ** 2)
+    initial_residual = abs(np.sum(data**2) - act_sum_sq) / float(
+        n_samples * (n_channels - 1)
+    )
+    assert residual <= initial_residual + 1e-12
+
+
+def test_threshold_search_and_production_filter_agree(backfitter_cls, np_mod):
+    """The search used '<' while the applied filter used '<=' at the boundary."""
+    np = np_mod
+    backfitter = _make_backfitter(backfitter_cls, np)
+    segmentation = np.array([0] * 5 + [1] * 20)
+
+    marked = backfitter.mark_short_segments(segmentation.copy(), 5)
+    searched = backfitter._filter_short_segments(segmentation.copy(), 5)
+
+    assert list(marked) == list(searched)
+
+
+# --------------------------------------------------------------------------
+# Configuration
+# --------------------------------------------------------------------------
+
+
+def test_random_seed_zero_is_preserved():
+    """`_coerce_int(...) or None` silently turned a seed of 0 into unseeded."""
+    config_mod = pytest.importorskip("eeg_comet.config")
+    import tempfile
+    from pathlib import Path
+
+    cfg = config_mod.CometConfig()
+    cfg.random_seed = 0
+
+    path = Path(tempfile.mkdtemp()) / "cfg.ini"
+    cfg.to_ini(path)
+    assert config_mod.CometConfig.from_ini(path).random_seed == 0
+
+
+def test_duration_method_survives_a_config_round_trip():
+    """duration_method was read at runtime but absent from the typed config."""
+    config_mod = pytest.importorskip("eeg_comet.config")
+    import tempfile
+    from pathlib import Path
+
+    cfg = config_mod.CometConfig()
+    cfg.features.duration_method = "median"
+
+    path = Path(tempfile.mkdtemp()) / "cfg.ini"
+    cfg.to_ini(path)
+    assert config_mod.CometConfig.from_ini(path).features.duration_method == "median"
+
+
+def test_shipped_defaults_match_the_typed_defaults():
+    """default_config.ini and config.py drifted apart on four parameters."""
+    config_mod = pytest.importorskip("eeg_comet.config")
+    from configparser import ConfigParser
+    from pathlib import Path
+
+    ini_path = Path(config_mod.__file__).parent / "default_config.ini"
+    parser = ConfigParser(inline_comment_prefixes=("#", ";"))
+    parser.read(ini_path, encoding="utf-8")
+
+    cfg = config_mod.CometConfig()
+    assert parser.getint("clustering_config", "data_percentage") == (
+        cfg.clustering.data_percentage
+    )
+    assert parser.getboolean("clustering_config", "smoothing_gfp") == (
+        cfg.clustering.smoothing_gfp
+    )
+    assert parser.getboolean("backfitting_config", "filter_segments") == (
+        cfg.backfitting.filter_segments
+    )
+    assert parser.get("clustering_config", "stopping_mode").strip() == (
+        cfg.clustering.stopping_mode
+    )
+    assert parser.get("features_config", "duration_method").strip() == (
+        cfg.features.duration_method
+    )
+
+
+def test_correction_combo_labels_are_accepted_by_statsmodels():
+    """FDR-BH, FDR-TSBH and FDR-TSBKY were passed through lowercased and raised."""
+    pytest.importorskip("statsmodels")
+    from statsmodels.stats.multitest import multipletests
+
+    module = pytest.importorskip("eeg_comet.controllers.compare_studies_window")
+
+    labels = ["Bonferroni", "Holm", "Sidak", "Holm-Sidak", "Hommel",
+              "FDR-BH", "FDR-TSBH", "FDR-TSBKY"]
+    for label in labels:
+        method = module._correction_method(label)
+        multipletests([0.01, 0.04, 0.2], method=method)

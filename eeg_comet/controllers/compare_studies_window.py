@@ -41,6 +41,20 @@ from eeg_comet.gui_utils.set_widgets_status import set_widgets_status
 from eeg_comet.gui_utils.terminal_logger import get_logger
 from mne.stats import permutation_cluster_1samp_test
 
+# The correction combo shows conventional hyphenated labels, but statsmodels
+# spells the FDR methods with underscores and rejects anything else.
+_CORRECTION_METHOD_ALIASES = {
+    "fdr-bh": "fdr_bh",
+    "fdr-tsbh": "fdr_tsbh",
+    "fdr-tsbky": "fdr_tsbky",
+}
+
+
+def _correction_method(label):
+    """Translate a correction combo label into a ``multipletests`` method name."""
+    normalized = (label or "").strip().lower()
+    return _CORRECTION_METHOD_ALIASES.get(normalized, normalized)
+
 
 class CompareStudiesWindow(QDialog):
     """Dialog window to compare two EEG-COMET studies.
@@ -2250,17 +2264,8 @@ class CompareStudiesWindow(QDialog):
             
             # Apply multiple testing correction
             if p_values:
-                correction_method = self.ui.analyze_correction_combo.currentText().lower()
-                # Handle special correction names
-                if correction_method == "fdr-bh":
-                    correction_method = "fdr_bh"
-                elif correction_method == "fdr-tsbh":
-                    correction_method = "fdr_tsbh"
-                elif correction_method == "fdr-tsbky":
-                    correction_method = "fdr_tsbky"
-                elif correction_method == "holm-sidak":
-                    correction_method = "holm-sidak"
-                
+                correction_method = _correction_method(self.ui.analyze_correction_combo.currentText())
+
                 try:
                     _, adj_p_values, _, _ = multipletests(p_values, method=correction_method)
                     
@@ -2565,7 +2570,7 @@ class CompareStudiesWindow(QDialog):
         # Adjust p-values for multiple testing only if we have p-values
         if p_values:
             adjusted_p_values = multipletests(
-                p_values, method=self.ui.analyze_correction_combo.currentText().lower()
+                p_values, method=_correction_method(self.ui.analyze_correction_combo.currentText())
             )[1]
         else:
             adjusted_p_values = []
@@ -2865,7 +2870,7 @@ class CompareStudiesWindow(QDialog):
             # Apply multiple testing correction
             p_values = [r["p_val"] for r in results]
             _, adj_p_values, _, _ = multipletests(
-                p_values, method=self.ui.analyze_correction_combo.currentText().lower()
+                p_values, method=_correction_method(self.ui.analyze_correction_combo.currentText())
             )
 
             for i, result in enumerate(results):
@@ -3266,7 +3271,7 @@ class CompareStudiesWindow(QDialog):
             # Apply multiple testing correction
             p_values = [r["p_val"] for r in results]
             _, adj_p_values, _, _ = multipletests(
-                p_values, method=self.ui.analyze_correction_combo.currentText().lower()
+                p_values, method=_correction_method(self.ui.analyze_correction_combo.currentText())
             )
 
             for i, result in enumerate(results):
@@ -3534,7 +3539,7 @@ class CompareStudiesWindow(QDialog):
             # Apply multiple testing correction
             p_values = [r["p_val"] for r in results]
             _, adj_p_values, _, _ = multipletests(
-                p_values, method=self.ui.analyze_correction_combo.currentText().lower()
+                p_values, method=_correction_method(self.ui.analyze_correction_combo.currentText())
             )
 
             for i, result in enumerate(results):
@@ -3713,7 +3718,7 @@ class CompareStudiesWindow(QDialog):
 
                 # Apply multiple testing correction
                 _, adj_p_values, _, _ = multipletests(
-                    p_values, method=self.ui.analyze_correction_combo.currentText().lower()
+                    p_values, method=_correction_method(self.ui.analyze_correction_combo.currentText())
                 )
 
                 for i, result in enumerate(results):

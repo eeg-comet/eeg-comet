@@ -68,19 +68,26 @@ EEG-COMET supports data formats compatible with MNE-Python and popular neuroimag
 
 | Format | Extension | Platform |
 |:-------|:----------|:---------|
-| EEGLAB | `.set` | EEGLAB/MATLAB |
-| MNE-Python | `.fif` | MNE-Python |
+| EEGLAB | `.set` (with `.fdt`) | EEGLAB/MATLAB |
 | European Data Format | `.edf` | General |
+| BioSemi Data Format | `.bdf` | BioSemi |
+| General Data Format | `.gdf` | General |
 | BrainVision | `.vhdr`, `.vmrk`, `.eeg` | BrainVision Analyzer |
 | Neuroscan | `.cnt` | Neuroscan |
-| EGI | `.mff` | Electrical Geodesics |
+| EGI simple binary | `.egi` | Electrical Geodesics |
+| EGI MFF | `.mff` | Electrical Geodesics |
+| Nicolet | `.data` | Nicolet |
+| eXimia | `.nxe` | Nexstim |
+| Persyst | `.lay` (with `.dat`) | Persyst |
+
+{: .note }
+> Epoched datasets (`data_type = epoched`) are read with `mne.io.read_epochs_eeglab`, so EEGLAB `.set` is the only supported format for epoched input. All formats above are available for continuous (`raw`) data.
 
 ### Platform Integration
 
-| Platform | Supported Formats |
-|:---------|:------------------|
-| **Brainstorm** | Exported MAT files with EEG data |
-| **FieldTrip** | Preprocessed data structures |
+| Platform | Integration |
+|:---------|:------------|
+| **Brainstorm** | Exported `.mat` channel files used as a channel-location source |
 | **BIDS** | Complete BIDS-formatted datasets |
 
 ### BIDS Support
@@ -112,16 +119,16 @@ EEG-COMET provides full support for [Brain Imaging Data Structure (BIDS)](https:
 | `extension` | File extension to search for | `.auto` |
 | `load_all_files` | Load all matching files | `True` |
 | `pattern_content` | Filename pattern filter | `*` (all files) |
-| `data_type` | Data type | `raw` or `epoched` |
+| `data_type` | Data type (`raw` or `epoched`) | `raw` |
 
 ### Extension Options
 
 | Value | Behavior |
 |:------|:---------|
-| `.auto` | Automatically detect supported formats |
+| `.auto` | Automatically detect any of `.vhdr`, `.edf`, `.bdf`, `.gdf`, `.cnt`, `.egi`, `.mff`, `.set`, `.data`, `.nxe`, `.lay` |
 | `.set` | Load only EEGLAB files |
-| `.fif` | Load only MNE-Python files |
 | `.edf` | Load only EDF files |
+| `.vhdr` | Load only BrainVision files |
 
 ---
 
@@ -187,10 +194,12 @@ If electrode configurations differ:
 If locations are not embedded in data files, provide a separate file:
 
 **Supported formats:**
-- `.csv` - Comma-separated values
-- `.tsv` - Tab-separated values (BIDS)
-- `.sfp` - Standard BESA format
+- `.csv`, `.tsv`, `.txt`, `.xyz` - Delimited coordinate tables
+- `.sfp`, `.elp` - BESA / Polhemus formats
 - `.elc` - ASA electrode file
+- `.loc`, `.locs`, `.eloc`, `.ced` - EEGLAB channel-location files
+- `.csd`, `.bvef` - CSD and BrainVision electrode files
+- `.mat` - Brainstorm channel structure
 
 **CSV format example:**
 ```csv
@@ -262,11 +271,11 @@ After loading, EEG-COMET performs automatic quality checks:
 
 ### Viewing Loaded Data
 
-Use the built-in data browser to inspect loaded files:
+Use the built-in inspection tools in the New Study window:
 
 1. Select a file from the loaded list
-2. Click **"View Data"**
-3. Scroll through time series and topographies
+2. Click **"Plot Data"** for the raw time series, **"Show Montage"** for the electrode layout, or **"Show Power Spectral Density"** for the PSD
+3. Scroll through the time series and topographies
 4. Verify data quality before proceeding
 
 ---

@@ -517,8 +517,14 @@ class DataIO:
             ch_names = eeg.info["ch_names"]
             if channels_to_remove is None:
                 channels_to_remove = []
-            if any(channels_to_remove) and any(elem != "" for elem in channels_to_remove) and channels_to_remove in ch_names:
-                eeg = eeg.drop_channels(channels_to_remove)
+            # Drop each requested channel that is actually present. Testing
+            # `channels_to_remove in ch_names` compared the whole list against
+            # individual names, so it was essentially never true.
+            present_to_remove = [
+                name for name in channels_to_remove if name and name in ch_names
+            ]
+            if present_to_remove:
+                eeg = eeg.drop_channels(present_to_remove)
             if "TRIGGER" in ch_names:
                 eeg = eeg.drop_channels("TRIGGER")
             eeg.set_eeg_reference("average", projection=True)

@@ -51,12 +51,15 @@ EEG-COMET supports:
 
 EEG-COMET supports all major EEG formats through MNE-Python:
 - EEGLAB (.set)
-- MNE-Python (.fif)
 - European Data Format (.edf)
+- BioSemi (.bdf) and General Data Format (.gdf)
 - BrainVision (.vhdr)
 - Neuroscan (.cnt)
-- EGI (.mff)
+- EGI (.egi, .mff)
+- Nicolet (.data), eXimia (.nxe), Persyst (.lay)
 - BIDS-formatted datasets
+
+Epoched data is read with `mne.io.read_epochs_eeglab`, so EEGLAB `.set` is the only supported format for already-segmented input. The formats above all apply to continuous recordings.
 
 ### Do I need to preprocess my data before using EEG-COMET?
 

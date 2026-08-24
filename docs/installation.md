@@ -29,7 +29,7 @@ Complete installation instructions for EEG-COMET on Windows, macOS, and Linux.
 | Component | Requirement |
 |:----------|:------------|
 | **Operating System** | Windows 10/11, macOS 10.15+, or Linux (Ubuntu 20.04+) |
-| **Python** | 3.10 or higher |
+| **Python** | 3.10, 3.11, or 3.12 (`requires-python = ">=3.10,<3.13"`) |
 | **RAM** | 8 GB minimum (16 GB recommended) |
 | **Storage** | 5 GB for installation + space for data |
 | **Display** | 1920×1080 resolution recommended |
@@ -147,7 +147,7 @@ cd eeg-comet
 pip install -e ".[dev]"
 ```
 
-This wires up the `eeg-comet` (GUI) and `eeg-comet-cli` (terminal) console scripts declared in `pyproject.toml`. See the [`pyproject.toml`](https://github.com/eeg-comet/eeg-comet/blob/main/pyproject.toml) for available extras (`test`, `lint`, `docs`, `dev`, `all`).
+This wires up the `eeg-comet` (GUI) and `eeg-comet-cli` (terminal) console scripts declared in `pyproject.toml`. See the [`pyproject.toml`](https://github.com/eeg-comet/eeg-comet/blob/stable/pyproject.toml) for available extras (`test`, `lint`, `docs`, `dev`, `all`).
 
 ---
 
@@ -169,6 +169,25 @@ A terminal-only entry point is also available:
 eeg-comet-cli --help
 ```
 
+It always requires `--config`, plus at least one analysis step:
+
+| Flag | Purpose |
+|:-----|:--------|
+| `--config PATH` | Path to the configuration file (required) |
+| `--study`, `--input`, `--output` | Override the study name, input folder, and output folder from the config |
+| `--preprocess`, `--cluster`, `--label`, `--backfit`, `--features`, `--source`, `--correlation` | Run individual analysis steps |
+| `--all` | Run all analysis steps in sequence |
+| `--auto-k`, `--k-min`, `--k-max` | Search automatically for the best number of clusters (defaults 2 and 10) |
+| `--k` | Use a specific number of clusters (mutually exclusive with `--auto-k`) |
+| `--method` | Clustering method: `kmeans`, `similarity`, or `taahc` |
+| `--repeats` | Number of clustering repetitions |
+| `--verbose` / `-v`, `--quiet` / `-q` | Increase or suppress output |
+
+```bash
+# Run the full pipeline with automatic k selection
+eeg-comet-cli --config my_config.ini --all --auto-k --k-min 2 --k-max 8
+```
+
 {: .highlight }
 > On first launch, EEG-COMET may take a few moments to load as it initializes the ONNX classification model and warms up Qt / pyvista resources.
 
@@ -176,7 +195,7 @@ eeg-comet-cli --help
 
 ## Key Dependencies
 
-EEG-COMET relies on several major scientific Python packages. The versions below are the pins used in [`requirements.txt`](https://github.com/eeg-comet/eeg-comet/blob/main/requirements.txt) for the reproducible install; `pyproject.toml` declares looser minimum bounds for PyPI installs.
+EEG-COMET relies on several major scientific Python packages. The versions below are the pins used in [`requirements.txt`](https://github.com/eeg-comet/eeg-comet/blob/stable/requirements.txt) for the reproducible install; `pyproject.toml` declares looser minimum bounds for PyPI installs.
 
 | Package | Pinned version | Purpose |
 |:--------|:---------------|:--------|
@@ -256,7 +275,7 @@ To update to the latest version:
 cd eeg-comet
 
 # Pull latest changes
-git pull origin main
+git pull origin stable
 
 # Update dependencies
 conda activate eeg-comet

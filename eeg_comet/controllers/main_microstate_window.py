@@ -2083,12 +2083,12 @@ class MainMicrostateWindow(QMainWindow):
     @staticmethod
     def open_github():
         """Open the GitHub page in the default web browser."""
-        webbrowser.open("https://github.com/eBrainLab/eeg-comet/tree/stable")
+        webbrowser.open("https://github.com/eeg-comet/eeg-comet/tree/stable")
 
     @staticmethod
     def report_issues():
         """Open the GitHub issues page in the default web browser."""
-        webbrowser.open("https://github.com/eBrainLab/eeg-comet/issues/new")
+        webbrowser.open("https://github.com/eeg-comet/eeg-comet/issues/new")
 
     def update_toolbox(self):
         """Ask the user if they want to download the toolbox."""
@@ -2100,7 +2100,7 @@ class MainMicrostateWindow(QMainWindow):
             QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
-            webbrowser.open("https://github.com/eBrainLab/eeg-comet/archive/refs/heads/stable.zip")
+            webbrowser.open("https://github.com/eeg-comet/eeg-comet/archive/refs/heads/stable.zip")
 
     # Dialog methods
     def open_new_study_dialog(self):

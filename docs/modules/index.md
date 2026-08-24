@@ -9,7 +9,8 @@ description: "Reference documentation for all ten EEG-COMET processing modules."
 # Processing modules
 {: .no_toc }
 
-EEG-COMET is built from ten interconnected modules. Each module is
+EEG-COMET is built from nine sequential processing modules plus a
+study-comparison module for statistical inference. Each module is
 designed to be usable on its own *or* as part of the end-to-end
 pipeline, so you can swap in your own preprocessing, clustering, or
 statistics where needed.
@@ -20,34 +21,36 @@ statistics where needed.
 ## Pipeline overview
 
 The modular architecture lets researchers customize their analysis
-pipeline while maintaining methodological rigor. Each module addresses
-specific challenges in microstate analysis, and all modules share a
-single configuration schema (see the
+pipeline while maintaining methodological rigor. Each pipeline module
+addresses specific challenges in microstate analysis, and every pipeline
+module has its own section in the shared configuration schema (see the
 [Parameters Reference]({% link parameters.md %})).
 
 <div class="workflow-container">
-  <span class="workflow-step">1. Data Loading</span>
+  <span class="workflow-step">Data Loading</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">2. Preprocessing</span>
+  <span class="workflow-step">Preprocessing</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">3. Data Selection</span>
+  <span class="workflow-step">Data Selection</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">4. Validation</span>
+  <span class="workflow-step">Validation</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">5. Clustering</span>
+  <span class="workflow-step">Clustering</span>
 </div>
 
 <div class="workflow-container">
-  <span class="workflow-step">6. Labeling</span>
+  <span class="workflow-step">Labeling</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">7. Backfitting</span>
+  <span class="workflow-step">Backfitting</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">8. Features</span>
+  <span class="workflow-step">Features</span>
   <span class="workflow-arrow">→</span>
-  <span class="workflow-step">9. Statistics</span>
-  <span class="workflow-arrow">→</span>
-  <span class="workflow-step">10. Sources</span>
+  <span class="workflow-step">Sources</span>
 </div>
+
+Statistical analysis sits outside this sequence: it runs on the features
+already exported by the pipeline, from the **Study Comparison and
+Statistical Analysis** window.
 
 ---
 
@@ -57,7 +60,7 @@ single configuration schema (see the
 
 <div class="module-card">
   <h4><a href="{% link modules/data-loading.md %}">📂 1. Data Loading Module</a></h4>
-  <p>Automated data identification across multiple formats (EEGLAB, Brainstorm, FieldTrip, BIDS) with recursive directory searching and electrode configuration verification.</p>
+  <p>Automated data identification across multiple formats (EEGLAB, BrainVision, EDF/BDF/GDF, Neuroscan, EGI, BIDS) with recursive directory searching and electrode configuration verification.</p>
 </div>
 
 <div class="module-card">
@@ -79,7 +82,7 @@ single configuration schema (see the
 
 <div class="module-card">
   <h4><a href="{% link modules/clustering.md %}">🎯 5. Microstate Clustering Module</a></h4>
-  <p>Modified K-means and TAAHC algorithms for identifying microstate templates, with configurable convergence criteria and multiple initialization strategies.</p>
+  <p>Modified K-means, Modified K-means with Spatial Similarity, and TAAHC algorithms for identifying microstate templates, with configurable convergence criteria and multiple initialization strategies.</p>
 </div>
 
 <div class="module-card">
@@ -103,7 +106,7 @@ single configuration schema (see the
 
 <div class="module-card">
   <h4><a href="{% link modules/statistical-analysis.md %}">🧮 9. Statistical Analysis Module</a></h4>
-  <p>Parametric tests for averaged metrics, GEE/LMM regression for trial-level data, and cluster-based permutation testing for temporal dynamics.</p>
+  <p>Opened from the <strong>Study Comparison and Statistical Analysis</strong> window rather than run as a pipeline stage, and configured interactively instead of through the config file. Provides parametric tests for averaged metrics, GEE/LMM regression for trial-level data, and cluster-based permutation testing for temporal dynamics.</p>
 </div>
 
 <div class="module-card">
@@ -140,15 +143,17 @@ For studying microstate dynamics around experimental events:
 6. **Labeling** → Automated or manual as appropriate
 7. **Backfitting** → Smooth strategy to preserve temporal structure
 8. **Feature Extraction** → Event-related mode with ROF/RTF metrics
-9. **Statistical Analysis** → Cluster-based permutation testing
+
+Then, in the **Study Comparison and Statistical Analysis** window, run
+cluster-based permutation testing on the exported features.
 
 ### Clinical/Comparative Studies
 
 For comparing groups or conditions:
 
 1. Follow resting-state workflow through Feature Extraction
-2. **Statistical Analysis** → t-tests with FDR correction
-3. **Source Localization** → Map significant differences to cortex
+2. **Source Localization** → Map microstate topographies to cortex
+3. **Study Comparison and Statistical Analysis** window → t-tests with FDR correction
 
 ---
 

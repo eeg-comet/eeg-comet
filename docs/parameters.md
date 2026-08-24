@@ -42,28 +42,29 @@ output_folder = /path/to/results
 channel_location_dir = /path/to/montage.csv
 extension = .set
 pattern_content = *
+load_all_files = True
 data_type = raw
 
 [preprocessing_config]
-load_all_files = True
 temporal_filter_data = True
 filter_method = fir
 lowcut_freq = 2
 highcut_freq = 20
 downsample_data = True
 sampling_rate = 250
+spatial_filter_data = False
 remove_channels = False
 channels_to_remove = []
 
 [clustering_config]
-smoothing_gfp = True
+smoothing_gfp = False
 smoothing_distance = 10
 n_maps = 4
 k_min = 2
 k_max = 10
 stopping_mode = majority_vote
 stopping_threshold = 10
-data_percentage = 50
+data_percentage = 100
 initializer = Random
 clustering_method = Modified K-Means Clustering
 max_iterations = 500
@@ -73,7 +74,7 @@ n_repeats = 5
 [backfitting_config]
 backfit_to = all
 identify_short_window = False
-filter_segments = True
+filter_segments = False
 filter_segments_less_than = 20
 filter_segments_option = smooth
 convergence_epsilon = 1e-6
@@ -82,9 +83,9 @@ smoothness_penalty = 5
 
 [features_config]
 export_format = .csv
-feature_list = COV,OCC,MMD
+feature_list = OCC, DUR, COV
 feature_mode = averaged
-feature_types = real,surrogate,random
+feature_types = real
 sliding_window_size = 1
 duration_method = geometric
 
@@ -143,7 +144,13 @@ Parameters for data input and output paths.
 <td><code>pattern_content</code></td>
 <td>String</td>
 <td><code>*</code></td>
-<td>Filename pattern filter. Use <code>*</code> for wildcards.</td>
+<td>Filename pattern filter. Use <code>*</code> for wildcards. Ignored when <code>load_all_files = True</code>.</td>
+</tr>
+<tr>
+<td><code>load_all_files</code></td>
+<td>Boolean</td>
+<td><code>True</code></td>
+<td>Load every matching file in the input folder. When <code>False</code>, only files whose name contains <code>pattern_content</code> are loaded. Also read from <code>[preprocessing_config]</code> for configs written by older versions.</td>
 </tr>
 <tr>
 <td><code>data_type</code></td>
@@ -179,18 +186,6 @@ Parameters for data preparation and filtering.
 <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr>
-<td><code>load_all_files</code></td>
-<td>Boolean</td>
-<td><code>True</code></td>
-<td>Whether to load all matching files in input folder.</td>
-</tr>
-<tr>
-<td><code>data_type</code></td>
-<td>String</td>
-<td><code>raw</code></td>
-<td>Data type: <code>raw</code> or <code>epoched</code>.</td>
-</tr>
 <tr>
 <td><code>temporal_filter_data</code></td>
 <td>Boolean</td>
@@ -228,6 +223,12 @@ Parameters for data preparation and filtering.
 <td>Target sampling rate (Hz) after downsampling.</td>
 </tr>
 <tr>
+<td><code>spatial_filter_data</code></td>
+<td>Boolean</td>
+<td><code>False</code></td>
+<td>Apply spatial smoothing by averaging each electrode with its nearest neighbors. The neighborhood size is determined adaptively (3-8 neighbors) and is not configurable.</td>
+</tr>
+<tr>
 <td><code>remove_channels</code></td>
 <td>Boolean</td>
 <td><code>False</code></td>
@@ -257,6 +258,17 @@ Parameters for data preparation and filtering.
 | Broad | 1-40 Hz | Event-related, preserve oscillations |
 | Narrow | 4-15 Hz | Focus on microstate frequencies |
 
+### Frequency Constraints
+
+Filtering runs before resampling so that the low-pass acts as the anti-aliasing filter. The passband must therefore fit below the Nyquist frequency of both the recording and the target rate:
+
+| Constraint | Rule |
+|:-----------|:-----|
+| Nyquist | `highcut_freq` must be strictly below half of the smaller of the current sampling rate and `sampling_rate` |
+| Ordering | `lowcut_freq` must be below `highcut_freq` |
+
+Violating either rule raises a `ValueError` before any data are filtered. The message states the offending value and how to resolve it, either by lowering `highcut_freq` or by raising `sampling_rate` above twice `highcut_freq`.
+
 ---
 
 ## Clustering Configuration
@@ -273,14 +285,14 @@ Parameters for data selection, validation, and template extraction.
 <tr>
 <td><code>smoothing_gfp</code></td>
 <td>Boolean</td>
-<td><code>True</code></td>
-<td>Apply spatial smoothing to data.</td>
+<td><code>False</code></td>
+<td>Enforce a minimum spacing between detected GFP peaks. When <code>False</code>, every local GFP maximum is a candidate peak.</td>
 </tr>
 <tr>
 <td><code>smoothing_distance</code></td>
 <td>Integer</td>
 <td><code>10</code></td>
-<td>Number of neighbors for spatial smoothing.</td>
+<td>Minimum spacing between GFP peaks, in milliseconds. Converted to samples using the sampling rate. Used only when <code>smoothing_gfp = True</code>.</td>
 </tr>
 <tr>
 <td><code>n_maps</code></td>
@@ -315,8 +327,8 @@ Parameters for data selection, validation, and template extraction.
 <tr>
 <td><code>data_percentage</code></td>
 <td>Integer</td>
-<td><code>50</code></td>
-<td>Percentage of data used for clustering.</td>
+<td><code>100</code></td>
+<td>Percentage of data used for clustering. <code>100</code> uses every timepoint; lower values draw a random subset.</td>
 </tr>
 <tr>
 <td><code>initializer</code></td>
@@ -329,6 +341,12 @@ Parameters for data selection, validation, and template extraction.
 <td>String</td>
 <td><code>Modified K-Means Clustering</code></td>
 <td>Clustering algorithm to use.</td>
+</tr>
+<tr>
+<td><code>similarity_metric</code></td>
+<td>String</td>
+<td><code>Spatial Correlation</code></td>
+<td>Map comparison metric: <code>Spatial Correlation</code> or <code>Cosine Similarity</code>. Used only by the spatial-similarity clustering method.</td>
 </tr>
 <tr>
 <td><code>max_iterations</code></td>
@@ -372,9 +390,8 @@ Parameters for data selection, validation, and template extraction.
 | Value | Description |
 |:------|:------------|
 | `Modified K-Means Clustering` | Polarity-invariant K-means (recommended) |
-| `K-Means Clustering` | Standard K-means |
-| `PCA + K-Means Clustering` | Dimensionality reduction + K-means |
-| `Agglomerative Hierarchical Clustering` | TAAHC algorithm |
+| `Modified K-Means Clustering with Spatial Similarity` | Polarity-invariant K-means using the configured `similarity_metric` |
+| `Topographic Atomize and Agglomerate Hierarchical Clustering` | TAAHC algorithm |
 
 ### Recommended Settings by Goal
 
@@ -412,7 +429,7 @@ Parameters for template assignment and segment refinement.
 <tr>
 <td><code>filter_segments</code></td>
 <td>Boolean</td>
-<td><code>True</code></td>
+<td><code>False</code></td>
 <td>Apply segment refinement to short segments.</td>
 </tr>
 <tr>
@@ -488,7 +505,7 @@ Parameters for microstate metric computation.
 <tr>
 <td><code>feature_list</code></td>
 <td>String</td>
-<td><code>COV,OCC,MMD</code></td>
+<td><code>OCC, DUR, COV</code></td>
 <td>Comma-separated list of features to extract.</td>
 </tr>
 <tr>
@@ -500,8 +517,8 @@ Parameters for microstate metric computation.
 <tr>
 <td><code>feature_types</code></td>
 <td>String</td>
-<td><code>real,surrogate,random</code></td>
-<td>Comparison types to compute.</td>
+<td><code>real</code></td>
+<td>Comparison types to compute: <code>real</code>, <code>surrogate</code> and/or <code>random</code>.</td>
 </tr>
 <tr>
 <td><code>sliding_window_size</code></td>
@@ -669,7 +686,7 @@ downsample_data = False
 
 [clustering_config]
 data_percentage = 100
-clustering_method = Agglomerative Hierarchical Clustering
+clustering_method = Topographic Atomize and Agglomerate Hierarchical Clustering
 
 [backfitting_config]
 filter_segments_option = smooth
@@ -713,6 +730,8 @@ EEG-COMET validates parameters on loading:
 | Invalid path | Directory doesn't exist | Create directory or fix path |
 | Out of range | Value outside limits | Use value within valid range |
 | Type mismatch | Wrong data type | Check expected format |
+| `highcut_freq` at or above Nyquist | Low-pass cutoff too close to the recording or target sampling rate | Lower `highcut_freq`, or raise `sampling_rate` above twice `highcut_freq` |
+| `lowcut_freq` not below `highcut_freq` | Passband bounds inverted or equal | Set `lowcut_freq` below `highcut_freq` |
 
 ---
 

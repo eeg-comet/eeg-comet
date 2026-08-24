@@ -455,24 +455,19 @@ class FeatureExtractor:
             average_durations = calculate_average_durations(self._get_flat_sequence())
 
         elif self.feature_mode == "sliding" and self.sliding_window_size is not None:
-            # Dynamic mode: calculate average duration for each window
-            windows = []
-            window_start = 0
-            # Calculate window size in samples as integer
+            # Dynamic mode: calculate average duration for each window.
+            # Iterate over exactly the same windows as coverage and occurrence,
+            # which drop a trailing partial window. Looping until the sequence
+            # is exhausted instead would append an extra short window here and
+            # misalign the per-window arrays across features.
             window_size_samples = int(self.sliding_window_size * self.sampling_rate)
-            window_end = window_size_samples
+            windows = []
 
-            # Slide through the input sequence in window-sized chunks
-            while window_start < len(self.input_sequence):
+            for window_index in range(self.n_windows):
+                window_start = window_index * window_size_samples
+                window_end = (window_index + 1) * window_size_samples
                 window_sequence = self.input_sequence[window_start:window_end]
-                if window_sequence:
-                    # Calculate average duration for this window and store the result
-                    window_avg_duration = calculate_average_durations(window_sequence)
-                    windows.append(window_avg_duration)
-
-                # Move to the next window
-                window_start = window_end
-                window_end += window_size_samples
+                windows.append(calculate_average_durations(window_sequence))
 
             average_durations = windows
 
