@@ -134,6 +134,9 @@ class BackfittingConfig:
     half_window_size: int = 3
     smoothness_penalty: int = 5
     min_correlation_threshold: Union[float, bool] = False
+    # 'reject' keeps sub-threshold timepoints unassigned; 'flag' lets the
+    # length-preserving segment filters relabel them for gap-free sequences.
+    correlation_rejection_mode: str = "reject"
 
 
 @dataclass
@@ -262,6 +265,7 @@ class CometConfig:
                 "False" if bf.min_correlation_threshold is False
                 else str(bf.min_correlation_threshold)
             ),
+            "correlation_rejection_mode": bf.correlation_rejection_mode,
         }
 
         ft = self.features
@@ -399,6 +403,9 @@ class CometConfig:
                 min_correlation_threshold=_coerce_optional_float(
                     bf.get("min_correlation_threshold")
                 ),
+                correlation_rejection_mode=bf.get(
+                    "correlation_rejection_mode", "reject"
+                ).strip().lower(),
             )
 
         if cp.has_section("features_config"):

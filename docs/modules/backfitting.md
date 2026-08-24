@@ -60,7 +60,18 @@ For each timepoint t:
 
 Optionally, timepoints whose absolute correlation with their assigned template is too weak can be rejected instead of labeled. Set `min_correlation_threshold` to the minimum acceptable absolute correlation (typically 0.5 for a liberal criterion up to 0.7 for a conservative one), or leave it at `False` to label every timepoint.
 
-Rejected timepoints are marked as unassigned and **stay unassigned** through every subsequent refinement step. Length-preserving strategies fill only the gaps left by short-segment rejection; they never re-admit a timepoint that failed the correlation threshold. The threshold is therefore always honoured, regardless of the `filter_segments_option` in use.
+What happens to those timepoints is controlled by `correlation_rejection_mode`:
+
+| Mode | Sub-threshold timepoints | Use Case |
+|:-----|:-------------------------|:---------|
+| `reject` | Stay permanently unassigned | Resting-state feature extraction, where unlabelled gaps are acceptable and forcing a label would fabricate data |
+| `flag` | Marked ambiguous and relabelled by the length-preserving filters | Event-related analyses (ROF, RTF, windowed and pre/post features) that need continuous labelling |
+
+In `reject`, the default, the timepoints **stay unassigned** through every subsequent refinement step: length-preserving strategies fill only the gaps left by short-segment rejection and never re-admit a timepoint that failed the correlation threshold. The threshold is hard quality control, and features are computed over the surviving samples.
+
+In `flag`, the threshold only marks a timepoint as ambiguous. The length-preserving strategies (`smooth`, `replace_half`, `replace_high`) then relabel it along with the short segments, so the result is a gap-free label sequence.
+
+The setting has no effect when `min_correlation_threshold` is `False`, and behaves like `reject` when `filter_segments` is off or `filter_segments_option = remove`, since nothing fills the gaps in those cases.
 
 ### Initial Segmentation
 
@@ -140,7 +151,7 @@ The optimal lambda is pooled the same way, taking the median across recordings r
 | **Data Reduction** | Segment Exclusion | Gaps created |
 | **Length-Preserving** | Local Context, Symmetric Extension, Sequential Smoothing | Maintained |
 
-Length-preserving strategies fill only the gaps created by short-segment rejection. Timepoints rejected by `min_correlation_threshold` remain unassigned under every strategy.
+Length-preserving strategies fill the gaps created by short-segment rejection. Timepoints that failed `min_correlation_threshold` are filled as well when `correlation_rejection_mode = flag`; under the default `reject` they remain unassigned regardless of strategy.
 
 ---
 
@@ -268,6 +279,7 @@ In step 4, each rejected stretch is split between its two neighboring templates 
 | `filter_segments_less_than` | Reject segments lasting at most this long (ms) | `20` |
 | `filter_segments_option` | Handling strategy | `smooth` |
 | `min_correlation_threshold` | Minimum absolute correlation to keep a timepoint (`False` disables) | `False` |
+| `correlation_rejection_mode` | Whether sub-threshold timepoints stay unassigned (`reject`) or are relabelled by the length-preserving filters (`flag`) | `reject` |
 
 ### Example Configurations
 

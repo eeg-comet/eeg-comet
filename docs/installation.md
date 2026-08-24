@@ -204,7 +204,7 @@ EEG-COMET relies on several major scientific Python packages. The versions below
 | `mne-qt-browser` | 0.6.3 | Interactive raw-data browser |
 | `scikit-learn` | 1.5.0 | Clustering algorithms and validation |
 | `onnxruntime` | 1.19.0 | CNN microstate-classification inference |
-| `statsmodels` | 0.14.4 | Statistical analysis (GEE, LMM, GLMM) |
+| `statsmodels` | 0.14.4 | Statistical analysis (GEE, LMM, multiple-comparison correction) |
 | `pyvista` | 0.45.2 | 3D visualization for source localization |
 | `pyvistaqt` | 0.11.2 | Qt embedding for pyvista plots |
 | `PyQt5` | 5.15.11 | Graphical user interface |

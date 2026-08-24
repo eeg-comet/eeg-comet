@@ -207,6 +207,135 @@ def test_correlation_threshold_survives_segment_filtering(backfitter_cls, np_mod
         )
 
 
+def _correlation_threshold_fixture(backfitter_cls, np, **overrides):
+    """Build data where some samples cannot clear a 0.5 correlation threshold."""
+    n_states, n_channels = 4, 20
+    rng = np.random.default_rng(3)
+    maps = rng.standard_normal((n_states, n_channels))
+    maps -= maps.mean(axis=1, keepdims=True)
+    maps /= np.linalg.norm(maps, axis=1, keepdims=True)
+
+    clean = maps[np.repeat(np.arange(n_states), 125)].T * rng.uniform(1, 3, size=500)
+    noise = rng.standard_normal((n_channels, 100)) * 0.5
+    data = np.hstack([clean, noise])
+
+    backfitter = _make_backfitter(
+        backfitter_cls,
+        np,
+        n_states=n_states,
+        min_correlation_threshold=0.5,
+        **overrides,
+    )
+    backfitter.microstate_maps = maps
+    return backfitter, data
+
+
+def test_flag_mode_leaves_no_unassigned_samples(backfitter_cls, np_mod):
+    """'flag' must relabel sub-threshold samples so event-related analyses see no gaps."""
+    np = np_mod
+    for option in ("smooth", "replace_half", "replace_high"):
+        backfitter, data = _correlation_threshold_fixture(
+            backfitter_cls,
+            np,
+            filter_segments_option=option,
+            correlation_rejection_mode="flag",
+        )
+        segmentation = backfitter.backfit_to_all(data, filter_segments_less_than=3)
+        assert not np.any(segmentation == -1), (
+            f"option={option!r} left gaps in 'flag' mode"
+        )
+
+
+def test_reject_and_flag_modes_differ(backfitter_cls, np_mod):
+    """The two modes must actually produce different segmentations."""
+    np = np_mod
+    rejected, data = _correlation_threshold_fixture(
+        backfitter_cls, np, correlation_rejection_mode="reject"
+    )
+    flagged, _ = _correlation_threshold_fixture(
+        backfitter_cls, np, correlation_rejection_mode="flag"
+    )
+
+    seg_reject = rejected.backfit_to_all(data, filter_segments_less_than=3)
+    seg_flag = flagged.backfit_to_all(data, filter_segments_less_than=3)
+
+    assert np.any(seg_reject == -1)
+    assert not np.any(seg_flag == -1)
+
+
+def test_unknown_correlation_rejection_mode_is_rejected(backfitter_cls, np_mod):
+    """A typo must fail loudly rather than silently picking a behaviour."""
+    with pytest.raises(ValueError, match="correlation_rejection_mode"):
+        _make_backfitter(
+            backfitter_cls, np_mod, correlation_rejection_mode="preserve"
+        )
+
+
+def test_correlation_rejection_mode_survives_a_config_round_trip():
+    config_mod = pytest.importorskip("eeg_comet.config")
+    import tempfile
+    from pathlib import Path
+
+    cfg = config_mod.CometConfig()
+    assert cfg.backfitting.correlation_rejection_mode == "reject"
+    cfg.backfitting.correlation_rejection_mode = "flag"
+
+    path = Path(tempfile.mkdtemp()) / "cfg.ini"
+    cfg.to_ini(path)
+    reloaded = config_mod.CometConfig.from_ini(path)
+    assert reloaded.backfitting.correlation_rejection_mode == "flag"
+
+
+# --------------------------------------------------------------------------
+# Statistics
+# --------------------------------------------------------------------------
+
+
+def test_independent_ttest_switches_to_welch_when_variances_differ():
+    """ttest_ind was called without equal_var=False, so Welch never happened."""
+    module = pytest.importorskip("eeg_comet.controllers.compare_studies_window")
+    np = pytest.importorskip("numpy")
+
+    rng = np.random.default_rng(0)
+    tight = rng.normal(0.0, 1.0, 40)
+    wide = rng.normal(0.5, 8.0, 40)
+    _, _, used_welch = module.independent_ttest(tight, wide)
+    assert used_welch
+
+    similar_a = rng.normal(0.0, 1.0, 40)
+    similar_b = rng.normal(0.3, 1.0, 40)
+    _, _, used_welch = module.independent_ttest(similar_a, similar_b)
+    assert not used_welch
+
+
+def test_independent_ttest_matches_scipy_for_both_branches():
+    module = pytest.importorskip("eeg_comet.controllers.compare_studies_window")
+    scipy_stats = pytest.importorskip("scipy.stats")
+    np = pytest.importorskip("numpy")
+
+    rng = np.random.default_rng(1)
+    a = rng.normal(0.0, 1.0, 30)
+    b = rng.normal(0.4, 6.0, 30)
+
+    statistic, p_value, used_welch = module.independent_ttest(a, b)
+    expected = scipy_stats.ttest_ind(a, b, equal_var=not used_welch)
+    assert statistic == pytest.approx(expected.statistic)
+    assert p_value == pytest.approx(expected.pvalue)
+
+
+def test_gee_family_is_taken_from_the_selected_model():
+    """Gamma/log was imported but never reachable, so skewed outcomes got Gaussian."""
+    module = pytest.importorskip("eeg_comet.controllers.compare_studies_window")
+
+    assert module.gee_family_from_model_name(
+        "Generalized Estimating Equations (GEE, Gamma/log)"
+    ) == "gamma"
+    assert module.gee_family_from_model_name(
+        "Generalized Estimating Equations (GEE, Gaussian/identity)"
+    ) == "gaussian"
+    assert module.gee_family_from_model_name("Linear Mixed Model (LMM)") == "gaussian"
+
+
 def test_replace_high_handles_gap_next_to_final_sample(backfitter_cls, np_mod):
     """A rejected run ending at index n-2 used to raise IndexError."""
     np = np_mod

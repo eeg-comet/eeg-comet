@@ -69,7 +69,7 @@ at Simon Fraser University.
 
   <div class="feature-card">
     <h3><span class="icon">📈</span> Advanced statistics</h3>
-    <p>Parametric tests, GEE and LMM/GLMM for trial-level data, and cluster-based permutation testing for temporal dynamics.</p>
+    <p>Parametric and non-parametric tests, GEE and LMM for trial-level data, and cluster-based permutation testing for temporal dynamics.</p>
   </div>
 
   <div class="feature-card">

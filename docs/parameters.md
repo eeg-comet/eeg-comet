@@ -80,6 +80,8 @@ filter_segments_option = smooth
 convergence_epsilon = 1e-6
 half_window_size = 3
 smoothness_penalty = 5
+min_correlation_threshold = False
+correlation_rejection_mode = reject
 
 [features_config]
 export_format = .csv
@@ -461,6 +463,18 @@ Parameters for template assignment and segment refinement.
 <td>Float</td>
 <td><code>5</code></td>
 <td>Non-smoothness penalty (lambda) for smoothing.</td>
+</tr>
+<tr>
+<td><code>min_correlation_threshold</code></td>
+<td>Float or <code>False</code></td>
+<td><code>False</code></td>
+<td>Reject timepoints whose best absolute spatial correlation falls below this value. Typical range 0.5 (liberal) to 0.7 (conservative). Use <code>False</code> or <code>0</code> to disable.</td>
+</tr>
+<tr>
+<td><code>correlation_rejection_mode</code></td>
+<td>String</td>
+<td><code>reject</code></td>
+<td>Fate of timepoints failing <code>min_correlation_threshold</code>: <code>reject</code> leaves them permanently unassigned, <code>flag</code> lets the length-preserving segment filters relabel them. Ignored when <code>min_correlation_threshold</code> is <code>False</code>.</td>
 </tr>
 </tbody>
 </table>

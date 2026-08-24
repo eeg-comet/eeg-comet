@@ -165,6 +165,7 @@ class COMET:
         self.half_window_size = 3
         self.smoothness_penalty = 5
         self.min_correlation_threshold = False
+        self.correlation_rejection_mode = "reject"
         self.filter_segments_less_than_ms = 0
 
         # Features
@@ -346,6 +347,7 @@ class COMET:
         config["backfitting_config"]["half_window_size"] = "3"
         config["backfitting_config"]["smoothness_penalty"] = "5"
         config["backfitting_config"]["min_correlation_threshold"] = "False"
+        config["backfitting_config"]["correlation_rejection_mode"] = "reject"
 
         # Set default feature extraction values
         config["features_config"]["export_format"] = ".csv"
@@ -596,6 +598,17 @@ class COMET:
                 self.min_correlation_threshold = float(_corr_thresh)
             except (ValueError, TypeError):
                 self.min_correlation_threshold = False
+
+        self.correlation_rejection_mode = backfitting_config.get(
+            "correlation_rejection_mode", "reject"
+        ).strip().lower()
+        if self.correlation_rejection_mode not in MicrostateBackfitter.CORRELATION_REJECTION_MODES:
+            self.logger.warning(
+                "CONFIG",
+                f"Unknown correlation_rejection_mode "
+                f"'{self.correlation_rejection_mode}'; falling back to 'reject'.",
+            )
+            self.correlation_rejection_mode = "reject"
 
         # Feature Extraction Configs
         features_config = self.config["features_config"]
@@ -2456,6 +2469,7 @@ class COMET:
             smoothing_parameters=[self.convergence_epsilon, self.half_window_size, self.smoothness_penalty],
             export_format=self.export_format,
             min_correlation_threshold=getattr(self, "min_correlation_threshold", False),
+            correlation_rejection_mode=getattr(self, "correlation_rejection_mode", "reject"),
         )
 
         # Identify optimal window size if requested
@@ -4255,6 +4269,9 @@ class COMET:
         self.config["backfitting_config"]["smoothness_penalty"] = str(self.smoothness_penalty)
         self.config["backfitting_config"]["min_correlation_threshold"] = (
             str(self.min_correlation_threshold) if self.min_correlation_threshold is not False else "False"
+        )
+        self.config["backfitting_config"]["correlation_rejection_mode"] = (
+            self.correlation_rejection_mode
         )
 
         self.config["features_config"]["export_format"] = self.export_format

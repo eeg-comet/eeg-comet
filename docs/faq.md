@@ -194,8 +194,8 @@ For recording-level features (averaged mode):
 ### How do I handle trial-level data?
 
 Trial-level data has hierarchical structure (trials within subjects). Use:
-- **GEE:** For population-averaged effects
-- **LMM/GLMM:** For subject-specific effects
+- **GEE:** For population-averaged effects. Choose the Gaussian/identity entry for roughly symmetric measures, or Gamma/log for strictly positive, right-skewed ones such as coverage.
+- **LMM:** For subject-specific effects
 
 These account for within-subject correlations that violate t-test assumptions.
 

@@ -25,7 +25,16 @@ from eeg_comet.gui_utils.responsive import (
     expand_canvas,
     scroll_wrap_all_tabs,
 )
-from scipy.stats import f, pearsonr, t, ttest_ind, ttest_rel, wilcoxon, mannwhitneyu
+from scipy.stats import (
+    f,
+    levene,
+    mannwhitneyu,
+    pearsonr,
+    t,
+    ttest_ind,
+    ttest_rel,
+    wilcoxon,
+)
 from scipy.ndimage import label as scipy_label
 from statsmodels.stats.multitest import multipletests
 import statsmodels.formula.api as smf
@@ -54,6 +63,47 @@ def _correction_method(label):
     """Translate a correction combo label into a ``multipletests`` method name."""
     normalized = (label or "").strip().lower()
     return _CORRECTION_METHOD_ALIASES.get(normalized, normalized)
+
+
+# Levene's test is only informative with enough observations per group; below
+# this the variance estimate is too noisy to act on, so Student's test is kept.
+_MIN_N_FOR_LEVENE = 3
+
+
+def independent_ttest(sample_a, sample_b):
+    """Independent-samples t-test, using Welch's correction when variances differ.
+
+    Levene's test decides between the two. Student's pooled-variance test is
+    invalid when the groups have unequal variance and unequal size, which is the
+    common case for microstate features across cohorts of different sizes.
+
+    Returns:
+        tuple: ``(statistic, p_value, used_welch)``.
+    """
+    sample_a = np.asarray(sample_a, dtype=float)
+    sample_b = np.asarray(sample_b, dtype=float)
+
+    use_welch = False
+    if len(sample_a) >= _MIN_N_FOR_LEVENE and len(sample_b) >= _MIN_N_FOR_LEVENE:
+        try:
+            _, levene_p = levene(sample_a, sample_b, center="median")
+            use_welch = bool(levene_p < 0.05)
+        except ValueError:
+            # Degenerate input (e.g. zero variance in both groups).
+            use_welch = False
+
+    statistic, p_value = ttest_ind(sample_a, sample_b, equal_var=not use_welch)
+    return statistic, p_value, use_welch
+
+
+def gee_family_from_model_name(model_name):
+    """Pick the GEE family implied by the model combo entry.
+
+    Gamma with a log link suits the strictly positive, right-skewed outcomes
+    typical of trial-level coverage and duration; Gaussian with an identity link
+    is the default for roughly symmetric measures.
+    """
+    return "gamma" if "gamma" in (model_name or "").lower() else "gaussian"
 
 
 class CompareStudiesWindow(QDialog):
@@ -292,22 +342,22 @@ class CompareStudiesWindow(QDialog):
                 if is_parametric:
                     self.ui.analyze_model_combo.addItems([
                         "Linear Mixed Model (LMM)",
-                        "Generalized Estimating Equations (GEE)"
+                        "Generalized Estimating Equations (GEE, Gaussian/identity)"
                     ])
                 else:  # non-parametric
                     self.ui.analyze_model_combo.addItems([
-                        "Generalized Linear Mixed Model (GLMM)",
+                        "Generalized Estimating Equations (GEE, Gamma/log)",
                         "Permutation Test with Clustering"
                     ])
             else:  # independent
                 if is_parametric:
                     self.ui.analyze_model_combo.addItems([
                         "Linear Mixed Model (LMM)",
-                        "Generalized Estimating Equations (GEE)"
+                        "Generalized Estimating Equations (GEE, Gaussian/identity)"
                     ])
                 else:  # non-parametric
                     self.ui.analyze_model_combo.addItems([
-                        "Generalized Linear Mixed Model (GLMM)",
+                        "Generalized Estimating Equations (GEE, Gamma/log)",
                         "Bootstrap Resampling"
                     ])
 
@@ -2176,7 +2226,12 @@ class CompareStudiesWindow(QDialog):
         
         # Perform GEE or LMM analysis
         if "GEE" in model_name or "Linear Mixed" in model_name:
-            self._perform_gee_analysis(common_features_df, feature_columns, is_paired)
+            self._perform_gee_analysis(
+                common_features_df,
+                feature_columns,
+                is_paired,
+                family_name=gee_family_from_model_name(model_name),
+            )
         else:
             # Fallback to aggregated subject-level analysis
             self.ui.stats_textedit.appendPlainText(
@@ -2186,7 +2241,11 @@ class CompareStudiesWindow(QDialog):
             self._perform_subject_level_analysis(is_paired, is_parametric, model_name)
 
     def _perform_gee_analysis(
-        self, data_df: pd.DataFrame, feature_columns: List[str], is_paired: bool
+        self,
+        data_df: pd.DataFrame,
+        feature_columns: List[str],
+        is_paired: bool,
+        family_name: str = "gaussian",
     ) -> None:
         """Perform Generalized Estimating Equations analysis.
         
@@ -2194,6 +2253,9 @@ class CompareStudiesWindow(QDialog):
             data_df: DataFrame with feature data
             feature_columns: List of feature column names to analyze
             is_paired: Whether design is paired (within-subject)
+            family_name: ``'gaussian'`` for an identity link, or ``'gamma'`` for a
+                log link suited to strictly positive, right-skewed outcomes such
+                as trial-level coverage.
         """
         try:
             # Prepare data for GEE
@@ -2226,18 +2288,25 @@ class CompareStudiesWindow(QDialog):
                     study1_name = self.comet_tbx_study1.study_name
                     analysis_df['Condition'] = (analysis_df['Study'] != study1_name).astype(int)
                     
-                    # Ensure positive values for Gamma family
-                    min_val = analysis_df[feat_col].min()
-                    if min_val <= 0:
-                        analysis_df[feat_col] = analysis_df[feat_col] - min_val + 0.001
-                    
+                    if family_name == "gamma":
+                        # A log link requires a strictly positive response, so
+                        # shift the whole feature if any value is <= 0. Shifting
+                        # is only valid for a log link; under identity it would
+                        # silently bias the intercept.
+                        min_val = analysis_df[feat_col].min()
+                        if min_val <= 0:
+                            analysis_df[feat_col] = analysis_df[feat_col] - min_val + 0.001
+                        family = Gamma(link=Log())
+                    else:
+                        family = Gaussian(link=Identity())
+
                     # Fit GEE with exchangeable correlation structure
                     formula = f"`{feat_col}` ~ Condition"
                     model = GEE.from_formula(
                         formula=formula,
                         groups="Subject",
                         data=analysis_df,
-                        family=Gaussian(link=Identity()),
+                        family=family,
                         cov_struct=Exchangeable() if is_paired else Independence(),
                     )
                     gee_result = model.fit()
@@ -2659,8 +2728,10 @@ class CompareStudiesWindow(QDialog):
                             study1_values[:min_len], study2_values[:min_len]
                         )
                     else:
-                        # Independent t-test
-                        statistic, p_value = ttest_ind(study1_values, study2_values)
+                        # Independent t-test, Welch-corrected if variances differ
+                        statistic, p_value, _ = independent_ttest(
+                            study1_values, study2_values
+                        )
                 else:
                     # Non-parametric tests
                     if is_paired:
@@ -3669,7 +3740,9 @@ class CompareStudiesWindow(QDialog):
                             continue
                         t_stat, p_val = ttest_rel(study1_values, study2_values)
                     else:
-                        t_stat, p_val = ttest_ind(study1_values, study2_values)
+                        t_stat, p_val, _ = independent_ttest(
+                            study1_values, study2_values
+                        )
 
                     # Calculate effect size (Cohen's d)
                     mean1 = np.mean(study1_values)

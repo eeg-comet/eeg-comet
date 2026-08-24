@@ -46,11 +46,11 @@ The test is determined by the **Study Design** and **Statistical Test Type** sel
 | Test | Design | Test Type | Assumption |
 |:-----|:-------|:----------|:-----------|
 | **Paired t-test** | Paired (Within-Subject) | Parametric | Paired observations, normality |
-| **Independent t-test** | Independent (Between-Subject) | Parametric | Equal variances, normality |
+| **Independent t-test** | Independent (Between-Subject) | Parametric | Normality; unequal variances handled automatically |
 | **Wilcoxon signed-rank** | Paired (Within-Subject) | Non-parametric | Paired observations |
 | **Mann-Whitney U** | Independent (Between-Subject) | Non-parametric | Independent samples |
 
-The independent t-test uses the pooled-variance (Student's) formulation. Paired tests require samples of equal length; if the two studies contribute different numbers of files, both are truncated to the length of the smaller one before pairing.
+The independent t-test picks its variance assumption from the data. Levene's test (median-centred) is run on the two samples first: if it returns p < 0.05 the test switches to Welch's unequal-variance formulation, otherwise the pooled-variance (Student's) formulation is used. Levene's test is only run when both groups have at least three observations, so smaller samples always fall back to Student's test, as does degenerate input such as zero variance in both groups. Paired tests require samples of equal length; if the two studies contribute different numbers of files, both are truncated to the length of the smaller one before pairing.
 
 {: .note }
 > The **Statistical Test Model** dropdown lists the model names available for each combination of options. For averaged metrics the test that is run is fixed by the Study Design and Statistical Test Type radio buttons; the selected model name is echoed in the analysis header.
@@ -112,7 +112,7 @@ Comparing microstate features before and after events at the single-trial level 
 | **Correlation handling** | Working correlation structure |
 | **Robustness** | Valid under correlation misspecification |
 
-**Model specification:** `feature ~ Condition`, grouped by subject, with a Gaussian family and identity link. Subject identifiers are derived from the filenames, and at least three subjects are required.
+**Model specification:** `feature ~ Condition`, grouped by subject. The distribution family follows the selected model entry: **Generalized Estimating Equations (GEE, Gaussian/identity)**, offered under the parametric test type, uses a Gaussian family with an identity link, while **Generalized Estimating Equations (GEE, Gamma/log)**, offered under the non-parametric test type, uses a Gamma family with a log link. Subject identifiers are derived from the filenames, and at least three subjects are required.
 
 **Working Correlation Structures:**
 
@@ -147,13 +147,15 @@ Where:
 The mixed model `Value ~ Group` with a random subject intercept is fitted with `statsmodels` for the event-related (pre/post window) analysis and for sliding-window comparisons between studies. Effect sizes are reported as Cohen's d computed from the fixed-effect coefficient and the residual scale, together with 95% confidence intervals and a convergence flag.
 
 {: .note }
-> In the trial-level branch, both **Linear Mixed Model (LMM)** and **Generalized Estimating Equations (GEE)** fit the GEE model described above.
+> In the trial-level branch, both **Linear Mixed Model (LMM)** and **Generalized Estimating Equations (GEE, Gaussian/identity)** fit the Gaussian GEE model described above.
 
-### Framework 3: Generalized Linear Mixed Models (GLMM)
+### Framework 3: Gamma Family for Skewed Outcomes
 
-**Extension of LMM** for non-normally distributed outcomes such as durations and occurrence counts with characteristic right skew.
+**Extension of the GEE model** for non-normally distributed outcomes such as durations and coverage with characteristic right skew.
 
-Selecting **Generalized Linear Mixed Model (GLMM)**, **Permutation Test with Clustering** or **Bootstrap Resampling** in the trial-level model dropdown falls back to the subject-level analysis described above, and the results panel states that the aggregation was used.
+Selecting **Generalized Estimating Equations (GEE, Gamma/log)** fits the population-averaged model of Framework 1 with a Gamma family and a log link, which suits strictly positive, right-skewed outcomes such as trial-level coverage. The log link requires a strictly positive response, so if the feature contains values at or below zero the whole feature is shifted upwards before fitting. That shift is applied only on the Gamma/log path; under an identity link it would bias the intercept.
+
+The remaining non-parametric trial-level entries — **Permutation Test with Clustering** for a paired design and **Bootstrap Resampling** for an independent one — fall back to the subject-level analysis described above, and the results panel states that the aggregation was used.
 
 ### Choosing Between Frameworks
 
@@ -161,7 +163,7 @@ Selecting **Generalized Linear Mixed Model (GLMM)**, **Permutation Test with Clu
 |:-------|:----|:----|
 | **Research question** | Population effects | Subject-specific effects |
 | **Correlation structure** | Exchangeable or independent working structure | Random subject intercept |
-| **Distribution** | Gaussian with identity link | Normal residuals |
+| **Distribution** | Gaussian with identity link, or Gamma with log link | Normal residuals |
 | **Complexity** | Simpler | More detailed |
 
 ---
@@ -289,7 +291,7 @@ EEG-COMET uses established Python packages:
 |:--------|:--------|
 | `statsmodels` | GEE, mixed-effects models, multiple-comparison correction |
 | `mne` | Cluster permutation, TFCE |
-| `scipy` | t-tests, Wilcoxon signed-rank, Mann-Whitney U |
+| `scipy` | t-tests, Levene's test, Wilcoxon signed-rank, Mann-Whitney U |
 
 ### Configuration
 

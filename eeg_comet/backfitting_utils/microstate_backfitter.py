@@ -35,7 +35,18 @@ class MicrostateBackfitter:
         min_correlation_threshold (float or False, optional): Minimum absolute correlation 
             threshold for quality control. If False, no correlation filtering is applied.
             Values typically range from 0.5 (liberal) to 0.7 (conservative). Default: False.
+        correlation_rejection_mode (str, optional): What happens to timepoints that fail
+            ``min_correlation_threshold``. ``'reject'`` (default) leaves them permanently
+            unassigned, so the threshold acts as hard quality control and features are
+            computed on the surviving samples. ``'flag'`` marks them as ambiguous and lets
+            the length-preserving segment filters relabel them, which guarantees a gap-free
+            label sequence. Use ``'flag'`` for event-related analyses (ROF, RTF, windowed
+            features) that require continuous labelling. Ignored when
+            ``min_correlation_threshold`` is False, and equivalent to ``'reject'`` when
+            ``filter_segments`` is off or ``filter_segments_option`` is ``'remove'``.
     """
+
+    CORRELATION_REJECTION_MODES = ("reject", "flag")
 
     def __init__(
         self,
@@ -54,6 +65,7 @@ class MicrostateBackfitter:
         smoothing_parameters,
         export_format,
         min_correlation_threshold=False,
+        correlation_rejection_mode="reject",
     ):
         """Initialize the MicrostateBackfitter."""
         self.study_name = study_name
@@ -74,6 +86,12 @@ class MicrostateBackfitter:
         self.smoothing_parameters = smoothing_parameters if smoothing_parameters else [1e-6, 3, 5]
         self.export_format = export_format
         self.min_correlation_threshold = min_correlation_threshold
+        if correlation_rejection_mode not in self.CORRELATION_REJECTION_MODES:
+            raise ValueError(
+                f"correlation_rejection_mode must be one of "
+                f"{self.CORRELATION_REJECTION_MODES}; got {correlation_rejection_mode!r}."
+            )
+        self.correlation_rejection_mode = correlation_rejection_mode
         if self.microstate_maps.shape[0] != len(self.microstate_labels):
             raise ValueError(
                 "microstate_maps.shape[0] must equal len(microstate_labels); "
@@ -1022,11 +1040,16 @@ class MicrostateBackfitter:
         segmentation = self.reject_low_correlation_labels(
             correlation_matrix, segmentation, threshold=self.min_correlation_threshold
         )
-        # Remember which timepoints failed the correlation threshold. Every
-        # filter option except 'remove' fills all -1 values, which would
-        # otherwise silently re-admit these poorly-fitting timepoints and make
-        # min_correlation_threshold a no-op.
-        correlation_rejected = segmentation == -1
+        # Every filter option except 'remove' fills all -1 values. In 'reject'
+        # mode that would silently re-admit these poorly-fitting timepoints and
+        # make min_correlation_threshold a no-op, so remember them and restore
+        # the rejection afterwards. In 'flag' mode the refill is the intended
+        # behaviour: the threshold only marks samples as ambiguous and the
+        # filter resolves them, leaving no gaps.
+        if self.correlation_rejection_mode == "reject":
+            correlation_rejected = segmentation == -1
+        else:
+            correlation_rejected = None
 
         # Apply smoothing/filtering if enabled
         if self.filter_segments:
@@ -1043,7 +1066,7 @@ class MicrostateBackfitter:
                     self.smoothing_parameters[2],  # lambda
                 ],
             )
-            if np.any(correlation_rejected):
+            if correlation_rejected is not None and np.any(correlation_rejected):
                 segmentation[correlation_rejected] = -1
         return segmentation
 
