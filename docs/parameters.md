@@ -304,13 +304,13 @@ Parameters for data selection, validation, and template extraction.
 <td><code>stopping_mode</code></td>
 <td>String</td>
 <td><code>majority_vote</code></td>
-<td>Strategy for selecting optimal K.</td>
+<td>Strategy for selecting optimal K. One of <code>majority_vote</code>, <code>gev</code>, <code>cv</code>, <code>db</code>, <code>kl</code>, <code>sil</code>, <code>dunn</code>, <code>ch</code>, <code>gap</code>, <code>aic</code>, <code>bic</code>. Unrecognized values fall back to <code>majority_vote</code>.</td>
 </tr>
 <tr>
 <td><code>stopping_threshold</code></td>
 <td>Integer</td>
 <td><code>10</code></td>
-<td>GEV elbow gain threshold as a percent (1-100): the minimum relative GEV increase that justifies adding another cluster.</td>
+<td>GEV elbow gain threshold as a percent (1-100): the minimum relative GEV increase that justifies adding another cluster. Used only when <code>stopping_mode = gev</code>.</td>
 </tr>
 <tr>
 <td><code>data_percentage</code></td>

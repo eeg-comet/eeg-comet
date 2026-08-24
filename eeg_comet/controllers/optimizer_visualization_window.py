@@ -6,7 +6,6 @@ independent modified K-means and consolidated metrics implementations.
 """
 
 import time
-from collections import Counter
 from typing import Any, Optional
 
 import numpy as np
@@ -1134,13 +1133,16 @@ class OptimizerVisualizationWindow(QMainWindow):
 
         logger.section_header("CLUSTERING", "Optimal Number of Microstates - Results")
 
-        # Criteria whose optimum lands on k_min/k_max rarely found real interior
-        # structure (Davies-Bouldin, Calinski-Harabasz and Dunn reward the
-        # fewest clusters), so they are flagged and left out of the consensus.
         k_min, k_max = self._get_result_k_bounds(results)
 
-        interior_ks = []
-        boundary_count = 0
+        per_metric_k = {
+            code: res["optimal_k"] or None for code, res in results.items()
+        }
+        consensus_k, votes, excluded = ClustererOptimizer.tally_consensus(
+            per_metric_k, k_min, k_max
+        )
+        excluded_set = set(excluded)
+
         for method_code, method_results in results.items():
             method_name = self._get_method_name(method_code)
             optimal_k = method_results["optimal_k"]
@@ -1151,17 +1153,11 @@ class OptimizerVisualizationWindow(QMainWindow):
                 if threshold is not None and method_code in ["gev"]
                 else ""
             )
-
-            is_boundary = (
-                optimal_k is not None and k_min is not None and optimal_k in (k_min, k_max)
+            boundary_info = (
+                " — boundary pick, excluded from consensus"
+                if method_code in excluded_set
+                else ""
             )
-            boundary_info = " — boundary pick, excluded from consensus" if is_boundary else ""
-
-            if optimal_k:
-                if is_boundary:
-                    boundary_count += 1
-                else:
-                    interior_ks.append(optimal_k)
 
             logger.processing_success(
                 "CLUSTERING",
@@ -1169,23 +1165,26 @@ class OptimizerVisualizationWindow(QMainWindow):
                 f"{optimal_k}{threshold_info}{boundary_info}",
             )
 
-        if interior_ks:
-            most_common_k, votes = Counter(interior_ks).most_common(1)[0]
-            message = (
-                f"Most frequently suggested number of microstates: {most_common_k} "
-                f"({votes}/{len(interior_ks)} interior criteria)"
-            )
-            if boundary_count:
-                message += (
-                    f"; {boundary_count} boundary pick(s) at k={k_min}/{k_max} excluded"
-                )
-            logger.processing_info("CLUSTERING", message)
-        elif boundary_count:
+        if consensus_k is None:
+            return
+
+        total_counted = sum(votes.values())
+        message = (
+            f"Most frequently suggested number of microstates: {consensus_k} "
+            f"({votes[consensus_k]}/{total_counted} criteria)"
+        )
+        if excluded_set:
+            message += f"; {len(excluded_set)} boundary pick(s) at k={k_min}/{k_max} excluded"
+        logger.processing_info("CLUSTERING", message)
+
+        if not excluded_set:
+            return
+        if len(excluded_set) == len([k for k in per_metric_k.values() if k]):
             logger.warning(
                 "CLUSTERING",
-                "All criteria selected the k-range boundaries (k_min/k_max); no "
-                "interior consensus - consider widening the k range or relying on "
-                "GEV/Cross-Validation/KL.",
+                "All criteria selected the k-range boundaries (k_min/k_max); the "
+                "consensus falls back to counting them - consider widening the k "
+                "range or relying on GEV/Cross-Validation/KL.",
             )
 
     @staticmethod

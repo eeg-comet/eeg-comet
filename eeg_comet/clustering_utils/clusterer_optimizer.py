@@ -56,6 +56,11 @@ _HIGHER_IS_BETTER = {
     "bic": False,
 }
 
+# Every stopping mode accepted by find_optimal_k: the ten single-criterion codes
+# plus the consensus strategy. Exported so config loading can reject unknown
+# values up front instead of failing deep inside the optimisation run.
+VALID_STOPPING_MODES = ("majority_vote", *_HIGHER_IS_BETTER)
+
 # Human-readable names used when building OptimizationResult objects.
 _METHOD_DISPLAY_NAMES = {
     "gev": "Global Explained Variance Criterion",
@@ -340,6 +345,14 @@ class ClustererOptimizer:
     def _compute_kl_scores_from_M_values(self, M_values: dict[int, float]) -> list[float]:
         """Compute KL scores given M values across k.
 
+        Implements Krzanowski & Lai (1988) as published::
+
+            DIFF(q) = M_{q-1} - M_q,   M_q = W_q * q^(2/p)
+            KL(q)   = |DIFF(q)| / |DIFF(q+1)|
+
+        The criterion is undefined at both ends of the search range because it
+        needs a preceding and a following solution, so those entries are NaN.
+
         Args:
             M_values: Mapping from k to M_q value.
 
@@ -359,14 +372,15 @@ class ClustererOptimizer:
             if np.isnan(M_prev) or np.isnan(M_curr) or np.isnan(M_next):
                 kl_scores.append(np.nan)
                 continue
-            d_prev = M_prev - M_curr
-            d_curr = M_curr - M_next
-            if d_prev < 0 or d_prev < d_curr:
-                kl_scores.append(0.0)
-            elif M_prev > 0:
-                kl_scores.append(d_prev / M_prev)
+            diff_q = abs(M_prev - M_curr)
+            diff_q_next = abs(M_curr - M_next)
+            # A vanishing denominator makes the ratio undefined rather than
+            # merely large, so the criterion abstains at that k instead of
+            # emitting an inf that would dominate every curve and vote.
+            if diff_q_next <= 1e-12:
+                kl_scores.append(0.0 if diff_q <= 1e-12 else np.nan)
             else:
-                kl_scores.append(0.0)
+                kl_scores.append(diff_q / diff_q_next)
         return kl_scores
 
     def _log_message(self, message: str, level: str = "info"):
@@ -1600,20 +1614,31 @@ class ClustererOptimizer:
 
     @staticmethod
     def _within_dispersion(data: np.ndarray, labels: np.ndarray, n_clusters: int) -> float:
-        """Pooled within-cluster dispersion using correlation distance.
+        """Pooled within-cluster dispersion, shared by the Gap and KL criteria.
 
-        W = sum_r (1 / (2 n_r)) * sum_{i,j in r} d(i, j), with
-        d = 1 - |correlation| (polarity-invariant), per Tibshirani et al. (2001).
+        Follows Tibshirani et al. (2001), which both the Gap statistic and the
+        Krzanowski-Lai criterion build on::
+
+            W = sum_r D_r / (2 n_r),   D_r = sum_{i,j in r} d(i, j)
+
+        ``d`` is the *squared* polarity-invariant correlation distance
+        ``(1 - |r|)^2``, matching Tibshirani's use of squared distances so that
+        D_r is a within-cluster sum of squares. Gap and KL previously disagreed
+        on whether to square, which made their dispersions incomparable.
+
+        Any constant factor cancels downstream (Gap takes a difference of logs,
+        KL a ratio of differences), so only the squaring is substantive here.
         """
         W = 0.0
         for k in range(n_clusters):
             cluster_data = data[:, labels == k]
-            if cluster_data.shape[1] > 1:
+            n_r = cluster_data.shape[1]
+            if n_r > 1:
                 distances = 1.0 - ClustererOptimizer._spatial_correlation(
                     cluster_data.T, cluster_data.T
                 )
                 np.fill_diagonal(distances, 0.0)
-                W += np.sum(distances) / (2.0 * cluster_data.shape[1])
+                W += np.sum(distances**2) / (2.0 * n_r)
         return W
 
     @staticmethod
@@ -1770,8 +1795,14 @@ class ClustererOptimizer:
     # OPTIMIZATION METHODS - USING CONSOLIDATED METRICS
     # ============================================================================
 
-    def compute_elbow_gev(self) -> OptimizationResult:
+    def compute_elbow_gev(self, threshold: Optional[float] = None) -> OptimizationResult:
         """Compute elbow method using Global Explained Variance.
+
+        Args:
+            threshold: Minimum relative GEV gain (percent) that justifies an
+                additional cluster. When given, k is the last value whose gain
+                still met the threshold; otherwise the generic Kneedle elbow is
+                used. This is what ``stopping_threshold`` controls.
 
         Returns:
             OptimizationResult: Result including scores and selected k.
@@ -1808,6 +1839,11 @@ class ClustererOptimizer:
         if not valid_scores:
             self._log_message("No valid GEV scores found, using default k=5", level="warning")
             optimal_k = 5
+        elif threshold is not None and threshold > 0:
+            optimal_k = self._find_gev_threshold_elbow(self.k_range, scores, threshold)
+            self._log_message(
+                f"GEV threshold of {threshold}% relative gain selected k={optimal_k}"
+            )
         else:
             optimal_k = self._intelligent_k_selection(
                 self.k_range, scores, higher_is_better=True
@@ -2165,6 +2201,7 @@ class ClustererOptimizer:
             OptimizationResult: Result including scores and selected k.
         """
         scores = []
+        standard_errors = []
         total_steps = len(self.k_range)
         
         for i, k in enumerate(self.k_range):
@@ -2173,22 +2210,21 @@ class ClustererOptimizer:
             
             result = self._get_clustering_result(k, compute_all_metrics=False)
             
-            gap_score, _ = self.compute_gap_statistic(
+            gap_score, gap_se = self.compute_gap_statistic(
                 data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
             )
             scores.append(gap_score)
+            standard_errors.append(gap_se)
         
         # Generate and save Gap Statistic plot
         self._generate_gap_statistic_plot(self.k_range, scores)
         
-        # Find optimal k using intelligent selection (maximum gap is better)
+        # Tibshirani's one-standard-error rule rather than a plain maximum.
         valid_scores = self._filter_valid_scores(scores)
         if not valid_scores:
             optimal_k = self.k_min
         else:
-            optimal_k = self._intelligent_k_selection(
-                self.k_range, scores, higher_is_better=True
-            )
+            optimal_k = self._find_gap_optimal_k(self.k_range, scores, standard_errors)
         
         return OptimizationResult(
             k_values=self.k_range.copy(),
@@ -2327,6 +2363,7 @@ class ClustererOptimizer:
         dunn_scores: list[float] = []
         ch_scores: list[float] = []
         gap_scores: list[float] = []
+        gap_standard_errors: list[float] = []
         aic_scores: list[float] = []
         bic_scores: list[float] = []
 
@@ -2357,6 +2394,7 @@ class ClustererOptimizer:
                     ch_scores.append(np.nan)
                 if 'gap' in methods:
                     gap_scores.append(np.nan)
+                    gap_standard_errors.append(np.nan)
                 if 'aic' in methods:
                     aic_scores.append(np.nan)
                 if 'bic' in methods:
@@ -2419,12 +2457,13 @@ class ClustererOptimizer:
             
             if 'gap' in methods:
                 try:
-                    gap_val, _ = self.compute_gap_statistic(
+                    gap_val, gap_se = self.compute_gap_statistic(
                         data=self.maps_to_use, labels=result["segmentation"], maps=result["maps"]
                     )
                 except Exception:
-                    gap_val = np.nan
+                    gap_val, gap_se = np.nan, np.nan
                 gap_scores.append(gap_val)
+                gap_standard_errors.append(gap_se)
             
             if 'aic' in methods:
                 try:
@@ -2592,8 +2631,8 @@ class ClustererOptimizer:
                     self._log_message("No valid Gap Statistic scores found in ensemble", level="warning")
                     optimal_k = self.k_min
                 else:
-                    optimal_k = self._intelligent_k_selection(
-                        self.k_range, gap_scores, higher_is_better=True
+                    optimal_k = self._find_gap_optimal_k(
+                        self.k_range, gap_scores, gap_standard_errors
                     )
                 return OptimizationResult(
                     k_values=self.k_range.copy(),
@@ -2657,13 +2696,13 @@ class ClustererOptimizer:
         max_samples: int = 2000,
         random_seed: int = 42,
     ) -> float:
-        """Compute W_q (measure of dispersion) for KL criterion.
+        """Compute W_q (measure of dispersion) for the KL criterion.
 
-        W_q = sum_{r=1}^q (1/(2*n_r)) * D_r where D_r = sum_{u,v in cluster r} distance(u, v)^2.
-        Uses correlation-based distance to respect polarity invariance of microstates.
-
-        The per-cluster pairwise correlation matrix is O(n_r^2), so the data is
-        reproducibly sub-sampled to ``max_samples`` points to stay tractable on
+        Thin wrapper around :meth:`_within_dispersion`, which is the single
+        definition of pooled within-cluster dispersion shared with the Gap
+        statistic. Only the sub-sampling is specific to this entry point: the
+        per-cluster pairwise correlation matrix is O(n_r^2), so the data is
+        reproducibly capped at ``max_samples`` points to stay tractable on
         group-level data (matching the silhouette/Dunn/gap metrics).
 
         Args:
@@ -2685,34 +2724,7 @@ class ClustererOptimizer:
             data = data[:, idx]
             segmentation = segmentation[idx]
 
-        n_clusters = maps.shape[0]
-        W_q = 0.0
-
-        for r in range(n_clusters):
-            # Samples in cluster r
-            cluster_mask = segmentation == r
-            n_r = int(np.sum(cluster_mask))
-            if n_r <= 1:
-                continue
-
-            cluster_data = data[:, cluster_mask]
-
-            # Normalize columns (timepoints) for correlation computation
-            norms = np.linalg.norm(cluster_data, axis=0, keepdims=True) + 1e-10
-            cluster_data_norm = cluster_data / norms
-
-            # Pairwise absolute correlations between all samples in cluster r
-            corr = np.abs(cluster_data_norm.T @ cluster_data_norm)  # (n_r, n_r)
-            # Convert to distances and square
-            dist_sq = (1.0 - corr) ** 2
-
-            # Sum over upper triangle (i < j) to avoid double counting and exclude diagonal
-            D_r = np.sum(np.triu(dist_sq, k=1))
-
-            # Accumulate contribution
-            W_q += (1.0 / (2.0 * n_r)) * D_r
-
-        return W_q
+        return ClustererOptimizer._within_dispersion(data, segmentation, maps.shape[0])
 
     # ============================================================================
     # UTILITY METHODS
@@ -2730,9 +2742,10 @@ class ClustererOptimizer:
         Returns:
             tuple[int, list[int], list[float]]: (optimal_k, k_values, scores).
         """
-        # Method mapping
+        # Method mapping; the second entry names the keyword argument that
+        # ``parameter_value`` is forwarded to, or None if the method takes none.
         method_mapping = {
-            "gev": ("compute_elbow_gev", None),
+            "gev": ("compute_elbow_gev", "threshold"),
             "db": ("compute_davies_bouldin", None),
             "cv": ("compute_cross_validation", None),
             "kl": ("compute_krzanowski_lai", None),
@@ -2755,7 +2768,7 @@ class ClustererOptimizer:
 
         # Call method with parameter if applicable
         if param_name and parameter_value is not None:
-            kwargs = {param_name: int(parameter_value)}
+            kwargs = {param_name: float(parameter_value)}
             self._log_message(f"Computing {optimizer_mode.upper()} optimization...")
             result = method(**kwargs)
         else:
@@ -2802,6 +2815,9 @@ class ClustererOptimizer:
         # Store results for each k value
         k_results = {}
         metric_votes = {metric: {"optimal_k": None, "scores": []} for metric in methods}
+        # Gap needs its reference standard errors, not just the gap values,
+        # to apply Tibshirani's one-standard-error rule.
+        gap_standard_errors: list[float] = []
 
         # For each k value, compute clustering once and calculate all metrics
         total_steps = len(self.k_range)
@@ -2844,6 +2860,8 @@ class ClustererOptimizer:
                     else:
                         metric_votes[metric]["scores"].append(np.nan)
 
+                gap_standard_errors.append(clustering_result.get("gap_std", np.nan))
+
                 # Skip detailed metric logging for each k to reduce verbosity
                 # Detailed results will be shown in final summary
 
@@ -2852,6 +2870,7 @@ class ClustererOptimizer:
                 # Add NaN values for this k
                 for metric in methods:
                     metric_votes[metric]["scores"].append(np.nan)
+                gap_standard_errors.append(np.nan)
 
         # Special handling for KL scores - need to compute from M_q values
         if "kl" in methods:
@@ -2886,10 +2905,15 @@ class ClustererOptimizer:
                 if valid_scores:
                     valid_indices, valid_scores_list = zip(*valid_scores)
                     valid_k_values = [self.k_range[i] for i in valid_indices]
+                    valid_gap_ses = (
+                        [gap_standard_errors[i] for i in valid_indices]
+                        if metric == "gap" and len(gap_standard_errors) == len(self.k_range)
+                        else None
+                    )
 
                     # Find optimal k for this metric
                     optimal_k = self._find_optimal_k_for_metric(
-                        metric, valid_k_values, valid_scores_list
+                        metric, valid_k_values, valid_scores_list, valid_gap_ses
                     )
 
                     if optimal_k in k_votes:
@@ -2912,22 +2936,33 @@ class ClustererOptimizer:
                 )
                 continue
 
-        # Find k with most votes
-        if not any(k_votes.values()):
+        # Tally votes with the shared boundary-aware rule so that this result
+        # and the optimizer visualization window can never disagree.
+        optimal_k, tallied_votes, excluded = self.tally_consensus(
+            {m: metric_votes[m]["optimal_k"] for m in methods}, self.k_min, self.k_max
+        )
+        if optimal_k is None:
             self._log_message("No valid votes found, using default k=5", level="warning")
             return 5
 
-        optimal_k = max(k_votes, key=k_votes.get)
-        vote_count = k_votes[optimal_k]
-        total_metrics = len([m for m in methods if metric_votes[m]["optimal_k"] is not None])
+        for k in k_votes:
+            k_votes[k] = tallied_votes.get(k, 0)
+
+        vote_count = tallied_votes[optimal_k]
+        total_counted = sum(tallied_votes.values())
 
         self._log_message(
-            f"Majority vote result: k={optimal_k} with {vote_count}/{total_metrics} votes"
+            f"Majority vote result: k={optimal_k} with {vote_count}/{total_counted} votes"
         )
         vote_distribution = ", ".join(
-            [f"k={k}: {votes}" for k, votes in k_votes.items() if votes > 0]
+            [f"k={k}: {votes}" for k, votes in sorted(tallied_votes.items()) if votes > 0]
         )
         self._log_message(f"Vote distribution: {vote_distribution}")
+        if excluded:
+            self._log_message(
+                f"Boundary picks at k={self.k_min}/{self.k_max} excluded from the "
+                f"consensus: {', '.join(sorted(m.upper() for m in excluded))}"
+            )
 
         # Populate self.results with a per-metric OptimizationResult so that
         # get_all_results() (consumed by the pipeline and the visualisation
@@ -2957,7 +2992,11 @@ class ClustererOptimizer:
         return optimal_k
 
     def _find_optimal_k_for_metric(
-        self, metric: str, k_values: list[int], scores: list[float]
+        self,
+        metric: str,
+        k_values: list[int],
+        scores: list[float],
+        standard_errors: Optional[list[float]] = None,
     ) -> int:
         """Find optimal k for a specific metric.
 
@@ -2965,18 +3004,24 @@ class ClustererOptimizer:
         majority-vote pipeline, the single-method optimisers and the GUI
         ensemble all select k the same way for a given metric (previously the
         majority vote used a plain argmin/argmax and could disagree with the
-        curves shown in the visualisation window).
+        curves shown in the visualisation window). The Gap statistic is the one
+        exception: it has its own published rule based on the reference
+        standard errors.
 
         Args:
             metric: Metric code (e.g. 'gev', 'db', 'cv', 'kl').
             k_values: List of k values.
             scores: Scores for each k value.
+            standard_errors: Gap standard errors, used only when metric='gap'.
 
         Returns:
             int: Optimal k value.
         """
         if not scores or not k_values:
             return k_values[0] if k_values else self.k_min
+
+        if metric == "gap":
+            return self._find_gap_optimal_k(list(k_values), list(scores), standard_errors)
 
         higher_is_better = _HIGHER_IS_BETTER.get(metric, True)
         return self._intelligent_k_selection(
@@ -3206,6 +3251,103 @@ class ClustererOptimizer:
             else:
                 # Fall back to local optima for non-monotonic data
                 return ClustererOptimizer._find_local_optima(k_values, scores, higher_is_better=higher_is_better)
+
+    @staticmethod
+    def tally_consensus(
+        per_metric_k: dict[str, Optional[int]],
+        k_min: Optional[int],
+        k_max: Optional[int],
+    ) -> tuple[Optional[int], dict[int, int], list[str]]:
+        """Tally per-criterion votes into a consensus k.
+
+        Criteria whose optimum lands exactly on k_min or k_max usually failed to
+        find interior structure (Davies-Bouldin, Calinski-Harabasz and Dunn all
+        tend to reward the extremes), so their votes are set aside as long as
+        any interior vote remains. Ties go to the smaller, more parsimonious k.
+
+        This is the single implementation used by both the pipeline's automatic
+        selection and the optimizer visualization window, which previously
+        applied different boundary rules and could report different values of k
+        for the same data.
+
+        Args:
+            per_metric_k: Mapping from metric code to its chosen k (None to skip).
+            k_min: Smallest k explored, or None to disable boundary handling.
+            k_max: Largest k explored, or None to disable boundary handling.
+
+        Returns:
+            tuple: (consensus_k, vote counts by k, metric codes excluded as
+                boundary picks). ``consensus_k`` is None when there were no votes.
+        """
+        boundaries = {k for k in (k_min, k_max) if k is not None}
+        interior: dict[str, int] = {}
+        excluded: list[str] = []
+
+        for metric, k in per_metric_k.items():
+            if k is None:
+                continue
+            if k in boundaries:
+                excluded.append(metric)
+            else:
+                interior[metric] = k
+
+        # Fall back to counting everything if no criterion found interior structure.
+        counted = interior if interior else {
+            m: k for m, k in per_metric_k.items() if k is not None
+        }
+        if not counted:
+            return None, {}, excluded
+
+        votes: dict[int, int] = {}
+        for k in sorted(counted.values()):
+            votes[k] = votes.get(k, 0) + 1
+
+        # sorted() above means the first key with the maximum count is the
+        # smallest tied k, which max() returns.
+        consensus_k = max(votes, key=votes.get)
+        return consensus_k, votes, excluded
+
+    @staticmethod
+    def _find_gap_optimal_k(
+        k_values: list[int],
+        gaps: list[float],
+        standard_errors: Optional[list[float]] = None,
+    ) -> int:
+        """Select k for the Gap statistic using Tibshirani's one-standard-error rule.
+
+        Chooses the smallest k for which ``Gap(k) >= Gap(k+1) - s_{k+1}``, i.e.
+        the first solution that is not bettered by the next one once sampling
+        variability in the reference distribution is accounted for. This is the
+        rule Tibshirani et al. (2001) prescribe; a plain maximum tends to run to
+        the largest k in the range. Falls back to the maximum gap when the
+        standard errors are unavailable or the rule is never satisfied.
+
+        Args:
+            k_values: Candidate k values (ascending).
+            gaps: Gap value for each k.
+            standard_errors: s_k for each k, aligned with ``k_values``.
+
+        Returns:
+            int: Selected k value.
+        """
+        valid = [
+            (k, g, s)
+            for k, g, s in zip(
+                k_values, gaps, standard_errors if standard_errors is not None else gaps
+            )
+            if not np.isnan(g)
+        ]
+        if not valid:
+            return k_values[0] if k_values else 2
+
+        if standard_errors is not None:
+            for i in range(len(valid) - 1):
+                _, gap_here, _ = valid[i]
+                _, gap_next, se_next = valid[i + 1]
+                if not np.isnan(se_next) and gap_here >= gap_next - se_next:
+                    return valid[i][0]
+
+        return max(valid, key=lambda item: item[1])[0]
 
     @staticmethod
     def _find_elbow_point(

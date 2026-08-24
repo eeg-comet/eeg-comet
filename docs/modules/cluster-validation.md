@@ -37,7 +37,12 @@ All validation methods use spatial correlation as the primary similarity measure
 
 ### How the criteria are computed
 
-All ten criteria are evaluated on a polarity-invariant basis: cluster membership and every distance/dispersion term are derived from the absolute spatial correlation between a topography and its assigned template, so that maps differing only in voltage sign are treated as the same configuration (Pascual-Marqui et al., 1995; Michel & Koenig, 2018). For each candidate K in `[k_min, k_max]`, clustering is run once and all selected criteria are scored from that solution. Within-cluster dispersion uses the polarity-invariant distance `d = 1 - |r|` (Tibshirani et al., 2001), and the information criteria treat each template as an average-referenced, unit-normalized topography with `C - 1` free parameters (so the model has `K x (C - 1)` parameters in total).
+All ten criteria are evaluated on a polarity-invariant basis, so that maps differing only in voltage sign are treated as the same configuration (Pascual-Marqui et al., 1995; Michel & Koenig, 2018). Cluster membership is always assigned by the largest **absolute** activation. Each criterion's similarity term is then either the absolute spatial correlation `|r|` (Silhouette, Dunn, Davies-Bouldin, Calinski-Harabasz, Gap, AIC, BIC, Krzanowski-Lai) or a **squared** signed correlation, which is sign-invariant for the same reason (GEV and CV).
+
+For each candidate K in `[k_min, k_max]`, clustering is run once and all selected criteria are scored from that single solution. Within-cluster dispersion, shared by the Gap statistic and Krzanowski-Lai, uses the squared polarity-invariant distance `(1 - |r|)^2` following Tibshirani et al. (2001). The information criteria treat each template as an average-referenced, unit-normalized topography with `C - 1` free parameters (so the model has `K x (C - 1)` parameters in total).
+
+{: .note }
+> GEV is computed on the full dataset, while the remaining criteria are computed on the GFP-peak maps and are reproducibly sub-sampled where the cost is quadratic in the number of samples (2000 points for Silhouette, Dunn and Krzanowski-Lai; 1500 for the Gap statistic). Automatic K selection also uses a single clustering initialization per K (`n_repeats = 1`), whereas the final clustering uses the configured `n_repeats`.
 
 ---
 
@@ -123,11 +128,13 @@ These methods evaluate clustering quality relative to null hypotheses.
 
 #### 7. Gap Statistic
 
-Compares observed clustering quality against expectations from random topographic distributions.
+Compares observed clustering quality against expectations from random topographic distributions. Reference datasets are drawn uniformly from a bounding box aligned with the principal components of the data (Tibshirani's method (b)).
 
 | Interpretation | Best K |
 |:---------------|:-------|
-| Maximum gap | Solutions exceeding chance-level organization |
+| One-standard-error rule | Smallest K with `Gap(K) >= Gap(K+1) - s_{K+1}` |
+
+Unlike the other criteria, the Gap statistic uses its own published selection rule rather than the shared optimum/elbow rule, falling back to the maximum gap if no K satisfies it.
 
 **Reference:** Tibshirani, Walther & Hastie, 2001
 
@@ -153,11 +160,13 @@ Similar to AIC but with stronger penalty for model complexity.
 
 #### 10. Krzanowski-Lai Criterion
 
-Evaluates relative improvement across successive cluster numbers.
+Evaluates relative improvement across successive cluster numbers as `KL(q) = |DIFF(q)| / |DIFF(q+1)|`, where `DIFF(q) = M_{q-1} - M_q` and `M_q = W_q * q^(2/C)`.
 
 | Interpretation | Best K |
 |:---------------|:-------|
 | Maximum value | Where additional clusters provide meaningful differentiation |
+
+Because it needs both a preceding and a following solution, this criterion is undefined at `k_min` and `k_max` and therefore only votes over interior K values.
 
 **Reference:** Krzanowski & Lai, 1988
 
@@ -173,7 +182,7 @@ Evaluates relative improvement across successive cluster numbers.
 | Dunn | Separation | Maximum | Separation/compactness ratio |
 | Davies-Bouldin | Separation | Minimum | Inter-cluster similarity |
 | Calinski-Harabasz | Separation | Maximum | Variance ratio |
-| Gap Statistic | Inference | Maximum | vs. random distribution |
+| Gap Statistic | Inference | One-SE rule | vs. random distribution |
 | AIC | Inference | Minimum | Fit vs. complexity |
 | BIC | Inference | Minimum | Fit vs. complexity (stricter) |
 | Krzanowski-Lai | Inference | Maximum | Relative improvement |
@@ -212,6 +221,8 @@ Use a single criterion to determine K automatically.
 - **GEV** - Maximize explained variance
 - **Silhouette** - Maximize cluster quality
 
+**How a curve becomes a single K:** a criterion with a clear interior optimum contributes that optimum; a criterion that improves monotonically across the range (as GEV typically does) contributes its elbow, located by the Kneedle method. Two criteria override this shared rule: the Gap statistic uses Tibshirani's one-standard-error rule, and GEV uses the `stopping_threshold` relative-gain rule when a threshold is configured.
+
 ### Strategy 3: Majority Vote
 
 Select K most frequently chosen across all criteria.
@@ -223,9 +234,12 @@ Select K most frequently chosen across all criteria.
 
 **Process:**
 1. Compute optimal K for each criterion
-2. Tally votes for each K value
-3. Select K with most votes
-4. In case of ties, the smallest K among the tied values is chosen (the more parsimonious solution)
+2. Set aside criteria whose optimum landed exactly on `k_min` or `k_max`, since these usually indicate that no interior structure was found (Davies-Bouldin, Calinski-Harabasz and Dunn tend to reward the extremes). If *every* criterion picked a boundary, all votes are counted and a warning is logged.
+3. Tally votes for each K value
+4. Select K with most votes
+5. In case of ties, the smallest K among the tied values is chosen (the more parsimonious solution)
+
+The same tallying rule is used by the automatic pipeline and by the optimizer visualization window, so the two always report the same K for the same data.
 
 {: .note }
 > Combining multiple complementary criteria rather than relying on a single index is recommended for objective, reproducible microstate-count selection (Michel & Koenig, 2018; Koenig et al., 2024; Michel et al., 2024).
@@ -239,10 +253,13 @@ Select K most frequently chosen across all criteria.
 | Parameter | Description | Default | Options |
 |:----------|:------------|:--------|:--------|
 | `n_maps` | Number of clusters | `4` | Integer or `auto` |
-| `k_min` | Minimum K to evaluate | `2` | 2-10 |
-| `k_max` | Maximum K to evaluate | `10` | 4-15 |
+| `k_min` | Minimum K to evaluate | `2` | >= 2 |
+| `k_max` | Maximum K to evaluate | `10` | > `k_min`, capped at 20 |
 | `stopping_mode` | Selection strategy | `majority_vote` | See below |
-| `stopping_threshold` | GEV elbow gain threshold (percent): the minimum relative GEV increase that justifies an additional cluster | `10` | 1-100 |
+| `stopping_threshold` | GEV elbow gain threshold (percent): the minimum relative GEV increase that justifies an additional cluster. Applies to `stopping_mode = gev` only; ignored by all other modes | `10` | 1-100 |
+
+{: .note }
+> `k_max` is clamped to `min(n_samples, 20)`. The desktop UI additionally restricts the spinboxes to 2-14 for `k_min` and 3-15 for `k_max`; wider ranges are available through a configuration file or the CLI. An unrecognized `stopping_mode` is reported and falls back to `majority_vote`.
 
 ### Stopping Modes
 

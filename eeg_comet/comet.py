@@ -17,7 +17,10 @@ from tqdm import tqdm
 
 from eeg_comet.backfitting_utils.microstate_backfitter import MicrostateBackfitter
 from eeg_comet.backfitting_utils.segmentation_io import SegmentationIO
-from eeg_comet.clustering_utils.clusterer_optimizer import ClustererOptimizer
+from eeg_comet.clustering_utils.clusterer_optimizer import (
+    VALID_STOPPING_MODES,
+    ClustererOptimizer,
+)
 from eeg_comet.clustering_utils.microstate_clusterer import MicrostateClusterer
 from eeg_comet.clustering_utils.microstate_io import MicrostateIO
 from eeg_comet.clustering_utils.microstate_labeler import MicrostateLabeler
@@ -490,6 +493,15 @@ class COMET:
             self.k_min = clustering_config.getint("k_min", clustering_config.getint("kmin", 2))
             self.k_max = clustering_config.getint("k_max", clustering_config.getint("kmax", 10))
             self.stopping_mode = clustering_config.get("stopping_mode", "majority_vote")
+            if self.stopping_mode not in VALID_STOPPING_MODES:
+                # Caught here rather than deep in the optimisation run, where the
+                # resulting error was swallowed and silently fell back to k=4.
+                self.logger.warning(
+                    "CLUSTERING",
+                    f"Unknown stopping_mode '{self.stopping_mode}'; falling back to "
+                    f"'majority_vote'. Valid options: {', '.join(VALID_STOPPING_MODES)}",
+                )
+                self.stopping_mode = "majority_vote"
             self.stopping_threshold = clustering_config.getint(
                 "stopping_threshold", clustering_config.getint("stopping_parameter", 10)
             )
