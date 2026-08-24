@@ -115,15 +115,20 @@ class MicrostateBackfitter:
                     for j in range(start, end + 1):
                         filled_segmentation[j] = fill_value
                 else:
+                    # Compare the full length of the two adjoining runs, so the
+                    # gap is absorbed by whichever neighbouring microstate
+                    # actually dominates around it.
                     prev_count = 0
-                    if start > 0:
-                        window_before = segmentation[max(start - 2, 0) : start]
-                        prev_count = Counter(window_before).most_common(1)[0][1]
+                    j = start - 1
+                    while j >= 0 and segmentation[j] == prev:
+                        prev_count += 1
+                        j -= 1
 
                     next_count = 0
-                    if end < n - 1:
-                        window_after = segmentation[end + 2 : min(end + 3, n)]
-                        next_count = Counter(window_after).most_common(1)[0][1]
+                    j = end + 1
+                    while j < n and segmentation[j] == next_val:
+                        next_count += 1
+                        j += 1
 
                     if prev_count > next_count:
                         fill_value = prev
@@ -515,15 +520,18 @@ class MicrostateBackfitter:
         Returns:
             numpy.ndarray: String-labeled segmentation array.
         """
-        segmentation = segmentation + 1
-        segmentation = list(map(int, segmentation))
-        labeled_segmentation = list(map(str, segmentation))
-        labeled_segmentation = np.char.replace(labeled_segmentation, str(0), "NaN")
-        for m in range(1, len(self.microstate_labels) + 1):
-            labeled_segmentation = np.char.replace(
-                labeled_segmentation, str(m), self.microstate_labels[m - 1]
+        # Map each state index straight to its label. A textual substitution on
+        # the stringified indices would corrupt multi-digit states once there
+        # are ten or more maps (e.g. "10" would first match the rule for "1").
+        labels = list(self.microstate_labels)
+        n_states = len(labels)
+        labeled_segmentation = np.empty(len(segmentation), dtype=object)
+        for position, state in enumerate(segmentation):
+            state = int(state)
+            labeled_segmentation[position] = (
+                labels[state] if 0 <= state < n_states else "NaN"
             )
-        return labeled_segmentation
+        return labeled_segmentation.astype(str)
 
     def compute_correlation_matrix(self, data_2d):
         """Compute spatial correlation between microstate templates and data.
@@ -1018,7 +1026,12 @@ class MicrostateBackfitter:
         segmentation = self.reject_low_correlation_labels(
             correlation_matrix, segmentation, threshold=self.min_correlation_threshold
         )
-        
+        # Remember which timepoints failed the correlation threshold. Every
+        # filter option except 'remove' fills all -1 values, which would
+        # otherwise silently re-admit these poorly-fitting timepoints and make
+        # min_correlation_threshold a no-op.
+        correlation_rejected = segmentation == -1
+
         # Apply smoothing/filtering if enabled
         if self.filter_segments:
             segmentation = self.substitute_maps_with_duration(
@@ -1034,6 +1047,8 @@ class MicrostateBackfitter:
                     self.smoothing_parameters[2],  # lambda
                 ],
             )
+            if np.any(correlation_rejected):
+                segmentation[correlation_rejected] = -1
         return segmentation
 
     def backfit_to_peaks(self, data):

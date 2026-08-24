@@ -1,0 +1,348 @@
+"""Regression tests for correctness bugs found in the full-repository audit.
+
+Each test pins down one defect that produced wrong scientific output rather
+than merely wrong style: polarity handling in the similarity clusterer and in
+K-Means++ seeding, the quality-control threshold being undone by segment
+filtering, rejected timepoints leaking into features as if they were a
+microstate class, and the transition matrix not being conditional.
+
+The tests exercise small pure functions and static methods, so none of them
+needs a full clustering run. They skip cleanly when the heavy runtime stack is
+absent.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+
+@pytest.fixture
+def np_mod():
+    return pytest.importorskip("numpy")
+
+
+@pytest.fixture
+def clusterer_cls():
+    pytest.importorskip("numpy")
+    module = pytest.importorskip("eeg_comet.clustering_utils.microstate_clusterer")
+    return module.MicrostateClusterer
+
+
+@pytest.fixture
+def initializer_cls():
+    pytest.importorskip("numpy")
+    module = pytest.importorskip("eeg_comet.data_utils.data_initializer")
+    return module.DataInitializer
+
+
+@pytest.fixture
+def backfitter_cls():
+    pytest.importorskip("numpy")
+    module = pytest.importorskip("eeg_comet.backfitting_utils.microstate_backfitter")
+    return module.MicrostateBackfitter
+
+
+@pytest.fixture
+def extractor_cls():
+    pytest.importorskip("numpy")
+    module = pytest.importorskip("eeg_comet.features_utils.feature_extractor")
+    return module.FeatureExtractor
+
+
+@pytest.fixture
+def helper_cls():
+    module = pytest.importorskip("eeg_comet.features_utils.feature_helper")
+    return module.FeatureHelper
+
+
+def _make_backfitter(backfitter_cls, np, n_states=4, labels=None, **overrides):
+    labels = labels or [chr(ord("A") + i) for i in range(n_states)]
+    rng = np.random.default_rng(0)
+    maps = rng.standard_normal((n_states, 20))
+    maps -= maps.mean(axis=1, keepdims=True)
+    maps /= np.linalg.norm(maps, axis=1, keepdims=True)
+    kwargs = dict(
+        study_name="study",
+        preprocessed_data_path=".",
+        microstate_maps=maps,
+        backfit_to="all",
+        filter_segments=True,
+        filter_segments_option="smooth",
+        identify_short_window=False,
+        microstate_labels=labels,
+        segmentation_path=".",
+        extension=".set",
+        data_type="continuous",
+        sampling_rate=250,
+        smoothing_parameters=[1e-6, 3, 5],
+        export_format=".csv",
+        min_correlation_threshold=False,
+    )
+    kwargs.update(overrides)
+    return backfitter_cls(**kwargs)
+
+
+# --------------------------------------------------------------------------
+# Clustering
+# --------------------------------------------------------------------------
+
+
+def test_similarity_clustering_treats_flipped_map_as_identical(clusterer_cls, np_mod):
+    """A sign-flipped topography must be the closest map, not the furthest.
+
+    The similarity was computed as ``1 - |d|`` where ``d = 1 - s``, which maps a
+    perfectly anti-correlated topography to -1 instead of +1.
+    """
+    np = np_mod
+    template = np.array([1.0, -1.0, 0.5, -0.5, 0.25])
+    template -= template.mean()
+    template /= np.linalg.norm(template)
+    other = np.array([0.2, 0.3, -0.9, 0.4, 0.1])
+    other -= other.mean()
+    other /= np.linalg.norm(other)
+    maps = np.vstack([template, other])
+
+    # Two samples: one matching template exactly, one exactly sign-flipped.
+    data = np.column_stack([template, -template])
+
+    clusterer = clusterer_cls(n_states=2, max_iterations=1, clustering_tolerance=1e-12)
+    fitted, _ = clusterer.modified_kmeans_similarity(
+        data, maps.copy(), metric="Spatial Correlation", verbose=False
+    )
+
+    # Both samples belong to the template cluster, so it must stay aligned with
+    # the template up to sign, and must not collapse to a near-zero vector.
+    assert np.linalg.norm(fitted[0]) == pytest.approx(1.0, abs=1e-6)
+    assert abs(float(fitted[0] @ template)) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_similarity_batch_and_nonbatch_paths_agree(clusterer_cls, np_mod):
+    """Batching is an implementation detail and must not change the objective."""
+    np = np_mod
+    rng = np.random.default_rng(11)
+    n_states, n_channels, n_samples = 3, 16, 120
+
+    maps = rng.standard_normal((n_states, n_channels))
+    maps -= maps.mean(axis=1, keepdims=True)
+    maps /= np.linalg.norm(maps, axis=1, keepdims=True)
+
+    labels = rng.integers(0, n_states, n_samples)
+    signs = rng.choice([-1.0, 1.0], n_samples)
+    data = (maps[labels].T * signs) + 0.05 * rng.standard_normal((n_channels, n_samples))
+
+    init = maps.copy()
+    plain = clusterer_cls(n_states=n_states, max_iterations=20)
+    batched = clusterer_cls(n_states=n_states, max_iterations=20, batch_size=32)
+
+    maps_plain, _ = plain.modified_kmeans_similarity(
+        data, init.copy(), metric="Spatial Correlation", verbose=False
+    )
+    maps_batched, _ = batched.modified_kmeans_similarity(
+        data, init.copy(), metric="Spatial Correlation", verbose=False
+    )
+
+    # Compare polarity-invariantly, map for map.
+    agreement = np.abs(np.sum(maps_plain * maps_batched, axis=1))
+    assert np.all(agreement > 0.99), agreement
+
+
+def test_kmeanspp_does_not_seed_duplicate_maps(initializer_cls, np_mod):
+    """K-Means++ must sample far-apart seeds, not near-duplicates.
+
+    The weight was ``|corr|`` (a similarity) used directly as if it were a
+    distance, so the most redundant candidate was the most likely pick.
+    """
+    np = np_mod
+    # One dominant topography repeated many times, plus a few distinct ones.
+    duplicated = np.tile(np.eye(8, 1), (1, 30))
+    distinct = np.eye(8)[:, 1:5]
+    pool = np.hstack([duplicated, distinct])
+    pool = pool / (np.linalg.norm(pool, axis=0, keepdims=True) + 1e-12)
+
+    np.random.seed(3)
+    centers = initializer_cls.initialize_cluster_centers(pool, 4, "K-Means++")
+
+    similarity = np.abs(centers @ centers.T)
+    np.fill_diagonal(similarity, 0.0)
+    assert similarity.max() < 0.99, (
+        f"seeded near-duplicate centres (max |corr| = {similarity.max():.3f})"
+    )
+
+
+# --------------------------------------------------------------------------
+# Backfitting
+# --------------------------------------------------------------------------
+
+
+def test_correlation_threshold_survives_segment_filtering(backfitter_cls, np_mod):
+    """min_correlation_threshold must hold for every filter option.
+
+    Only 'remove' used to preserve rejects; 'smooth' (the default),
+    'replace_half' and 'replace_high' refilled them, silently disabling the
+    quality-control threshold.
+    """
+    np = np_mod
+    n_states, n_channels = 4, 20
+    rng = np.random.default_rng(3)
+    maps = rng.standard_normal((n_states, n_channels))
+    maps -= maps.mean(axis=1, keepdims=True)
+    maps /= np.linalg.norm(maps, axis=1, keepdims=True)
+
+    clean = maps[np.repeat(np.arange(n_states), 125)].T * rng.uniform(1, 3, size=500)
+    noise = rng.standard_normal((n_channels, 100)) * 0.5
+    data = np.hstack([clean, noise])
+
+    for option in ("remove", "smooth", "replace_half", "replace_high"):
+        backfitter = _make_backfitter(
+            backfitter_cls,
+            np,
+            n_states=n_states,
+            filter_segments_option=option,
+            min_correlation_threshold=0.5,
+        )
+        backfitter.microstate_maps = maps
+        segmentation = backfitter.backfit_to_all(data, filter_segments_less_than=3)
+        assert np.any(segmentation == -1), (
+            f"option={option!r} discarded every correlation-threshold rejection"
+        )
+
+
+def test_replace_high_handles_gap_next_to_final_sample(backfitter_cls, np_mod):
+    """A rejected run ending at index n-2 used to raise IndexError."""
+    np = np_mod
+    segmentation = np.array([0, 0, 0, -1, 1])
+    filled = backfitter_cls.fill_with_neighbors_with_higher_count(segmentation)
+    assert -1 not in filled.tolist()
+
+
+def test_replace_high_picks_the_longer_neighbouring_run(backfitter_cls, np_mod):
+    """The gap should be absorbed by the neighbour that actually dominates."""
+    np = np_mod
+    segmentation = np.array([0] * 12 + [-1] * 2 + [1] * 3)
+    filled = backfitter_cls.fill_with_neighbors_with_higher_count(segmentation)
+    assert filled[12] == 0 and filled[13] == 0
+
+    mirrored = np.array([0] * 3 + [-1] * 2 + [1] * 12)
+    filled_mirrored = backfitter_cls.fill_with_neighbors_with_higher_count(mirrored)
+    assert filled_mirrored[3] == 1 and filled_mirrored[4] == 1
+
+
+def test_label_segments_is_correct_for_ten_or_more_maps(backfitter_cls, np_mod):
+    """Sequential substring replacement corrupted states 10 and above."""
+    np = np_mod
+    labels = [chr(ord("A") + i) for i in range(12)]
+    backfitter = _make_backfitter(backfitter_cls, np, n_states=12, labels=labels)
+
+    labelled = backfitter.label_segments(np.array([0, 8, 9, 10, 11, -1]))
+    assert list(labelled) == ["A", "I", "J", "K", "L", "NaN"]
+
+
+def test_label_segments_marks_rejected_samples(backfitter_cls, np_mod):
+    np = np_mod
+    backfitter = _make_backfitter(backfitter_cls, np, n_states=4)
+    labelled = backfitter.label_segments(np.array([-1, 0, 3]))
+    assert list(labelled) == ["NaN", "A", "D"]
+
+
+# --------------------------------------------------------------------------
+# Features
+# --------------------------------------------------------------------------
+
+
+def test_run_collapsing_preserves_multicharacter_labels(helper_cls):
+    """Collapsing joined the sequence into a string and walked characters."""
+    collapsed = helper_cls().remove_repetition_sequence(["A", "A", "NaN", "NaN", "B"])
+    assert list(collapsed) == ["A", "NaN", "B"]
+
+    multi = helper_cls().remove_repetition_sequence(["MS1", "MS1", "MS10", "MS1"])
+    assert list(multi) == ["MS1", "MS10", "MS1"]
+
+
+def test_coverage_excludes_rejected_samples(extractor_cls):
+    """Rejected timepoints were reported as a microstate called 'NaN'."""
+    coverage = extractor_cls(
+        input_sequence=["A", "A", "NaN", "NaN", "B", "B"], sampling_rate=250
+    ).microstate_coverage()
+
+    assert "NaN" not in coverage
+    assert sum(coverage.values()) == pytest.approx(100.0)
+    assert coverage["A"] == pytest.approx(50.0)
+
+
+def test_duration_excludes_rejected_samples_but_still_splits_segments(extractor_cls):
+    """A rejection gap is not a state, yet it must still break a run in two."""
+    extractor = extractor_cls(
+        input_sequence=["A"] * 4 + ["NaN"] * 2 + ["A"] * 4,
+        sampling_rate=250,
+        duration_method="arithmetic",
+    )
+    durations = extractor.microstate_duration()
+
+    assert "NaN" not in durations
+    # Two runs of four samples each, not one run of eight.
+    assert durations["A"] == pytest.approx((4.0 - 1.0) * (1000.0 / 250))
+
+
+def test_occurrence_counts_segments_split_by_a_rejection_gap(extractor_cls):
+    """Dropping rejects before collapsing would merge the two A segments."""
+    occurrence = extractor_cls(
+        input_sequence=["A"] * 4 + ["NaN"] * 2 + ["A"] * 4, sampling_rate=250
+    ).microstate_occurrence()
+
+    assert "NaN" not in occurrence
+    # Eight assigned samples at 250 Hz = 0.032 s of analysable data, 2 segments.
+    assert occurrence["A"] == pytest.approx(2 / (8 / 250))
+
+
+def test_occurrence_does_not_invent_states_from_label_characters(extractor_cls):
+    """'NaN' used to be shredded into spurious 'N' and 'a' states."""
+    occurrence = extractor_cls(
+        input_sequence=["A", "A", "NaN", "B", "B"], sampling_rate=250
+    ).microstate_occurrence()
+    assert set(occurrence) == {"A", "B"}
+
+
+def test_transition_probabilities_are_row_conditional(extractor_cls):
+    """TP is documented as P(next=j | current=i), so each row must sum to 1."""
+    transitions = extractor_cls(
+        input_sequence=list("ABACABAC"), sampling_rate=250
+    ).compute_transition_probabilities()
+
+    row_totals = {}
+    for pair, value in transitions.items():
+        source = pair.split("_")[0]
+        row_totals[source] = row_totals.get(source, 0.0) + value
+
+    for source, total in row_totals.items():
+        assert total == pytest.approx(1.0), f"row {source} sums to {total}"
+
+    # Leaving A, the sequence goes to B and to C equally often.
+    assert transitions["A_B"] == pytest.approx(0.5)
+    assert transitions["A_C"] == pytest.approx(0.5)
+
+
+def test_transition_probabilities_ignore_rejected_samples(extractor_cls):
+    transitions = extractor_cls(
+        input_sequence=["A", "A", "NaN", "B", "B"], sampling_rate=250
+    ).compute_transition_probabilities()
+    assert all("NaN" not in pair for pair in transitions)
+
+
+def test_mmd_is_accepted_as_an_alias_for_duration(extractor_cls):
+    """'MMD' ships in the default feature_list but produced no duration."""
+    sequence = list("AABBBCC")
+    via_mmd = extractor_cls(input_sequence=sequence, sampling_rate=250)
+    via_dur = extractor_cls(input_sequence=sequence, sampling_rate=250)
+
+    mmd_frame = via_mmd.extract_microstate_features(filename="f", feature_list=["MMD"])
+    dur_frame = via_dur.extract_microstate_features(filename="f", feature_list=["DUR"])
+
+    mmd_keys = [key for key in mmd_frame if key.startswith("DUR")]
+    assert mmd_keys, "requesting MMD produced no duration columns"
+    assert sorted(mmd_keys) == sorted(key for key in dur_frame if key.startswith("DUR"))
+
+
+def test_lempel_ziv_handles_sequences_too_short_to_index(helper_cls):
+    """Recordings collapsing to one or two runs used to raise IndexError."""
+    assert helper_cls().compute_lempel_ziv_complexity(["A"]) == 0.0
+    assert helper_cls().compute_lempel_ziv_complexity(["A", "B"]) == 0.0

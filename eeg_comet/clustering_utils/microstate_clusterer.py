@@ -255,7 +255,10 @@ class MicrostateClusterer:
             distances_init = cdist(maps, data.T, "cosine")
         else:
             distances_init = cdist(maps, data.T, "correlation")
-        similarities_init = 1 - np.abs(distances_init)
+        # cdist returns d = 1 - s, so the polarity-invariant similarity is |1 - d|.
+        # Using 1 - |d| would score a perfectly sign-flipped topography as -1
+        # instead of +1, i.e. as the least rather than the most similar map.
+        similarities_init = np.abs(1 - distances_init)
         residual = 1 - np.mean(np.max(similarities_init, axis=0))
         prev_residual = residual
 
@@ -294,7 +297,7 @@ class MicrostateClusterer:
             if use_batches:
                 # Process data in batches
                 map_updates = np.zeros((self.n_states, n_channels))
-                map_weights = np.zeros(self.n_states)
+                map_counts = np.zeros(self.n_states, dtype=int)
 
                 for b, batch_start in enumerate(range(0, n_samples, self.batch_size)):
                     batch_end = min(batch_start + self.batch_size, n_samples)
@@ -313,7 +316,8 @@ class MicrostateClusterer:
                     else:  # Spatial Correlation
                         maps_norm = self._normalize_for_metric(maps, axis=1, metric="Correlation")
                         batch_norm = self._normalize_for_metric(batch_data, axis=0, metric="Correlation", ddof=1)
-                    similarities = np.abs(np.dot(maps_norm, batch_norm))
+                    signed_similarities = np.dot(maps_norm, batch_norm)
+                    similarities = np.abs(signed_similarities)
 
                     # Assign each sample to the best matching microstate
                     batch_segmentation = np.argmax(similarities, axis=0)
@@ -330,19 +334,23 @@ class MicrostateClusterer:
                     segmentation[batch_start:batch_end] = batch_segmentation
                     best_similarities[batch_start:batch_end] = batch_best_similarities
 
-                    # Accumulate weighted data for map updates
+                    # Accumulate sign-aligned data for map updates. The weight is
+                    # the signed similarity, matching the non-batch path, so that
+                    # opposite-polarity members reinforce instead of cancelling.
                     for state in range(self.n_states):
                         idx = batch_segmentation == state
                         if np.sum(idx) > 0:
                             map_updates[state] += np.dot(
-                                batch_data[:, idx], similarities[state, idx]
+                                batch_data[:, idx], signed_similarities[state, idx]
                             )
-                            map_weights[state] += np.sum(similarities[state, idx])
+                            map_counts[state] += int(np.sum(idx))
 
-                # Update maps after processing all batches
+                # Update maps after processing all batches. Only the direction of
+                # the accumulated sum matters, so it is normalised rather than
+                # divided by a weight that could be near zero.
                 for state in range(self.n_states):
-                    if map_weights[state] > 0:
-                        maps[state] = map_updates[state] / map_weights[state]
+                    if map_counts[state] > 0:
+                        maps[state] = map_updates[state]
                         self._normalize_row_inplace(maps, state)
 
             else:
@@ -353,18 +361,23 @@ class MicrostateClusterer:
                 else:  # Spatial Correlation
                     distances = cdist(maps, data.T, "correlation")
 
-                # Convert distances to similarities (1 - distance)
-                similarities = 1 - np.abs(distances)
+                # Signed similarity s = 1 - d; assignment uses |s| so that a
+                # sign-flipped topography counts as the same microstate.
+                signed_similarities = 1 - distances
+                similarities = np.abs(signed_similarities)
 
                 # Assign each sample to the best matching microstate
                 segmentation = np.argmax(similarities, axis=0)
                 best_similarities = np.max(similarities, axis=0)
 
-                # Update maps
+                # Update maps with the SIGNED similarity as weight, which
+                # sign-aligns members before summing. Non-negative weights would
+                # let opposite-polarity members cancel, since the assignment
+                # above is polarity-invariant.
                 for state in range(self.n_states):
                     idx = segmentation == state
                     if np.sum(idx) > 0:
-                        maps[state] = np.dot(data[:, idx], similarities[state, idx])
+                        maps[state] = np.dot(data[:, idx], signed_similarities[state, idx])
                         self._normalize_row_inplace(maps, state)
 
             # Calculate residual (1 - average of best similarities)

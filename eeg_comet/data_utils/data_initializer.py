@@ -1,7 +1,7 @@
 """Data initialization helpers for microstate analysis (EEG-COMET)."""
 
 import numpy as np
-from scipy.signal import correlate, find_peaks
+from scipy.signal import find_peaks
 
 from eeg_comet.data_utils.data_io import DataIO
 
@@ -44,19 +44,32 @@ class DataInitializer:
             for EEG topographies.
         """
         if initializer == "K-Means++":
-            initial_idx = np.random.choice(np.size(maps_to_use, 1))
+            n_candidates = np.size(maps_to_use, 1)
+            # Unit-normalise once so that a dot product is the cosine similarity.
+            candidates = maps_to_use / (
+                np.linalg.norm(maps_to_use, axis=0, keepdims=True) + 1e-12
+            )
+            initial_idx = np.random.choice(n_candidates)
             initial_centers = [maps_to_use[:, initial_idx]]
+            chosen = [candidates[:, initial_idx]]
             for _ in range(1, n_states):
-                dists = np.array(
-                    [
-                        min(float(abs(correlate(d, c, mode="valid")[0])) for c in initial_centers)
-                        for d in maps_to_use.T
-                    ]
-                )
-                probs = dists / dists.sum()
-                next_idx = np.random.choice(np.size(maps_to_use, 1), p=probs)
-                next_centroid = maps_to_use[:, next_idx]
-                initial_centers.append(next_centroid)
+                # Polarity-invariant distance to the nearest chosen centre:
+                # closest centre has the largest |correlation|, so the distance
+                # is 1 - max|corr|. Sampling weight is D^2 per Arthur & Vassilvitskii
+                # (2007). Weighting by |corr| instead would preferentially seed
+                # duplicates of centres already chosen.
+                sims = np.abs(np.column_stack([candidates.T @ c for c in chosen]))
+                dists = 1.0 - np.max(sims, axis=1)
+                weights = np.clip(dists, 0.0, None) ** 2
+                total = weights.sum()
+                if not np.isfinite(total) or total <= 0:
+                    # Every candidate coincides with an existing centre; fall
+                    # back to a uniform draw rather than dividing by zero.
+                    next_idx = np.random.choice(n_candidates)
+                else:
+                    next_idx = np.random.choice(n_candidates, p=weights / total)
+                initial_centers.append(maps_to_use[:, next_idx])
+                chosen.append(candidates[:, next_idx])
             initial_centers = np.array(initial_centers)
 
         else:

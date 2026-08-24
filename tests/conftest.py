@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,32 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+
+def _stub_optional_runtime_dependencies():
+    """Allow the pure-Python modules to be imported without the heavy stack.
+
+    ``eeg_comet/__init__`` eagerly imports ``comet``, which pulls in the ONNX
+    auto-labeler and the source-localization solver. Those are optional at
+    analysis time but their absence would otherwise skip every test that only
+    needs, say, the feature maths.
+    """
+    if "onnxruntime" not in sys.modules:
+        try:
+            import onnxruntime  # noqa: F401
+        except ImportError:
+            sys.modules["onnxruntime"] = types.ModuleType("onnxruntime")
+
+    if "invert" not in sys.modules:
+        try:
+            import invert  # noqa: F401
+        except ImportError:
+            stub = types.ModuleType("invert")
+            stub.Solver = object
+            sys.modules["invert"] = stub
+
+
+_stub_optional_runtime_dependencies()
 
 
 @pytest.fixture(scope="session")

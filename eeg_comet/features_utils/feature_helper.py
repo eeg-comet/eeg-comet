@@ -135,32 +135,26 @@ class FeatureHelper:
 
     @staticmethod
     def remove_repetition_sequence(input_sequence):
-        """Remove consecutive repetitions from a sequence.
+        """Collapse each run of identical labels to a single entry.
+
+        Elements are compared whole rather than character by character, so
+        multi-character labels such as ``"NaN"`` or ``"MS1"`` survive intact.
 
         Args:
             input_sequence (list or str): The input sequence of elements.
 
         Returns:
-            str: The input sequence with consecutive repetitions removed.
+            list: The input sequence with consecutive repetitions collapsed.
         """
-        # If the input sequence is a list, join it into a string
-        if isinstance(input_sequence, list):
-            input_sequence = "".join(input_sequence)
+        collapsed = []
+        prev_element = _SENTINEL = object()
 
-        # Initialize an empty string to store the sequence with consecutive repetitions removed
-        no_permanence_sequence = ""
+        for element in input_sequence:
+            if element != prev_element:
+                collapsed.append(element)
+                prev_element = element
 
-        # Initialize a variable to store the previous character
-        prev_char = None
-
-        # Iterate through each character in the input sequence
-        for char in input_sequence:
-            # If the current character is different from the previous character, add it to the result string
-            if char != prev_char:
-                no_permanence_sequence += str(char)
-                prev_char = char
-
-        return no_permanence_sequence
+        return collapsed
 
     @staticmethod
     def compute_lempel_ziv_complexity(input_no_permanence_sequence):
@@ -174,6 +168,11 @@ class FeatureHelper:
         """
         # Initialize variables
         n = len(input_no_permanence_sequence)
+        # LZ76 needs at least three symbols to index i+k and label+k, and the
+        # n/log2(n) normaliser is undefined at n == 1. Short sequences arise
+        # whenever a recording collapses to one or two runs.
+        if n < 3:
+            return 0.0
         i, k, label, c, k_max = 0, 1, 1, 1, 1
 
         # Iterate until a break condition is met

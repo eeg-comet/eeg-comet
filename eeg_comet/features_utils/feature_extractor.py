@@ -10,6 +10,12 @@ from eeg_comet.backfitting_utils.segmentation_io import SegmentationIO
 from eeg_comet.clustering_utils.microstate_clusterer import MicrostateClusterer
 from eeg_comet.features_utils.feature_helper import FeatureHelper
 
+# Label emitted by ``MicrostateBackfitter.label_segments`` for timepoints that
+# were rejected (numeric -1), either by ``min_correlation_threshold`` or by
+# short-segment filtering. It is not a microstate and must be excluded from
+# every feature rather than being counted as an extra class.
+UNASSIGNED_LABEL = "NaN"
+
 
 class FeatureExtractor:
     """The FeatureExtractor class provides methods for extracting microstate features from EEG data."""
@@ -250,8 +256,17 @@ class FeatureExtractor:
             return gevs
         raise ValueError("Invalid mode. Supported modes are 'averaged' and 'sliding'.")
 
+    @staticmethod
+    def _drop_unassigned(sequence):
+        """Return ``sequence`` without rejected (unassigned) timepoints."""
+        return [element for element in sequence if element != UNASSIGNED_LABEL]
+
     def microstate_coverage(self):
         """Calculate the coverage percentage of each element.
+
+        Rejected timepoints are excluded from both the numerator and the
+        denominator, so coverage is expressed as a percentage of analysable
+        time and sums to 100% across the real microstates.
 
         Returns:
             dict: If feature_mode is 'averaged', returns a dictionary with the overall coverage percentage for each element.
@@ -260,13 +275,14 @@ class FeatureExtractor:
         """
         if self.feature_mode == "averaged":
             try:
-                element_counts = Counter(self._get_flat_sequence())
-                total_elements = len(self._get_flat_sequence())
-                
+                assigned = self._drop_unassigned(self._get_flat_sequence())
+                element_counts = Counter(assigned)
+                total_elements = len(assigned)
+
                 # Handle case where sequence is empty
                 if total_elements == 0:
                     return {}
-                
+
                 return {
                     element: (count / total_elements) * 100
                     for element, count in element_counts.items()
@@ -287,7 +303,9 @@ class FeatureExtractor:
                 for window_index in range(self.n_windows):
                     window_start = window_index * window_size_samples
                     window_end = (window_index + 1) * window_size_samples
-                    window_input_sequence = self.input_sequence[window_start:window_end]
+                    window_input_sequence = self._drop_unassigned(
+                        self.input_sequence[window_start:window_end]
+                    )
 
                     element_counts = Counter(window_input_sequence)
                     total_elements = sum(element_counts.values())
@@ -315,16 +333,21 @@ class FeatureExtractor:
         """
         samples_per_second = self.sampling_rate
         if self.feature_mode == "averaged":
-            sequence_without_repeats = FeatureHelper().remove_repetition_sequence(
-                self._get_flat_sequence()
+            # Collapse runs first and drop rejected labels afterwards, so a gap
+            # of rejected samples still separates the two real segments it sits
+            # between instead of merging them into one.
+            sequence_without_repeats = self._drop_unassigned(
+                FeatureHelper().remove_repetition_sequence(self._get_flat_sequence())
             )
             total_element_counts = Counter(sequence_without_repeats)
-            total_duration_seconds = len(self._get_flat_sequence()) / samples_per_second
-            
+            total_duration_seconds = (
+                len(self._drop_unassigned(self._get_flat_sequence())) / samples_per_second
+            )
+
             # Handle case where duration is zero or very small
             if total_duration_seconds == 0:
                 return {element: 0.0 for element in total_element_counts.keys()}
-            
+
             return {
                 element: count / total_duration_seconds
                 for element, count in total_element_counts.items()
@@ -338,8 +361,8 @@ class FeatureExtractor:
                 window_start = window_idx * window_size_samples
                 window_end = (window_idx + 1) * window_size_samples
                 window_input_sequence = self._get_flat_sequence()[window_start:window_end]
-                window_input_sequence = FeatureHelper().remove_repetition_sequence(
-                    window_input_sequence
+                window_input_sequence = self._drop_unassigned(
+                    FeatureHelper().remove_repetition_sequence(window_input_sequence)
                 )
                 element_counts = Counter(window_input_sequence)
                 window_change_counts.append(
@@ -374,6 +397,9 @@ class FeatureExtractor:
             current_element = None
             current_duration = 0
 
+            if not len(input_sequence):
+                return {}
+
             for item in input_sequence:
                 if item != current_element:
                     if current_element is not None:
@@ -388,6 +414,11 @@ class FeatureExtractor:
             if current_element not in durations:
                 durations[current_element] = []
             durations[current_element].append(current_duration)
+
+            # Rejected runs act as segment boundaries above (so they correctly
+            # split the real segments they separate) but are not a microstate,
+            # so they must not be reported as one.
+            durations.pop(UNASSIGNED_LABEL, None)
 
             ms_per_sample = 1000.0 / self.sampling_rate
             method = self.duration_method
@@ -451,13 +482,20 @@ class FeatureExtractor:
         return average_durations
 
     def compute_transition_probabilities(self):
-        """Compute the transition probabilities for a given input_sequence.
+        """Compute the conditional transition probabilities of the input_sequence.
+
+        Returns ``P(next = j | current = i)`` for each ordered pair of distinct
+        microstates, so the probabilities leaving any given state sum to 1.
+        Self-transitions are excluded, as is conventional for microstate
+        sequences, and transitions into or out of rejected timepoints are
+        ignored rather than treated as a state.
 
         Returns:
-            dict: A dictionary containing the transition probabilities for each pair of elements in the input_sequence.
+            dict: Mapping of ``"i_j"`` to the probability of moving to state j
+                given that the sequence is leaving state i.
         """
         transitions = defaultdict(int)
-        total_transitions = 0
+        row_totals = defaultdict(int)
         flat_seq = self._get_flat_sequence()
         for i in range(len(flat_seq) - 1):
             current_element = flat_seq[i]
@@ -465,15 +503,19 @@ class FeatureExtractor:
             # Skip self-transitions
             if current_element == next_element:
                 continue
-            transition_label = f"{current_element}_{next_element}"
-            transitions[transition_label] += 1
-            total_transitions += 1
-        
+            if UNASSIGNED_LABEL in (current_element, next_element):
+                continue
+            transitions[(current_element, next_element)] += 1
+            row_totals[current_element] += 1
+
         # Handle case where there are no transitions (all same microstate)
-        if total_transitions == 0:
+        if not transitions:
             return {}
-        
-        return {pair: count / total_transitions for pair, count in transitions.items()}
+
+        return {
+            f"{source}_{target}": count / row_totals[source]
+            for (source, target), count in transitions.items()
+        }
 
     def entropy_rate(self, min_samples=None, k_max=6):
         """Calculate entropy rate using k-history method.
@@ -790,7 +832,9 @@ class FeatureExtractor:
         if "OCC" in feature_list:
             extracted_microstate_occurrence = self.microstate_occurrence()
             features_dict.append(("OCC", extracted_microstate_occurrence))
-        if "DUR" in feature_list:
+        # 'MMD' (mean microstate duration) is the name used in the docs and in
+        # the shipped default config; it is the same quantity as 'DUR'.
+        if "DUR" in feature_list or "MMD" in feature_list:
             extracted_microstate_duration = self.microstate_duration()
             features_dict.append(("DUR", extracted_microstate_duration))
         if "GEV" in feature_list:
